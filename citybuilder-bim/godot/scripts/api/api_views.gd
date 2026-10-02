@@ -214,3 +214,70 @@ static func gantt(gs: SimState, zone_ids: Array = [], from_week: int = -1, to_we
                 "hold_until_week": zr2.hold_until_week})
     return {"bars": bars, "current_day": gs.current_day(), "week": gs.week, "deliveries": deliveries,
             "incidents": gs.incident_log.duplicate(true), "stations": stations}
+
+
+## Per-cell progress of a storey for view.heat: cells a task touches with their done share (crew-day weighted),
+## task count and rework flag; `empty_cells` counts the zone cells no task touches.
+static func heat_view(gs: SimState, storey_id: String) -> Dictionary:
+    var per: Dictionary = CellHeatOverlay.cell_task_map(gs.bundle).get(storey_id, {})
+    var sh: Dictionary = CellHeatOverlay.shares(gs, storey_id, per)
+    var keys: Array = sh.keys()
+    keys.sort_custom(func(a: Vector2i, b: Vector2i) -> bool: return a.y < b.y or (a.y == b.y and a.x < b.x))
+    var cells: Array = []
+    for c in keys:
+        var d: Dictionary = sh[c]
+        cells.append({"cell": cell_arr(c), "share": snappedf(float(d["share"]), 0.0001), "tasks": int(d["tasks"]),
+                "rework": bool(d["rework"])})
+    var zone_cells: Dictionary = {}
+    for z in gs.bundle.zones:
+        if z.storey_id == storey_id:
+            for c in z.cells:
+                zone_cells[c] = true
+    var empty: int = 0
+    for c in zone_cells:
+        if not sh.has(c):
+            empty += 1
+    return {"storey_id": storey_id, "cells": cells, "empty_cells": empty}
+
+
+# ------------------------------------------------------------------ visual kit installations (WP-S)
+
+## One kit instance as a plain dictionary: kit, variant, cells, storey, element count, overall fill, layer fills.
+static func installation_view(ki: KitInstances, index: int) -> Dictionary:
+    var inst: Dictionary = ki.instances()[index]
+    var cells: Array = []
+    for c in inst["cells"]:
+        cells.append(cell_arr(c))
+    var fills: Dictionary = {}
+    for k in inst["layer_fills"]:
+        if (inst["present_layers"] as Array).has(k):
+            fills[k] = snappedf(float(inst["layer_fills"][k]), 0.001)
+    return {
+        "index": index, "kit": inst["kit"], "title": inst["title"], "name": inst["name"],
+        "variant": inst["variant"], "cells": cells, "storey_id": inst["storey_id"],
+        "zone_id": inst["zone_id"], "element_count": (inst["element_guids"] as Array).size(),
+        "height_m": inst["height_m"], "overall_fill": snappedf(float(inst["overall_fill"]), 0.001),
+        "complete": float(inst["overall_fill"]) >= 0.999,
+        "layer_fills": fills, "present_layers": (inst["present_layers"] as Array).duplicate(),
+    }
+
+
+static func installations(ki: KitInstances) -> Dictionary:
+    var rows: Array = []
+    var complete: int = 0
+    for i in ki.count():
+        var row: Dictionary = installation_view(ki, i)
+        if bool(row["complete"]):
+            complete += 1
+        rows.append(row)
+    return {"count": rows.size(), "complete": complete, "installations": rows}
+
+
+## Per-layer progress of the kit an element belongs to (`kit` is null for elements drawn without a kit).
+static func element_layers(ki: KitInstances, guid: String) -> Dictionary:
+    var i: int = ki.instance_of(guid)
+    if i < 0:
+        return {"guid": guid, "kit": null, "installation": -1, "layers": {}, "overall_fill": 0.0}
+    var v: Dictionary = installation_view(ki, i)
+    return {"guid": guid, "kit": v["kit"], "variant": v["variant"], "installation": i, "layers": v["layer_fills"],
+            "present_layers": v["present_layers"], "overall_fill": v["overall_fill"]}

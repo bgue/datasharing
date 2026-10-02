@@ -19,6 +19,11 @@ var _tcp: TCPServer = TCPServer.new()
 var _peers: Array[WebSocketPeer] = []
 var _rpc: JSONRPC = JSONRPC.new()
 var _methods: Dictionary = {}
+## The 3D view (BimView) when one exists; it registers itself in BimView.setup. view.highlight / view.set_heat need it.
+var bim_view: Node = null
+## Camera jump to a kit instance (WP-S): Callable(index: int) -> bool, set by the Installations panel.
+var jump_handler: Callable = Callable()
+var _kit_instances: KitInstances = null
 
 
 func start(state: SimState, listen_port: int = DEFAULT_PORT, api_token: String = "") -> bool:
@@ -284,6 +289,114 @@ func _register() -> void:
     _reg("logic.get", _m_logic_get)
     _reg("logic.explain", _m_logic_explain)
     _reg("logic.apply", _m_manual_apply_recipe)
+    # 3D view (WP-Q): progress heat overlay and element highlight
+    _reg("view.heat", _m_view_heat)
+    _reg("view.set_heat", _m_view_set_heat)
+    _reg("view.highlight", _m_view_highlight)
+    _reg("view.clear_highlight", _m_view_clear_highlight)
+    # visual kit installations (WP-S)
+    _reg("view.installations", _m_view_installations)
+    _reg("view.element_layers", _m_view_element_layers)
+    _reg("view.jump_to_installation", _m_view_jump_to_installation)
+
+
+# ------------------------------------------------------------------ 3D view (WP-Q)
+
+func _view_or_err() -> Variant:
+    if bim_view == null or not is_instance_valid(bim_view):
+        return _err("no 3D view attached (the game is running headless without a scene)")
+    return bim_view
+
+
+## Per-cell progress shares of a storey (the focused one by default); needs no view.
+func _m_view_heat(p: Dictionary) -> Variant:
+    var sid: String = str(p.get("storey_id", ""))
+    if sid == "":
+        for s in gs.bundle.storeys:
+            if s.index == gs.focus_storey_index:
+                sid = s.id
+    if not gs.bundle.storey_index_by_id.has(sid):
+        return _err("no such storey: %s" % sid)
+    return ApiViews.heat_view(gs, sid)
+
+
+func _m_view_set_heat(p: Dictionary) -> Variant:
+    var v: Variant = _view_or_err()
+    if v is Dictionary:
+        return v
+    var on: bool = bool(p.get("on", true))
+    bim_view.call("set_heat_visible", on)
+    return {"on": bool(bim_view.call("is_heat_visible"))}
+
+
+func _m_view_highlight(p: Dictionary) -> Variant:
+    var miss: String = _need(p, ["guids"])
+    if miss != "":
+        return _err(miss)
+    if not (p["guids"] is Array):
+        return _err("guids must be an array")
+    var v: Variant = _view_or_err()
+    if v is Dictionary:
+        return v
+    var known: Array = []
+    var unknown: Array = []
+    for g in p["guids"]:
+        if gs.bundle.elements_by_guid.has(str(g)):
+            known.append(str(g))
+        else:
+            unknown.append(str(g))
+    var boxes: int = int(bim_view.call("highlight_elements", known))
+    return {"highlighted": known.size(), "boxes": boxes, "unknown": unknown}
+
+
+func _m_view_clear_highlight(_p: Dictionary) -> Variant:
+    var v: Variant = _view_or_err()
+    if v is Dictionary:
+        return v
+    bim_view.call("clear_highlight")
+    return {"cleared": true}
+
+
+# ------------------------------------------------------------------ visual kit installations (WP-S)
+
+## Kit instances of the loaded bundle with fills refreshed from the simulation (needs no view).
+func _kits() -> KitInstances:
+    if _kit_instances == null or _kit_instances.bundle != gs.bundle:
+        _kit_instances = KitInstances.new(gs.bundle, _kit_registry())
+    _kit_instances.refresh_from(gs)
+    return _kit_instances
+
+
+func _kit_registry() -> KitRegistry:
+    var r := KitRegistry.new()
+    r.load_manifest()
+    return r
+
+
+func _m_view_installations(_p: Dictionary) -> Variant:
+    return ApiViews.installations(_kits())
+
+
+func _m_view_element_layers(p: Dictionary) -> Variant:
+    var miss: String = _need(p, ["guid"])
+    if miss != "":
+        return _err(miss, -32602)
+    var guid: String = str(p["guid"])
+    if not gs.bundle.elements_by_guid.has(guid):
+        return _err("no such element: %s" % guid)
+    return ApiViews.element_layers(_kits(), guid)
+
+
+func _m_view_jump_to_installation(p: Dictionary) -> Variant:
+    var miss: String = _need(p, ["index"])
+    if miss != "":
+        return _err(miss, -32602)
+    var ki: KitInstances = _kits()
+    var i: int = int(p["index"])
+    if i < 0 or i >= ki.count():
+        return _err("no such installation: %d" % i)
+    var framed: bool = jump_handler.is_valid() and bool(jump_handler.call(i))
+    return {"index": i, "framed": framed, "installation": ApiViews.installation_view(ki, i)}
 
 
 func _m_scenario_list(_p: Dictionary) -> Variant:
