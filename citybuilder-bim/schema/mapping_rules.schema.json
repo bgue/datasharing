@@ -3,66 +3,191 @@
   "$id": "https://sitebuilder.dev/schema/mapping_rules.schema.json",
   "title": "BIM element to construction step mapping rules",
   "type": "object",
-  "required": ["schema_version", "sector", "rules", "default"],
+  "required": [
+    "schema_version",
+    "sector",
+    "rules",
+    "default"
+  ],
   "properties": {
-    "schema_version": {"const": "1.0"},
-    "sector": {"$ref": "common.schema.json#/$defs/sector"},
-    "step_library": {"type": "string", "description": "Relative path to the step library this targets"},
-    "rules": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/rule"}},
+    "schema_version": {
+      "const": "1.0"
+    },
+    "sector": {
+      "$ref": "common.schema.json#/$defs/sector"
+    },
+    "step_library": {
+      "type": "string",
+      "description": "Relative path to the step library this targets"
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/rule"
+      }
+    },
     "default": {
-      "type": "object", "required": ["steps"],
-      "properties": {"steps": {"$ref": "#/$defs/step_emits"}, "visual": {"type": "string"}}
+      "type": "object",
+      "required": [
+        "steps"
+      ],
+      "properties": {
+        "steps": {
+          "$ref": "#/$defs/step_emits"
+        },
+        "visual": {
+          "type": "string"
+        }
+      }
     }
   },
   "$defs": {
     "step_emits": {
-      "type": "array", "minItems": 1,
+      "type": "array",
+      "minItems": 1,
       "items": {
-        "type": "object", "required": ["step", "quantity"],
+        "type": "object",
+        "required": [
+          "step",
+          "quantity"
+        ],
         "properties": {
-          "step": {"$ref": "common.schema.json#/$defs/step_id"},
-          "quantity": {"$ref": "common.schema.json#/$defs/quantity_basis"},
-          "quantity_factor": {"type": "number", "exclusiveMinimum": 0, "default": 1.0},
-          "unit_override": {"$ref": "common.schema.json#/$defs/unit"},
-          "lag_days": {"type": "integer", "default": 0, "description": "Lag from previous step in this chain"},
-          "min_quantity": {"type": "number", "minimum": 0, "default": 0}
+          "step": {
+            "$ref": "common.schema.json#/$defs/step_id"
+          },
+          "quantity": {
+            "$ref": "common.schema.json#/$defs/quantity_basis"
+          },
+          "quantity_factor": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "default": 1.0
+          },
+          "unit_override": {
+            "$ref": "common.schema.json#/$defs/unit"
+          },
+          "lag_days": {
+            "type": "integer",
+            "default": 0,
+            "description": "Lag from previous step in this chain"
+          },
+          "min_quantity": {
+            "type": "number",
+            "minimum": 0,
+            "default": 0
+          }
         }
       }
     },
     "rule": {
-      "type": "object", "required": ["id", "priority", "match", "steps"],
+      "type": "object",
+      "required": [
+        "id",
+        "priority",
+        "match"
+      ],
       "properties": {
-        "id": {"type": "string", "pattern": "^R-[a-z0-9-]+$"},
-        "description": {"type": "string"},
-        "priority": {"type": "integer"},
-        "continue": {"type": "boolean", "default": false},
-        "chain": {"type": "boolean", "default": true},
-        "visual": {"type": "string", "description": "Overrides element.visual for the game"},
-        "system_prefix": {"type": "string", "description": "Only match elements whose system_id starts with this"},
+        "id": {
+          "type": "string",
+          "pattern": "^R-[a-z0-9-]+$"
+        },
+        "description": {
+          "type": "string"
+        },
+        "priority": {
+          "type": "integer"
+        },
+        "continue": {
+          "type": "boolean",
+          "default": false
+        },
+        "chain": {
+          "type": "boolean",
+          "default": true
+        },
+        "visual": {
+          "type": "string",
+          "description": "Overrides element.visual for the game"
+        },
+        "system_prefix": {
+          "type": "string",
+          "description": "Only match elements whose system_id starts with this"
+        },
         "match": {
           "type": "object",
           "properties": {
-            "ifc_class": {"type": "array", "items": {"type": "string"}},
-            "predefined_type": {"type": "array", "items": {"type": ["string", "null"]}},
-            "name_regex": {"type": "string"},
-            "material_regex": {"type": "string"},
-            "storey_index_min": {"type": "integer"},
-            "storey_index_max": {"type": "integer"},
-            "zone_tags_any": {"type": "array", "items": {"type": "string"}},
+            "ifc_class": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "predefined_type": {
+              "type": "array",
+              "items": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "name_regex": {
+              "type": "string"
+            },
+            "material_regex": {
+              "type": "string"
+            },
+            "storey_index_min": {
+              "type": "integer"
+            },
+            "storey_index_max": {
+              "type": "integer"
+            },
+            "zone_tags_any": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "properties": {
               "type": "object",
               "description": "Each key must equal the given value on element.properties (string, number or boolean)",
-              "additionalProperties": {"type": ["string", "number", "boolean", "null"]}
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "number",
+                  "boolean",
+                  "null"
+                ]
+              }
             },
-            "properties_present": {"type": "array", "items": {"type": "string"}},
+            "properties_present": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
             "quantity_min": {
               "type": "object",
-              "additionalProperties": {"type": "number"}
+              "additionalProperties": {
+                "type": "number"
+              }
             }
           },
           "additionalProperties": false
         },
-        "steps": {"$ref": "#/$defs/step_emits"}
+        "steps": {
+          "$ref": "#/$defs/step_emits"
+        },
+        "recipe": {
+          "type": "string",
+          "pattern": "^rec_[a-z0-9_]+$",
+          "description": "Emit this recipe's steps for the matched element instead of/in addition to steps"
+        },
+        "visual_kit": {
+          "type": "string"
+        }
       }
     }
   }

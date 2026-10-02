@@ -92,6 +92,18 @@
             "minItems": 3,
             "maxItems": 3,
             "description": "Approximate [w, h, d] in metres for the stand-in mesh"
+          },
+          "visual_kit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "member_guids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       }
@@ -181,6 +193,17 @@
         "$ref": "common.schema.json#/$defs/package"
       },
       "description": "Optional; the game synthesises packages when absent"
+    },
+    "recipes": {
+      "type": "array",
+      "items": {
+        "$ref": "recipe.schema.json"
+      },
+      "description": "Recipes applicable to this project (embedded so the game can explain and apply them)"
+    },
+    "manual": {
+      "$ref": "manual_sequence.schema.json",
+      "description": "Manual sequence merged into this bundle, if any"
     }
   }
 }

@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sitebuilder.dev/schema/visual_kit.schema.json",
+  "title": "Visual kit manifest: procedural low-poly installations with discipline layers",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "kits"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "kits": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/kit"
+      },
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    },
+    "markers": {
+      "type": "object",
+      "description": "Marker kits for virtual tasks",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "builder": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          },
+          "anchor": {
+            "type": "string",
+            "enum": [
+              "zone_centre",
+              "element",
+              "zone_edge"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "kit": {
+      "type": "object",
+      "required": [
+        "builder",
+        "layers"
+      ],
+      "properties": {
+        "builder": {
+          "type": "string",
+          "description": "GDScript class name under godot/kits/"
+        },
+        "description": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object"
+        },
+        "footprint": {
+          "type": "object",
+          "properties": {
+            "min_cells": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "max_cells": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "minItems": 2,
+              "maxItems": 2
+            }
+          }
+        },
+        "layers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "disciplines"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "disciplines": {
+                "type": "array",
+                "items": {
+                  "$ref": "common.schema.json#/$defs/discipline"
+                }
+              },
+              "parts": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "grow": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "height",
+                  "length",
+                  "count"
+                ],
+                "default": "count",
+                "description": "How partial fill is shown"
+              },
+              "count_from": {
+                "type": "string",
+                "description": "quantity basis that sets the repeated part count"
+              }
+            }
+          }
+        },
+        "variants": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "description": "variant id -> layer ids included"
+        },
+        "lod_collapse_distance": {
+          "type": "number",
+          "default": 80
+        }
+      }
+    }
+  }
+}

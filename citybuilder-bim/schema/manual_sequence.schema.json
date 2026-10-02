@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sitebuilder.dev/schema/manual_sequence.schema.json",
+  "title": "Hand-authored construction sequence: manual tasks, virtual tasks, zone manual mode and overrides",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "tasks"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "project": {
+      "type": "string"
+    },
+    "author": {
+      "type": "string"
+    },
+    "zones_in_manual_mode": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Generated tasks are suppressed in these zones; only manual tasks apply"
+    },
+    "inherit_logic": {
+      "type": "boolean",
+      "default": true,
+      "description": "Apply step-library predecessor rules to manual tasks as well"
+    },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/manual_task"
+      }
+    },
+    "overrides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "element_guid"
+        ],
+        "properties": {
+          "element_guid": {
+            "type": "string"
+          },
+          "suppress_steps": {
+            "type": "array",
+            "items": {
+              "$ref": "common.schema.json#/$defs/step_id"
+            }
+          },
+          "suppress_all": {
+            "type": "boolean",
+            "default": false
+          },
+          "zone_id": {
+            "type": "string"
+          },
+          "package_id": {
+            "$ref": "common.schema.json#/$defs/package_id"
+          }
+        }
+      }
+    },
+    "applied_recipes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "recipe",
+          "zone_id"
+        ],
+        "properties": {
+          "recipe": {
+            "type": "string"
+          },
+          "zone_id": {
+            "type": "string"
+          },
+          "element_guid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "include_optional": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "manual_task": {
+      "type": "object",
+      "required": [
+        "id",
+        "step",
+        "zone_id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^M[0-9]{4,6}$"
+        },
+        "step": {
+          "$ref": "common.schema.json#/$defs/step_id"
+        },
+        "name": {
+          "type": "string"
+        },
+        "zone_id": {
+          "type": "string"
+        },
+        "cells": {
+          "$ref": "common.schema.json#/$defs/cells"
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Element GUIDs this task builds; empty or absent with virtual=true"
+        },
+        "virtual": {
+          "type": "boolean",
+          "default": false
+        },
+        "quantity": {
+          "type": "number",
+          "minimum": 0
+        },
+        "unit": {
+          "$ref": "common.schema.json#/$defs/unit"
+        },
+        "duration_days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "after": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Manual task ids or generated task ids (T......) this task follows"
+        },
+        "link_type": {
+          "$ref": "common.schema.json#/$defs/link_type",
+          "default": "FS"
+        },
+        "lag_days": {
+          "type": "integer",
+          "default": 0
+        },
+        "package_id": {
+          "$ref": "common.schema.json#/$defs/package_id"
+        },
+        "recipe_id": {
+          "type": "string"
+        },
+        "marker": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

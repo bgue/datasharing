@@ -1,0 +1,305 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sitebuilder.dev/schema/recipe.schema.json",
+  "title": "Construction logic recipe: the steps an installation needs, BIM-represented or not",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "name",
+    "sector",
+    "applies_to",
+    "steps"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^rec_[a-z0-9_]+$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string",
+      "description": "One paragraph a planner or an LLM can read"
+    },
+    "sector": {
+      "anyOf": [
+        {
+          "$ref": "common.schema.json#/$defs/sector"
+        },
+        {
+          "const": "all"
+        }
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "applies_to": {
+      "type": "object",
+      "description": "Any listed matcher may match (OR across keys); each key uses the mapping_rules vocabulary",
+      "properties": {
+        "ifc_class": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "predefined_type": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "name_regex": {
+          "type": "string"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "visual_kit": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "zone_tags_any": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Free-text lookup terms (e.g. 'tank', 'MRI')"
+        }
+      },
+      "additionalProperties": false
+    },
+    "prerequisites": {
+      "type": "object",
+      "properties": {
+        "equipment": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "site": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "e.g. access_road, laydown>=3, crane_reach"
+        },
+        "permits": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "information": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Drawings, vendor data, lift plans needed before start"
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/recipe_step"
+      }
+    },
+    "logic": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "after",
+          "before"
+        ],
+        "properties": {
+          "after": {
+            "type": "string",
+            "description": "step ref or recipe step key"
+          },
+          "before": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "common.schema.json#/$defs/link_type",
+            "default": "FS"
+          },
+          "lag_days": {
+            "type": "integer",
+            "default": 0
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Hold-point and verification notes"
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "typical_duration_weeks": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": 0
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "virtual_visual": {
+      "type": "string",
+      "description": "Marker kit id for the recipe's virtual tasks when not given per step"
+    }
+  },
+  "$defs": {
+    "recipe_step": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Local name for logic links; defaults to ref"
+        },
+        "ref": {
+          "$ref": "common.schema.json#/$defs/step_id",
+          "description": "Step id in the sector library"
+        },
+        "step": {
+          "type": "object",
+          "description": "Inline step definition (same shape as step_library steps[]) for one-off activities"
+        },
+        "recipe": {
+          "type": "string",
+          "pattern": "^rec_[a-z0-9_]+$",
+          "description": "Nest another recipe here"
+        },
+        "virtual": {
+          "type": "boolean",
+          "default": false,
+          "description": "No BIM element produces this; the pipeline creates a virtual task"
+        },
+        "from_element": {
+          "type": "string",
+          "enum": [
+            "self",
+            "foundation",
+            "host",
+            "system",
+            "zone"
+          ],
+          "default": "self",
+          "description": "Which element(s) the step binds to when not virtual"
+        },
+        "quantity": {
+          "type": "object",
+          "properties": {
+            "basis": {
+              "$ref": "common.schema.json#/$defs/quantity_basis"
+            },
+            "value": {
+              "type": "number",
+              "minimum": 0
+            },
+            "factor": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        "duration_days": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Time-driven virtual steps (e.g. dewatering, curing watch)"
+        },
+        "parallel_with": {
+          "type": "string",
+          "description": "Start together with this step key (SS link) instead of after the previous step"
+        },
+        "lag_days": {
+          "type": "integer",
+          "default": 0
+        },
+        "hold_point": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Inspection type that must pass after this step"
+        },
+        "progress_visual": {
+          "type": "string"
+        },
+        "marker": {
+          "type": "string",
+          "description": "Marker kit id for a virtual task (survey, dewatering, scaffold, lift_plan, permit, test)"
+        },
+        "note": {
+          "type": "string"
+        },
+        "optional": {
+          "type": "boolean",
+          "default": false,
+          "description": "Included only when the planner opts in"
+        }
+      },
+      "oneOf": [
+        {
+          "required": [
+            "ref"
+          ]
+        },
+        {
+          "required": [
+            "step"
+          ]
+        },
+        {
+          "required": [
+            "recipe"
+          ]
+        }
+      ]
+    }
+  }
+}

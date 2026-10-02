@@ -119,7 +119,11 @@
           "$ref": "common.schema.json#/$defs/task_id"
         },
         "element_guid": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "null for virtual tasks"
         },
         "ifc_class": {
           "type": "string"
@@ -279,6 +283,44 @@
         },
         "work_face": {
           "$ref": "common.schema.json#/$defs/work_face"
+        },
+        "virtual": {
+          "type": "boolean",
+          "default": false
+        },
+        "origin": {
+          "type": "string",
+          "enum": [
+            "rule",
+            "recipe",
+            "manual"
+          ],
+          "default": "rule"
+        },
+        "recipe_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "duration_days": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Fixed duration for time-driven virtual tasks"
+        },
+        "marker": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "manual_id": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     }

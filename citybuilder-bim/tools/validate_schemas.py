@@ -17,7 +17,8 @@ from referencing import Registry, Resource
 
 SCHEMA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "schema")
 BASE = "https://sitebuilder.dev/schema/"
-NAMES = ["common", "elements", "step_library", "mapping_rules", "element_step_map", "scenario", "sequence"]
+NAMES = ["common", "elements", "step_library", "mapping_rules", "element_step_map", "scenario", "sequence",
+         "recipe", "manual_sequence", "visual_kit"]
 
 
 def load_registry():
@@ -44,6 +45,10 @@ def guess_schema(path):
             return name
     if stem == "plan_export":
         return "element_step_map"
+    if stem.startswith("rec_"):
+        return "recipe"
+    if stem == "kit_manifest":
+        return "visual_kit"
     return None
 
 

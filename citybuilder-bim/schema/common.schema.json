@@ -395,6 +395,20 @@
             "generic"
           ],
           "description": "Hint for the game's procedural stand-in mesh"
+        },
+        "visual_kit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Kit id from the visual kit manifest; overrides visual"
+        },
+        "member_guids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "For aggregate elements: the real element GUIDs folded into this one"
         }
       }
     },
