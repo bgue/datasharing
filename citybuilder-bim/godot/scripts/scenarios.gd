@@ -21,7 +21,7 @@ func list_bundles() -> Array[Dictionary]:
         var path: String = "%s/%s/sequence.json" % [SCENARIO_ROOT, n]
         if not FileAccess.file_exists(path):
             continue
-        var info: Dictionary = {"id": n, "name": n, "path": path, "description": "", "sector": "", "difficulty": ""}
+        var info: Dictionary = {"id": n, "name": n, "path": path, "description": "", "sector": "", "difficulty": "", "tasks": 0}
         var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
         if parsed is Dictionary:
             var sc: Dictionary = (parsed as Dictionary).get("scenario", {})
@@ -30,6 +30,8 @@ func list_bundles() -> Array[Dictionary]:
             info["sector"] = str(sc.get("sector", ""))
             info["difficulty"] = str(sc.get("difficulty", ""))
             info["id"] = str(sc.get("id", n))
+            var tl: Variant = (parsed as Dictionary).get("tasks", [])
+            info["tasks"] = (tl as Array).size() if tl is Array else 0
         out.append(info)
     out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return str(a["id"]) < str(b["id"]))
     return out

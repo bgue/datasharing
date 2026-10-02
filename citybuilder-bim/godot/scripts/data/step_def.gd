@@ -24,6 +24,11 @@ var noisy: bool = false
 var dusty: bool = false
 var progress_visual: String = "solid"
 var tags: Array[String] = []
+var work_face: String = "any"
+## Per-step crew demand (0 = not given): package min = max of member mins.
+var crew_min: int = 1
+var crew_ideal: int = 0
+var crew_max: int = 0
 
 
 static func from_dict(d: Dictionary) -> StepDef:
@@ -54,4 +59,10 @@ static func from_dict(d: Dictionary) -> StepDef:
     if tg is Array:
         for t in tg:
             s.tags.append(str(t))
+    s.work_face = str(d.get("work_face", "any"))
+    var cp: Variant = d.get("crew_profile", null)
+    if cp is Dictionary:
+        s.crew_min = maxi(1, int((cp as Dictionary).get("min", 1)))
+        s.crew_ideal = int((cp as Dictionary).get("ideal", 0))
+        s.crew_max = int((cp as Dictionary).get("max", 0))
     return s

@@ -26,6 +26,21 @@ var gates: Array[GateDef] = []
 var phases: Array[Dictionary] = []  # {id, name, order} sorted by order
 var systems: Dictionary = {}  # system id -> {name, discipline}
 var scenario: ScenarioData = null
+## Work packages (from the bundle, or synthesised from the tasks per docs/05 section 1.1).
+var packages: Array[PackageData] = []
+var packages_by_id: Dictionary = {}  # package_id -> PackageData
+var packages_by_zone: Dictionary = {}  # zone_id -> Array[PackageData]
+var packages_synthesised: bool = false
+## step_library.packaging with schema defaults.
+var packaging_group_by: Array[String] = ["zone_id", "phase", "trade", "work_face"]
+var packaging_target_duration_days: int = 10
+var packaging_max_crew_days: float = 60.0
+var packaging_max_over_ideal: int = 1
+var packaging_over_ideal_factor: float = 0.6
+var exclusive_faces: Array[String] = ["floor"]
+## Sequence cards: step library cards overridden / extended by scenario.sequence_cards (by id).
+var card_ids: Array[String] = []
+var cards_by_id: Dictionary = {}  # id -> SequenceCardData
 
 var baseline_finish_day: int = 0
 var baseline_finish_week: int = 0
@@ -147,6 +162,9 @@ func parse(d: Dictionary) -> void:
         steps_by_id[sd.id] = sd
     for g in lib.get("gates", []):
         gates.append(GateDef.from_dict(g))
+    _parse_packaging(lib)
+    for c in lib.get("sequence_cards", []):
+        _add_card(SequenceCardData.from_dict(c))
 
     for t in d["tasks"]:
         var task := TaskData.from_dict(t)
@@ -187,8 +205,212 @@ func parse(d: Dictionary) -> void:
         critical_task_ids.append(str(tid))
 
     scenario = ScenarioData.from_dict(d["scenario"])
+    for c in scenario.sequence_cards:
+        _add_card(c)
+    for task in tasks:
+        var st: StepDef = steps_by_id.get(task.step_id, null)
+        task.work_face = st.work_face if st != null else "any"
+    _build_packages(d.get("packages", []))
     _compute_site_rect()
     valid = errors.is_empty()
+
+
+func _parse_packaging(lib: Dictionary) -> void:
+    var pk: Variant = lib.get("packaging", {})
+    if pk is Dictionary:
+        var pd: Dictionary = pk
+        if pd.has("group_by"):
+            packaging_group_by = []
+            for g in pd["group_by"]:
+                packaging_group_by.append(str(g))
+        packaging_target_duration_days = maxi(1, int(pd.get("target_duration_days", 10)))
+        packaging_max_crew_days = maxf(0.001, float(pd.get("max_crew_days_per_package", 60.0)))
+        packaging_max_over_ideal = maxi(0, int(pd.get("max_over_ideal", 1)))
+        packaging_over_ideal_factor = clampf(float(pd.get("over_ideal_factor", 0.6)), 0.0, 1.0)
+    var ef: Variant = lib.get("exclusive_faces", null)
+    if ef is Array:
+        exclusive_faces = []
+        for f in ef:
+            exclusive_faces.append(str(f))
+
+
+func _add_card(c: SequenceCardData) -> void:
+    if not cards_by_id.has(c.id):
+        card_ids.append(c.id)
+    cards_by_id[c.id] = c  # later (scenario) cards override by id
+
+
+## Crew profile (docs/05 section 1.2): ideal = clamp(ceil(total / target), max(min, 1), zone.max_crews),
+## max = clamp(ideal + max_over_ideal, ideal, zone.max_crews). Steps may pin ideal / max.
+func derive_profile(p: PackageData) -> void:
+    var zone: ZoneData = zones_by_id.get(p.zone_id, null)
+    var zmax: int = maxi(1, zone.max_crews) if zone != null else 99
+    var min_c: int = 1
+    var step_ideal: int = 0
+    var step_max: int = 0
+    for t in p.tasks:
+        var st: StepDef = steps_by_id.get(t.step_id, null)
+        if st != null:
+            min_c = maxi(min_c, st.crew_min)
+            step_ideal = maxi(step_ideal, st.crew_ideal)
+            step_max = maxi(step_max, st.crew_max)
+    min_c = mini(min_c, zmax)
+    var ideal: int = ceili(p.total_crew_days / float(packaging_target_duration_days))
+    if step_ideal > 0:
+        ideal = step_ideal
+    ideal = clampi(ideal, maxi(min_c, 1), zmax)
+    var max_c: int = ideal + packaging_max_over_ideal
+    if step_max > 0:
+        max_c = step_max
+    max_c = clampi(max_c, ideal, zmax)
+    p.crew_min = min_c
+    p.crew_ideal = ideal
+    p.crew_max = max_c
+
+
+func _build_packages(raw: Variant) -> void:
+    packages.clear()
+    packages_by_id.clear()
+    packages_by_zone.clear()
+    packages_synthesised = false
+    if raw is Array and not (raw as Array).is_empty():
+        for r in raw:
+            var p := PackageData.from_dict(r)
+            for tid in p.task_ids:
+                if tasks_by_id.has(tid):
+                    p.tasks.append(tasks_by_id[tid])
+            packages.append(p)
+            packages_by_id[p.package_id] = p
+        # every task must belong to exactly one package, else fall back to synthesis
+        var covered: Dictionary = {}
+        for p in packages:
+            for t in p.tasks:
+                covered[t.task_id] = p.package_id
+        if covered.size() == tasks.size():
+            for p in packages:
+                var zone: ZoneData = zones_by_id.get(p.zone_id, null)
+                if zone != null:
+                    var zmax: int = maxi(1, zone.max_crews)
+                    p.crew_min = mini(p.crew_min, zmax)
+                    p.crew_ideal = clampi(p.crew_ideal, p.crew_min, zmax)
+                    p.crew_max = clampi(p.crew_max, p.crew_ideal, zmax)
+            for t in tasks:
+                t.package_id = covered[t.task_id]
+        else:
+            packages.clear()
+            packages_by_id.clear()
+    if packages.is_empty():
+        _synthesise_packages()
+    for p in packages:
+        if not packages_by_zone.has(p.zone_id):
+            packages_by_zone[p.zone_id] = [] as Array[PackageData]
+        (packages_by_zone[p.zone_id] as Array[PackageData]).append(p)
+
+
+func _group_key(t: TaskData) -> String:
+    var st: StepDef = steps_by_id.get(t.step_id, null)
+    var parts: PackedStringArray = []
+    for g in packaging_group_by:
+        match g:
+            "zone_id":
+                parts.append(t.zone_id)
+            "phase":
+                parts.append(t.phase)
+            "trade":
+                parts.append(t.trade)
+            "work_face":
+                parts.append(t.work_face)
+            "discipline":
+                parts.append(st.discipline if st != null else "general")
+    return "|".join(parts)
+
+
+## Groups tasks by packaging.group_by and splits groups above max_crew_days_per_package, with the
+## deterministic ordering of docs/05 section 1.1 (storey index, zone id, phase order, trade, face, first task id).
+func _synthesise_packages() -> void:
+    packages_synthesised = true
+    var groups: Dictionary = {}
+    var order: Array[String] = []
+    var sorted_tasks: Array[TaskData] = tasks.duplicate()
+    sorted_tasks.sort_custom(func(a: TaskData, b: TaskData) -> bool:
+        if a.planned_start_day != b.planned_start_day:
+            return a.planned_start_day < b.planned_start_day
+        return a.task_id < b.task_id)
+    for t in sorted_tasks:
+        var key: String = _group_key(t)
+        if not groups.has(key):
+            groups[key] = [] as Array[TaskData]
+            order.append(key)
+        (groups[key] as Array[TaskData]).append(t)
+    var built: Array[PackageData] = []
+    for key in order:
+        var current: PackageData = null
+        for t in groups[key]:
+            var task: TaskData = t
+            if current == null or (current.total_crew_days + task.estimated_crew_days > packaging_max_crew_days \
+                    and not current.tasks.is_empty()):
+                current = PackageData.new()
+                current.synthesized = true
+                current.zone_id = task.zone_id
+                current.storey_id = task.storey_id
+                current.phase = task.phase
+                current.trade = task.trade
+                current.work_face = task.work_face
+                var st: StepDef = steps_by_id.get(task.step_id, null)
+                current.discipline = st.discipline if st != null else "general"
+                current.planned_start_day = task.planned_start_day
+                current.planned_finish_day = task.planned_finish_day
+                built.append(current)
+            current.tasks.append(task)
+            current.task_ids.append(task.task_id)
+            current.total_crew_days += task.estimated_crew_days
+            current.cost += task.cost
+            current.planned_start_day = mini(current.planned_start_day, task.planned_start_day)
+            current.planned_finish_day = maxi(current.planned_finish_day, task.planned_finish_day)
+            current.requires_crane = current.requires_crane or task.requires_crane
+            current.lead_time_weeks = maxi(current.lead_time_weeks, task.lead_time_weeks)
+            current.laydown_cells = maxi(current.laydown_cells, task.laydown_cells)
+    built.sort_custom(func(a: PackageData, b: PackageData) -> bool:
+        var sa: int = int(storey_index_by_id.get(a.storey_id, 0))
+        var sb: int = int(storey_index_by_id.get(b.storey_id, 0))
+        if sa != sb:
+            return sa < sb
+        if a.zone_id != b.zone_id:
+            return a.zone_id < b.zone_id
+        var pa: int = order_of_phase(a.phase)
+        var pb: int = order_of_phase(b.phase)
+        if pa != pb:
+            return pa < pb
+        if a.trade != b.trade:
+            return a.trade < b.trade
+        if a.work_face != b.work_face:
+            return a.work_face < b.work_face
+        return a.task_ids[0] < b.task_ids[0])
+    var n: int = 0
+    for p in built:
+        n += 1
+        p.package_id = "P%05d" % n
+        var ph_name: String = p.phase
+        for ph in phases:
+            if ph["id"] == p.phase:
+                ph_name = str(ph["name"])
+        p.name = "%s · %s · %s · %s" % [p.zone_id, ph_name, p.trade, p.work_face.replace("_", " ")]
+        derive_profile(p)
+        for t in p.tasks:
+            t.package_id = p.package_id
+        packages.append(p)
+        packages_by_id[p.package_id] = p
+
+
+func package_of(task: TaskData) -> PackageData:
+    return packages_by_id.get(task.package_id, null)
+
+
+func card_list() -> Array[SequenceCardData]:
+    var out: Array[SequenceCardData] = []
+    for id in card_ids:
+        out.append(cards_by_id[id])
+    return out
 
 
 const SITE_MARGIN: int = 2

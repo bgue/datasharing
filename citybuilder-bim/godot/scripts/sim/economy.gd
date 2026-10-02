@@ -12,7 +12,8 @@ static func crew_cost(gs: SimState) -> float:
     for c in gs.crews:
         var td: TradeDef = gs.bundle.trades_by_id.get(str(c["trade"]), null)
         if td != null:
-            s += td.weekly_cost
+            var f: float = gs.scenario.shift_cost_factor if gs.is_double_shift(str(c["zone_id"])) else 1.0
+            s += td.weekly_cost * f
     return s
 
 

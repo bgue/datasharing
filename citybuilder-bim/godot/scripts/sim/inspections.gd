@@ -7,10 +7,13 @@ const BASE_FAIL_CHANCE: float = 0.10
 const REWORK_FRACTION: float = 0.25
 
 
-static func fail_chance(gs: SimState) -> float:
-    if gs.inspection_fail_override >= 0.0:
-        return gs.inspection_fail_override
-    return BASE_FAIL_CHANCE
+## Fail chance for a task: base (or the test override) plus the double-shift add if it was worked
+## under double shift.
+static func fail_chance(gs: SimState, rt: TaskRuntime = null) -> float:
+    var base: float = BASE_FAIL_CHANCE if gs.inspection_fail_override < 0.0 else gs.inspection_fail_override
+    if rt != null and rt.worked_double:
+        base += gs.scenario.shift_inspection_fail_add
+    return clampf(base, 0.0, 1.0)
 
 
 ## Resolves every inspection due at the end of working day `d` of the current week
@@ -24,7 +27,7 @@ static func run_day(gs: SimState, d: int) -> int:
             continue
         resolved += 1
         var first_attempt: bool = rt.inspection_failures == 0
-        if gs.rng.randf() < fail_chance(gs):
+        if gs.rng.randf() < fail_chance(gs, rt):
             fail(gs, t, rt)
             if first_attempt:
                 gs.inspections_first_total += 1

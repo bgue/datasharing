@@ -8,6 +8,9 @@ var storey_id: String = ""
 var cells: Array[Vector2i] = []
 var max_crews: int = 1
 var tags: Array[String] = []
+## Per-face crew cap (face -> int); a missing face has no cap.
+var faces: Dictionary = {}
+var shift_allowed: bool = true
 
 
 static func cell_from_variant(v: Variant) -> Vector2i:
@@ -34,6 +37,11 @@ static func from_dict(d: Dictionary) -> ZoneData:
     if tg is Array:
         for t in tg:
             z.tags.append(str(t))
+    var fc: Variant = d.get("faces", {})
+    if fc is Dictionary:
+        for k in fc:
+            z.faces[str(k)] = int(fc[k])
+    z.shift_allowed = bool(d.get("shift_allowed", true))
     return z
 
 

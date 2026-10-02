@@ -27,6 +27,8 @@ var rework_days_added: float = 0.0
 var ordered: bool = false
 var delivery_week: int = -1
 var paid: bool = false
+## Worked at least one day under double shift (adds to the inspection fail chance).
+var worked_double: bool = false
 
 
 static func is_finished(s: int) -> bool:
@@ -42,7 +44,7 @@ func to_dict() -> Dictionary:
         "state": state, "progress": progress, "required": required,
         "asd": actual_start_day, "afd": actual_finish_day, "wdd": work_done_day,
         "idd": inspection_due_day, "if": inspection_failures, "rda": rework_days_added,
-        "ordered": ordered, "dw": delivery_week, "paid": paid,
+        "ordered": ordered, "dw": delivery_week, "paid": paid, "wd": worked_double,
     }
 
 
@@ -59,3 +61,4 @@ func from_dict(d: Dictionary) -> void:
     ordered = bool(d.get("ordered", false))
     delivery_week = int(d.get("dw", -1))
     paid = bool(d.get("paid", false))
+    worked_double = bool(d.get("wd", false))

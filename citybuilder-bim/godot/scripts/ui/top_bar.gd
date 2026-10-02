@@ -8,6 +8,7 @@ signal next_week_requested()
 signal panel_toggled(panel_name: String)
 signal export_requested()
 signal menu_requested()
+signal gantt_toggled()
 
 var gs: SimState = null
 var _title: Label
@@ -53,6 +54,9 @@ func setup(state: SimState) -> void:
         var tb := UiStyle.button(pn, "Show / hide the %s panel" % pn)
         tb.pressed.connect(func() -> void: panel_toggled.emit(pn))
         row.add_child(tb)
+    var gt := UiStyle.button("T", "Timeline (Gantt) panel")
+    gt.pressed.connect(func() -> void: gantt_toggled.emit())
+    row.add_child(gt)
     var ex := UiStyle.button("Export", "Export the executed plan (F5)")
     ex.pressed.connect(func() -> void: export_requested.emit())
     row.add_child(ex)

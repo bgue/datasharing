@@ -131,7 +131,7 @@ func _build_ui() -> void:
     inspector.setup(gs)
 
     procurement = _scene("res://scenes/ui/procurement_panel.tscn") as ProcurementPanel
-    UiStyle.place(procurement, Rect2(1, 0, 1, 0), Vector4(-318, 440, -8, 440))
+    UiStyle.place(procurement, Rect2(1, 0, 1, 0), Vector4(-318, 500, -8, 500))
     procurement.grow_horizontal = Control.GROW_DIRECTION_BEGIN
     ui_root.add_child(procurement)
     procurement.setup(gs)
@@ -177,6 +177,7 @@ func _wire() -> void:
         _update_tool_text())
     crew_panel.message.connect(hint_bar.show_message)
     procurement.message.connect(hint_bar.show_message)
+    inspector.message.connect(hint_bar.show_message)
     builder.message.connect(hint_bar.show_message)
     builder.palette_changed.connect(func(_t: String) -> void: _update_tool_text())
     builder.equipment_armed_changed.connect(func(_id: String) -> void: _update_tool_text())

@@ -15,6 +15,7 @@ signal cash_changed(cash: float)
 signal incident_occurred(zone_id: String)
 signal level_started()
 signal focus_changed(storey_index: int)
+signal package_state_changed(package_id: String, state: String)
 
 ## Visual state of a BIM element (see BimView).
 enum Visual { GHOST, FRAMED, SOLID, INSPECTED, REWORK }
@@ -76,6 +77,13 @@ var dirty_tasks: Array[String] = []
 ## Optional hook called with the day index before each work day (auto-planners, tests).
 var before_work_day: Callable = Callable()
 
+## Work packages and zones (docs/05).
+var package_runtime: Dictionary = {}  # package_id -> PackageRuntime
+var zone_runtime: Dictionary = {}  # zone_id -> ZoneRuntime
+var crew_package: Dictionary = {}  # crew id -> package id (last working day)
+var zone_face_state: Dictionary = {}  # zone_id -> face -> {crews, cap, over, excluded, discipline}
+var double_shift_zone_weeks: int = 0
+var incident_log: Array[Dictionary] = []  # {week, zone_id}
 var element_visuals: Dictionary = {}  # guid -> Visual
 ## Gate open-counts from the last readiness refresh (conservative within a week).
 var gate_cache: Dictionary = {}
@@ -85,6 +93,35 @@ var _footprint: Dictionary = {}
 
 
 # ----------------------------------------------------------------- lifecycle
+
+var api: ApiServer = null
+
+
+func _ready() -> void:
+    _maybe_start_api()
+
+
+## Starts the control API when `--api[=port]` is on the command line (before or after `--`) or the
+## project setting sitebuilder/api/enabled is true. `--api-token=X` requires the token in every call.
+func _maybe_start_api() -> void:
+    var enabled: bool = bool(ProjectSettings.get_setting("sitebuilder/api/enabled", false))
+    var port: int = int(ProjectSettings.get_setting("sitebuilder/api/port", ApiServer.DEFAULT_PORT))
+    var token: String = str(ProjectSettings.get_setting("sitebuilder/api/token", ""))
+    var args: PackedStringArray = OS.get_cmdline_args() + OS.get_cmdline_user_args()
+    for a in args:
+        if a == "--api":
+            enabled = true
+        elif a.begins_with("--api="):
+            enabled = true
+            port = int(a.substr(6))
+        elif a.begins_with("--api-token="):
+            token = a.substr(12)
+    if not enabled:
+        return
+    api = ApiServer.new()
+    api.name = "ApiServer"
+    add_child(api)
+    api.start(self, port, token)
 
 func start(b: SequenceBundle) -> bool:
     if b == null or not b.valid:
@@ -98,6 +135,18 @@ func start(b: SequenceBundle) -> bool:
         var rt := TaskRuntime.new()
         rt.required = t.estimated_crew_days
         runtime[t.task_id] = rt
+    package_runtime.clear()
+    for p in b.packages:
+        var prt := PackageRuntime.new()
+        prt.priority = p.planned_start_day
+        package_runtime[p.package_id] = prt
+    zone_runtime.clear()
+    for z in b.zones:
+        zone_runtime[z.id] = ZoneRuntime.new()
+    crew_package.clear()
+    zone_face_state.clear()
+    double_shift_zone_weeks = 0
+    incident_log.clear()
     week = 0
     cash = scenario.start_cash
     speed = 0
@@ -193,6 +242,85 @@ func set_task_state(task_id: String, new_state: int) -> void:
 
 func refresh_states() -> void:
     Readiness.refresh(self)
+    for zid in card_zones():
+        Cards.sync_zone(self, zid)
+    Packages.refresh_states(self)
+
+
+# ----------------------------------------------------------------- packages, cards, shifts
+
+func card_zones() -> Array[String]:
+    var out: Array[String] = []
+    for zid in zone_runtime:
+        if (zone_runtime[zid] as ZoneRuntime).card_id != "":
+            out.append(zid)
+    return out
+
+
+func double_shift_zones() -> Array[String]:
+    var out: Array[String] = []
+    for zid in zone_runtime:
+        if (zone_runtime[zid] as ZoneRuntime).shift_mode == "double":
+            out.append(zid)
+    return out
+
+
+func is_double_shift(zone_id: String) -> bool:
+    var zr: ZoneRuntime = zone_runtime.get(zone_id, null)
+    return zr != null and zr.shift_mode == "double"
+
+
+## Second shift (docs/05 section 4). Refuses zones that forbid it, forbidden tags and the max_zones cap.
+func set_shift(zone_id: String, mode: String) -> bool:
+    var zone: ZoneData = bundle.zones_by_id.get(zone_id, null)
+    if zone == null:
+        last_error = "no such zone"
+        return false
+    if mode != "single" and mode != "double":
+        last_error = "mode must be single or double"
+        return false
+    var zr: ZoneRuntime = zone_runtime[zone_id]
+    if mode == "double" and zr.shift_mode != "double":
+        if not zone.shift_allowed:
+            last_error = "Double shift is not allowed in this zone"
+            return false
+        for tag in scenario.shift_forbidden_zone_tags:
+            if zone.tags.has(tag):
+                last_error = "Double shift refused: zone is tagged %s (quiet hours)" % tag
+                return false
+        if double_shift_zones().size() >= scenario.shift_max_zones:
+            last_error = "At most %d zones may run double shift" % scenario.shift_max_zones
+            return false
+    zr.shift_mode = mode
+    crews_changed.emit()
+    return true
+
+
+func hold_package(package_id: String) -> bool:
+    if not package_runtime.has(package_id):
+        last_error = "no such package"
+        return false
+    (package_runtime[package_id] as PackageRuntime).released = false
+    Packages.refresh_states(self)
+    return true
+
+
+func release_package(package_id: String) -> bool:
+    if not package_runtime.has(package_id):
+        last_error = "no such package"
+        return false
+    (package_runtime[package_id] as PackageRuntime).released = true
+    Packages.refresh_states(self)
+    return true
+
+
+func set_package_priority(package_id: String, priority: int) -> bool:
+    if not package_runtime.has(package_id):
+        last_error = "no such package"
+        return false
+    (package_runtime[package_id] as PackageRuntime).priority = priority
+    Packages.refresh_states(self)
+    return true
 
 
 # ----------------------------------------------------------------- element visuals
@@ -524,6 +652,7 @@ func advance_week() -> bool:
     # 7 safety
     Safety.run_week(self)
     # 8 score snapshot
+    double_shift_zone_weeks += double_shift_zones().size()
     cumulative_spend_by_week.append(spent_total)
     crew_count_by_week.append(crews.size())
     var report: Dictionary = {
@@ -550,6 +679,7 @@ func run_work_day(d: int) -> void:
     day_in_week = d
     if d > 0:
         Readiness.process_dirty(self, week * WEEK_DAYS + d)
+    Cards.update(self)
     if before_work_day.is_valid():
         before_work_day.call(d)
     Productivity.run_day(self, d)
@@ -660,8 +790,10 @@ func zone_status(zone_id: String) -> Dictionary:
         color_key = "ready"
     elif impeded > 0:
         color_key = "blocked"
+    var zr: ZoneRuntime = zone_runtime[zone_id]
     return {"counts": counts, "crews": n_crews, "max_crews": zone.max_crews, "color": color_key,
-            "total": total, "impeded": impeded}
+            "total": total, "impeded": impeded, "shift_mode": zr.shift_mode, "card_id": zr.card_id,
+            "behind_takt": zr.behind_takt}
 
 
 ## Phase completion per storey: Array of {storey_id, name, index, phases: [{id, name, done, total, started}]}.
@@ -746,6 +878,7 @@ func snapshot() -> Dictionary:
         "equipment": equipment_placed.size(),
         "tile_count": tiles.size(),
         "weekly_outflow": Economy.weekly_outflow(self),
+        "double_shift_zone_weeks": double_shift_zone_weeks,
         "score": Scoring.compute(self, true),
         "phases": storey_phase_status(),
     }
@@ -785,7 +918,23 @@ func serialize() -> Dictionary:
         "crew_curve": crew_count_by_week.duplicate(),
         "hired_this_week": hired_this_week.duplicate(),
         "finished": finished, "won": won,
+        "packages": _serialize_packages(), "zones_rt": _serialize_zones(),
+        "dsz": double_shift_zone_weeks, "incident_log": incident_log.duplicate(true),
     }
+
+
+func _serialize_packages() -> Dictionary:
+    var out: Dictionary = {}
+    for id in package_runtime:
+        out[id] = (package_runtime[id] as PackageRuntime).to_dict()
+    return out
+
+
+func _serialize_zones() -> Dictionary:
+    var out: Dictionary = {}
+    for id in zone_runtime:
+        out[id] = (zone_runtime[id] as ZoneRuntime).to_dict()
+    return out
 
 
 func deserialize(d: Dictionary) -> bool:
@@ -853,6 +1002,18 @@ func deserialize(d: Dictionary) -> bool:
     finished = bool(d["finished"])
     won = bool(d["won"])
     pending_event = {}
+    var pk: Dictionary = d.get("packages", {})
+    for id in pk:
+        if package_runtime.has(id):
+            (package_runtime[id] as PackageRuntime).from_dict(pk[id])
+    var zr: Dictionary = d.get("zones_rt", {})
+    for id in zr:
+        if zone_runtime.has(id):
+            (zone_runtime[id] as ZoneRuntime).from_dict(zr[id])
+    double_shift_zone_weeks = int(d.get("dsz", 0))
+    incident_log.clear()
+    for e in d.get("incident_log", []):
+        incident_log.append({"week": int((e as Dictionary)["week"]), "zone_id": str((e as Dictionary)["zone_id"])})
     for g in element_visuals:
         element_visuals[g] = Visual.GHOST
     for e in bundle.elements:

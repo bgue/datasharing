@@ -58,4 +58,5 @@ static func compute(gs: SimState, won: bool = true) -> Dictionary:
     if not won:
         grade = "F"
     return {"components": comps, "weights": sc.score_weights.duplicate(), "adjust": gs.score_adjust,
-            "total": total, "grade": grade, "won": won}
+            "total": total, "grade": grade, "won": won,
+            "double_shift_zone_weeks": gs.double_shift_zone_weeks}

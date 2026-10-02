@@ -15,7 +15,8 @@ static func task_risk_term(gs: SimState, task: TaskData) -> float:
     if zone != null and not Logistics.has_tile_adjacent(gs.tiles, zone.cells, SiteTiles.HOARDING):
         hoarding = HOARDING_PENALTY
     var overtime: float = OVERTIME_PENALTY if gs.speed > 1 else 1.0
-    return task.risk * 0.01 * congestion_penalty * hoarding * overtime
+    var shift: float = gs.scenario.shift_risk_factor if gs.is_double_shift(task.zone_id) else 1.0
+    return task.risk * 0.01 * congestion_penalty * hoarding * overtime * shift
 
 
 static func incident_probability_for(gs: SimState, task_ids: Array[String]) -> float:
@@ -42,6 +43,7 @@ static func run_week(gs: SimState) -> void:
 
 static func trigger_incident(gs: SimState, zone_id: String) -> void:
     gs.incidents += 1
+    gs.incident_log.append({"week": gs.week, "zone_id": zone_id})
     gs.zone_paused_until[zone_id] = gs.week + 2
     var z: ZoneData = gs.bundle.zones_by_id.get(zone_id, null)
     gs.log_event("INCIDENT in %s: zone stopped for a week" % (z.name if z != null else zone_id))

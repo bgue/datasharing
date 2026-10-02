@@ -30,6 +30,8 @@ var dusty: bool = false
 ## Array of {task_id: String, type: String ("FS"|"SS"|"FF"), lag_days: int}
 var predecessors: Array[Dictionary] = []
 var rule_id: String = ""
+var package_id: String = ""
+var work_face: String = "any"
 var planned_start_day: int = 0
 var planned_finish_day: int = 0
 var is_critical: bool = false
@@ -78,6 +80,7 @@ static func from_dict(d: Dictionary) -> TaskData:
                 "lag_days": int(pd.get("lag_days", 0)),
             })
     t.rule_id = str(d.get("rule_id", ""))
+    t.package_id = str(d.get("package_id", ""))
     var ps: Variant = d.get("planned_start_day", null)
     t.planned_start_day = 0 if ps == null else int(ps)
     var pf: Variant = d.get("planned_finish_day", null)

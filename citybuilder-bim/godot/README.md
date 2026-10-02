@@ -49,6 +49,28 @@ yellow blocked (gate / delivery / no access / out of crane reach / paused).
 5. When every task is done (or you go bankrupt / fail on hard) the score report appears; export
    the executed plan from there or with F5.
 
+## Packages, faces, takt cards, second shift (docs/05)
+
+* Players release, hold and prioritise **packages** (a trade's tasks in one zone and work face), not tasks. Bundles
+  without `packages[]` get them synthesised (`SequenceBundle`). Crew demand per package: below `min` crews no progress,
+  crews beyond `ideal` count 0.6, beyond `max` they spill to the next package of the trade in the zone.
+* Work faces cap crews per face and an exclusive face (default `floor`) pushes the other faces to 0.35.
+* **Sequence cards** (library + scenario, by id) release a zone station by station; trains stagger zones.
+* **Second shift** per zone (zone inspector button): x1.8 output, x2.2 crew cost, x1.5 risk, +5% inspection fail,
+  at most `shift.max_zones` zones, never in `occupied_adjacent` zones.
+
+## Control API (JSON-RPC 2.0 over WebSocket)
+
+```
+godot --headless --path godot --api=8765 [--api-token=T] -- --scenario=minimal
+```
+
+`--api[=port]` (also `sitebuilder/api/enabled` project setting) starts `ApiServer` on 127.0.0.1; every method of
+docs/05 section 6.2 is implemented (`ApiServer.method_names()` lists them), batches are supported, notifications are
+`week.advanced`, `event.fired`, `level.finished`, `package.state`. The Python client and MCP server live in
+`tools/sitebuilder_client` and `tools/sitebuilder_mcp`. High-level planning (`site.auto_layout`, `zone.staff`,
+`sim.autopilot`, `procure.order_all_due`, analysis) is in `scripts/api/planner.gd` and is usable from the UI.
+
 ## Run the tests (headless)
 
 ```

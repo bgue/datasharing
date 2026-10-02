@@ -100,82 +100,131 @@ static func _priority(rt: TaskRuntime) -> int:
     return 2
 
 
-## One working day (d = 0..4 of the current week). Every assigned crew spends 1 crew-day on
-## READY / ACTIVE / REWORK tasks of its trade in its zone (rework first, then highest planned
-## start first), with the congestion / weather / access / crane / learning / event multipliers.
-## Several tiny tasks can finish in one day; the crew carries on into successors it just released.
+## One working day (d = 0..4 of the current week). Crews are dealt over their zone's workable
+## packages (Packages.allocate); a package with fewer crews than its minimum makes no progress,
+## crews beyond `ideal` contribute packaging.over_ideal_factor, beyond `max` they spill (docs/05 1.2).
+## Each working crew spends 1 crew-day on the package's READY / ACTIVE / REWORK tasks (rework first,
+## then earliest planned start) with the congestion / face / weather / access / crane / learning /
+## event / shift multipliers. Tiny tasks chain within the day.
 static func run_day(gs: SimState, d: int) -> void:
     var day: int = gs.week * 5 + d
-    var laydown_free: int = Readiness.laydown_free_cells(gs)
-    for crew in gs.crews:
-        var zone_id: String = str(crew["zone_id"])
-        if zone_id == "":
+    var alloc: Dictionary = Packages.allocate(gs)
+    Packages.compute_face_state(gs, alloc)
+    gs.crew_package.clear()
+    var ctx: Dictionary = {"laydown_free": Readiness.laydown_free_cells(gs), "day": day}
+    var over_factor: float = gs.bundle.packaging_over_ideal_factor
+    for pkg in gs.bundle.packages:
+        if not alloc["by_package"].has(pkg.package_id):
             continue
-        var trade: String = str(crew["trade"])
-        var cands: Array[TaskData] = []
-        for t in gs.bundle.tasks_by_zone.get(zone_id, []):
-            var task: TaskData = t
-            if task.trade != trade:
-                continue
-            var rt: TaskRuntime = gs.runtime[task.task_id]
-            if rt.state == TaskRuntime.State.READY or rt.state == TaskRuntime.State.ACTIVE \
-                    or rt.state == TaskRuntime.State.REWORK:
-                cands.append(task)
-        cands.sort_custom(func(a: TaskData, b: TaskData) -> bool:
-            var pa: int = _priority(gs.runtime[a.task_id])
-            var pb: int = _priority(gs.runtime[b.task_id])
-            if pa != pb:
-                return pa < pb
-            if a.planned_start_day != b.planned_start_day:
-                return a.planned_start_day < b.planned_start_day
-            return a.task_id < b.task_id)
-        var budget: float = 1.0
-        var worked_before: float = gs.crew_days_worked
-        var idx: int = 0
-        while idx < cands.size() and budget > EPS:
-            var task: TaskData = cands[idx]
-            idx += 1
-            var rt: TaskRuntime = gs.runtime[task.task_id]
-            if rt.state == TaskRuntime.State.READY:
-                if Readiness.impediment(gs, task, laydown_free) != "":
-                    continue
-                rt.actual_start_day = maxi(day, rt.earliest_start)
-                laydown_free -= task.laydown_cells
-                gs.spend(task.cost, "materials: " + task.element_name)
-                gs.set_task_state(task.task_id, TaskRuntime.State.ACTIVE)
-                gs.log_event("Started %s" % Readiness.pred_label(gs, task.task_id))
-            var fac: Dictionary = factors(gs, task)
-            var m: float = float(fac["total"])
-            if m <= EPS:
-                continue
-            if not gs.worked_this_week.has(task.task_id):
-                gs.worked_this_week.append(task.task_id)
-            var cap: float = rt.required
-            if Readiness.ff_pending(gs, task, day):
-                cap = rt.required * 0.999
-            var need: float = maxf(0.0, cap - rt.progress)
-            var used: float = minf(budget, need / m)
-            rt.progress += used * m
-            budget -= used
-            gs.crew_days_worked += used
-            if rt.progress >= rt.required - EPS:
-                var done_day: int = maxi(day + 1, rt.actual_start_day)
-                _complete_work(gs, task, rt, done_day)
-                laydown_free += task.laydown_cells  # finished / awaiting-inspection tasks free their laydown
-                if TaskRuntime.is_finished(rt.state) and budget > EPS:
-                    _release_successors(gs, task, zone_id, trade, done_day, cands)
-        gs.crew_days_idle += maxf(0.0, budget)
-        var bt: Array = gs.crew_days_by_trade.get(trade, [0.0, 0.0])
-        bt[0] += gs.crew_days_worked - worked_before
-        bt[1] += maxf(0.0, budget)
-        gs.crew_days_by_trade[trade] = bt
+        var crew_ids: Array = alloc["by_package"][pkg.package_id]
+        var n: int = crew_ids.size()
+        (gs.package_runtime[pkg.package_id] as PackageRuntime).crews_now = n
+        for cid in crew_ids:
+            gs.crew_package[int(cid)] = pkg.package_id
+        if n < pkg.crew_min:
+            for cid in crew_ids:
+                _book(gs, str(gs.crew_by_id(int(cid))["trade"]), 0.0, 1.0)
+            continue
+        var zone: ZoneData = gs.bundle.zones_by_id[pkg.zone_id]
+        var zrt: ZoneRuntime = gs.zone_runtime[pkg.zone_id]
+        var counts: Dictionary = {}
+        var fs: Dictionary = gs.zone_face_state.get(pkg.zone_id, {})
+        for f in fs:
+            counts[f] = int(fs[f]["crews"])
+        var face_f: float = Packages.face_factor(gs, zone, pkg.work_face, counts)
+        var shift_f: float = gs.scenario.shift_productivity_factor if zrt.shift_mode == "double" else 1.0
+        for k in n:
+            var weight: float = 1.0 if k < pkg.crew_ideal else over_factor
+            var trade: String = str(gs.crew_by_id(int(crew_ids[k]))["trade"])
+            var used: float = _crew_day(gs, pkg, weight * face_f * shift_f, zrt.shift_mode == "double", ctx, 1.0)
+            # a crew that ran out of ready work in its package spends the rest of the day on the next
+            # released package of its trade in the zone (one that has, or needs only, a single crew)
+            if used < 1.0 - EPS:
+                for other in Packages.workable(gs, pkg.zone_id, trade):
+                    if other.package_id == pkg.package_id:
+                        continue
+                    var others_crews: int = (alloc["by_package"].get(other.package_id, []) as Array).size()
+                    if other.crew_min > 1 and others_crews < other.crew_min:
+                        continue  # a package below its minimum crew makes no progress anyway
+                    var more: float = _crew_day(gs, other, face_f * shift_f, zrt.shift_mode == "double", ctx, 1.0 - used)
+                    used += more
+                    if used >= 1.0 - EPS:
+                        break
+            _book(gs, trade, used, 1.0 - used)
+    for cid in alloc["idle"]:
+        _book(gs, str(gs.crew_by_id(int(cid))["trade"]), 0.0, 1.0)
 
 
-## Successors of a task that just finished, in the crew's zone and trade, become READY mid-week.
-static func _release_successors(gs: SimState, task: TaskData, zone_id: String, trade: String, day: int, cands: Array[TaskData]) -> void:
+static func _book(gs: SimState, trade: String, worked: float, idle: float) -> void:
+    gs.crew_days_worked += worked
+    gs.crew_days_idle += idle
+    var bt: Array = gs.crew_days_by_trade.get(trade, [0.0, 0.0])
+    bt[0] += worked
+    bt[1] += idle
+    gs.crew_days_by_trade[trade] = bt
+
+
+## One crew's day on one package. Returns the fraction of the day it was busy.
+static func _crew_day(gs: SimState, pkg: PackageData, weight: float, double_shift: bool, ctx: Dictionary, day_fraction: float) -> float:
+    var day: int = int(ctx["day"])
+    var released: bool = (gs.package_runtime[pkg.package_id] as PackageRuntime).released
+    var cands: Array[TaskData] = []
+    for t in pkg.tasks:
+        var rt0: TaskRuntime = gs.runtime[t.task_id]
+        if rt0.state == TaskRuntime.State.ACTIVE or rt0.state == TaskRuntime.State.REWORK \
+                or (rt0.state == TaskRuntime.State.READY and released):
+            cands.append(t)
+    cands.sort_custom(func(a: TaskData, b: TaskData) -> bool:
+        var pa: int = _priority(gs.runtime[a.task_id])
+        var pb: int = _priority(gs.runtime[b.task_id])
+        if pa != pb:
+            return pa < pb
+        if a.planned_start_day != b.planned_start_day:
+            return a.planned_start_day < b.planned_start_day
+        return a.task_id < b.task_id)
+    var budget: float = day_fraction
+    var idx: int = 0
+    while idx < cands.size() and budget > EPS:
+        var task: TaskData = cands[idx]
+        idx += 1
+        var rt: TaskRuntime = gs.runtime[task.task_id]
+        if rt.state == TaskRuntime.State.READY:
+            if Readiness.impediment(gs, task, int(ctx["laydown_free"])) != "":
+                continue
+            rt.actual_start_day = maxi(day, rt.earliest_start)
+            ctx["laydown_free"] = int(ctx["laydown_free"]) - task.laydown_cells
+            gs.spend(task.cost, "materials: " + task.element_name)
+            gs.set_task_state(task.task_id, TaskRuntime.State.ACTIVE)
+            gs.log_event("Started %s" % Readiness.pred_label(gs, task.task_id))
+        var fac: Dictionary = factors(gs, task)
+        var m: float = float(fac["total"]) * weight
+        if m <= EPS:
+            continue
+        if double_shift:
+            rt.worked_double = true
+        if not gs.worked_this_week.has(task.task_id):
+            gs.worked_this_week.append(task.task_id)
+        var cap: float = rt.required
+        if Readiness.ff_pending(gs, task, day):
+            cap = rt.required * 0.999
+        var need: float = maxf(0.0, cap - rt.progress)
+        var used: float = minf(budget, need / m)
+        rt.progress += used * m
+        budget -= used
+        if rt.progress >= rt.required - EPS:
+            var done_day: int = maxi(day + 1, rt.actual_start_day)
+            _complete_work(gs, task, rt, done_day)
+            ctx["laydown_free"] = int(ctx["laydown_free"]) + task.laydown_cells
+            if TaskRuntime.is_finished(rt.state) and budget > EPS:
+                _release_successors(gs, task, pkg, released, done_day, cands)
+    return day_fraction - budget
+
+
+## Successors of a task that just finished, in the crew's package, become READY mid-day.
+static func _release_successors(gs: SimState, task: TaskData, pkg: PackageData, released: bool, day: int, cands: Array[TaskData]) -> void:
     for sid in gs.bundle.successors_by_task.get(task.task_id, []):
         var succ: TaskData = gs.bundle.tasks_by_id[sid]
-        if succ.zone_id != zone_id or succ.trade != trade:
+        if succ.package_id != pkg.package_id:
             continue
         var srt: TaskRuntime = gs.runtime[sid]
         if srt.state != TaskRuntime.State.BLOCKED and srt.state != TaskRuntime.State.NOT_STARTED:
@@ -185,7 +234,8 @@ static func _release_successors(gs: SimState, task: TaskData, zone_id: String, t
             srt.blocked_reason = ""
             srt.earliest_start = day
             gs.set_task_state(sid, TaskRuntime.State.READY)
-            cands.append(succ)
+            if released:
+                cands.append(succ)
 
 
 static func _complete_work(gs: SimState, task: TaskData, rt: TaskRuntime, day: int) -> void:

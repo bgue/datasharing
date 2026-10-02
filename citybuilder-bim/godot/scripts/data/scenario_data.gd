@@ -30,6 +30,15 @@ var score_weights: Dictionary = {"time": 35.0, "cost": 25.0, "safety": 20.0, "qu
 var max_incidents_hard: int = 3
 var grade_thresholds: Dictionary = {"S": 90.0, "A": 75.0, "B": 60.0, "C": 40.0}
 var hints: Array[Dictionary] = []  # {week, text}
+var gantt_visible_default: bool = true
+var sequence_cards: Array[SequenceCardData] = []
+## Second shift economics (schema defaults).
+var shift_productivity_factor: float = 1.8
+var shift_cost_factor: float = 2.2
+var shift_risk_factor: float = 1.5
+var shift_inspection_fail_add: float = 0.05
+var shift_max_zones: int = 2
+var shift_forbidden_zone_tags: Array[String] = ["occupied_adjacent"]
 
 
 static func from_dict(d: Dictionary) -> ScenarioData:
@@ -96,6 +105,23 @@ static func from_dict(d: Dictionary) -> ScenarioData:
         for h in th:
             var hd: Dictionary = h
             s.hints.append({"week": int(hd.get("week", 0)), "text": str(hd.get("text", ""))})
+    s.gantt_visible_default = bool(d.get("gantt_visible_default", true))
+    var cards: Variant = d.get("sequence_cards", [])
+    if cards is Array:
+        for c in cards:
+            s.sequence_cards.append(SequenceCardData.from_dict(c))
+    var sh: Variant = d.get("shift", {})
+    if sh is Dictionary:
+        var shd: Dictionary = sh
+        s.shift_productivity_factor = float(shd.get("productivity_factor", 1.8))
+        s.shift_cost_factor = float(shd.get("cost_factor", 2.2))
+        s.shift_risk_factor = float(shd.get("risk_factor", 1.5))
+        s.shift_inspection_fail_add = float(shd.get("inspection_fail_add", 0.05))
+        s.shift_max_zones = int(shd.get("max_zones", 2))
+        if shd.has("forbidden_zone_tags"):
+            s.shift_forbidden_zone_tags = []
+            for t in shd["forbidden_zone_tags"]:
+                s.shift_forbidden_zone_tags.append(str(t))
     return s
 
 
