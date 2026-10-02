@@ -735,5 +735,11 @@
    "B": 60,
    "C": 40
   }
- }
+ },
+ "shift": {
+  "forbidden_zone_tags": [
+   "occupied_adjacent"
+  ]
+ },
+ "gantt_visible_default": true
 }

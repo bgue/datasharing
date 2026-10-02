@@ -157,6 +157,7 @@
    "phase": "mobilise",
    "trade": "civil",
    "discipline": "general",
+   "work_face": "any",
    "quantity_basis": "count",
    "rate_per_crew_day": 12,
    "unit_cost": 120,
@@ -184,6 +185,7 @@
    "phase": "mobilise",
    "trade": "civil",
    "discipline": "civil",
+   "work_face": "below_ground",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 800,
    "unit_cost": 5,
@@ -212,6 +214,7 @@
    "phase": "earthworks",
    "trade": "civil",
    "discipline": "civil",
+   "work_face": "below_ground",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 500,
    "unit_cost": 8,
@@ -250,6 +253,7 @@
    "phase": "earthworks",
    "trade": "civil",
    "discipline": "civil",
+   "work_face": "below_ground",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 400,
    "unit_cost": 14,
@@ -289,6 +293,7 @@
    "phase": "earthworks",
    "trade": "civil",
    "discipline": "civil",
+   "work_face": "below_ground",
    "quantity_basis": "count",
    "rate_per_crew_day": 3,
    "unit_cost": 2800,
@@ -320,7 +325,10 @@
     "hold_point",
     "high_risk",
     "civil"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "STR-FOOT-REBAR",
@@ -328,6 +336,7 @@
    "phase": "foundations",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "below_ground",
    "quantity_basis": "weight_t",
    "rate_per_crew_day": 2.0,
    "unit_cost": 1850,
@@ -359,6 +368,7 @@
    "phase": "foundations",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "below_ground",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 12,
    "unit_cost": 210,
@@ -384,7 +394,10 @@
     "weather_sensitive",
     "hold_point",
     "concrete"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "STR-PILECAP-POUR",
@@ -392,6 +405,7 @@
    "phase": "foundations",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "below_ground",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 10,
    "unit_cost": 240,
@@ -421,7 +435,10 @@
     "weather_sensitive",
     "hold_point",
     "concrete"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "STR-EQPAD-POUR",
@@ -430,6 +447,7 @@
    "phase": "foundations",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "plant_pad",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 10,
    "unit_cost": 260,
@@ -456,7 +474,10 @@
     "weather_sensitive",
     "hold_point",
     "concrete"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "STR-GSLAB-POUR",
@@ -464,6 +485,7 @@
    "phase": "foundations",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "structure",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 14,
    "unit_cost": 190,
@@ -501,7 +523,10 @@
     "weather_sensitive",
     "hold_point",
     "concrete"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "STR-WALL-POUR",
@@ -509,6 +534,7 @@
    "phase": "foundations",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "structure",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 10,
    "unit_cost": 230,
@@ -538,7 +564,10 @@
     "weather_sensitive",
     "hold_point",
     "concrete"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "CIV-DRAIN-INSTALL",
@@ -546,6 +575,7 @@
    "phase": "foundations",
    "trade": "civil",
    "discipline": "civil",
+   "work_face": "below_ground",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 30,
    "unit_cost": 160,
@@ -579,6 +609,7 @@
    "phase": "foundations",
    "trade": "civil",
    "discipline": "civil",
+   "work_face": "below_ground",
    "quantity_basis": "count",
    "rate_per_crew_day": 3,
    "unit_cost": 2800,
@@ -615,6 +646,7 @@
    "phase": "foundations",
    "trade": "civil",
    "discipline": "civil",
+   "work_face": "below_ground",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 400,
    "unit_cost": 12,
@@ -662,6 +694,7 @@
    "phase": "steel",
    "trade": "steel",
    "discipline": "structure",
+   "work_face": "structure",
    "quantity_basis": "weight_t",
    "rate_per_crew_day": 9,
    "unit_cost": 3200,
@@ -701,7 +734,10 @@
     "long_lead",
     "high_risk",
     "steel"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "STR-STEEL-BEAM",
@@ -709,6 +745,7 @@
    "phase": "steel",
    "trade": "steel",
    "discipline": "structure",
+   "work_face": "structure",
    "quantity_basis": "weight_t",
    "rate_per_crew_day": 12,
    "unit_cost": 3400,
@@ -740,7 +777,10 @@
     "long_lead",
     "high_risk",
     "steel"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "STR-STEEL-CONN",
@@ -748,6 +788,7 @@
    "phase": "steel",
    "trade": "steel",
    "discipline": "structure",
+   "work_face": "structure",
    "quantity_basis": "weight_t",
    "rate_per_crew_day": 8,
    "unit_cost": 450,
@@ -792,6 +833,7 @@
    "phase": "steel",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "structure",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 5,
    "unit_cost": 380,
@@ -833,6 +875,7 @@
    "phase": "steel",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "structure",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 12,
    "unit_cost": 260,
@@ -862,7 +905,10 @@
     "weather_sensitive",
     "hold_point",
     "concrete"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "ARC-ROOF-DECK",
@@ -870,6 +916,7 @@
    "phase": "steel",
    "trade": "steel",
    "discipline": "architecture",
+   "work_face": "roof",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 250,
    "unit_cost": 38,
@@ -900,7 +947,10 @@
     "heavy_lift",
     "high_risk",
     "steel"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "ARC-CLAD-INSTALL",
@@ -908,6 +958,7 @@
    "phase": "steel",
    "trade": "steel",
    "discipline": "architecture",
+   "work_face": "external",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 60,
    "unit_cost": 75,
@@ -944,6 +995,7 @@
    "phase": "steel",
    "trade": "concrete",
    "discipline": "architecture",
+   "work_face": "walls",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 20,
    "unit_cost": 55,
@@ -980,6 +1032,7 @@
    "phase": "steel",
    "trade": "steel",
    "discipline": "architecture",
+   "work_face": "walls",
    "quantity_basis": "count",
    "rate_per_crew_day": 6,
    "unit_cost": 520,
@@ -1016,6 +1069,7 @@
    "phase": "steel",
    "trade": "steel",
    "discipline": "architecture",
+   "work_face": "structure",
    "quantity_basis": "count",
    "rate_per_crew_day": 2,
    "unit_cost": 6500,
@@ -1053,6 +1107,7 @@
    "phase": "steel",
    "trade": "steel",
    "discipline": "architecture",
+   "work_face": "structure",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 40,
    "unit_cost": 95,
@@ -1088,6 +1143,7 @@
    "phase": "pipe_rack",
    "trade": "steel",
    "discipline": "structure",
+   "work_face": "structure",
    "quantity_basis": "weight_t",
    "rate_per_crew_day": 12,
    "unit_cost": 3300,
@@ -1124,7 +1180,10 @@
     "long_lead",
     "high_risk",
     "steel"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "STR-RACK-CONN",
@@ -1132,6 +1191,7 @@
    "phase": "pipe_rack",
    "trade": "steel",
    "discipline": "structure",
+   "work_face": "structure",
    "quantity_basis": "weight_t",
    "rate_per_crew_day": 9,
    "unit_cost": 420,
@@ -1173,6 +1233,7 @@
    "phase": "pipe_rack",
    "trade": "piping",
    "discipline": "process",
+   "work_face": "external",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 28,
    "unit_cost": 310,
@@ -1208,6 +1269,7 @@
    "phase": "equipment",
    "trade": "mechanical",
    "discipline": "process",
+   "work_face": "plant_pad",
    "quantity_basis": "count",
    "rate_per_crew_day": 0.5,
    "unit_cost": 120000,
@@ -1240,7 +1302,12 @@
     "hold_point",
     "high_risk",
     "mechanical"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2,
+    "ideal": 2,
+    "max": 3
+   }
   },
   {
    "id": "PRC-TANK-SET",
@@ -1248,6 +1315,7 @@
    "phase": "equipment",
    "trade": "mechanical",
    "discipline": "process",
+   "work_face": "plant_pad",
    "quantity_basis": "count",
    "rate_per_crew_day": 0.5,
    "unit_cost": 80000,
@@ -1282,7 +1350,12 @@
     "long_lead",
     "high_risk",
     "mechanical"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2,
+    "ideal": 2,
+    "max": 3
+   }
   },
   {
    "id": "PRC-PUMP-SET",
@@ -1290,6 +1363,7 @@
    "phase": "equipment",
    "trade": "mechanical",
    "discipline": "process",
+   "work_face": "plant_pad",
    "quantity_basis": "count",
    "rate_per_crew_day": 2,
    "unit_cost": 14000,
@@ -1320,7 +1394,12 @@
     "long_lead",
     "high_risk",
     "mechanical"
-   ]
+   ],
+   "crew_profile": {
+    "min": 1,
+    "ideal": 1,
+    "max": 2
+   }
   },
   {
    "id": "PRC-EQUIP-SET",
@@ -1328,6 +1407,7 @@
    "phase": "equipment",
    "trade": "mechanical",
    "discipline": "process",
+   "work_face": "plant_pad",
    "quantity_basis": "count",
    "rate_per_crew_day": 1,
    "unit_cost": 60000,
@@ -1358,7 +1438,12 @@
     "long_lead",
     "high_risk",
     "mechanical"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2,
+    "ideal": 2,
+    "max": 3
+   }
   },
   {
    "id": "ELE-XFMR-SET",
@@ -1367,6 +1452,7 @@
    "phase": "equipment",
    "trade": "electrical",
    "discipline": "electrical",
+   "work_face": "plant_pad",
    "quantity_basis": "count",
    "rate_per_crew_day": 1,
    "unit_cost": 85000,
@@ -1399,7 +1485,12 @@
     "hold_point",
     "high_risk",
     "electrical"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2,
+    "ideal": 2,
+    "max": 3
+   }
   },
   {
    "id": "ELE-SWGR-SET",
@@ -1407,6 +1498,7 @@
    "phase": "equipment",
    "trade": "electrical",
    "discipline": "electrical",
+   "work_face": "plant_pad",
    "quantity_basis": "count",
    "rate_per_crew_day": 2,
    "unit_cost": 38000,
@@ -1441,7 +1533,12 @@
     "long_lead",
     "hold_point",
     "electrical"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2,
+    "ideal": 2,
+    "max": 3
+   }
   },
   {
    "id": "GEN-ELEM-INSTALL",
@@ -1450,6 +1547,7 @@
    "phase": "equipment",
    "trade": "mechanical",
    "discipline": "general",
+   "work_face": "any",
    "quantity_basis": "count",
    "rate_per_crew_day": 6,
    "unit_cost": 900,
@@ -1485,6 +1583,7 @@
    "phase": "piping",
    "trade": "piping",
    "discipline": "process",
+   "work_face": "ceiling_void",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 26,
    "unit_cost": 210,
@@ -1536,6 +1635,7 @@
    "phase": "piping",
    "trade": "piping",
    "discipline": "process",
+   "work_face": "ceiling_void",
    "quantity_basis": "count",
    "rate_per_crew_day": 15,
    "unit_cost": 380,
@@ -1588,6 +1688,7 @@
    "phase": "piping",
    "trade": "piping",
    "discipline": "process",
+   "work_face": "any",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 120,
    "unit_cost": 6,
@@ -1628,6 +1729,7 @@
    "phase": "piping",
    "trade": "piping",
    "discipline": "process",
+   "work_face": "plant_pad",
    "quantity_basis": "count",
    "rate_per_crew_day": 0.5,
    "unit_cost": 9000,
@@ -1659,6 +1761,7 @@
    "phase": "piping",
    "trade": "piping",
    "discipline": "mechanical",
+   "work_face": "ceiling_void",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 20,
    "unit_cost": 130,
@@ -1699,6 +1802,7 @@
    "phase": "piping",
    "trade": "piping",
    "discipline": "mechanical",
+   "work_face": "ceiling_void",
    "quantity_basis": "count",
    "rate_per_crew_day": 20,
    "unit_cost": 160,
@@ -1734,6 +1838,7 @@
    "phase": "piping",
    "trade": "piping",
    "discipline": "fire",
+   "work_face": "ceiling_void",
    "quantity_basis": "count",
    "rate_per_crew_day": 25,
    "unit_cost": 190,
@@ -1770,6 +1875,7 @@
    "phase": "electrical_instrumentation",
    "trade": "electrical",
    "discipline": "electrical",
+   "work_face": "ceiling_void",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 40,
    "unit_cost": 70,
@@ -1809,6 +1915,7 @@
    "phase": "electrical_instrumentation",
    "trade": "electrical",
    "discipline": "electrical",
+   "work_face": "ceiling_void",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 250,
    "unit_cost": 28,
@@ -1848,6 +1955,7 @@
    "phase": "electrical_instrumentation",
    "trade": "electrical",
    "discipline": "electrical",
+   "work_face": "any",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 500,
    "unit_cost": 4,
@@ -1880,6 +1988,7 @@
    "phase": "electrical_instrumentation",
    "trade": "electrical",
    "discipline": "electrical",
+   "work_face": "walls",
    "quantity_basis": "count",
    "rate_per_crew_day": 3,
    "unit_cost": 3200,
@@ -1920,6 +2029,7 @@
    "phase": "electrical_instrumentation",
    "trade": "instrumentation",
    "discipline": "instrumentation",
+   "work_face": "plant_pad",
    "quantity_basis": "count",
    "rate_per_crew_day": 12,
    "unit_cost": 950,
@@ -1984,6 +2094,7 @@
    "phase": "insulation",
    "trade": "insulation",
    "discipline": "process",
+   "work_face": "ceiling_void",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 24,
    "unit_cost": 55,
@@ -2016,6 +2127,7 @@
    "phase": "insulation",
    "trade": "insulation",
    "discipline": "architecture",
+   "work_face": "structure",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 70,
    "unit_cost": 38,
@@ -2048,6 +2160,7 @@
    "phase": "insulation",
    "trade": "insulation",
    "discipline": "architecture",
+   "work_face": "ceiling_void",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 80,
    "unit_cost": 48,
@@ -2091,6 +2204,7 @@
    "phase": "insulation",
    "trade": "insulation",
    "discipline": "architecture",
+   "work_face": "floor",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 80,
    "unit_cost": 62,
@@ -2130,6 +2244,7 @@
    "phase": "insulation",
    "trade": "insulation",
    "discipline": "architecture",
+   "work_face": "walls",
    "quantity_basis": "count",
    "rate_per_crew_day": 8,
    "unit_cost": 650,
@@ -2165,6 +2280,7 @@
    "phase": "precommissioning",
    "trade": "instrumentation",
    "discipline": "instrumentation",
+   "work_face": "any",
    "quantity_basis": "count",
    "rate_per_crew_day": 25,
    "unit_cost": 80,
@@ -2200,6 +2316,7 @@
    "phase": "precommissioning",
    "trade": "commissioning",
    "discipline": "commissioning",
+   "work_face": "any",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 150,
    "unit_cost": 6,
@@ -2235,6 +2352,7 @@
    "phase": "precommissioning",
    "trade": "mechanical",
    "discipline": "process",
+   "work_face": "any",
    "quantity_basis": "count",
    "rate_per_crew_day": 1,
    "unit_cost": 4500,
@@ -2271,6 +2389,7 @@
    "phase": "commissioning",
    "trade": "commissioning",
    "discipline": "commissioning",
+   "work_face": "any",
    "quantity_basis": "count",
    "rate_per_crew_day": 1,
    "unit_cost": 3500,
@@ -2315,6 +2434,7 @@
    "phase": "commissioning",
    "trade": "commissioning",
    "discipline": "commissioning",
+   "work_face": "any",
    "quantity_basis": "count",
    "rate_per_crew_day": 0.5,
    "unit_cost": 12000,
@@ -2363,6 +2483,7 @@
    "phase": "commissioning",
    "trade": "commissioning",
    "discipline": "commissioning",
+   "work_face": "any",
    "quantity_basis": "count",
    "rate_per_crew_day": 1.5,
    "unit_cost": 1500,
@@ -2399,6 +2520,7 @@
    "phase": "handover",
    "trade": "commissioning",
    "discipline": "general",
+   "work_face": "any",
    "quantity_basis": "count",
    "rate_per_crew_day": 6,
    "unit_cost": 450,
@@ -2500,6 +2622,347 @@
     "electrical"
    ],
    "description": "All systems energised and started before documentation is signed off."
+  }
+ ],
+ "packaging": {
+  "group_by": [
+   "zone_id",
+   "phase",
+   "trade",
+   "work_face"
+  ],
+  "target_duration_days": 15,
+  "max_crew_days_per_package": 80,
+  "max_over_ideal": 1,
+  "over_ideal_factor": 0.6
+ },
+ "exclusive_faces": [
+  "floor"
+ ],
+ "sequence_cards": [
+  {
+   "id": "card_pipe_rack",
+   "name": "Pipe rack bay recipe",
+   "description": "Linear rack bay by bay: foundations, rack steel, spools, hydrotest, tray and cable, insulation, flush.",
+   "applies_to_zone_tags": [
+    "pipe_rack"
+   ],
+   "stations": [
+    {
+     "name": "Mobilise",
+     "select": {
+      "phase": "mobilise"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Earthworks and piling",
+     "select": {
+      "phase": "earthworks"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Foundations",
+     "select": {
+      "phase": "foundations"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Steel and shell",
+     "select": {
+      "phase": "steel"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Rack steel",
+     "select": {
+      "phase": "pipe_rack",
+      "work_face": "structure"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Spool lay",
+     "select": {
+      "phase": "pipe_rack",
+      "work_face": "external"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Equipment",
+     "select": {
+      "phase": "equipment"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Piping and hydrotest",
+     "select": {
+      "phase": "piping"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Tray, cable and instruments",
+     "select": {
+      "phase": "electrical_instrumentation"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Insulation and coating",
+     "select": {
+      "phase": "insulation"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Pre-commissioning",
+     "select": {
+      "phase": "precommissioning"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Commissioning",
+     "select": {
+      "phase": "commissioning"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Handover",
+     "select": {
+      "phase": "handover"
+     },
+     "takt_weeks": 1
+    }
+   ],
+   "auto_staff": "ideal"
+  },
+  {
+   "id": "card_process_unit",
+   "name": "Process unit recipe",
+   "description": "Pad and foundations, heavy equipment and modules, tie-in piping, electrical and instrumentation, insulation, system start-up.",
+   "applies_to_zone_tags": [
+    "process_unit"
+   ],
+   "stations": [
+    {
+     "name": "Mobilise",
+     "select": {
+      "phase": "mobilise"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Earthworks and piling",
+     "select": {
+      "phase": "earthworks"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Foundations and pads",
+     "select": {
+      "phase": "foundations"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Steel and shell",
+     "select": {
+      "phase": "steel"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Pipe rack tie-in",
+     "select": {
+      "phase": "pipe_rack"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Heavy lifts",
+     "select": {
+      "phase": "equipment",
+      "work_face": "plant_pad"
+     },
+     "takt_weeks": 3
+    },
+    {
+     "name": "Equipment other",
+     "select": {
+      "phase": "equipment"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Piping and tie-ins",
+     "select": {
+      "phase": "piping"
+     },
+     "takt_weeks": 3
+    },
+    {
+     "name": "Electrical and instrumentation",
+     "select": {
+      "phase": "electrical_instrumentation"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Insulation and coating",
+     "select": {
+      "phase": "insulation"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Pre-commissioning",
+     "select": {
+      "phase": "precommissioning"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Commissioning",
+     "select": {
+      "phase": "commissioning"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Handover",
+     "select": {
+      "phase": "handover"
+     },
+     "takt_weeks": 1
+    }
+   ],
+   "auto_staff": "ideal"
+  },
+  {
+   "id": "card_building_bay",
+   "name": "Building bay recipe",
+   "description": "Control building or workshop bay: foundations, steel frame, shell, roof, services, finishes, commissioning.",
+   "stations": [
+    {
+     "name": "Mobilise",
+     "select": {
+      "phase": "mobilise"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Earthworks and piling",
+     "select": {
+      "phase": "earthworks"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Foundations",
+     "select": {
+      "phase": "foundations"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Steel frame",
+     "select": {
+      "phase": "steel",
+      "work_face": "structure"
+     },
+     "takt_weeks": 3
+    },
+    {
+     "name": "Cladding",
+     "select": {
+      "phase": "steel",
+      "work_face": "external"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Roof",
+     "select": {
+      "phase": "steel",
+      "work_face": "roof"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Walls and openings",
+     "select": {
+      "phase": "steel",
+      "work_face": "walls"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Rack and equipment",
+     "select": {
+      "phase": "pipe_rack"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Equipment",
+     "select": {
+      "phase": "equipment"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Building services",
+     "select": {
+      "phase": "piping"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Electrical and instrumentation",
+     "select": {
+      "phase": "electrical_instrumentation"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Ceilings and floors",
+     "select": {
+      "phase": "insulation"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Pre-commissioning",
+     "select": {
+      "phase": "precommissioning"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Commissioning",
+     "select": {
+      "phase": "commissioning"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Handover",
+     "select": {
+      "phase": "handover"
+     },
+     "takt_weeks": 1
+    }
+   ],
+   "auto_staff": "ideal"
   }
  ]
 }

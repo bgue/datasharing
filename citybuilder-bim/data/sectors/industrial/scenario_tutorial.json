@@ -623,5 +623,13 @@
    "week": 33,
    "text": "Commissioning is by system, not by area. Energise power first, then start up process, then balance air, then compile handover documents."
   }
- ]
+ ],
+ "shift": {
+  "max_zones": 3,
+  "cost_factor": 2.0,
+  "forbidden_zone_tags": [
+   "occupied_adjacent"
+  ]
+ },
+ "gantt_visible_default": false
 }

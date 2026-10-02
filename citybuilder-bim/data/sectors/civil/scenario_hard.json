@@ -33,10 +33,10 @@
  "crews_available": {
   "earthworks": 3,
   "utilities": 2,
-  "piling": 1,
+  "piling": 2,
   "concrete": 2,
-  "erection": 1,
-  "paving": 2,
+  "erection": 2,
+  "paving": 3,
   "traffic": 2,
   "finishing": 2,
   "qa": 1
@@ -986,5 +986,111 @@
    "B": 65,
    "C": 45
   }
- }
+ },
+ "shift": {
+  "max_zones": 1,
+  "cost_factor": 2.5,
+  "risk_factor": 1.8,
+  "forbidden_zone_tags": [
+   "live_traffic"
+  ]
+ },
+ "gantt_visible_default": true,
+ "sequence_cards": [
+  {
+   "id": "card_road_segment",
+   "name": "Road segment recipe (tight takt)",
+   "description": "Chainage segment: traffic stage, utilities, earthworks, drainage, subgrade and base, kerbs, asphalt, finishing. Hard level: one week tighter on every station longer than one week.",
+   "stations": [
+    {
+     "name": "Mobilise",
+     "select": {
+      "phase": "mobilise"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Traffic stage 1",
+     "select": {
+      "phase": "traffic_stage_1"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Utilities",
+     "select": {
+      "phase": "utilities"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Earthworks",
+     "select": {
+      "phase": "earthworks"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Drainage",
+     "select": {
+      "phase": "drainage"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Structures",
+     "select": {
+      "phase": "structures"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Traffic stage 2",
+     "select": {
+      "phase": "traffic_stage_2"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Subgrade and base",
+     "select": {
+      "phase": "pavement",
+      "trade": "earthworks"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Kerbs",
+     "select": {
+      "phase": "pavement",
+      "trade": "finishing"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Asphalt",
+     "select": {
+      "phase": "pavement",
+      "trade": "paving"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Finishing",
+     "select": {
+      "phase": "finishing"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Handover",
+     "select": {
+      "phase": "handover"
+     },
+     "takt_weeks": 1
+    }
+   ],
+   "auto_staff": "ideal"
+  }
+ ]
 }

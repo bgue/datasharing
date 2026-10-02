@@ -73,13 +73,9 @@ Notes:
 * Rates apply to element quantities from the model; the baseline scheduler gives every task at least one working day for one crew, so very small elements still occupy a crew slot. Crew counts in the scenarios were tuned so the baseline finish of the synthetic projects lands in the playable range (see below).
 * Weather `monthly_factor` is a temperate-climate multiplier (Jan to Dec) for steps flagged `weather_sensitive`. Civil is harsher in winter.
 
-### Baseline lengths of the synthetic projects (build-samples with these files)
+### Baseline lengths of the synthetic projects
 
-| Sector | Tutorial | Standard | Hard |
-| --- | --- | --- | --- |
-| industrial | 57 weeks | 80 | 116 |
-| civil | 53 weeks | 74 | 96 |
-| healthcare | 63 weeks | 79 | 112 |
+Baseline length depends on the scheduler version and on the crew counts in the scenarios, so treat any number here as a snapshot. With the cumulative-gate scheduler and per-task crew slots (`bimseq.scheduler.build_sequence`) the standard levels came out at industrial 80, civil 72 and healthcare 79 weeks (tutorial 57 / 53 / 63, hard 116 / 94 / 112). The later package-aware `build-samples` run reported standard finish weeks of 36, 20 and 47 and raised start cash and overdraft in all three standard scenarios to cover 8 and 4 weeks of average planned spend. Re-tune crews and cash against whatever WP-D settles on.
 
 The contract is `baseline x contract_factor` (1.3 tutorial, 1.1 standard, 1.0 hard); budget is `tasks x budget_factor` (1.25, 1.15, 1.05). Hard crews are fewer, so the hard baseline itself is longer; the factor 1.0 removes the slack.
 
@@ -155,3 +151,81 @@ Events use only fields the schema defines. Triggers refer to real phase ids, ste
 ## Gate scope notes (cumulative gates)
 
 The scheduler treats gates cumulatively: every task of the `after_phase` or earlier in the scope instance must finish before any task of the `before_phase` or later starts, and an instance with no prerequisite tasks is vacuous. Zone and storey scopes therefore only bite where both sides live in the same zone or storey. The synthetic civil project splits storeys (utilities and drainage on UG1, earthworks, structures and pavement on L00) and puts the stage 2 tasks in the live-traffic zones, so cross-storey and cross-zone ordering is also carried by predecessor rules with `same_cell_above`, `same_cell_below`, `same_storey` and `project` scopes. A scan of the mapped synthetic projects finds no task in phase order 2 or later that starts on day 0.
+
+## Work faces, crew profiles, packaging and sequence cards (v2)
+
+Fields from `docs/05-complex-areas-and-control-api.md`. All are additive; the mapper and old bundles ignore them.
+
+### Work faces
+
+Every step has a `work_face`, the place in the zone where the work physically happens:
+
+| Face | Used for |
+| --- | --- |
+| `below_ground` | earthworks, piles, footings, caps, underground drains, ducts, trenching, backfill around foundations |
+| `structure` | columns, beams, slabs, walls, steel erection and connections, bridge piers, abutments, bearings, beams, bridge backfill |
+| `external` | external walls, curtain wall, cladding, rack spool laydown (industrial), civil signs, lighting, small-building envelope |
+| `roof` | roof decks and membranes; civil bridge deck and parapets (see below) |
+| `ceiling_void` | ducts, pipes, trays, cable pull, sprinklers, terminals, light fittings, ceilings, pipe insulation |
+| `walls` | partitions, doors, windows, lead lining, boarding, panels, fixtures, blockwork |
+| `floor` | floor finishes; civil subgrade, subbase, base, kerbs, asphalt, markings, guardrail, landscape and approach slabs |
+| `plant_pad` | AHUs, chillers, transformers, switchgear, tanks, modules, pumps, medical devices, instrument installs (industrial) |
+| `any` | inspections, tests, commissioning, set-out, paperwork, traffic management, default step, healthcare fire-stopping |
+
+Deviations from the plain reading, made to avoid deadlocks when a card releases one station at a time:
+
+* Civil bridge deck, deck waterproofing and parapets use `roof` (the top of the structure) so they are not in the same package as the piers; otherwise a pier, the beam lift and the deck would share one concrete `structure` package and wait on each other.
+* Civil `STR-SLAB-POUR` (approach and base slabs) is `floor`, and `CIV-STRUCT-BACKFILL` is `structure`, because the approach slab needs the backfill that needs the abutment.
+* Healthcare fire-stopping and gas test are `any`: they come after the ceiling-void services but share a trade with framing, and must not be in the framing package.
+* `exclusive_faces` is `["floor"]` for industrial and healthcare and `["floor", "below_ground"]` for civil, so paving and trenching in one zone slow each other.
+
+### Crew profiles
+
+`crew_profile` is set only where the demand is real. `min` is a hard minimum for the package (crews below it do not progress).
+
+| Sector | min 2 | ideal and max given |
+| --- | --- | --- |
+| industrial | piling, footing, pile cap, pad, ground slab, wall, mezzanine slab pours; steel columns, beams, rack erection; roof deck | module, tank, heavy equipment, transformer, switchgear: 2 / 2 / 3; pump set 1 / 1 / 2 |
+| civil | piling, pile cap, pier, abutment, deck pours; bridge beam lift, steel erect, culvert units | beam lift 2 / 2 / 3; asphalt base and wearing course min 3; equipment set 1 / 1 / 2 |
+| healthcare | piling, ground slab, suspended slab and wall pours; steel erection; curtain wall; roof | AHU, chiller, transformer, switchgear 2 / 2 / 3; MRI and CT min 1, ideal 2, max 2; steriliser 1 / 1 / 2 |
+
+Because of the minimums the civil scenarios were changed so every trade can reach its minimum: piling 2 crews, erection 2 and paving 3 at standard and hard (tutorial already had them). The industrial and healthcare scenarios already offered at least 2 crews of every trade that has a min of 2.
+
+### Packaging
+
+| Sector | `target_duration_days` | `max_crew_days_per_package` |
+| --- | --- | --- |
+| healthcare | 10 | 50 |
+| industrial | 15 | 80 |
+| civil | 10 | 60 |
+
+`group_by` is the default `zone_id, phase, trade, work_face`; `max_over_ideal` 1 and `over_ideal_factor` 0.6 are written out explicitly.
+
+### Sequence cards
+
+Each card covers every phase of the sector in order, so a zone running the recipe never has a package parked in the implicit trailing `Other` station that something else waits on. A script checks, per card, that no step waits for a predecessor (same element, host, cell, zone or system) in a later station and that every phase has a station. Packages that no station selects (the default `GEN-ELEM-INSTALL`, civil equipment sets) end up in `Other`, which nothing depends on. Stations in already finished phases complete instantly, which is why room recipes start with mobilise, substructure, structure and envelope stations with a 1 week takt.
+
+| Sector | Card | Zone tag | Notes |
+| --- | --- | --- | --- |
+| healthcare | `card_or_room` | `or_room` | plant, frame, MEP, tests and fire-stopping, lead lining, ceilings, floors, finish, equipment, commissioning |
+| healthcare | `card_imaging` | `imaging` | shielding 2 weeks, scanner install 3 weeks, commissioning 2 weeks |
+| healthcare | `card_plant_room` | `plant_room` | plant set 3 weeks, combined services rough-in, then enclosing interiors |
+| healthcare | `card_ward_generic` | none | default recipe |
+| industrial | `card_pipe_rack` | `pipe_rack` | foundations, rack steel, spool lay, hydrotest, tray, insulation, flush |
+| industrial | `card_process_unit` | `process_unit` | pads, heavy lifts (3 weeks), tie-in piping, E and I, insulation, start-up |
+| industrial | `card_building_bay` | none | steel frame, cladding, roof, walls and openings, services, finishes |
+| civil | `card_bridge` | `bridge` | piles, caps, culvert units, piers and abutments, backfill, approach slabs, bearings and beams, deck, parapets |
+| civil | `card_road_segment` | none | traffic stage, utilities, earthworks, drainage, subgrade, kerbs, asphalt, finishing |
+| civil | `card_culvert` | `culvert` | trench, precast units, headwalls and backfill |
+
+All cards use `auto_staff: "ideal"`. Each hard scenario also carries a scenario-level override of one card (`card_process_unit`, `card_road_segment`, `card_or_room`) with every station longer than one week shortened by one week; the id matches, so it replaces the library card. The zone tags `or_room`, `imaging`, `plant_room`, `process_unit`, `bridge`, `culvert` and `segment` depend on the synthetic generators; the tags `pipe_rack` and `pressure_room` already exist there.
+
+### Second shift and Gantt defaults
+
+| Level | `max_zones` | `cost_factor` | `risk_factor` | `gantt_visible_default` |
+| --- | --- | --- | --- | --- |
+| tutorial | 3 | 2.0 | default 1.5 | false |
+| standard | default 2 | default 2.2 | default 1.5 | true |
+| hard | 1 | 2.5 | 1.8 | true |
+
+`forbidden_zone_tags` is `occupied_adjacent` for healthcare (quiet hours next to the live ward) and industrial (the default), and `live_traffic` for civil (no night shift next to the live carriageway). Productivity and inspection-fail factors stay at the schema defaults (1.8 and +0.05).

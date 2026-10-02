@@ -144,6 +144,7 @@
    "phase": "mobilise",
    "trade": "qa",
    "discipline": "general",
+   "work_face": "any",
    "quantity_basis": "count",
    "rate_per_crew_day": 12,
    "unit_cost": 120,
@@ -170,6 +171,7 @@
    "phase": "mobilise",
    "trade": "earthworks",
    "discipline": "civil",
+   "work_face": "below_ground",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 1500,
    "unit_cost": 2.5,
@@ -200,6 +202,7 @@
    "phase": "traffic_stage_1",
    "trade": "traffic",
    "discipline": "civil",
+   "work_face": "any",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 400,
    "unit_cost": 18,
@@ -230,6 +233,7 @@
    "phase": "utilities",
    "trade": "utilities",
    "discipline": "civil",
+   "work_face": "below_ground",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 40,
    "unit_cost": 380,
@@ -272,6 +276,7 @@
    "phase": "utilities",
    "trade": "utilities",
    "discipline": "civil",
+   "work_face": "any",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 300,
    "unit_cost": 6,
@@ -304,6 +309,7 @@
    "phase": "earthworks",
    "trade": "earthworks",
    "discipline": "civil",
+   "work_face": "below_ground",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 600,
    "unit_cost": 7,
@@ -368,6 +374,7 @@
    "phase": "earthworks",
    "trade": "earthworks",
    "discipline": "civil",
+   "work_face": "below_ground",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 450,
    "unit_cost": 12,
@@ -413,6 +420,7 @@
    "phase": "earthworks",
    "trade": "qa",
    "discipline": "civil",
+   "work_face": "any",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 2500,
    "unit_cost": 3,
@@ -449,6 +457,7 @@
    "phase": "drainage",
    "trade": "earthworks",
    "discipline": "civil",
+   "work_face": "below_ground",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 70,
    "unit_cost": 15,
@@ -521,6 +530,7 @@
    "phase": "drainage",
    "trade": "utilities",
    "discipline": "civil",
+   "work_face": "below_ground",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 30,
    "unit_cost": 260,
@@ -553,6 +563,7 @@
    "phase": "drainage",
    "trade": "qa",
    "discipline": "civil",
+   "work_face": "any",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 250,
    "unit_cost": 5,
@@ -585,6 +596,7 @@
    "phase": "drainage",
    "trade": "earthworks",
    "discipline": "civil",
+   "work_face": "below_ground",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 60,
    "unit_cost": 28,
@@ -619,6 +631,7 @@
    "phase": "drainage",
    "trade": "utilities",
    "discipline": "civil",
+   "work_face": "below_ground",
    "quantity_basis": "count",
    "rate_per_crew_day": 3,
    "unit_cost": 3200,
@@ -656,6 +669,7 @@
    "phase": "drainage",
    "trade": "utilities",
    "discipline": "civil",
+   "work_face": "below_ground",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 120,
    "unit_cost": 55,
@@ -709,6 +723,7 @@
    "phase": "structures",
    "trade": "piling",
    "discipline": "civil",
+   "work_face": "below_ground",
    "quantity_basis": "count",
    "rate_per_crew_day": 3,
    "unit_cost": 6500,
@@ -743,7 +758,10 @@
     "noisy",
     "hold_point",
     "high_risk"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "STR-CAP-REBAR",
@@ -751,6 +769,7 @@
    "phase": "structures",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "below_ground",
    "quantity_basis": "weight_t",
    "rate_per_crew_day": 1.8,
    "unit_cost": 1850,
@@ -782,6 +801,7 @@
    "phase": "structures",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "below_ground",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 10,
    "unit_cost": 240,
@@ -812,7 +832,10 @@
     "weather_sensitive",
     "hold_point",
     "concrete"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "STR-PIER-POUR",
@@ -820,6 +843,7 @@
    "phase": "structures",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "structure",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 5,
    "unit_cost": 650,
@@ -859,7 +883,10 @@
     "hold_point",
     "high_risk",
     "concrete"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "STR-ABUT-POUR",
@@ -867,6 +894,7 @@
    "phase": "structures",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "structure",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 8,
    "unit_cost": 420,
@@ -896,7 +924,10 @@
     "weather_sensitive",
     "hold_point",
     "concrete"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "STR-FOOT-REBAR",
@@ -904,6 +935,7 @@
    "phase": "structures",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "below_ground",
    "quantity_basis": "weight_t",
    "rate_per_crew_day": 2.0,
    "unit_cost": 1850,
@@ -935,6 +967,7 @@
    "phase": "structures",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "below_ground",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 12,
    "unit_cost": 210,
@@ -968,6 +1001,7 @@
    "phase": "structures",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "structure",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 10,
    "unit_cost": 250,
@@ -1008,6 +1042,7 @@
    "phase": "structures",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "floor",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 12,
    "unit_cost": 260,
@@ -1049,6 +1084,7 @@
    "phase": "structures",
    "trade": "earthworks",
    "discipline": "civil",
+   "work_face": "structure",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 350,
    "unit_cost": 18,
@@ -1092,6 +1128,7 @@
    "phase": "structures",
    "trade": "erection",
    "discipline": "structure",
+   "work_face": "structure",
    "quantity_basis": "count",
    "rate_per_crew_day": 4,
    "unit_cost": 4500,
@@ -1133,6 +1170,7 @@
    "phase": "structures",
    "trade": "erection",
    "discipline": "structure",
+   "work_face": "structure",
    "quantity_basis": "count",
    "rate_per_crew_day": 2,
    "unit_cost": 38000,
@@ -1176,7 +1214,12 @@
     "hold_point",
     "high_risk",
     "erection"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2,
+    "ideal": 2,
+    "max": 3
+   }
   },
   {
    "id": "STR-STEEL-ERECT",
@@ -1184,6 +1227,7 @@
    "phase": "structures",
    "trade": "erection",
    "discipline": "structure",
+   "work_face": "structure",
    "quantity_basis": "weight_t",
    "rate_per_crew_day": 10,
    "unit_cost": 3500,
@@ -1219,7 +1263,10 @@
     "long_lead",
     "high_risk",
     "erection"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "STR-DECK-REBAR",
@@ -1227,6 +1274,7 @@
    "phase": "structures",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "roof",
    "quantity_basis": "weight_t",
    "rate_per_crew_day": 2.0,
    "unit_cost": 1850,
@@ -1263,6 +1311,7 @@
    "phase": "structures",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "roof",
    "quantity_basis": "volume_m3",
    "rate_per_crew_day": 14,
    "unit_cost": 380,
@@ -1289,7 +1338,10 @@
     "hold_point",
     "high_risk",
     "concrete"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "STR-DECK-WATERPROOF",
@@ -1297,6 +1349,7 @@
    "phase": "structures",
    "trade": "concrete",
    "discipline": "structure",
+   "work_face": "roof",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 150,
    "unit_cost": 28,
@@ -1329,6 +1382,7 @@
    "phase": "structures",
    "trade": "erection",
    "discipline": "structure",
+   "work_face": "roof",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 20,
    "unit_cost": 480,
@@ -1367,6 +1421,7 @@
    "phase": "structures",
    "trade": "erection",
    "discipline": "structure",
+   "work_face": "below_ground",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 12,
    "unit_cost": 2400,
@@ -1399,7 +1454,10 @@
     "hold_point",
     "high_risk",
     "erection"
-   ]
+   ],
+   "crew_profile": {
+    "min": 2
+   }
   },
   {
    "id": "CIV-EQUIP-SET",
@@ -1407,6 +1465,7 @@
    "phase": "structures",
    "trade": "utilities",
    "discipline": "civil",
+   "work_face": "plant_pad",
    "quantity_basis": "count",
    "rate_per_crew_day": 2,
    "unit_cost": 12000,
@@ -1437,7 +1496,12 @@
     "long_lead",
     "high_risk",
     "utilities"
-   ]
+   ],
+   "crew_profile": {
+    "min": 1,
+    "ideal": 1,
+    "max": 2
+   }
   },
   {
    "id": "GEN-ELEM-INSTALL",
@@ -1446,6 +1510,7 @@
    "phase": "structures",
    "trade": "concrete",
    "discipline": "general",
+   "work_face": "any",
    "quantity_basis": "count",
    "rate_per_crew_day": 6,
    "unit_cost": 900,
@@ -1482,6 +1547,7 @@
    "phase": "traffic_stage_2",
    "trade": "traffic",
    "discipline": "civil",
+   "work_face": "any",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 300,
    "unit_cost": 24,
@@ -1544,6 +1610,7 @@
    "phase": "pavement",
    "trade": "earthworks",
    "discipline": "civil",
+   "work_face": "floor",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 1500,
    "unit_cost": 3,
@@ -1619,6 +1686,7 @@
    "phase": "pavement",
    "trade": "earthworks",
    "discipline": "civil",
+   "work_face": "floor",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 1200,
    "unit_cost": 14,
@@ -1657,6 +1725,7 @@
    "phase": "pavement",
    "trade": "earthworks",
    "discipline": "civil",
+   "work_face": "floor",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 1000,
    "unit_cost": 22,
@@ -1692,6 +1761,7 @@
    "phase": "pavement",
    "trade": "finishing",
    "discipline": "civil",
+   "work_face": "floor",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 80,
    "unit_cost": 38,
@@ -1741,6 +1811,7 @@
    "phase": "pavement",
    "trade": "paving",
    "discipline": "civil",
+   "work_face": "floor",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 900,
    "unit_cost": 28,
@@ -1775,7 +1846,10 @@
     "weather_sensitive",
     "noisy",
     "paving"
-   ]
+   ],
+   "crew_profile": {
+    "min": 3
+   }
   },
   {
    "id": "CIV-ASPHALT-WEAR",
@@ -1783,6 +1857,7 @@
    "phase": "pavement",
    "trade": "paving",
    "discipline": "civil",
+   "work_face": "floor",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 1200,
    "unit_cost": 24,
@@ -1818,7 +1893,10 @@
     "noisy",
     "hold_point",
     "paving"
-   ]
+   ],
+   "crew_profile": {
+    "min": 3
+   }
   },
   {
    "id": "CIV-MARKING-APPLY",
@@ -1826,6 +1904,7 @@
    "phase": "finishing",
    "trade": "finishing",
    "discipline": "civil",
+   "work_face": "floor",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 1200,
    "unit_cost": 3,
@@ -1861,6 +1940,7 @@
    "phase": "finishing",
    "trade": "finishing",
    "discipline": "civil",
+   "work_face": "floor",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 80,
    "unit_cost": 95,
@@ -1896,6 +1976,7 @@
    "phase": "finishing",
    "trade": "finishing",
    "discipline": "civil",
+   "work_face": "external",
    "quantity_basis": "count",
    "rate_per_crew_day": 6,
    "unit_cost": 450,
@@ -1939,6 +2020,7 @@
    "phase": "finishing",
    "trade": "finishing",
    "discipline": "electrical",
+   "work_face": "external",
    "quantity_basis": "count",
    "rate_per_crew_day": 4,
    "unit_cost": 3200,
@@ -1977,6 +2059,7 @@
    "phase": "finishing",
    "trade": "utilities",
    "discipline": "electrical",
+   "work_face": "below_ground",
    "quantity_basis": "length_m",
    "rate_per_crew_day": 250,
    "unit_cost": 30,
@@ -2013,6 +2096,7 @@
    "phase": "finishing",
    "trade": "finishing",
    "discipline": "civil",
+   "work_face": "floor",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 1500,
    "unit_cost": 6,
@@ -2049,6 +2133,7 @@
    "phase": "finishing",
    "trade": "finishing",
    "discipline": "architecture",
+   "work_face": "external",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 40,
    "unit_cost": 120,
@@ -2085,6 +2170,7 @@
    "phase": "finishing",
    "trade": "finishing",
    "discipline": "architecture",
+   "work_face": "walls",
    "quantity_basis": "count",
    "rate_per_crew_day": 6,
    "unit_cost": 650,
@@ -2120,6 +2206,7 @@
    "phase": "handover",
    "trade": "qa",
    "discipline": "general",
+   "work_face": "any",
    "quantity_basis": "count",
    "rate_per_crew_day": 6,
    "unit_cost": 450,
@@ -2159,6 +2246,7 @@
    "phase": "handover",
    "trade": "finishing",
    "discipline": "general",
+   "work_face": "any",
    "quantity_basis": "area_m2",
    "rate_per_crew_day": 600,
    "unit_cost": 4,
@@ -2254,6 +2342,362 @@
     "pavement"
    ],
    "description": "Project-wide gate: lighting cabling tested and pavement signed off."
+  }
+ ],
+ "packaging": {
+  "group_by": [
+   "zone_id",
+   "phase",
+   "trade",
+   "work_face"
+  ],
+  "target_duration_days": 10,
+  "max_crew_days_per_package": 60,
+  "max_over_ideal": 1,
+  "over_ideal_factor": 0.6
+ },
+ "exclusive_faces": [
+  "floor",
+  "below_ground"
+ ],
+ "sequence_cards": [
+  {
+   "id": "card_bridge",
+   "name": "Bridge span recipe",
+   "description": "Piles, caps, piers and abutments, bearings, beams (night closure), deck, parapets, then pavement and finishing.",
+   "applies_to_zone_tags": [
+    "bridge"
+   ],
+   "stations": [
+    {
+     "name": "Mobilise",
+     "select": {
+      "phase": "mobilise"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Traffic stage 1",
+     "select": {
+      "phase": "traffic_stage_1"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Utilities",
+     "select": {
+      "phase": "utilities"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Earthworks",
+     "select": {
+      "phase": "earthworks"
+     },
+     "takt_weeks": 3
+    },
+    {
+     "name": "Drainage",
+     "select": {
+      "phase": "drainage"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Piles",
+     "select": {
+      "phase": "structures",
+      "trade": "piling"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Footings and caps",
+     "select": {
+      "phase": "structures",
+      "trade": "concrete",
+      "work_face": "below_ground"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Culvert units",
+     "select": {
+      "phase": "structures",
+      "trade": "erection",
+      "work_face": "below_ground"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Piers, abutments and backfill",
+     "select": {
+      "phase": "structures",
+      "work_face": "structure",
+      "trade": "concrete"
+     },
+     "takt_weeks": 4
+    },
+    {
+     "name": "Backfill",
+     "select": {
+      "phase": "structures",
+      "work_face": "structure",
+      "trade": "earthworks"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Approach slabs",
+     "select": {
+      "phase": "structures",
+      "work_face": "floor"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Bearings and beams",
+     "select": {
+      "phase": "structures",
+      "work_face": "structure",
+      "trade": "erection"
+     },
+     "takt_weeks": 3
+    },
+    {
+     "name": "Deck",
+     "select": {
+      "phase": "structures",
+      "work_face": "roof",
+      "trade": "concrete"
+     },
+     "takt_weeks": 3
+    },
+    {
+     "name": "Parapets",
+     "select": {
+      "phase": "structures",
+      "work_face": "roof",
+      "trade": "erection"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Traffic stage 2",
+     "select": {
+      "phase": "traffic_stage_2"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Pavement",
+     "select": {
+      "phase": "pavement"
+     },
+     "takt_weeks": 3
+    },
+    {
+     "name": "Finishing",
+     "select": {
+      "phase": "finishing"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Handover",
+     "select": {
+      "phase": "handover"
+     },
+     "takt_weeks": 1
+    }
+   ],
+   "auto_staff": "ideal"
+  },
+  {
+   "id": "card_road_segment",
+   "name": "Road segment recipe",
+   "description": "Chainage segment: traffic stage, utilities, earthworks, drainage, subgrade and base, kerbs, asphalt, finishing.",
+   "stations": [
+    {
+     "name": "Mobilise",
+     "select": {
+      "phase": "mobilise"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Traffic stage 1",
+     "select": {
+      "phase": "traffic_stage_1"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Utilities",
+     "select": {
+      "phase": "utilities"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Earthworks",
+     "select": {
+      "phase": "earthworks"
+     },
+     "takt_weeks": 3
+    },
+    {
+     "name": "Drainage",
+     "select": {
+      "phase": "drainage"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Structures",
+     "select": {
+      "phase": "structures"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Traffic stage 2",
+     "select": {
+      "phase": "traffic_stage_2"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Subgrade and base",
+     "select": {
+      "phase": "pavement",
+      "trade": "earthworks"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Kerbs",
+     "select": {
+      "phase": "pavement",
+      "trade": "finishing"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Asphalt",
+     "select": {
+      "phase": "pavement",
+      "trade": "paving"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Finishing",
+     "select": {
+      "phase": "finishing"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Handover",
+     "select": {
+      "phase": "handover"
+     },
+     "takt_weeks": 1
+    }
+   ],
+   "auto_staff": "ideal"
+  },
+  {
+   "id": "card_culvert",
+   "name": "Culvert recipe",
+   "description": "Trench, precast units, headwalls and backfill, then pavement over the crossing.",
+   "applies_to_zone_tags": [
+    "culvert"
+   ],
+   "stations": [
+    {
+     "name": "Mobilise",
+     "select": {
+      "phase": "mobilise"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Traffic stage 1",
+     "select": {
+      "phase": "traffic_stage_1"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Utilities",
+     "select": {
+      "phase": "utilities"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Earthworks",
+     "select": {
+      "phase": "earthworks"
+     },
+     "takt_weeks": 3
+    },
+    {
+     "name": "Drainage",
+     "select": {
+      "phase": "drainage"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Culvert units",
+     "select": {
+      "phase": "structures",
+      "trade": "erection",
+      "work_face": "below_ground"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Headwalls and backfill",
+     "select": {
+      "phase": "structures"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Traffic stage 2",
+     "select": {
+      "phase": "traffic_stage_2"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Pavement",
+     "select": {
+      "phase": "pavement"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Finishing",
+     "select": {
+      "phase": "finishing"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Handover",
+     "select": {
+      "phase": "handover"
+     },
+     "takt_weeks": 1
+    }
+   ],
+   "auto_staff": "ideal"
   }
  ]
 }

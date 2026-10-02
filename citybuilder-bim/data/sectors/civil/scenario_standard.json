@@ -33,10 +33,10 @@
  "crews_available": {
   "earthworks": 4,
   "utilities": 2,
-  "piling": 1,
+  "piling": 2,
   "concrete": 2,
   "erection": 2,
-  "paving": 2,
+  "paving": 3,
   "traffic": 2,
   "finishing": 2,
   "qa": 2
@@ -887,5 +887,11 @@
    "B": 60,
    "C": 40
   }
- }
+ },
+ "shift": {
+  "forbidden_zone_tags": [
+   "live_traffic"
+  ]
+ },
+ "gantt_visible_default": true
 }

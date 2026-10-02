@@ -882,5 +882,146 @@
    "B": 65,
    "C": 45
   }
- }
+ },
+ "shift": {
+  "max_zones": 1,
+  "cost_factor": 2.5,
+  "risk_factor": 1.8,
+  "forbidden_zone_tags": [
+   "occupied_adjacent"
+  ]
+ },
+ "gantt_visible_default": true,
+ "sequence_cards": [
+  {
+   "id": "card_or_room",
+   "name": "Operating room recipe (tight takt)",
+   "description": "Frame, rough-in, fire-stop and gas test, lead lining, ceilings, hygienic floors, fixtures, equipment, pressure test and commissioning. Hard level: one week tighter on every station longer than one week.",
+   "applies_to_zone_tags": [
+    "or_room"
+   ],
+   "stations": [
+    {
+     "name": "Mobilise and ICRA",
+     "select": {
+      "phase": "mobilise"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Substructure",
+     "select": {
+      "phase": "substructure"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Structure",
+     "select": {
+      "phase": "superstructure"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Envelope",
+     "select": {
+      "phase": "envelope"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Plant items",
+     "select": {
+      "phase": "mep_roughin",
+      "work_face": "plant_pad"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Frame",
+     "select": {
+      "phase": "mep_roughin",
+      "work_face": "walls"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "MEP rough-in",
+     "select": {
+      "phase": "mep_roughin",
+      "work_face": "ceiling_void"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Tests and fire-stopping",
+     "select": {
+      "phase": "mep_roughin",
+      "work_face": "any"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Boarding and lining",
+     "select": {
+      "phase": "interiors",
+      "work_face": "walls"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Ceilings",
+     "select": {
+      "phase": "interiors",
+      "work_face": "ceiling_void"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Floors",
+     "select": {
+      "phase": "interiors",
+      "work_face": "floor"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "MEP finish",
+     "select": {
+      "phase": "mep_finish"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Medical equipment",
+     "select": {
+      "phase": "medical_equipment"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Commissioning",
+     "select": {
+      "phase": "commissioning"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "ICRA close-out",
+     "select": {
+      "phase": "icra_closeout"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Handover",
+     "select": {
+      "phase": "handover"
+     },
+     "takt_weeks": 1
+    }
+   ],
+   "auto_staff": "ideal"
+  }
+ ]
 }

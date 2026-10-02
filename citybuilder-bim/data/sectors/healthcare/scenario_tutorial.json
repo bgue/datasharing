@@ -653,5 +653,13 @@
    "week": 34,
    "text": "Finish with ICRA close-out: HEPA clean and clearance before the barrier comes down, then room handover documents."
   }
- ]
+ ],
+ "shift": {
+  "max_zones": 3,
+  "cost_factor": 2.0,
+  "forbidden_zone_tags": [
+   "occupied_adjacent"
+  ]
+ },
+ "gantt_visible_default": false
 }

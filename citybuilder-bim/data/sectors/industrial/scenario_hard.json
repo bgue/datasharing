@@ -739,5 +739,119 @@
    "B": 65,
    "C": 45
   }
- }
+ },
+ "shift": {
+  "max_zones": 1,
+  "cost_factor": 2.5,
+  "risk_factor": 1.8,
+  "forbidden_zone_tags": [
+   "occupied_adjacent"
+  ]
+ },
+ "gantt_visible_default": true,
+ "sequence_cards": [
+  {
+   "id": "card_process_unit",
+   "name": "Process unit recipe (tight takt)",
+   "description": "Pad and foundations, heavy equipment and modules, tie-in piping, electrical and instrumentation, insulation, system start-up. Hard level: one week tighter on every station longer than one week.",
+   "applies_to_zone_tags": [
+    "process_unit"
+   ],
+   "stations": [
+    {
+     "name": "Mobilise",
+     "select": {
+      "phase": "mobilise"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Earthworks and piling",
+     "select": {
+      "phase": "earthworks"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Foundations and pads",
+     "select": {
+      "phase": "foundations"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Steel and shell",
+     "select": {
+      "phase": "steel"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Pipe rack tie-in",
+     "select": {
+      "phase": "pipe_rack"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Heavy lifts",
+     "select": {
+      "phase": "equipment",
+      "work_face": "plant_pad"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Equipment other",
+     "select": {
+      "phase": "equipment"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Piping and tie-ins",
+     "select": {
+      "phase": "piping"
+     },
+     "takt_weeks": 2
+    },
+    {
+     "name": "Electrical and instrumentation",
+     "select": {
+      "phase": "electrical_instrumentation"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Insulation and coating",
+     "select": {
+      "phase": "insulation"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Pre-commissioning",
+     "select": {
+      "phase": "precommissioning"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Commissioning",
+     "select": {
+      "phase": "commissioning"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Handover",
+     "select": {
+      "phase": "handover"
+     },
+     "takt_weeks": 1
+    }
+   ],
+   "auto_staff": "ideal"
+  }
+ ]
 }
