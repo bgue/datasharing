@@ -17,6 +17,7 @@ var _packages: VBoxContainer
 var _title: Label
 var _info: Label
 var _text: RichTextLabel
+var _lane: GanttRenderer
 var _dirty: bool = true
 
 
@@ -39,6 +40,17 @@ func setup(state: SimState) -> void:
     _text.custom_minimum_size = Vector2(290, 110)
     _text.size_flags_vertical = Control.SIZE_EXPAND_FILL
     box.add_child(_text)
+    # lane view: the timeline renderer squeezed into one zone row above the package list
+    _lane = GanttRenderer.new()
+    _lane.gs = gs
+    _lane.show_labels = false
+    _lane.show_scrollbars = false
+    _lane.fit_height = true
+    _lane.allow_expand = false
+    _lane.axis_h = 14.0
+    _lane.custom_minimum_size = Vector2(290, 64)
+    _lane.model_invalidated.connect(func() -> void: _dirty = true)
+    box.add_child(_lane)
     var pkg_scroll := ScrollContainer.new()
     pkg_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
     pkg_scroll.custom_minimum_size = Vector2(290, 120)
@@ -75,7 +87,10 @@ func refresh() -> void:
         _title.text = "Zone inspector"
         _info.text = "Hover a zone on the map (Assign mode: click to pin)."
         _text.text = ""
+        _lane.visible = false
         return
+    _lane.visible = true
+    _lane.set_model(GanttModel.build(gs, {"zone_ids": [zone_id], "group": false}))
     var z: ZoneData = gs.bundle.zones_by_id[zone_id]
     var storey: StoreyData = gs.bundle.storeys_by_id.get(z.storey_id, null)
     _title.text = z.name

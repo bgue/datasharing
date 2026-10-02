@@ -56,7 +56,7 @@ func _run() -> void:
             _current = "%s::%s" % [f.get_basename(), mname]
             if inst.has_method("before_each"):
                 inst.call("before_each")
-            inst.call(mname)
+            await inst.call(mname)  # tests may be coroutines (await process_frame)
             if inst.has_method("after_each"):
                 inst.call("after_each")
             if _failures.is_empty():

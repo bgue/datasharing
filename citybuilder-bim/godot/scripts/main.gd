@@ -22,6 +22,7 @@ var crew_panel: CrewPanel = null
 var inspector: ZoneInspector = null
 var procurement: ProcurementPanel = null
 var charts: ChartsPanel = null
+var gantt: GanttPanel = null
 var toast: EventToast = null
 var report: Report = null
 var hint_bar: HintBar = null
@@ -52,6 +53,7 @@ func _ready() -> void:
     _wire()
     _set_mode(Mode.BUILD)
     _set_focus(0)
+    _reflow_bottom()
 
 
 func _exit_tree() -> void:
@@ -142,6 +144,11 @@ func _build_ui() -> void:
     ui_root.add_child(charts)
     charts.setup(gs)
 
+    gantt = GanttPanel.new()
+    gantt.name = "GanttPanel"
+    ui_root.add_child(gantt)
+    gantt.setup(gs, gs.scenario.gantt_visible_default)
+
     hint_bar = _scene("res://scenes/ui/hint_bar.tscn") as HintBar
     UiStyle.place(hint_bar, Rect2(0.5, 1, 0.5, 1), Vector4(-290, -8, 290, -8))
     hint_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
@@ -170,6 +177,10 @@ func _wire() -> void:
     top_bar.panel_toggled.connect(_toggle_panel)
     top_bar.export_requested.connect(_export)
     top_bar.menu_requested.connect(_to_menu)
+    top_bar.gantt_toggled.connect(func() -> void: gantt.toggle())
+    gantt.zone_selected.connect(_on_gantt_zone)
+    gantt.layout_changed.connect(_reflow_bottom)
+    get_viewport().size_changed.connect(_reflow_bottom)
     crew_panel.crew_selected.connect(_on_crew_selected)
     crew_panel.equipment_arm_requested.connect(func(id: String) -> void:
         _set_mode(Mode.BUILD)
@@ -262,6 +273,38 @@ func _toggle_panel(n: String) -> void:
         p.visible = not p.visible
 
 
+## A zone picked in the timeline: pin it, show it in the inspector and follow its storey.
+func _on_gantt_zone(zone_id: String) -> void:
+    pinned_zone = zone_id
+    inspector.visible = true
+    inspector.show_zone(zone_id)
+    gantt.select_zone(zone_id)
+    var z: ZoneData = gs.bundle.zones_by_id.get(zone_id, null)
+    if z != null and gs.bundle.storeys_by_id.has(z.storey_id):
+        _set_focus((gs.bundle.storeys_by_id[z.storey_id] as StoreyData).index)
+
+
+## Reflows what sits at the bottom of the screen around the timeline: the bottom-anchored panels move up
+## by its height, and the 3D camera is shifted so the model stays centred in the remaining area.
+func _reflow_bottom() -> void:
+    if gantt == null:
+        return
+    var inset: float = gantt.bottom_inset()
+    for c in [charts, hint_bar]:
+        var p: Control = c
+        p.offset_top = -8.0 - inset
+        p.offset_bottom = -8.0 - inset
+    _update_camera_inset(inset)
+
+
+func _update_camera_inset(inset: float) -> void:
+    var vh: float = get_viewport().get_visible_rect().size.y
+    var shift: float = 0.0
+    if inset > 0.0 and vh > 0.0:
+        shift = -(inset / vh) * absf(camera.position.z) * tan(deg_to_rad(camera.fov * 0.5))
+    camera.v_offset = shift
+
+
 func _on_crew_selected(crew_id: int) -> void:
     if crew_id >= 0:
         _set_mode(Mode.ASSIGN)
@@ -299,6 +342,8 @@ func _to_menu() -> void:
 func _process(delta: float) -> void:
     if gs == null or gs.bundle == null:
         return
+    if gantt != null and gantt.visible:
+        _update_camera_inset(gantt.bottom_inset())  # follows the camera's zoom
     if gs.speed > 0 and not gs.finished and gs.pending_event.is_empty():
         _accum += delta * float(gs.speed)
         if _accum >= SECONDS_PER_WEEK:
@@ -321,6 +366,8 @@ func _unhandled_input(event: InputEvent) -> void:
         _set_focus(gs.focus_storey_index + 1)
     elif event.is_action_pressed("storey_down"):
         _set_focus(gs.focus_storey_index - 1)
+    elif event.is_action_pressed("gantt_toggle"):
+        gantt.toggle()
     elif event.is_action_pressed("toggle_ghost"):
         bim_view.set_ghost_visible(not bim_view.show_ghost)
         hint_bar.show_message("Ghost elements: %s" % ("shown" if bim_view.show_ghost else "hidden"))

@@ -31,6 +31,7 @@ godot --path godot -- --scenario=minimal   # skip the menu
 | G | Toggle ghost (not-started) elements |
 | F1 / F2 | Save / load `user://save_<scenario>.json` |
 | F5 | Export `user://plan_export_<scenario>.json` + `.csv` |
+| T | Show / hide the timeline (Gantt) panel (also the `T` button in the top bar) |
 
 Top bar: week / contract week, cash / budget, speed, panel toggles, phase tracker per storey
 (grey = not started, blue = in progress, green = complete). Panels: Crews (hire/fire, select a
@@ -58,6 +59,34 @@ yellow blocked (gate / delivery / no access / out of crane reach / paused).
 * **Sequence cards** (library + scenario, by id) release a zone station by station; trains stagger zones.
 * **Second shift** per zone (zone inspector button): x1.8 output, x2.2 crew cost, x1.5 risk, +5% inspection fail,
   at most `shift.max_zones` zones, never in `occupied_adjacent` zones.
+
+## Timeline (Gantt)
+
+A hideable panel docked at the bottom (30 % of the screen height, `T` or the top bar `T` button; hidden at start when the
+scenario has `gantt_visible_default: false`). Hiding frees the area: the bottom-anchored panels and the 3D camera reflow.
+Drag the thin handle on its top edge to resize it (15 % to 70 %).
+
+* **Rows**: zones grouped by storey (click a storey header to collapse / expand it). Overlapping packages of a zone are
+  stacked in lanes. Each package bar has a thin grey baseline (planned start to finish) and a bar in the discipline colour
+  filled to its progress; **hatched** = held, **red outline** = understaffed, **amber fill** = behind takt, dimmed = done.
+  Station brackets (name, planned span; the current one in white, amber when behind takt) show above zones with a card,
+  cyan diamonds are procurement deliveries, red ticks are incidents, the white vertical line is today, the red one the
+  contract finish.
+* **Zoom / scroll**: header buttons 12 / 26 / 52 weeks, starting at `max(0, week - 2)` and following the game until you
+  scroll. Mouse wheel scrolls the rows, **Shift + wheel** (or the scrollbar) scrolls time.
+* **Filters**: storey, discipline, and **My crews only** (packages whose trade has a crew assigned to that zone).
+* **Hover** a bar: state, crews now / ideal / max, remaining crew-days, blocked reason, station, behind takt.
+* **Click** a bar or row: selects the zone (zone inspector pins it and the storey focus follows).
+  **Double-click** a row: expands that zone to task level (one sub-row per task, one zone at a time); double-click again
+  collapses it.
+* **Right-click** a bar: Hold / Release package, Set priority (spin box), Apply card (submenu of the cards), Clear card.
+  These call the same `SimState` / `Cards` methods as the API and refresh the panel.
+* The zone inspector shows the same renderer as a one-zone **lane view** above its package list.
+
+Code: `scripts/ui/gantt_model.gd` (rows and bars from `ApiViews.gantt`, lanes, stations, markers; pure, unit-tested),
+`scripts/ui/gantt_renderer.gd` (`_draw` only, culled, `style_for`, hit testing, context menu actions),
+`scripts/ui/gantt_panel.gd` (header, filters, splitter, debounced refresh on `week_advanced`, `task_state_changed`,
+`crews_changed`, `package_state_changed`).
 
 ## Control API (JSON-RPC 2.0 over WebSocket)
 
@@ -105,7 +134,7 @@ files, otherwise the global class cache is stale and scripts fail to parse.
 | `scripts/site_builder.gd`, `site_tile*.gd`, `road_autotile.gd` | Kenney builder adapted: logistics tiles on the GridMap, road auto-tiling |
 | `scripts/bim_view.gd` | MultiMesh stand-ins per `visual` kind, state tint and storey filter |
 | `scripts/zone_overlay.gd` | Zone quads, hover/click picking |
-| `scripts/ui/*.gd`, `scenes/ui/*.tscn` | HUD panels (theme built in code, Lilita One font) |
+| `scripts/ui/*.gd`, `scenes/ui/*.tscn` | HUD panels (theme built in code, Lilita One font); `gantt_*.gd` is the timeline (built in code, no scene) |
 | `scripts/export/plan_export.gd`, `scripts/save_game.gd` | Plan export (element_step_map shape) and save/load |
 | `scripts/main.gd`, `scenes/main.tscn`, `scenes/menu.tscn` | Scene wiring; Kenney View/Camera/GridMap/Sun/CanvasLayer nodes are kept |
 
