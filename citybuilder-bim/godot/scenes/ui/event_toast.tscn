@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/event_toast.gd" id="1_s"]
+
+[node name="EventToast" type="PanelContainer"]
+script = ExtResource("1_s")
