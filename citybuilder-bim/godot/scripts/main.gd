@@ -23,6 +23,8 @@ var inspector: ZoneInspector = null
 var procurement: ProcurementPanel = null
 var charts: ChartsPanel = null
 var gantt: GanttPanel = null
+var seq_editor: SequenceEditor = null
+var whats_needed: WhatsNeededDialog = null
 var toast: EventToast = null
 var report: Report = null
 var hint_bar: HintBar = null
@@ -149,6 +151,19 @@ func _build_ui() -> void:
     ui_root.add_child(gantt)
     gantt.setup(gs, gs.scenario.gantt_visible_default)
 
+    seq_editor = SequenceEditor.new()
+    seq_editor.name = "SequenceEditor"
+    UiStyle.place(seq_editor, Rect2(1, 0, 1, 1), Vector4(-1186, 96, -326, -8))
+    seq_editor.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+    ui_root.add_child(seq_editor)
+    seq_editor.setup(gs, bim_view)
+    inspector.gs_kit_colours = bim_view != null and bim_view.marker_mesh_provider.is_valid()
+
+    whats_needed = WhatsNeededDialog.new()
+    whats_needed.name = "WhatsNeededDialog"
+    ui_root.add_child(whats_needed)
+    whats_needed.setup(gs)
+
     hint_bar = _scene("res://scenes/ui/hint_bar.tscn") as HintBar
     UiStyle.place(hint_bar, Rect2(0.5, 1, 0.5, 1), Vector4(-290, -8, 290, -8))
     hint_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
@@ -179,6 +194,20 @@ func _wire() -> void:
     top_bar.menu_requested.connect(_to_menu)
     top_bar.gantt_toggled.connect(func() -> void: gantt.toggle())
     gantt.zone_selected.connect(_on_gantt_zone)
+    top_bar.sequence_toggled.connect(_toggle_sequence_editor)
+    inspector.sequence_editor_requested.connect(func(zid: String) -> void:
+        pinned_zone = zid
+        seq_editor.open_for_zone(zid)
+        _reflow_bottom())
+    inspector.whats_needed_requested.connect(func(zid: String) -> void: whats_needed.open_for_zone(zid))
+    seq_editor.whats_needed_requested.connect(func(zid: String, guid: String) -> void:
+        if guid != "":
+            whats_needed.open_for_element(guid)
+        else:
+            whats_needed.open_for_zone(zid))
+    seq_editor.message.connect(hint_bar.show_message)
+    seq_editor.closed.connect(_reflow_bottom)
+    whats_needed.message.connect(hint_bar.show_message)
     gantt.layout_changed.connect(_reflow_bottom)
     get_viewport().size_changed.connect(_reflow_bottom)
     crew_panel.crew_selected.connect(_on_crew_selected)
@@ -273,11 +302,18 @@ func _toggle_panel(n: String) -> void:
         p.visible = not p.visible
 
 
+## N key / top bar "N" button: toggles the sequence editor for the zone selected in the inspector.
+func _toggle_sequence_editor() -> void:
+    seq_editor.toggle(pinned_zone if pinned_zone != "" else inspector.zone_id)
+    _reflow_bottom()
+
+
 ## A zone picked in the timeline: pin it, show it in the inspector and follow its storey.
 func _on_gantt_zone(zone_id: String) -> void:
     pinned_zone = zone_id
     inspector.visible = true
     inspector.show_zone(zone_id)
+    seq_editor.show_zone(zone_id)
     gantt.select_zone(zone_id)
     var z: ZoneData = gs.bundle.zones_by_id.get(zone_id, null)
     if z != null and gs.bundle.storeys_by_id.has(z.storey_id):
@@ -294,6 +330,8 @@ func _reflow_bottom() -> void:
         var p: Control = c
         p.offset_top = -8.0 - inset
         p.offset_bottom = -8.0 - inset
+    if seq_editor != null:
+        seq_editor.offset_bottom = -8.0 - inset
     _update_camera_inset(inset)
 
 
@@ -318,6 +356,7 @@ func _on_zone_hovered(zone_id: String) -> void:
 func _on_zone_clicked(zone_id: String) -> void:
     pinned_zone = zone_id
     inspector.show_zone(zone_id)
+    seq_editor.show_zone(zone_id)
     if crew_panel.selected_crew_id >= 0:
         if gs.assign_crew(crew_panel.selected_crew_id, zone_id):
             var z: ZoneData = gs.bundle.zones_by_id[zone_id]
@@ -368,6 +407,8 @@ func _unhandled_input(event: InputEvent) -> void:
         _set_focus(gs.focus_storey_index - 1)
     elif event.is_action_pressed("gantt_toggle"):
         gantt.toggle()
+    elif event.is_action_pressed("sequence_editor_toggle"):
+        _toggle_sequence_editor()
     elif event.is_action_pressed("toggle_ghost"):
         bim_view.set_ghost_visible(not bim_view.show_ghost)
         hint_bar.show_message("Ghost elements: %s" % ("shown" if bim_view.show_ghost else "hidden"))

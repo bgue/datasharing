@@ -32,6 +32,7 @@ godot --path godot -- --scenario=minimal   # skip the menu
 | F1 / F2 | Save / load `user://save_<scenario>.json` |
 | F5 | Export `user://plan_export_<scenario>.json` + `.csv` |
 | T | Show / hide the timeline (Gantt) panel (also the `T` button in the top bar) |
+| N | Show / hide the sequence editor for the selected zone (also the `N` button in the top bar and "Sequence editor (N)" in the zone inspector) |
 
 Top bar: week / contract week, cash / budget, speed, panel toggles, phase tracker per storey
 (grey = not started, blue = in progress, green = complete). Panels: Crews (hire/fire, select a
@@ -87,6 +88,50 @@ Code: `scripts/ui/gantt_model.gd` (rows and bars from `ApiViews.gantt`, lanes, s
 `scripts/ui/gantt_renderer.gd` (`_draw` only, culled, `style_for`, hit testing, context menu actions),
 `scripts/ui/gantt_panel.gd` (header, filters, splitter, debounced refresh on `week_advanced`, `task_state_changed`,
 `crews_changed`, `package_state_changed`).
+
+## Sequence editor and "What's needed?" (docs/06 track A.2 / A.3)
+
+**Sequence editor** (`scripts/ui/sequence_editor.gd`, `N`): a panel docked at the right, left of the zone inspector, opened
+for the zone selected in the inspector (click a zone in Assign mode, in the timeline, or press the inspector's
+"Sequence editor (N)" button; it follows the pinned zone while open). Every action calls the same `Manual` functions as the
+API (`manual.*`), so the panel and the API server share one code path.
+
+* **Header**: zone name, **Manual mode** switch (`Manual.set_mode`: the generated packages of the zone freeze), **Apply recipe**
+  (recipes that apply to the zone, plus an "All recipes" submenu; `Manual.apply_recipe`), **What's needed?**, **Export**
+  (`Manual.export_doc` to `user://manual_<scenario>.json`, toast with the path), **Legend** (marker glyphs and colours).
+* **Left, step palette**: library steps grouped by phase (name, trade, face letter F / W / C / A) with a search box; recipes
+  below as expandable groups listing their steps. Double-click or **Add** adds the highlighted step; highlighting a recipe and
+  pressing Add applies the whole recipe.
+* **Middle, chain**: the zone's manual tasks in order (`#`, marker glyph or face letter, step, binding `virtual` / `N el.`,
+  quantity or duration, link type and lag, predecessors as row numbers, state). **Add** binds the step to the elements
+  highlighted in the right column (a small menu asks "bound or virtual"), or adds a virtual task when none are highlighted.
+  **Up / Down** or dragging a row re-orders the chain: the order is the dependency order, so moving a row re-links the rows
+  around it FS in the new order (each row keeps the lag of its previous link). **Remove** (successors inherit the row's
+  predecessors), **Auto-link** (every row FS to the previous one, existing links untouched), **Link to...** (follow another row,
+  FS / SS / FF with lag, cycles refused), **Lag** (days on the row's links), **Duration** (virtual tasks), **Hold point**
+  (makes the task an inspection of the chosen type). Rows that already started cannot be changed.
+* **Right, elements** of the zone (name, class, state, chain rows that bind them) with multi-select (Ctrl / Shift click) and a
+  filter. **Bind selected** adds them to the highlighted row (a virtual row becomes an element task). **Select in 3D**
+  calls `BimView.highlight_elements(guids)` when the 3D view has it (it does not yet: the button is disabled with a tooltip).
+  **What's needed?** opens the dialog for the first selected element.
+* **Bottom**: a one-lane timeline (the Gantt renderer in a single zone row) with one bar per chain task, and the legend.
+* Virtual tasks show their marker glyph and colour (survey S, dewatering D, scaffold C, lift plan L, permit P, test T,
+  shoring R, crane K, other V) in the editor rows, the lane, the zone inspector task list and the legend; the colours are the
+  ones `BimView` draws (placeholder cylinders, or the marker kit colours when kits are active).
+
+**What's needed?** (`scripts/ui/whats_needed_dialog.gd`): a dialog opened from the zone inspector button, the sequence editor
+(zone, or the selected element), for a zone or one element. Left: the recipes that apply, with `steps in place / total`.
+Right: summary, typical duration (weeks), prerequisites (equipment, site, permits, information) and the table of steps with
+status chips: **covered** (green, the task id), **virtual** (blue, the virtual task id), **missing** (grey); optional steps
+are in italics; zone scope counts any generated task of the step in the zone (tasks frozen by manual mode show "frozen" and do
+not cover). **Add missing** runs `Manual.apply_recipe` for the zone or element (the **Include optional steps** box adds the
+optional steps too; existing tasks are reused, never duplicated), **Open rationale** shows the recipe's summary, ordering
+logic, checks and references. Bundles without recipes show "No recipes available"; recipes that do not match show
+"No recipe applies here." Without a listener on `ZoneInspector.whats_needed_requested` the inspector falls back to printing
+the rows inline.
+
+Code: `sequence_editor.gd` (panel, built in code), `whats_needed_dialog.gd`, `marker_legend.gd` (glyphs, colours, legend).
+Tests: `tests/test_seq_editor.gd`, `tests/test_whats_needed.gd`.
 
 ## Control API (JSON-RPC 2.0 over WebSocket)
 
@@ -166,7 +211,7 @@ files, otherwise the global class cache is stale and scripts fail to parse.
 | `scripts/site_builder.gd`, `site_tile*.gd`, `road_autotile.gd` | Kenney builder adapted: logistics tiles on the GridMap, road auto-tiling |
 | `scripts/bim_view.gd` | MultiMesh stand-ins per `visual` kind, state tint and storey filter |
 | `scripts/zone_overlay.gd` | Zone quads, hover/click picking |
-| `scripts/ui/*.gd`, `scenes/ui/*.tscn` | HUD panels (theme built in code, Lilita One font); `gantt_*.gd` is the timeline (built in code, no scene) |
+| `scripts/ui/*.gd`, `scenes/ui/*.tscn` | HUD panels (theme built in code, Lilita One font); `gantt_*.gd` is the timeline (built in code, no scene); `sequence_editor.gd`, `whats_needed_dialog.gd`, `marker_legend.gd` author manual chains and explain recipes (built in code) |
 | `scripts/export/plan_export.gd`, `scripts/save_game.gd` | Plan export (element_step_map shape) and save/load |
 | `scripts/main.gd`, `scenes/main.tscn`, `scenes/menu.tscn` | Scene wiring; Kenney View/Camera/GridMap/Sun/CanvasLayer nodes are kept |
 

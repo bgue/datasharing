@@ -7,6 +7,10 @@ const GROUP_ORDER: Array[String] = ["ACTIVE", "REWORK", "AWAITING_INSPECTION", "
 const MAX_LINES_PER_GROUP: int = 7
 
 signal message(text: String)
+## "What's needed?" pressed: the owner opens the dialog. Without a listener the rows are printed inline (see _show_whats_needed).
+signal whats_needed_requested(zone_id: String)
+## "Sequence" pressed: the owner opens the sequence editor for the zone.
+signal sequence_editor_requested(zone_id: String)
 
 const MAX_PACKAGE_ROWS: int = 8
 
@@ -19,6 +23,8 @@ var _info: Label
 var _text: RichTextLabel
 var _lane: GanttRenderer
 var _dirty: bool = true
+## True when the 3D view draws marker kit meshes (set by main): the marker colours then follow the kit.
+var gs_kit_colours: bool = false
 ## Explain rows of "What's needed?" shown above the task list until the zone changes or the button is pressed again.
 var _explain_text: String = ""
 
@@ -130,7 +136,10 @@ func refresh() -> void:
             n += 1
             var st: StepDef = gs.bundle.step_of(task)
             var rt: TaskRuntime = gs.runtime[task.task_id]
-            var vtag: String = " [virtual]" if task.is_virtual else ""
+            var vtag: String = ""
+            if task.is_virtual:  # marker glyph and colour, as in the sequence editor and the 3D view
+                var mk: String = gs.marker_of(task)
+                vtag = "  [color=%s][b]%s[/b][/color] virtual" % [_hex(MarkerLegend.colour(mk, gs_kit_colours)), MarkerLegend.glyph(mk)]
             out += "  %s - %s (%s %s)%s\n" % [st.name if st != null else task.step_id, task.element_name, _num(task.quantity), task.unit, vtag]
             if s == "ACTIVE" or s == "REWORK":
                 out += "    [color=#9aa5b8]%d%% done[/color]\n" % int(100.0 * rt.progress / maxf(rt.required, 0.0001))
@@ -178,6 +187,9 @@ func _build_controls(z: ZoneData) -> void:
     needed.pressed.connect(func() -> void: _show_whats_needed(z.id))
     manual_row.add_child(needed)
     _controls.add_child(manual_row)
+    var seq := UiStyle.button("Sequence editor (N)", "Author the manual chain of this zone: steps, links, bound elements")
+    seq.pressed.connect(func() -> void: sequence_editor_requested.emit(z.id))
+    _controls.add_child(seq)
     var card_row := HBoxContainer.new()
     var opt := OptionButton.new()
     opt.focus_mode = Control.FOCUS_NONE
@@ -254,8 +266,12 @@ func _build_packages(z: ZoneData) -> void:
         _packages.add_child(row)
 
 
-## Prints the logic.explain rows of the zone into the text area (toggles).
+## Opens the What's needed? dialog when the owner listens to `whats_needed_requested`, else prints the
+## logic.explain rows of the zone into the text area (toggles).
 func _show_whats_needed(zid: String) -> void:
+    if not whats_needed_requested.get_connections().is_empty():
+        whats_needed_requested.emit(zid)
+        return
     if _explain_text != "":
         _explain_text = ""
         _dirty = true
