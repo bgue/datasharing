@@ -1,0 +1,961 @@
+{
+ "schema_version": "1.0",
+ "sector": "civil",
+ "step_library": "step_library.json",
+ "rules": [
+  {
+   "id": "R-tm-live-linear",
+   "description": "Utility and duct works in a live-traffic zone require stage 1 traffic management first (separate task, gated by same_zone predecessors).",
+   "priority": 400,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment",
+     "IfcCableCarrierSegment"
+    ],
+    "zone_tags_any": [
+     "live_traffic"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-TM-STAGE1",
+     "quantity": "length_m",
+     "min_quantity": 60
+    }
+   ],
+   "continue": true,
+   "chain": false,
+   "visual": "pipe"
+  },
+  {
+   "id": "R-tm-live-earth",
+   "description": "Earthworks in a live-traffic zone require stage 1 traffic management first.",
+   "priority": 395,
+   "match": {
+    "ifc_class": [
+     "IfcEarthworksCut",
+     "IfcEarthworksFill"
+    ],
+    "zone_tags_any": [
+     "live_traffic"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-TM-STAGE1",
+     "quantity": "area_m2",
+     "quantity_factor": 0.15,
+     "unit_override": "m",
+     "min_quantity": 60
+    }
+   ],
+   "continue": true,
+   "chain": false,
+   "visual": "earthwork"
+  },
+  {
+   "id": "R-tm-stage2-sign",
+   "description": "Temporary signs mark the stage 2 traffic switch: 100 m of taper and cones per sign.",
+   "priority": 390,
+   "match": {
+    "ifc_class": [
+     "IfcSign"
+    ],
+    "properties": {
+     "Temporary": true
+    }
+   },
+   "steps": [
+    {
+     "step": "CIV-TM-STAGE2",
+     "quantity": "count",
+     "quantity_factor": 100,
+     "unit_override": "m",
+     "min_quantity": 100
+    }
+   ],
+   "visual": "sign"
+  },
+  {
+   "id": "R-culvert",
+   "description": "Precast culvert: trench, set, backfill.",
+   "priority": 385,
+   "match": {
+    "ifc_class": [
+     "IfcBuildingElementProxy"
+    ],
+    "name_regex": "(?i)(culvert|box.?section|headwall)"
+   },
+   "steps": [
+    {
+     "step": "GEN-SETOUT",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CIV-TRENCH-DIG",
+     "quantity": "length_m",
+     "min_quantity": 6
+    },
+    {
+     "step": "CIV-CULVERT-SET",
+     "quantity": "length_m",
+     "min_quantity": 6
+    },
+    {
+     "step": "CIV-STRUCT-BACKFILL",
+     "quantity": "length_m",
+     "quantity_factor": 25,
+     "unit_override": "m3",
+     "min_quantity": 60
+    }
+   ],
+   "visual": "culvert"
+  },
+  {
+   "id": "R-earth-cut-bulk",
+   "description": "Deep cut: clear, excavate, formation test hold point.",
+   "priority": 380,
+   "match": {
+    "ifc_class": [
+     "IfcEarthworksCut"
+    ],
+    "quantity_min": {
+     "volume_m3": 70
+    }
+   },
+   "steps": [
+    {
+     "step": "GEN-SITE-CLEAR",
+     "quantity": "area_m2",
+     "min_quantity": 100
+    },
+    {
+     "step": "CIV-EARTH-CUT",
+     "quantity": "volume_m3"
+    },
+    {
+     "step": "CIV-COMPACT-TEST",
+     "quantity": "area_m2",
+     "min_quantity": 100
+    }
+   ],
+   "visual": "earthwork"
+  },
+  {
+   "id": "R-earth-cut",
+   "description": "Small cut, no separate test.",
+   "priority": 375,
+   "match": {
+    "ifc_class": [
+     "IfcEarthworksCut"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-EARTH-CUT",
+     "quantity": "volume_m3"
+    }
+   ],
+   "visual": "earthwork"
+  },
+  {
+   "id": "R-earth-fill-landscape",
+   "description": "Verges and landscape fill.",
+   "priority": 370,
+   "match": {
+    "ifc_class": [
+     "IfcEarthworksFill"
+    ],
+    "name_regex": "(?i)(topsoil|verge|landscape|seed|swale)"
+   },
+   "steps": [
+    {
+     "step": "CIV-LANDSCAPE",
+     "quantity": "area_m2",
+     "min_quantity": 50
+    }
+   ],
+   "visual": "earthwork"
+  },
+  {
+   "id": "R-earth-fill",
+   "description": "Embankment fill: starts when cutting has started project-wide.",
+   "priority": 365,
+   "match": {
+    "ifc_class": [
+     "IfcEarthworksFill"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-EARTH-FILL",
+     "quantity": "volume_m3"
+    },
+    {
+     "step": "CIV-COMPACT-TEST",
+     "quantity": "area_m2",
+     "min_quantity": 100
+    }
+   ],
+   "visual": "earthwork"
+  },
+  {
+   "id": "R-pilecap",
+   "description": "Pile cap after piles.",
+   "priority": 360,
+   "match": {
+    "ifc_class": [
+     "IfcFooting",
+     "IfcDeepFoundation"
+    ],
+    "name_regex": "(?i)pile.?cap"
+   },
+   "steps": [
+    {
+     "step": "STR-CAP-REBAR",
+     "quantity": "volume_m3",
+     "quantity_factor": 0.12,
+     "unit_override": "t"
+    },
+    {
+     "step": "STR-CAP-POUR",
+     "quantity": "volume_m3"
+    }
+   ],
+   "visual": "footing"
+  },
+  {
+   "id": "R-pile",
+   "description": "Bridge piles with integrity test.",
+   "priority": 355,
+   "match": {
+    "ifc_class": [
+     "IfcPile",
+     "IfcDeepFoundation"
+    ]
+   },
+   "steps": [
+    {
+     "step": "GEN-SETOUT",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CIV-PILE-DRIVE",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "pile"
+  },
+  {
+   "id": "R-footing",
+   "description": "Spread footings for walls, gantries and small buildings.",
+   "priority": 350,
+   "match": {
+    "ifc_class": [
+     "IfcFooting"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-EARTH-CUT",
+     "quantity": "volume_m3",
+     "quantity_factor": 2.5,
+     "unit_override": "m3"
+    },
+    {
+     "step": "STR-FOOT-REBAR",
+     "quantity": "volume_m3",
+     "quantity_factor": 0.1,
+     "unit_override": "t"
+    },
+    {
+     "step": "STR-FOOT-POUR",
+     "quantity": "volume_m3"
+    }
+   ],
+   "visual": "footing"
+  },
+  {
+   "id": "R-bearing",
+   "description": "Bearings after piers: 10 week lead.",
+   "priority": 345,
+   "match": {
+    "ifc_class": [
+     "IfcBearing"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-BEARING-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "generic"
+  },
+  {
+   "id": "R-steel-members",
+   "description": "Steel girders, gantries and members.",
+   "priority": 340,
+   "match": {
+    "ifc_class": [
+     "IfcBeam",
+     "IfcMember",
+     "IfcPlate"
+    ],
+    "material_regex": "(?i)(steel|s355|s275|metal)"
+   },
+   "steps": [
+    {
+     "step": "STR-STEEL-ERECT",
+     "quantity": "weight_t",
+     "min_quantity": 0.05
+    }
+   ],
+   "visual": "beam"
+  },
+  {
+   "id": "R-bridge-girder",
+   "description": "Precast bridge beam: crane plus night closure after piers and bearings.",
+   "priority": 335,
+   "match": {
+    "ifc_class": [
+     "IfcBeam"
+    ],
+    "properties_present": [
+     "BridgePart"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-BEAM-LIFT",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "beam"
+  },
+  {
+   "id": "R-beam-cast",
+   "description": "Cast crossheads and capping beams.",
+   "priority": 330,
+   "match": {
+    "ifc_class": [
+     "IfcBeam"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-PIER-POUR",
+     "quantity": "volume_m3"
+    }
+   ],
+   "visual": "beam"
+  },
+  {
+   "id": "R-deck",
+   "description": "Bridge deck: reinforce, pour, waterproof.",
+   "priority": 325,
+   "match": {
+    "ifc_class": [
+     "IfcSlab"
+    ],
+    "properties_present": [
+     "BridgePart"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-DECK-REBAR",
+     "quantity": "volume_m3",
+     "quantity_factor": 0.2,
+     "unit_override": "t"
+    },
+    {
+     "step": "STR-DECK-POUR",
+     "quantity": "volume_m3"
+    },
+    {
+     "step": "STR-DECK-WATERPROOF",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "deck"
+  },
+  {
+   "id": "R-slab",
+   "description": "Approach slabs, base slabs, steps and ramps.",
+   "priority": 320,
+   "match": {
+    "ifc_class": [
+     "IfcSlab",
+     "IfcRamp",
+     "IfcStair"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-SLAB-POUR",
+     "quantity": "volume_m3"
+    }
+   ],
+   "visual": "slab"
+  },
+  {
+   "id": "R-column-pier",
+   "description": "Pier after pile cap.",
+   "priority": 315,
+   "match": {
+    "ifc_class": [
+     "IfcColumn"
+    ],
+    "properties_present": [
+     "BridgePart"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-PIER-POUR",
+     "quantity": "volume_m3"
+    }
+   ],
+   "visual": "pier"
+  },
+  {
+   "id": "R-column-light",
+   "description": "Lighting columns and masts.",
+   "priority": 310,
+   "match": {
+    "ifc_class": [
+     "IfcColumn"
+    ],
+    "name_regex": "(?i)(light|mast|pole|gantry|sign)"
+   },
+   "steps": [
+    {
+     "step": "CIV-LIGHT-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "sign"
+  },
+  {
+   "id": "R-column",
+   "description": "Cast columns.",
+   "priority": 305,
+   "match": {
+    "ifc_class": [
+     "IfcColumn"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-PIER-POUR",
+     "quantity": "volume_m3"
+    }
+   ],
+   "visual": "column"
+  },
+  {
+   "id": "R-wall-abutment",
+   "description": "Abutment and wing walls.",
+   "priority": 300,
+   "match": {
+    "ifc_class": [
+     "IfcWall",
+     "IfcWallStandardCase"
+    ],
+    "properties_present": [
+     "BridgePart"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-ABUT-POUR",
+     "quantity": "area_m2",
+     "quantity_factor": 0.6,
+     "unit_override": "m3"
+    },
+    {
+     "step": "CIV-STRUCT-BACKFILL",
+     "quantity": "area_m2",
+     "quantity_factor": 2.0,
+     "unit_override": "m3"
+    }
+   ],
+   "visual": "pier"
+  },
+  {
+   "id": "R-wall-retaining",
+   "description": "Retaining and noise walls with backfill.",
+   "priority": 295,
+   "match": {
+    "ifc_class": [
+     "IfcWall",
+     "IfcWallStandardCase"
+    ],
+    "name_regex": "(?i)(retain|noise|barrier|wing|abutment|headwall|culvert)"
+   },
+   "steps": [
+    {
+     "step": "STR-WALL-POUR",
+     "quantity": "area_m2",
+     "quantity_factor": 0.35,
+     "unit_override": "m3"
+    },
+    {
+     "step": "CIV-STRUCT-BACKFILL",
+     "quantity": "area_m2",
+     "quantity_factor": 1.5,
+     "unit_override": "m3"
+    }
+   ],
+   "visual": "wall"
+  },
+  {
+   "id": "R-wall",
+   "description": "Other walls.",
+   "priority": 290,
+   "match": {
+    "ifc_class": [
+     "IfcWall",
+     "IfcWallStandardCase"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-WALL-POUR",
+     "quantity": "area_m2",
+     "quantity_factor": 0.25,
+     "unit_override": "m3"
+    }
+   ],
+   "visual": "wall"
+  },
+  {
+   "id": "R-building-shell",
+   "description": "Envelope of small buildings (pump station, cabin).",
+   "priority": 285,
+   "match": {
+    "ifc_class": [
+     "IfcCurtainWall",
+     "IfcRoof",
+     "IfcCovering"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-BLDG-ENVELOPE",
+     "quantity": "area_m2",
+     "min_quantity": 5
+    }
+   ],
+   "visual": "roof"
+  },
+  {
+   "id": "R-door-window",
+   "description": "Doors and windows after host.",
+   "priority": 280,
+   "match": {
+    "ifc_class": [
+     "IfcDoor",
+     "IfcWindow"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-BLDG-FITOUT",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "door"
+  },
+  {
+   "id": "R-railing-bridge",
+   "description": "Bridge barriers after deck.",
+   "priority": 275,
+   "match": {
+    "ifc_class": [
+     "IfcRailing"
+    ],
+    "properties_present": [
+     "BridgePart"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-PARAPET-INSTALL",
+     "quantity": "length_m",
+     "min_quantity": 5
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "barrier"
+  },
+  {
+   "id": "R-railing",
+   "description": "Roadside safety barrier.",
+   "priority": 270,
+   "match": {
+    "ifc_class": [
+     "IfcRailing"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-GUARDRAIL-INSTALL",
+     "quantity": "length_m",
+     "min_quantity": 5
+    }
+   ],
+   "visual": "barrier"
+  },
+  {
+   "id": "R-kerb",
+   "description": "Kerb and channel.",
+   "priority": 265,
+   "match": {
+    "ifc_class": [
+     "IfcKerb"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-KERB-LAY",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "kerb"
+  },
+  {
+   "id": "R-sign",
+   "description": "Signs and gantries.",
+   "priority": 260,
+   "match": {
+    "ifc_class": [
+     "IfcSign"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-SIGN-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "sign"
+  },
+  {
+   "id": "R-course-subbase",
+   "description": "Subgrade and subbase layers.",
+   "priority": 255,
+   "match": {
+    "ifc_class": [
+     "IfcCourse",
+     "IfcPavement"
+    ],
+    "name_regex": "(?i)(sub.?base|sub.?grade|capping|formation|select)"
+   },
+   "steps": [
+    {
+     "step": "CIV-SUBGRADE-PREP",
+     "quantity": "area_m2"
+    },
+    {
+     "step": "CIV-SUBBASE-LAY",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "pavement"
+  },
+  {
+   "id": "R-course-base",
+   "description": "Road base and asphalt binder layers.",
+   "priority": 250,
+   "match": {
+    "ifc_class": [
+     "IfcCourse",
+     "IfcPavement"
+    ],
+    "name_regex": "(?i)(base|binder)"
+   },
+   "steps": [
+    {
+     "step": "CIV-BASE-LAY",
+     "quantity": "area_m2"
+    },
+    {
+     "step": "CIV-ASPHALT-BASE",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "pavement"
+  },
+  {
+   "id": "R-course-wearing",
+   "description": "Wearing course, then markings and handover pack.",
+   "priority": 245,
+   "match": {
+    "ifc_class": [
+     "IfcCourse",
+     "IfcPavement"
+    ],
+    "name_regex": "(?i)(wear|surfac|asphalt|seal|top.?course)"
+   },
+   "steps": [
+    {
+     "step": "CIV-ASPHALT-WEAR",
+     "quantity": "area_m2"
+    },
+    {
+     "step": "CIV-MARKING-APPLY",
+     "quantity": "area_m2",
+     "quantity_factor": 0.35,
+     "unit_override": "m"
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "pavement"
+  },
+  {
+   "id": "R-pavement",
+   "description": "Whole pavement structure as one element: all layers in order.",
+   "priority": 240,
+   "match": {
+    "ifc_class": [
+     "IfcPavement",
+     "IfcCourse"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-SUBGRADE-PREP",
+     "quantity": "area_m2"
+    },
+    {
+     "step": "CIV-SUBBASE-LAY",
+     "quantity": "area_m2"
+    },
+    {
+     "step": "CIV-BASE-LAY",
+     "quantity": "area_m2"
+    },
+    {
+     "step": "CIV-ASPHALT-BASE",
+     "quantity": "area_m2"
+    },
+    {
+     "step": "CIV-ASPHALT-WEAR",
+     "quantity": "area_m2"
+    },
+    {
+     "step": "CIV-MARKING-APPLY",
+     "quantity": "area_m2",
+     "quantity_factor": 0.35,
+     "unit_override": "m"
+    },
+    {
+     "step": "GEN-PUNCH-CLEAR",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "pavement"
+  },
+  {
+   "id": "R-pipe-utility",
+   "description": "Utility diversions before earthworks.",
+   "priority": 235,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ],
+    "storey_index_max": -1,
+    "name_regex": "(?i)(utility|water|gas|telecom|power|divert|main)"
+   },
+   "steps": [
+    {
+     "step": "CIV-UTIL-DIVERT",
+     "quantity": "length_m"
+    },
+    {
+     "step": "CIV-UTIL-TEST",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "pipe"
+  },
+  {
+   "id": "R-pipe-drain",
+   "description": "Drainage: trench, lay, test, backfill; must precede pavement.",
+   "priority": 230,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-TRENCH-DIG",
+     "quantity": "length_m"
+    },
+    {
+     "step": "CIV-DRAIN-INSTALL",
+     "quantity": "length_m"
+    },
+    {
+     "step": "CIV-DRAIN-TEST",
+     "quantity": "length_m"
+    },
+    {
+     "step": "CIV-DRAIN-BACKFILL",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "pipe"
+  },
+  {
+   "id": "R-fitting",
+   "description": "Fittings installed with the run.",
+   "priority": 225,
+   "match": {
+    "ifc_class": [
+     "IfcPipeFitting",
+     "IfcDuctFitting"
+    ]
+   },
+   "steps": [
+    {
+     "step": "GEN-ELEM-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "pipe"
+  },
+  {
+   "id": "R-duct",
+   "description": "Cable ducts and carriers below pavement.",
+   "priority": 220,
+   "match": {
+    "ifc_class": [
+     "IfcDuctSegment",
+     "IfcCableCarrierSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-DUCT-LAY",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "cable_tray"
+  },
+  {
+   "id": "R-cable",
+   "description": "Cable pull for lighting and ITS.",
+   "priority": 215,
+   "match": {
+    "ifc_class": [
+     "IfcCableSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-CABLE-PULL",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "cable_tray"
+  },
+  {
+   "id": "R-chamber",
+   "description": "Manholes and gullies.",
+   "priority": 210,
+   "match": {
+    "ifc_class": [
+     "IfcDistributionChamberElement"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-CHAMBER-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "generic"
+  },
+  {
+   "id": "R-lighting",
+   "description": "Luminaires and other terminals.",
+   "priority": 205,
+   "match": {
+    "ifc_class": [
+     "IfcFlowTerminal",
+     "IfcLightFixture",
+     "IfcAirTerminal",
+     "IfcSanitaryTerminal"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-LIGHT-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "terminal"
+  },
+  {
+   "id": "R-equipment",
+   "description": "Pump station and roadside equipment.",
+   "priority": 200,
+   "match": {
+    "ifc_class": [
+     "IfcFlowMovingDevice",
+     "IfcEnergyConversionDevice",
+     "IfcFlowStorageDevice",
+     "IfcFlowController",
+     "IfcElectricDistributionBoard",
+     "IfcTransformer"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-EQUIP-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  }
+ ],
+ "default": {
+  "steps": [
+   {
+    "step": "GEN-ELEM-INSTALL",
+    "quantity": "count",
+    "min_quantity": 1
+   }
+  ],
+  "visual": "generic"
+ }
+}

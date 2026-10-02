@@ -1,0 +1,2112 @@
+{
+ "schema_version": "1.0",
+ "sector": "civil",
+ "phases": [
+  {
+   "id": "mobilise",
+   "name": "Mobilise",
+   "order": 0,
+   "description": "Site set-up, survey control and clearing."
+  },
+  {
+   "id": "traffic_stage_1",
+   "name": "Traffic stage 1",
+   "order": 1,
+   "description": "Close lanes and install temporary traffic management so work can start in the corridor."
+  },
+  {
+   "id": "utilities",
+   "name": "Utilities",
+   "order": 2,
+   "description": "Divert and prove existing services before the ground is opened."
+  },
+  {
+   "id": "earthworks",
+   "name": "Earthworks",
+   "order": 3,
+   "description": "Bulk cut and fill; cut feeds fill project-wide."
+  },
+  {
+   "id": "drainage",
+   "name": "Drainage and ducts",
+   "order": 4,
+   "description": "Trenching, pipe, chambers and cable ducts below the pavement."
+  },
+  {
+   "id": "structures",
+   "name": "Structures",
+   "order": 5,
+   "description": "Piles, caps, piers, abutments, bearings, beams, deck, parapets, culverts and retaining walls."
+  },
+  {
+   "id": "traffic_stage_2",
+   "name": "Traffic stage 2",
+   "order": 6,
+   "description": "Switch traffic onto the completed carriageway so the rest can be built."
+  },
+  {
+   "id": "pavement",
+   "name": "Pavement",
+   "order": 7,
+   "description": "Subgrade, subbase, base, kerbs and asphalt."
+  },
+  {
+   "id": "finishing",
+   "name": "Finishing",
+   "order": 8,
+   "description": "Markings, signs, guardrail, lighting, landscape and building fit-out."
+  },
+  {
+   "id": "handover",
+   "name": "Handover",
+   "order": 9,
+   "description": "Documentation and final close-out."
+  }
+ ],
+ "trades": [
+  {
+   "id": "earthworks",
+   "name": "Earthworks crew",
+   "weekly_cost": 10500,
+   "crew_size": 6,
+   "max_hire_per_week": 2,
+   "color": "#a0793d"
+  },
+  {
+   "id": "utilities",
+   "name": "Utilities and drainage crew",
+   "weekly_cost": 9500,
+   "crew_size": 6,
+   "max_hire_per_week": 2,
+   "color": "#3f7fbf"
+  },
+  {
+   "id": "piling",
+   "name": "Piling crew",
+   "weekly_cost": 13500,
+   "crew_size": 5,
+   "max_hire_per_week": 1,
+   "color": "#7a5bd0"
+  },
+  {
+   "id": "concrete",
+   "name": "Structures concrete crew",
+   "weekly_cost": 10000,
+   "crew_size": 6,
+   "max_hire_per_week": 2,
+   "color": "#8d8d8d"
+  },
+  {
+   "id": "erection",
+   "name": "Bridge erection crew",
+   "weekly_cost": 13000,
+   "crew_size": 6,
+   "max_hire_per_week": 1,
+   "color": "#d8553c"
+  },
+  {
+   "id": "paving",
+   "name": "Paving crew",
+   "weekly_cost": 12000,
+   "crew_size": 8,
+   "max_hire_per_week": 1,
+   "color": "#4a4a4a"
+  },
+  {
+   "id": "traffic",
+   "name": "Traffic management crew",
+   "weekly_cost": 6500,
+   "crew_size": 4,
+   "max_hire_per_week": 3,
+   "color": "#f5a623"
+  },
+  {
+   "id": "finishing",
+   "name": "Finishing and signage crew",
+   "weekly_cost": 7000,
+   "crew_size": 4,
+   "max_hire_per_week": 2,
+   "color": "#d9a066"
+  },
+  {
+   "id": "qa",
+   "name": "Survey and QA team",
+   "weekly_cost": 6000,
+   "crew_size": 3,
+   "max_hire_per_week": 2,
+   "color": "#4caf50"
+  }
+ ],
+ "steps": [
+  {
+   "id": "GEN-SETOUT",
+   "name": "Survey setting-out",
+   "phase": "mobilise",
+   "trade": "qa",
+   "discipline": "general",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 12,
+   "unit_cost": 120,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.05,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [],
+   "tags": [
+    "qa"
+   ]
+  },
+  {
+   "id": "GEN-SITE-CLEAR",
+   "name": "Clear and grub corridor",
+   "phase": "mobilise",
+   "trade": "earthworks",
+   "discipline": "civil",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 1500,
+   "unit_cost": 2.5,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.25,
+   "weather_sensitive": true,
+   "noisy": true,
+   "dusty": true,
+   "progress_visual": "framed",
+   "predecessors": [],
+   "tags": [
+    "weather_sensitive",
+    "noisy",
+    "dusty",
+    "earthworks"
+   ]
+  },
+  {
+   "id": "CIV-TM-STAGE1",
+   "name": "Traffic management stage 1: close lane and set cones",
+   "description": "Closing a lane costs public goodwill every week it stays closed.",
+   "phase": "traffic_stage_1",
+   "trade": "traffic",
+   "discipline": "civil",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 400,
+   "unit_cost": 18,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.5,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [],
+   "tags": [
+    "live_traffic",
+    "traffic_management",
+    "high_risk",
+    "traffic"
+   ]
+  },
+  {
+   "id": "CIV-UTIL-DIVERT",
+   "name": "Divert or protect existing utility",
+   "description": "Must be proven clear before earthworks in the same zone, or a strike is on the cards.",
+   "phase": "utilities",
+   "trade": "utilities",
+   "discipline": "civil",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 40,
+   "unit_cost": 380,
+   "min_duration_days": 2,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.55,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "CIV-TM-STAGE1",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-SITE-CLEAR",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-SETOUT",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "utility_divert",
+    "weather_sensitive",
+    "high_risk",
+    "utilities"
+   ]
+  },
+  {
+   "id": "CIV-UTIL-TEST",
+   "name": "Prove diverted service",
+   "phase": "utilities",
+   "trade": "utilities",
+   "discipline": "civil",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 300,
+   "unit_cost": 6,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "pressure_test",
+   "risk": 0.2,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "CIV-UTIL-DIVERT",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "utilities"
+   ]
+  },
+  {
+   "id": "CIV-EARTH-CUT",
+   "name": "Excavate cut to formation",
+   "phase": "earthworks",
+   "trade": "earthworks",
+   "discipline": "civil",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 600,
+   "unit_cost": 7,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.4,
+   "weather_sensitive": true,
+   "noisy": true,
+   "dusty": true,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "GEN-SETOUT",
+     "scope": "same_element"
+    },
+    {
+     "step": "CIV-UTIL-DIVERT",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-UTIL-TEST",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-SITE-CLEAR",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-TM-STAGE1",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "excavation",
+    "weather_sensitive",
+    "noisy",
+    "dusty",
+    "earthworks"
+   ]
+  },
+  {
+   "id": "CIV-EARTH-FILL",
+   "name": "Place and compact fill",
+   "description": "Fill can start once cutting has started project-wide: hauled cut material feeds the embankments.",
+   "phase": "earthworks",
+   "trade": "earthworks",
+   "discipline": "civil",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 450,
+   "unit_cost": 12,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": true,
+   "noisy": true,
+   "dusty": true,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "GEN-SETOUT",
+     "scope": "same_element"
+    },
+    {
+     "step": "CIV-EARTH-CUT",
+     "scope": "project",
+     "type": "SS",
+     "lag_days": 5
+    },
+    {
+     "step": "CIV-UTIL-TEST",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "excavation",
+    "weather_sensitive",
+    "noisy",
+    "dusty",
+    "earthworks"
+   ]
+  },
+  {
+   "id": "CIV-COMPACT-TEST",
+   "name": "Formation and compaction test",
+   "phase": "earthworks",
+   "trade": "qa",
+   "discipline": "civil",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 2500,
+   "unit_cost": 3,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "geotechnical",
+   "risk": 0.05,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "CIV-EARTH-CUT",
+     "scope": "same_element"
+    },
+    {
+     "step": "CIV-EARTH-FILL",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "qa"
+   ]
+  },
+  {
+   "id": "CIV-TRENCH-DIG",
+   "name": "Dig drainage or culvert trench",
+   "phase": "drainage",
+   "trade": "earthworks",
+   "discipline": "civil",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 70,
+   "unit_cost": 15,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.45,
+   "weather_sensitive": true,
+   "noisy": true,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "GEN-SETOUT",
+     "scope": "same_element"
+    },
+    {
+     "step": "CIV-EARTH-CUT",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-EARTH-FILL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-UTIL-TEST",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "excavation",
+    "weather_sensitive",
+    "noisy",
+    "earthworks"
+   ]
+  },
+  {
+   "id": "CIV-DRAIN-INSTALL",
+   "name": "Lay drainage pipe",
+   "phase": "drainage",
+   "trade": "utilities",
+   "discipline": "civil",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 30,
+   "unit_cost": 260,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.35,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "CIV-TRENCH-DIG",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "utilities"
+   ]
+  },
+  {
+   "id": "CIV-DRAIN-TEST",
+   "name": "CCTV and air test drain",
+   "phase": "drainage",
+   "trade": "qa",
+   "discipline": "civil",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 250,
+   "unit_cost": 5,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "plumbing",
+   "risk": 0.1,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "CIV-DRAIN-INSTALL",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "qa"
+   ]
+  },
+  {
+   "id": "CIV-DRAIN-BACKFILL",
+   "name": "Backfill and compact trench",
+   "phase": "drainage",
+   "trade": "earthworks",
+   "discipline": "civil",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 60,
+   "unit_cost": 28,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.25,
+   "weather_sensitive": true,
+   "noisy": true,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "CIV-DRAIN-TEST",
+     "scope": "same_element",
+     "required": true
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "noisy",
+    "earthworks"
+   ]
+  },
+  {
+   "id": "CIV-CHAMBER-SET",
+   "name": "Set manhole or gully chamber",
+   "phase": "drainage",
+   "trade": "utilities",
+   "discipline": "civil",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 3,
+   "unit_cost": 3200,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.4,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "CIV-TRENCH-DIG",
+     "scope": "same_cell"
+    },
+    {
+     "step": "CIV-EARTH-FILL",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "heavy_lift",
+    "utilities"
+   ]
+  },
+  {
+   "id": "CIV-DUCT-LAY",
+   "name": "Lay cable duct and carrier",
+   "phase": "drainage",
+   "trade": "utilities",
+   "discipline": "civil",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 120,
+   "unit_cost": 55,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.25,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "CIV-EARTH-CUT",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-EARTH-FILL",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "utilities"
+   ]
+  },
+  {
+   "id": "CIV-PILE-DRIVE",
+   "name": "Drive or bore pile",
+   "description": "Needs a piling rig on a stable platform; integrity test is a hold point.",
+   "phase": "structures",
+   "trade": "piling",
+   "discipline": "civil",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 3,
+   "unit_cost": 6500,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "geotechnical",
+   "risk": 0.6,
+   "weather_sensitive": false,
+   "noisy": true,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "GEN-SETOUT",
+     "scope": "same_element"
+    },
+    {
+     "step": "CIV-EARTH-CUT",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-TM-STAGE1",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "piling",
+    "noisy",
+    "hold_point",
+    "high_risk"
+   ]
+  },
+  {
+   "id": "STR-CAP-REBAR",
+   "name": "Fix pile cap reinforcement",
+   "phase": "structures",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 1.8,
+   "unit_cost": 1850,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "CIV-PILE-DRIVE",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-CAP-POUR",
+   "name": "Pour pile cap",
+   "phase": "structures",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 10,
+   "unit_cost": 240,
+   "min_duration_days": 2,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.3,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-CAP-REBAR",
+     "scope": "same_element"
+    },
+    {
+     "step": "CIV-PILE-DRIVE",
+     "scope": "same_cell",
+     "required": true
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "hold_point",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-PIER-POUR",
+   "name": "Form, reinforce and pour pier or column",
+   "phase": "structures",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 5,
+   "unit_cost": 650,
+   "min_duration_days": 3,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.5,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-CAP-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "heavy_lift",
+    "hold_point",
+    "high_risk",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-ABUT-POUR",
+   "name": "Pour abutment or wing wall",
+   "phase": "structures",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 8,
+   "unit_cost": 420,
+   "min_duration_days": 3,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.4,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-CAP-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "CIV-PILE-DRIVE",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "hold_point",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-FOOT-REBAR",
+   "name": "Fix footing reinforcement",
+   "phase": "structures",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 2.0,
+   "unit_cost": 1850,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.2,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "CIV-EARTH-CUT",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-FOOT-POUR",
+   "name": "Pour footing",
+   "phase": "structures",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 12,
+   "unit_cost": 210,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.25,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-FOOT-REBAR",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "hold_point",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-WALL-POUR",
+   "name": "Pour retaining or building wall",
+   "phase": "structures",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 10,
+   "unit_cost": 250,
+   "min_duration_days": 2,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-SLAB-POUR",
+   "name": "Pour approach slab or base slab",
+   "phase": "structures",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 12,
+   "unit_cost": 260,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.2,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-ABUT-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "CIV-STRUCT-BACKFILL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "hold_point",
+    "concrete"
+   ]
+  },
+  {
+   "id": "CIV-STRUCT-BACKFILL",
+   "name": "Backfill behind structure",
+   "phase": "structures",
+   "trade": "earthworks",
+   "discipline": "civil",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 350,
+   "unit_cost": 18,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": true,
+   "noisy": true,
+   "dusty": true,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-ABUT-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-WALL-POUR",
+     "scope": "same_element"
+    },
+    {
+     "step": "CIV-CULVERT-SET",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "noisy",
+    "dusty",
+    "earthworks"
+   ]
+  },
+  {
+   "id": "STR-BEARING-SET",
+   "name": "Set bridge bearings",
+   "description": "10 week lead; beams cannot land until the bearings are on the piers.",
+   "phase": "structures",
+   "trade": "erection",
+   "discipline": "structure",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 4,
+   "unit_cost": 4500,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 10,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.5,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-PIER-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-ABUT-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "bearing",
+    "heavy_lift",
+    "long_lead",
+    "hold_point",
+    "high_risk",
+    "erection"
+   ]
+  },
+  {
+   "id": "STR-BEAM-LIFT",
+   "name": "Lift precast beam (night closure)",
+   "description": "Crane plus night road closure. The riskiest step on the job.",
+   "phase": "structures",
+   "trade": "erection",
+   "discipline": "structure",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 2,
+   "unit_cost": 38000,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 3,
+   "lead_time_weeks": 10,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.85,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-PIER-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-BEARING-SET",
+     "scope": "same_cell",
+     "required": true
+    },
+    {
+     "step": "STR-ABUT-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "CIV-TM-STAGE1",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "road_closure",
+    "night_work",
+    "bridge_beam",
+    "heavy_lift",
+    "long_lead",
+    "hold_point",
+    "high_risk",
+    "erection"
+   ]
+  },
+  {
+   "id": "STR-STEEL-ERECT",
+   "name": "Erect steel girder, gantry or member",
+   "phase": "structures",
+   "trade": "erection",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 10,
+   "unit_cost": 3500,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 8,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.7,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-PIER-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-BEARING-SET",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "bridge_beam",
+    "heavy_lift",
+    "long_lead",
+    "high_risk",
+    "erection"
+   ]
+  },
+  {
+   "id": "STR-DECK-REBAR",
+   "name": "Fix deck reinforcement and formwork",
+   "phase": "structures",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 2.0,
+   "unit_cost": 1850,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.45,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "STR-BEAM-LIFT",
+     "scope": "same_cell",
+     "required": true
+    },
+    {
+     "step": "STR-STEEL-ERECT",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-DECK-POUR",
+   "name": "Pour bridge deck",
+   "phase": "structures",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 14,
+   "unit_cost": 380,
+   "min_duration_days": 2,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.5,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-DECK-REBAR",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "hold_point",
+    "high_risk",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-DECK-WATERPROOF",
+   "name": "Waterproof deck",
+   "phase": "structures",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 150,
+   "unit_cost": 28,
+   "min_duration_days": 2,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.25,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-DECK-POUR",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-PARAPET-INSTALL",
+   "name": "Install bridge parapet or barrier",
+   "phase": "structures",
+   "trade": "erection",
+   "discipline": "structure",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 20,
+   "unit_cost": 480,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.55,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-DECK-POUR",
+     "scope": "same_cell",
+     "required": true
+    },
+    {
+     "step": "STR-DECK-WATERPROOF",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "heavy_lift",
+    "high_risk",
+    "erection"
+   ]
+  },
+  {
+   "id": "CIV-CULVERT-SET",
+   "name": "Set precast culvert units",
+   "phase": "structures",
+   "trade": "erection",
+   "discipline": "structure",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 12,
+   "unit_cost": 2400,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 3,
+   "lead_time_weeks": 6,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.6,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "CIV-TRENCH-DIG",
+     "scope": "same_element"
+    },
+    {
+     "step": "CIV-UTIL-TEST",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "heavy_lift",
+    "long_lead",
+    "hold_point",
+    "high_risk",
+    "erection"
+   ]
+  },
+  {
+   "id": "CIV-EQUIP-SET",
+   "name": "Set pump, cabinet or equipment item",
+   "phase": "structures",
+   "trade": "utilities",
+   "discipline": "civil",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 2,
+   "unit_cost": 12000,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 12,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.5,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "heavy_lift",
+    "long_lead",
+    "high_risk",
+    "utilities"
+   ]
+  },
+  {
+   "id": "GEN-ELEM-INSTALL",
+   "name": "Install miscellaneous element",
+   "description": "Default step for any element no rule matched. Shows up in the authoring feedback list.",
+   "phase": "structures",
+   "trade": "concrete",
+   "discipline": "general",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 6,
+   "unit_cost": 900,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.15,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [],
+   "tags": [
+    "concrete"
+   ]
+  },
+  {
+   "id": "CIV-TM-STAGE2",
+   "name": "Traffic management stage 2: switch traffic",
+   "description": "Traffic moves to the completed carriageway; the old lane is released for pavement.",
+   "phase": "traffic_stage_2",
+   "trade": "traffic",
+   "discipline": "civil",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 300,
+   "unit_cost": 24,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.55,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "STR-PARAPET-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-STRUCT-BACKFILL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-TM-STAGE1",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "live_traffic",
+    "traffic_management",
+    "high_risk",
+    "traffic"
+   ]
+  },
+  {
+   "id": "CIV-SUBGRADE-PREP",
+   "name": "Prepare and proof-roll subgrade",
+   "phase": "pavement",
+   "trade": "earthworks",
+   "discipline": "civil",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 1500,
+   "unit_cost": 3,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "geotechnical",
+   "risk": 0.3,
+   "weather_sensitive": true,
+   "noisy": true,
+   "dusty": true,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "CIV-EARTH-FILL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-DRAIN-BACKFILL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-CHAMBER-SET",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-DUCT-LAY",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-TM-STAGE2",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "noisy",
+    "dusty",
+    "hold_point",
+    "earthworks"
+   ]
+  },
+  {
+   "id": "CIV-SUBBASE-LAY",
+   "name": "Lay and compact subbase",
+   "phase": "pavement",
+   "trade": "earthworks",
+   "discipline": "civil",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 1200,
+   "unit_cost": 14,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": true,
+   "noisy": true,
+   "dusty": true,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "CIV-SUBGRADE-PREP",
+     "scope": "same_cell"
+    },
+    {
+     "step": "CIV-DRAIN-INSTALL",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "noisy",
+    "dusty",
+    "earthworks"
+   ]
+  },
+  {
+   "id": "CIV-BASE-LAY",
+   "name": "Lay and compact road base",
+   "phase": "pavement",
+   "trade": "earthworks",
+   "discipline": "civil",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 1000,
+   "unit_cost": 22,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "pavement",
+   "risk": 0.3,
+   "weather_sensitive": true,
+   "noisy": true,
+   "dusty": true,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "CIV-SUBBASE-LAY",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "noisy",
+    "dusty",
+    "hold_point",
+    "earthworks"
+   ]
+  },
+  {
+   "id": "CIV-KERB-LAY",
+   "name": "Lay kerb and channel",
+   "phase": "pavement",
+   "trade": "finishing",
+   "discipline": "civil",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 80,
+   "unit_cost": 38,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.2,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "CIV-SUBBASE-LAY",
+     "scope": "same_cell"
+    },
+    {
+     "step": "CIV-BASE-LAY",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "finishing"
+   ]
+  },
+  {
+   "id": "CIV-ASPHALT-BASE",
+   "name": "Place asphalt base and binder",
+   "description": "Needs a paver. Temperature and rain sensitive.",
+   "phase": "pavement",
+   "trade": "paving",
+   "discipline": "civil",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 900,
+   "unit_cost": 28,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.4,
+   "weather_sensitive": true,
+   "noisy": true,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "CIV-BASE-LAY",
+     "scope": "same_cell"
+    },
+    {
+     "step": "CIV-KERB-LAY",
+     "scope": "same_cell"
+    },
+    {
+     "step": "CIV-CHAMBER-SET",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "asphalt",
+    "weather_sensitive",
+    "noisy",
+    "paving"
+   ]
+  },
+  {
+   "id": "CIV-ASPHALT-WEAR",
+   "name": "Place asphalt wearing course",
+   "phase": "pavement",
+   "trade": "paving",
+   "discipline": "civil",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 1200,
+   "unit_cost": 24,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "pavement",
+   "risk": 0.4,
+   "weather_sensitive": true,
+   "noisy": true,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "CIV-ASPHALT-BASE",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-DECK-WATERPROOF",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-PARAPET-INSTALL",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "asphalt",
+    "weather_sensitive",
+    "noisy",
+    "hold_point",
+    "paving"
+   ]
+  },
+  {
+   "id": "CIV-MARKING-APPLY",
+   "name": "Apply road markings",
+   "phase": "finishing",
+   "trade": "finishing",
+   "discipline": "civil",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 1200,
+   "unit_cost": 3,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.5,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "CIV-ASPHALT-WEAR",
+     "scope": "same_cell",
+     "required": true
+    }
+   ],
+   "tags": [
+    "live_traffic",
+    "weather_sensitive",
+    "high_risk",
+    "finishing"
+   ]
+  },
+  {
+   "id": "CIV-GUARDRAIL-INSTALL",
+   "name": "Install safety barrier",
+   "phase": "finishing",
+   "trade": "finishing",
+   "discipline": "civil",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 80,
+   "unit_cost": 95,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.4,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "CIV-BASE-LAY",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-KERB-LAY",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "finishing"
+   ]
+  },
+  {
+   "id": "CIV-SIGN-INSTALL",
+   "name": "Install sign or gantry sign",
+   "phase": "finishing",
+   "trade": "finishing",
+   "discipline": "civil",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 6,
+   "unit_cost": 450,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "CIV-BASE-LAY",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "finishing"
+   ]
+  },
+  {
+   "id": "CIV-LIGHT-INSTALL",
+   "name": "Erect lighting column or luminaire",
+   "phase": "finishing",
+   "trade": "finishing",
+   "discipline": "electrical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 4,
+   "unit_cost": 3200,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 6,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.5,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "CIV-DUCT-LAY",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-BASE-LAY",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "heavy_lift",
+    "long_lead",
+    "high_risk",
+    "finishing"
+   ]
+  },
+  {
+   "id": "CIV-CABLE-PULL",
+   "name": "Pull and test cable",
+   "phase": "finishing",
+   "trade": "utilities",
+   "discipline": "electrical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 250,
+   "unit_cost": 30,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "electrical",
+   "risk": 0.2,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "CIV-DUCT-LAY",
+     "scope": "same_cell"
+    },
+    {
+     "step": "CIV-LIGHT-INSTALL",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "utilities"
+   ]
+  },
+  {
+   "id": "CIV-LANDSCAPE",
+   "name": "Topsoil, seed and plant",
+   "phase": "finishing",
+   "trade": "finishing",
+   "discipline": "civil",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 1500,
+   "unit_cost": 6,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.1,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "CIV-BASE-LAY",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-STRUCT-BACKFILL",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "finishing"
+   ]
+  },
+  {
+   "id": "CIV-BLDG-ENVELOPE",
+   "name": "Roof, cladding and covering of small building",
+   "phase": "finishing",
+   "trade": "finishing",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 40,
+   "unit_cost": 120,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-WALL-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "finishing"
+   ]
+  },
+  {
+   "id": "CIV-BLDG-FITOUT",
+   "name": "Fit doors and windows",
+   "phase": "finishing",
+   "trade": "finishing",
+   "discipline": "architecture",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 6,
+   "unit_cost": 650,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.15,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "CIV-BLDG-ENVELOPE",
+     "scope": "host"
+    },
+    {
+     "step": "CIV-BLDG-ENVELOPE",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "finishing"
+   ]
+  },
+  {
+   "id": "GEN-HANDOVER-DOC",
+   "name": "Compile as-built and handover pack",
+   "phase": "handover",
+   "trade": "qa",
+   "discipline": "general",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 6,
+   "unit_cost": 450,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.0,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "CIV-MARKING-APPLY",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-CABLE-PULL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-SIGN-INSTALL",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "qa"
+   ]
+  },
+  {
+   "id": "GEN-PUNCH-CLEAR",
+   "name": "Clear defects and demobilise",
+   "phase": "handover",
+   "trade": "finishing",
+   "discipline": "general",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 600,
+   "unit_cost": 4,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.1,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "CIV-MARKING-APPLY",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-SIGN-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-GUARDRAIL-INSTALL",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "finishing"
+   ]
+  }
+ ],
+ "gates": [
+  {
+   "id": "G-ts1",
+   "name": "Traffic stage 1 before works in corridor",
+   "after_phase": "traffic_stage_1",
+   "before_phase": "utilities",
+   "scope": "zone",
+   "description": "Lane closure and temporary traffic management in place in the zone before anyone digs."
+  },
+  {
+   "id": "G-ground",
+   "name": "Formation proven before drainage",
+   "after_phase": "earthworks",
+   "before_phase": "drainage",
+   "scope": "zone",
+   "requires_inspection_types": [
+    "geotechnical"
+   ],
+   "description": "Cut and fill tested to formation in the zone before trenches go in."
+  },
+  {
+   "id": "G-structures-ts2",
+   "name": "Structures complete before traffic switch",
+   "after_phase": "structures",
+   "before_phase": "traffic_stage_2",
+   "scope": "zone",
+   "requires_inspection_types": [
+    "structural"
+   ],
+   "description": "Traffic only switches to the new carriageway when bridge, culvert and wall works in the zone are inspected."
+  },
+  {
+   "id": "G-ts2-pavement",
+   "name": "Traffic switched before pavement",
+   "after_phase": "traffic_stage_2",
+   "before_phase": "pavement",
+   "scope": "zone",
+   "description": "The released lane can only be paved after stage 2 is in place."
+  },
+  {
+   "id": "G-pavement",
+   "name": "Pavement inspected before finishing",
+   "after_phase": "pavement",
+   "before_phase": "finishing",
+   "scope": "zone",
+   "requires_inspection_types": [
+    "pavement"
+   ],
+   "description": "Base and wearing course density and ride checks before markings, signs and lighting."
+  },
+  {
+   "id": "G-handover",
+   "name": "All finishing done before handover",
+   "after_phase": "finishing",
+   "before_phase": "handover",
+   "scope": "project",
+   "requires_inspection_types": [
+    "electrical",
+    "pavement"
+   ],
+   "description": "Project-wide gate: lighting cabling tested and pavement signed off."
+  }
+ ]
+}

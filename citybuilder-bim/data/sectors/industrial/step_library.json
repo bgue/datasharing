@@ -1,0 +1,2454 @@
+{
+ "schema_version": "1.0",
+ "sector": "industrial",
+ "phases": [
+  {
+   "id": "mobilise",
+   "name": "Mobilise",
+   "order": 0,
+   "description": "Site establishment, survey setting-out, topsoil strip and enabling works."
+  },
+  {
+   "id": "earthworks",
+   "name": "Earthworks and piling",
+   "order": 1,
+   "description": "Bulk and pad excavation, platform fill, driven piles."
+  },
+  {
+   "id": "foundations",
+   "name": "Foundations",
+   "order": 2,
+   "description": "Footings, pile caps, equipment pads, bunds, ground slab and underground drainage."
+  },
+  {
+   "id": "steel",
+   "name": "Structural steel and shell",
+   "order": 3,
+   "description": "Steel frames, concrete columns, mezzanine slabs, roof and cladding, doors and windows."
+  },
+  {
+   "id": "pipe_rack",
+   "name": "Pipe rack",
+   "order": 4,
+   "description": "Linear rack steel and rack spool laydown."
+  },
+  {
+   "id": "equipment",
+   "name": "Equipment and modules",
+   "order": 5,
+   "description": "Heavy lifts: process modules, tanks, pumps, vessels, transformers, switchgear."
+  },
+  {
+   "id": "piping",
+   "name": "Piping and building services",
+   "order": 6,
+   "description": "Process piping, tie-ins, hydrotest; HVAC ducts, terminals and sprinklers."
+  },
+  {
+   "id": "electrical_instrumentation",
+   "name": "Electrical and instrumentation",
+   "order": 7,
+   "description": "Cable tray, cable, panels and field instruments."
+  },
+  {
+   "id": "insulation",
+   "name": "Insulation, coatings and finishes",
+   "order": 8,
+   "description": "Pipe insulation, fireproofing, ceilings, floors and doors."
+  },
+  {
+   "id": "precommissioning",
+   "name": "Pre-commissioning",
+   "order": 9,
+   "description": "Loop checks, flushing, tank hydrotests."
+  },
+  {
+   "id": "commissioning",
+   "name": "Commissioning",
+   "order": 10,
+   "description": "System-based energisation, process start-up and air balancing."
+  },
+  {
+   "id": "handover",
+   "name": "Handover",
+   "order": 11,
+   "description": "Documentation packs and punch-list close-out."
+  }
+ ],
+ "trades": [
+  {
+   "id": "civil",
+   "name": "Civil and site crew",
+   "weekly_cost": 9000,
+   "crew_size": 6,
+   "max_hire_per_week": 2,
+   "color": "#a0793d"
+  },
+  {
+   "id": "concrete",
+   "name": "Concrete and masonry crew",
+   "weekly_cost": 9500,
+   "crew_size": 6,
+   "max_hire_per_week": 2,
+   "color": "#8d8d8d"
+  },
+  {
+   "id": "steel",
+   "name": "Steel and cladding erectors",
+   "weekly_cost": 12500,
+   "crew_size": 6,
+   "max_hire_per_week": 2,
+   "color": "#d8553c"
+  },
+  {
+   "id": "piping",
+   "name": "Pipefitters and sheet metal",
+   "weekly_cost": 10500,
+   "crew_size": 6,
+   "max_hire_per_week": 3,
+   "color": "#3f7fbf"
+  },
+  {
+   "id": "mechanical",
+   "name": "Millwrights and riggers",
+   "weekly_cost": 11500,
+   "crew_size": 5,
+   "max_hire_per_week": 2,
+   "color": "#7a5bd0"
+  },
+  {
+   "id": "electrical",
+   "name": "Electricians",
+   "weekly_cost": 9000,
+   "crew_size": 5,
+   "max_hire_per_week": 3,
+   "color": "#e0c030"
+  },
+  {
+   "id": "instrumentation",
+   "name": "Instrument and control technicians",
+   "weekly_cost": 9500,
+   "crew_size": 4,
+   "max_hire_per_week": 2,
+   "color": "#20b2aa"
+  },
+  {
+   "id": "insulation",
+   "name": "Insulators, coaters and finishers",
+   "weekly_cost": 7000,
+   "crew_size": 4,
+   "max_hire_per_week": 2,
+   "color": "#d9a066"
+  },
+  {
+   "id": "commissioning",
+   "name": "Commissioning team",
+   "weekly_cost": 8500,
+   "crew_size": 3,
+   "max_hire_per_week": 1,
+   "color": "#4caf50"
+  }
+ ],
+ "steps": [
+  {
+   "id": "GEN-SETOUT",
+   "name": "Survey setting-out",
+   "description": "Survey control and setting-out of the element before ground is broken.",
+   "phase": "mobilise",
+   "trade": "civil",
+   "discipline": "general",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 12,
+   "unit_cost": 120,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.05,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [],
+   "tags": [
+    "civil"
+   ]
+  },
+  {
+   "id": "GEN-SITE-PREP",
+   "name": "Strip topsoil and prepare platform",
+   "description": "Topsoil strip, proof-roll and platform preparation.",
+   "phase": "mobilise",
+   "trade": "civil",
+   "discipline": "civil",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 800,
+   "unit_cost": 5,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.2,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": true,
+   "progress_visual": "framed",
+   "predecessors": [],
+   "tags": [
+    "weather_sensitive",
+    "dusty",
+    "civil"
+   ]
+  },
+  {
+   "id": "CIV-EARTH-CUT",
+   "name": "Excavate pad, trench or bulk cut",
+   "phase": "earthworks",
+   "trade": "civil",
+   "discipline": "civil",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 500,
+   "unit_cost": 8,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.4,
+   "weather_sensitive": true,
+   "noisy": true,
+   "dusty": true,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "GEN-SETOUT",
+     "scope": "same_element"
+    },
+    {
+     "step": "GEN-SITE-PREP",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "noisy",
+    "dusty",
+    "civil"
+   ]
+  },
+  {
+   "id": "CIV-EARTH-FILL",
+   "name": "Place and compact engineered fill",
+   "phase": "earthworks",
+   "trade": "civil",
+   "discipline": "civil",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 400,
+   "unit_cost": 14,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": true,
+   "noisy": true,
+   "dusty": true,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "GEN-SITE-PREP",
+     "scope": "same_element"
+    },
+    {
+     "step": "CIV-EARTH-CUT",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "noisy",
+    "dusty",
+    "civil"
+   ]
+  },
+  {
+   "id": "CIV-PILE-DRIVE",
+   "name": "Drive piles",
+   "description": "Driven precast piles; needs a piling rig (see tag) and integrity testing.",
+   "phase": "earthworks",
+   "trade": "civil",
+   "discipline": "civil",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 3,
+   "unit_cost": 2800,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "geotechnical",
+   "risk": 0.55,
+   "weather_sensitive": false,
+   "noisy": true,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "GEN-SETOUT",
+     "scope": "same_element"
+    },
+    {
+     "step": "GEN-SITE-PREP",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "piling",
+    "noisy",
+    "hold_point",
+    "high_risk",
+    "civil"
+   ]
+  },
+  {
+   "id": "STR-FOOT-REBAR",
+   "name": "Form and fix footing reinforcement",
+   "phase": "foundations",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 2.0,
+   "unit_cost": 1850,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.15,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "CIV-EARTH-CUT",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-FOOT-POUR",
+   "name": "Pour footing",
+   "phase": "foundations",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 12,
+   "unit_cost": 210,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.2,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-FOOT-REBAR",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "hold_point",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-PILECAP-POUR",
+   "name": "Pour pile cap",
+   "phase": "foundations",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 10,
+   "unit_cost": 240,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.25,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-FOOT-REBAR",
+     "scope": "same_element"
+    },
+    {
+     "step": "CIV-PILE-DRIVE",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "hold_point",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-EQPAD-POUR",
+   "name": "Pour equipment pad with anchor bolts",
+   "description": "Equipment pad; needs curing time before the heavy lift lands on it.",
+   "phase": "foundations",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 10,
+   "unit_cost": 260,
+   "min_duration_days": 3,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.2,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-FOOT-REBAR",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "equipment_pad",
+    "weather_sensitive",
+    "hold_point",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-GSLAB-POUR",
+   "name": "Pour ground slab",
+   "phase": "foundations",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 14,
+   "unit_cost": 190,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.15,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "CIV-EARTH-FILL",
+     "scope": "same_element"
+    },
+    {
+     "step": "CIV-DRAIN-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-PILECAP-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "hold_point",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-WALL-POUR",
+   "name": "Pour concrete wall or bund",
+   "phase": "foundations",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 10,
+   "unit_cost": 230,
+   "min_duration_days": 2,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.25,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "hold_point",
+    "concrete"
+   ]
+  },
+  {
+   "id": "CIV-DRAIN-INSTALL",
+   "name": "Lay underground drain or duct bank",
+   "phase": "foundations",
+   "trade": "civil",
+   "discipline": "civil",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 30,
+   "unit_cost": 160,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "plumbing",
+   "risk": 0.3,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "CIV-EARTH-CUT",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "hold_point",
+    "civil"
+   ]
+  },
+  {
+   "id": "CIV-CHAMBER-SET",
+   "name": "Set manhole or chamber",
+   "phase": "foundations",
+   "trade": "civil",
+   "discipline": "civil",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 3,
+   "unit_cost": 2800,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "CIV-EARTH-CUT",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-DRAIN-INSTALL",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "civil"
+   ]
+  },
+  {
+   "id": "CIV-BACKFILL-COMPACT",
+   "name": "Backfill and compact around foundation",
+   "phase": "foundations",
+   "trade": "civil",
+   "discipline": "civil",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 400,
+   "unit_cost": 12,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.25,
+   "weather_sensitive": true,
+   "noisy": true,
+   "dusty": true,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_element"
+    },
+    {
+     "step": "STR-EQPAD-POUR",
+     "scope": "same_element"
+    },
+    {
+     "step": "STR-PILECAP-POUR",
+     "scope": "same_element"
+    },
+    {
+     "step": "CIV-DRAIN-INSTALL",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "noisy",
+    "dusty",
+    "civil"
+   ]
+  },
+  {
+   "id": "STR-STEEL-COL",
+   "name": "Erect steel column",
+   "description": "Fabricated steel; 8 week lead for shop drawings and fabrication.",
+   "phase": "steel",
+   "trade": "steel",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 9,
+   "unit_cost": 3200,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 8,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.65,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell_below"
+    },
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-PILECAP-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-STEEL-CONN",
+     "scope": "same_cell_below"
+    }
+   ],
+   "tags": [
+    "steel_connection",
+    "heavy_lift",
+    "long_lead",
+    "high_risk",
+    "steel"
+   ]
+  },
+  {
+   "id": "STR-STEEL-BEAM",
+   "name": "Erect steel beam",
+   "phase": "steel",
+   "trade": "steel",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 12,
+   "unit_cost": 3400,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 8,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.65,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "STR-STEEL-COL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-STEEL-COL",
+     "scope": "same_cell_below"
+    }
+   ],
+   "tags": [
+    "steel_connection",
+    "heavy_lift",
+    "long_lead",
+    "high_risk",
+    "steel"
+   ]
+  },
+  {
+   "id": "STR-STEEL-CONN",
+   "name": "Bolt-up and weld connections",
+   "phase": "steel",
+   "trade": "steel",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 8,
+   "unit_cost": 450,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "welding",
+   "risk": 0.5,
+   "weather_sensitive": false,
+   "noisy": true,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-STEEL-COL",
+     "scope": "same_element"
+    },
+    {
+     "step": "STR-STEEL-BEAM",
+     "scope": "same_element"
+    },
+    {
+     "step": "STR-STEEL-BEAM",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "hot_work",
+    "steel_connection",
+    "noisy",
+    "hold_point",
+    "high_risk",
+    "steel"
+   ]
+  },
+  {
+   "id": "STR-COL-POUR",
+   "name": "Form, reinforce and pour concrete column or beam",
+   "phase": "steel",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 5,
+   "unit_cost": 380,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell_below"
+    },
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_below"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "heavy_lift",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-SLAB-POUR",
+   "name": "Pour mezzanine slab on metal deck",
+   "phase": "steel",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 12,
+   "unit_cost": 260,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.2,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-COL-POUR",
+     "scope": "same_cell_below"
+    },
+    {
+     "step": "STR-STEEL-CONN",
+     "scope": "same_cell_below"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "hold_point",
+    "concrete"
+   ]
+  },
+  {
+   "id": "ARC-ROOF-DECK",
+   "name": "Install roof deck, insulation and membrane",
+   "phase": "steel",
+   "trade": "steel",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 250,
+   "unit_cost": 38,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.6,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-STEEL-CONN",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-COL-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "heavy_lift",
+    "high_risk",
+    "steel"
+   ]
+  },
+  {
+   "id": "ARC-CLAD-INSTALL",
+   "name": "Install wall cladding panels",
+   "phase": "steel",
+   "trade": "steel",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 60,
+   "unit_cost": 75,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.45,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-STEEL-CONN",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "steel"
+   ]
+  },
+  {
+   "id": "ARC-BLOCK-WALL",
+   "name": "Build blockwork wall",
+   "phase": "steel",
+   "trade": "concrete",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 20,
+   "unit_cost": 55,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.2,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": true,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_above"
+    }
+   ],
+   "tags": [
+    "dusty",
+    "concrete"
+   ]
+  },
+  {
+   "id": "ARC-WINDOW-INSTALL",
+   "name": "Install windows and louvres",
+   "phase": "steel",
+   "trade": "steel",
+   "discipline": "architecture",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 6,
+   "unit_cost": 520,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 6,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "ARC-BLOCK-WALL",
+     "scope": "host"
+    },
+    {
+     "step": "ARC-CLAD-INSTALL",
+     "scope": "host"
+    }
+   ],
+   "tags": [
+    "long_lead",
+    "steel"
+   ]
+  },
+  {
+   "id": "ARC-STAIR-INSTALL",
+   "name": "Install stair or access platform",
+   "phase": "steel",
+   "trade": "steel",
+   "discipline": "architecture",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 2,
+   "unit_cost": 6500,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 6,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.4,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-STEEL-CONN",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "heavy_lift",
+    "long_lead",
+    "steel"
+   ]
+  },
+  {
+   "id": "ARC-RAIL-INSTALL",
+   "name": "Install handrail and guardrail",
+   "phase": "steel",
+   "trade": "steel",
+   "discipline": "architecture",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 40,
+   "unit_cost": 95,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.45,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-STEEL-CONN",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ARC-STAIR-INSTALL",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "steel"
+   ]
+  },
+  {
+   "id": "STR-RACK-ERECT",
+   "name": "Erect pipe rack frame",
+   "phase": "pipe_rack",
+   "trade": "steel",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 12,
+   "unit_cost": 3300,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 8,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.65,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-PILECAP-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-RACK-CONN",
+     "scope": "same_cell_below"
+    }
+   ],
+   "tags": [
+    "steel_connection",
+    "pipe_rack",
+    "heavy_lift",
+    "long_lead",
+    "high_risk",
+    "steel"
+   ]
+  },
+  {
+   "id": "STR-RACK-CONN",
+   "name": "Bolt-up and weld rack connections",
+   "phase": "pipe_rack",
+   "trade": "steel",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 9,
+   "unit_cost": 420,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "welding",
+   "risk": 0.55,
+   "weather_sensitive": false,
+   "noisy": true,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-RACK-ERECT",
+     "scope": "same_element"
+    },
+    {
+     "step": "STR-RACK-ERECT",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "hot_work",
+    "steel_connection",
+    "pipe_rack",
+    "noisy",
+    "hold_point",
+    "high_risk",
+    "steel"
+   ]
+  },
+  {
+   "id": "PIP-SPOOL-LAY",
+   "name": "Lift and lay pipe spools on rack",
+   "phase": "pipe_rack",
+   "trade": "piping",
+   "discipline": "process",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 28,
+   "unit_cost": 310,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.5,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "STR-RACK-CONN",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "pipe_rack",
+    "heavy_lift",
+    "high_risk",
+    "piping"
+   ]
+  },
+  {
+   "id": "PRC-MOD-SET",
+   "name": "Set process module",
+   "description": "Skid or modular process unit. 30 week lead; needs a cured pad, crane reach and road access in the same week.",
+   "phase": "equipment",
+   "trade": "mechanical",
+   "discipline": "process",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 0.5,
+   "unit_cost": 120000,
+   "min_duration_days": 2,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 3,
+   "lead_time_weeks": 30,
+   "inspection": true,
+   "inspection_type": "mechanical",
+   "risk": 0.8,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-EQPAD-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "module",
+    "heavy_lift",
+    "long_lead",
+    "hold_point",
+    "high_risk",
+    "mechanical"
+   ]
+  },
+  {
+   "id": "PRC-TANK-SET",
+   "name": "Set tank or vessel",
+   "phase": "equipment",
+   "trade": "mechanical",
+   "discipline": "process",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 0.5,
+   "unit_cost": 80000,
+   "min_duration_days": 2,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 3,
+   "lead_time_weeks": 20,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.7,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-EQPAD-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-WALL-POUR",
+     "scope": "same_zone"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "heavy_lift",
+    "long_lead",
+    "high_risk",
+    "mechanical"
+   ]
+  },
+  {
+   "id": "PRC-PUMP-SET",
+   "name": "Set pump, compressor or fan",
+   "phase": "equipment",
+   "trade": "mechanical",
+   "discipline": "process",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 2,
+   "unit_cost": 14000,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 12,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.5,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-EQPAD-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "heavy_lift",
+    "long_lead",
+    "high_risk",
+    "mechanical"
+   ]
+  },
+  {
+   "id": "PRC-EQUIP-SET",
+   "name": "Set heavy equipment or stack",
+   "phase": "equipment",
+   "trade": "mechanical",
+   "discipline": "process",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 1,
+   "unit_cost": 60000,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 16,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.65,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-EQPAD-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "heavy_lift",
+    "long_lead",
+    "high_risk",
+    "mechanical"
+   ]
+  },
+  {
+   "id": "ELE-XFMR-SET",
+   "name": "Set power transformer",
+   "description": "Longest lead item on the job: 40 weeks.",
+   "phase": "equipment",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 1,
+   "unit_cost": 85000,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 40,
+   "inspection": true,
+   "inspection_type": "electrical",
+   "risk": 0.6,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-EQPAD-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "transformer",
+    "heavy_lift",
+    "long_lead",
+    "hold_point",
+    "high_risk",
+    "electrical"
+   ]
+  },
+  {
+   "id": "ELE-SWGR-SET",
+   "name": "Set switchgear and MCC lineup",
+   "phase": "equipment",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 2,
+   "unit_cost": 38000,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 24,
+   "inspection": true,
+   "inspection_type": "electrical",
+   "risk": 0.4,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ARC-ROOF-DECK",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ARC-CLAD-INSTALL",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "heavy_lift",
+    "long_lead",
+    "hold_point",
+    "electrical"
+   ]
+  },
+  {
+   "id": "GEN-ELEM-INSTALL",
+   "name": "Install miscellaneous element",
+   "description": "Default step for any element no rule matched. Shows up in the authoring feedback list.",
+   "phase": "equipment",
+   "trade": "mechanical",
+   "discipline": "general",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 6,
+   "unit_cost": 900,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.15,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [],
+   "tags": [
+    "mechanical"
+   ]
+  },
+  {
+   "id": "PIP-PIPE-INSTALL",
+   "name": "Install process pipe",
+   "phase": "piping",
+   "trade": "piping",
+   "discipline": "process",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 26,
+   "unit_cost": 210,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "PIP-SPOOL-LAY",
+     "scope": "same_element"
+    },
+    {
+     "step": "PRC-PUMP-SET",
+     "scope": "same_system"
+    },
+    {
+     "step": "PRC-EQUIP-SET",
+     "scope": "same_system"
+    },
+    {
+     "step": "PRC-TANK-SET",
+     "scope": "same_system"
+    },
+    {
+     "step": "PRC-MOD-SET",
+     "scope": "same_system"
+    },
+    {
+     "step": "STR-STEEL-CONN",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "piping"
+   ]
+  },
+  {
+   "id": "PIP-FITTING-INSTALL",
+   "name": "Install fittings, flanges and valves",
+   "phase": "piping",
+   "trade": "piping",
+   "discipline": "process",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 15,
+   "unit_cost": 380,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.25,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "PIP-PIPE-INSTALL",
+     "scope": "same_system",
+     "type": "SS",
+     "lag_days": 1
+    }
+   ],
+   "tags": [
+    "piping"
+   ]
+  },
+  {
+   "id": "PIP-PIPE-TEST",
+   "name": "Hydrotest piping",
+   "description": "Hold point: nothing is insulated before it passes.",
+   "phase": "piping",
+   "trade": "piping",
+   "discipline": "process",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 120,
+   "unit_cost": 6,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "pressure_test",
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "PIP-PIPE-INSTALL",
+     "scope": "same_element"
+    },
+    {
+     "step": "PIP-SPOOL-LAY",
+     "scope": "same_element"
+    },
+    {
+     "step": "PIP-FITTING-INSTALL",
+     "scope": "same_system"
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "piping"
+   ]
+  },
+  {
+   "id": "PRC-MOD-CONNECT",
+   "name": "Connect module piping and utilities",
+   "phase": "piping",
+   "trade": "piping",
+   "discipline": "process",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 0.5,
+   "unit_cost": 9000,
+   "min_duration_days": 2,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.4,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "PRC-MOD-SET",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "piping"
+   ]
+  },
+  {
+   "id": "MEP-DUCT-INSTALL",
+   "name": "Install HVAC ductwork",
+   "phase": "piping",
+   "trade": "piping",
+   "discipline": "mechanical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 20,
+   "unit_cost": 130,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "mechanical",
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "ARC-ROOF-DECK",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "ARC-CLAD-INSTALL",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "piping"
+   ]
+  },
+  {
+   "id": "MEP-TERM-INSTALL",
+   "name": "Install terminals and light fittings",
+   "phase": "piping",
+   "trade": "piping",
+   "discipline": "mechanical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 20,
+   "unit_cost": 160,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ARC-ROOF-DECK",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "piping"
+   ]
+  },
+  {
+   "id": "FIR-SPRINK-INSTALL",
+   "name": "Install sprinkler and deluge piping",
+   "phase": "piping",
+   "trade": "piping",
+   "discipline": "fire",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 25,
+   "unit_cost": 190,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "fire",
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "ARC-ROOF-DECK",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-STEEL-CONN",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "piping"
+   ]
+  },
+  {
+   "id": "ELE-TRAY-INSTALL",
+   "name": "Install cable tray",
+   "phase": "electrical_instrumentation",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 40,
+   "unit_cost": 70,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.35,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "STR-STEEL-CONN",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-RACK-CONN",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "electrical"
+   ]
+  },
+  {
+   "id": "ELE-CABLE-PULL",
+   "name": "Pull and terminate cable",
+   "phase": "electrical_instrumentation",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 250,
+   "unit_cost": 28,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.2,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "ELE-TRAY-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ELE-SWGR-SET",
+     "scope": "same_system"
+    },
+    {
+     "step": "ELE-XFMR-SET",
+     "scope": "same_system"
+    }
+   ],
+   "tags": [
+    "electrical"
+   ]
+  },
+  {
+   "id": "ELE-CABLE-TEST",
+   "name": "Megger and continuity test",
+   "phase": "electrical_instrumentation",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 500,
+   "unit_cost": 4,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "electrical",
+   "risk": 0.1,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "ELE-CABLE-PULL",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "electrical"
+   ]
+  },
+  {
+   "id": "ELE-PANEL-INSTALL",
+   "name": "Install local panel or junction box",
+   "phase": "electrical_instrumentation",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 3,
+   "unit_cost": 3200,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 8,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.2,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ARC-CLAD-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ARC-BLOCK-WALL",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "long_lead",
+    "electrical"
+   ]
+  },
+  {
+   "id": "IC-INSTR-INSTALL",
+   "name": "Install field instrument",
+   "phase": "electrical_instrumentation",
+   "trade": "instrumentation",
+   "discipline": "instrumentation",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 12,
+   "unit_cost": 950,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.15,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "PIP-FITTING-INSTALL",
+     "scope": "same_system"
+    },
+    {
+     "step": "PRC-EQUIP-SET",
+     "scope": "same_system"
+    },
+    {
+     "step": "PRC-TANK-SET",
+     "scope": "same_system"
+    }
+   ],
+   "tags": [
+    "instrumentation"
+   ]
+  },
+  {
+   "id": "INS-PIPE-INSULATE",
+   "name": "Insulate and clad pipe",
+   "description": "Insulation goes on only after the hydrotest of the system has passed.",
+   "phase": "insulation",
+   "trade": "insulation",
+   "discipline": "process",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 24,
+   "unit_cost": 55,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.2,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": true,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "PIP-PIPE-TEST",
+     "scope": "same_system"
+    }
+   ],
+   "tags": [
+    "dusty",
+    "insulation"
+   ]
+  },
+  {
+   "id": "INS-COATING-APPLY",
+   "name": "Apply fireproofing or coating",
+   "phase": "insulation",
+   "trade": "insulation",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 70,
+   "unit_cost": 38,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": true,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "STR-STEEL-CONN",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "dusty",
+    "insulation"
+   ]
+  },
+  {
+   "id": "ARC-CEILING-INSTALL",
+   "name": "Install ceiling",
+   "phase": "insulation",
+   "trade": "insulation",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 80,
+   "unit_cost": 48,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.2,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "FIR-SPRINK-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ELE-TRAY-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ELE-CABLE-PULL",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "insulation"
+   ]
+  },
+  {
+   "id": "ARC-FLOOR-FINISH",
+   "name": "Install floor finish",
+   "phase": "insulation",
+   "trade": "insulation",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 80,
+   "unit_cost": 62,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.15,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ARC-BLOCK-WALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ARC-CEILING-INSTALL",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "insulation"
+   ]
+  },
+  {
+   "id": "ARC-DOOR-INSTALL",
+   "name": "Install door set",
+   "phase": "insulation",
+   "trade": "insulation",
+   "discipline": "architecture",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 8,
+   "unit_cost": 650,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.1,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "ARC-BLOCK-WALL",
+     "scope": "host"
+    },
+    {
+     "step": "ARC-CLAD-INSTALL",
+     "scope": "host"
+    }
+   ],
+   "tags": [
+    "insulation"
+   ]
+  },
+  {
+   "id": "IC-LOOP-CHECK",
+   "name": "Instrument loop check",
+   "phase": "precommissioning",
+   "trade": "instrumentation",
+   "discipline": "instrumentation",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 25,
+   "unit_cost": 80,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.1,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "IC-INSTR-INSTALL",
+     "scope": "same_element"
+    },
+    {
+     "step": "ELE-CABLE-TEST",
+     "scope": "same_system"
+    }
+   ],
+   "tags": [
+    "instrumentation"
+   ]
+  },
+  {
+   "id": "CX-PIPE-FLUSH",
+   "name": "Flush and blow pipework",
+   "phase": "precommissioning",
+   "trade": "commissioning",
+   "discipline": "commissioning",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 150,
+   "unit_cost": 6,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.15,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "PIP-PIPE-TEST",
+     "scope": "same_element"
+    },
+    {
+     "step": "INS-PIPE-INSULATE",
+     "scope": "same_system"
+    }
+   ],
+   "tags": [
+    "commissioning"
+   ]
+  },
+  {
+   "id": "PRC-TANK-HYDRO",
+   "name": "Tank water-fill and settlement test",
+   "phase": "precommissioning",
+   "trade": "mechanical",
+   "discipline": "process",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 1,
+   "unit_cost": 4500,
+   "min_duration_days": 2,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "pressure_test",
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "PRC-TANK-SET",
+     "scope": "same_element"
+    },
+    {
+     "step": "PIP-PIPE-TEST",
+     "scope": "same_system"
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "mechanical"
+   ]
+  },
+  {
+   "id": "CX-POWER-ENERGISE",
+   "name": "Energise and test power system",
+   "phase": "commissioning",
+   "trade": "commissioning",
+   "discipline": "commissioning",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 1,
+   "unit_cost": 3500,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "electrical",
+   "risk": 0.35,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "ELE-CABLE-TEST",
+     "scope": "same_system"
+    },
+    {
+     "step": "ELE-XFMR-SET",
+     "scope": "same_system"
+    },
+    {
+     "step": "ELE-SWGR-SET",
+     "scope": "same_system"
+    },
+    {
+     "step": "ELE-PANEL-INSTALL",
+     "scope": "same_system"
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "commissioning"
+   ]
+  },
+  {
+   "id": "CX-PROCESS-STARTUP",
+   "name": "Process system start-up",
+   "phase": "commissioning",
+   "trade": "commissioning",
+   "discipline": "commissioning",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 0.5,
+   "unit_cost": 12000,
+   "min_duration_days": 2,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.4,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "PIP-PIPE-TEST",
+     "scope": "same_system",
+     "required": true
+    },
+    {
+     "step": "CX-PIPE-FLUSH",
+     "scope": "same_system"
+    },
+    {
+     "step": "IC-LOOP-CHECK",
+     "scope": "same_system"
+    },
+    {
+     "step": "PRC-TANK-HYDRO",
+     "scope": "same_system"
+    },
+    {
+     "step": "CX-POWER-ENERGISE",
+     "scope": "same_system"
+    }
+   ],
+   "tags": [
+    "commissioning"
+   ]
+  },
+  {
+   "id": "CX-AIR-BALANCE",
+   "name": "Test and balance air system",
+   "phase": "commissioning",
+   "trade": "commissioning",
+   "discipline": "commissioning",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 1.5,
+   "unit_cost": 1500,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.05,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "scope": "same_system",
+     "required": true
+    },
+    {
+     "step": "MEP-TERM-INSTALL",
+     "scope": "same_system"
+    }
+   ],
+   "tags": [
+    "commissioning"
+   ]
+  },
+  {
+   "id": "GEN-HANDOVER-DOC",
+   "name": "Compile handover documentation",
+   "phase": "handover",
+   "trade": "commissioning",
+   "discipline": "general",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 6,
+   "unit_cost": 450,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.0,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "CX-POWER-ENERGISE",
+     "scope": "same_system"
+    },
+    {
+     "step": "CX-PROCESS-STARTUP",
+     "scope": "same_system"
+    },
+    {
+     "step": "CX-AIR-BALANCE",
+     "scope": "same_system"
+    }
+   ],
+   "tags": [
+    "commissioning"
+   ]
+  }
+ ],
+ "gates": [
+  {
+   "id": "G-ground",
+   "name": "Ground proven before foundations",
+   "after_phase": "earthworks",
+   "before_phase": "foundations",
+   "scope": "zone",
+   "requires_inspection_types": [
+    "geotechnical"
+   ],
+   "description": "Piles tested and platform proven in the zone before any concrete goes in."
+  },
+  {
+   "id": "G-foundations",
+   "name": "Foundations before steel",
+   "after_phase": "foundations",
+   "before_phase": "steel",
+   "scope": "zone",
+   "requires_inspection_types": [
+    "structural"
+   ],
+   "description": "Footings, pads and slabs poured and inspected before steel is erected in the zone."
+  },
+  {
+   "id": "G-steel-equipment",
+   "name": "Steel and shell before heavy equipment",
+   "after_phase": "steel",
+   "before_phase": "equipment",
+   "scope": "zone",
+   "requires_inspection_types": [
+    "welding"
+   ],
+   "description": "Connections welded and inspected before equipment is set in the zone."
+  },
+  {
+   "id": "G-pressure-test",
+   "name": "Hydrotest before insulation",
+   "after_phase": "piping",
+   "before_phase": "insulation",
+   "scope": "zone",
+   "requires_inspection_types": [
+    "pressure_test"
+   ],
+   "description": "No insulation or coating goes on until the pressure tests pass."
+  },
+  {
+   "id": "G-precomm",
+   "name": "Pre-commissioning before commissioning",
+   "after_phase": "precommissioning",
+   "before_phase": "commissioning",
+   "scope": "project",
+   "requires_inspection_types": [
+    "pressure_test",
+    "electrical"
+   ],
+   "description": "Whole-plant gate: flush, loop checks and megger tests complete project-wide."
+  },
+  {
+   "id": "G-commission",
+   "name": "Commissioning before handover",
+   "after_phase": "commissioning",
+   "before_phase": "handover",
+   "scope": "project",
+   "requires_inspection_types": [
+    "electrical"
+   ],
+   "description": "All systems energised and started before documentation is signed off."
+  }
+ ]
+}

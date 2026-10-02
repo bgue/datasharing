@@ -1,0 +1,627 @@
+{
+ "schema_version": "1.0",
+ "id": "industrial_tutorial",
+ "name": "Process Hall: Tutorial",
+ "description": "A small process building with a pipe rack and two modules. Generous crews and cash; learn crane reach, pads, long-lead orders and hydrotest holds.",
+ "sector": "industrial",
+ "difficulty": "tutorial",
+ "contract_weeks": null,
+ "contract_factor": 1.3,
+ "budget": 0,
+ "budget_factor": 1.25,
+ "start_cash": 1000000,
+ "overdraft_limit": 400000,
+ "progress_payment_every_weeks": 4,
+ "retention_pct": 5,
+ "weather": {
+  "start_week_of_year": 14,
+  "monthly_factor": [
+   0.7,
+   0.75,
+   0.85,
+   0.92,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   0.95,
+   0.88,
+   0.78,
+   0.7
+  ]
+ },
+ "crews_available": {
+  "civil": 4,
+  "concrete": 3,
+  "steel": 6,
+  "piping": 4,
+  "mechanical": 3,
+  "electrical": 4,
+  "instrumentation": 3,
+  "insulation": 4,
+  "commissioning": 3
+ },
+ "equipment": [
+  {
+   "id": "mc1",
+   "type": "mobile_crane",
+   "name": "Mobile crane 80t",
+   "weekly_cost": 5200,
+   "mobilisation_cost": 4000,
+   "reach_cells": 5,
+   "footprint_cells": 2,
+   "max_count": 2
+  },
+  {
+   "id": "cc1",
+   "type": "crawler_crane",
+   "name": "Crawler crane 250t",
+   "weekly_cost": 21000,
+   "mobilisation_cost": 28000,
+   "reach_cells": 7,
+   "footprint_cells": 3,
+   "max_count": 1
+  },
+  {
+   "id": "ex1",
+   "type": "excavator",
+   "name": "Excavator 30t",
+   "weekly_cost": 3600,
+   "mobilisation_cost": 2000,
+   "reach_cells": 3,
+   "footprint_cells": 1,
+   "max_count": 2
+  },
+  {
+   "id": "cp1",
+   "type": "concrete_pump",
+   "name": "Concrete pump",
+   "weekly_cost": 2400,
+   "mobilisation_cost": 1500,
+   "reach_cells": 4,
+   "footprint_cells": 1,
+   "max_count": 1
+  },
+  {
+   "id": "pr1",
+   "type": "piling_rig",
+   "name": "Piling rig",
+   "weekly_cost": 9000,
+   "mobilisation_cost": 12000,
+   "reach_cells": 3,
+   "footprint_cells": 2,
+   "max_count": 1
+  },
+  {
+   "id": "sl1",
+   "type": "lift",
+   "name": "Scissor lift",
+   "weekly_cost": 700,
+   "mobilisation_cost": 0,
+   "reach_cells": 1,
+   "footprint_cells": 1,
+   "max_count": 4
+  }
+ ],
+ "site": {
+  "gates": [
+   [
+    4,
+    11
+   ],
+   [
+    11,
+    11
+   ]
+  ],
+  "occupied_cells": [
+   [
+    15,
+    4
+   ],
+   [
+    15,
+    5
+   ]
+  ],
+  "blocked_cells": [],
+  "initial_tiles": [
+   {
+    "tile": "existing_road",
+    "cell": [
+     0,
+     11
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     1,
+     11
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     2,
+     11
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     3,
+     11
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     5,
+     11
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     6,
+     11
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     7,
+     11
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     8,
+     11
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     9,
+     11
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     10,
+     11
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     12,
+     11
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     13,
+     11
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     14,
+     11
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     15,
+     11
+    ]
+   },
+   {
+    "tile": "gate",
+    "cell": [
+     4,
+     11
+    ]
+   },
+   {
+    "tile": "gate",
+    "cell": [
+     11,
+     11
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     15,
+     4
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     15,
+     5
+    ]
+   },
+   {
+    "tile": "trees",
+    "cell": [
+     0,
+     0
+    ]
+   },
+   {
+    "tile": "trees",
+    "cell": [
+     1,
+     0
+    ]
+   },
+   {
+    "tile": "trees",
+    "cell": [
+     0,
+     1
+    ]
+   },
+   {
+    "tile": "haul_road",
+    "cell": [
+     3,
+     10
+    ]
+   },
+   {
+    "tile": "haul_road",
+    "cell": [
+     4,
+     10
+    ]
+   },
+   {
+    "tile": "haul_road",
+    "cell": [
+     5,
+     10
+    ]
+   },
+   {
+    "tile": "haul_road",
+    "cell": [
+     6,
+     10
+    ]
+   }
+  ],
+  "tile_costs": {
+   "haul_road": {
+    "place": 700,
+    "weekly": 70
+   },
+   "laydown": {
+    "place": 500,
+    "weekly": 150
+   },
+   "crane_pad": {
+    "place": 4500,
+    "weekly": 0
+   },
+   "welfare": {
+    "place": 7000,
+    "weekly": 600
+   },
+   "hoarding": {
+    "place": 250,
+    "weekly": 15
+   },
+   "gate": {
+    "place": 800,
+    "weekly": 40
+   },
+   "icra_barrier": {
+    "place": 900,
+    "weekly": 120
+   },
+   "traffic_cones": {
+    "place": 150,
+    "weekly": 60
+   }
+  }
+ },
+ "events": [
+  {
+   "id": "wet_week",
+   "name": "Wet week",
+   "text": "Heavy rain all week. Excavation, concrete and cladding slow to a crawl.",
+   "weight": 2.4,
+   "min_week": 3,
+   "max_week": null,
+   "effect": {
+    "productivity_factor": 0.75,
+    "affects_steps_with_tag": "weather_sensitive",
+    "duration_weeks": 1
+   }
+  },
+  {
+   "id": "cold_snap",
+   "name": "Cold snap",
+   "text": "Overnight frost. Concrete pours are delayed and curing blankets are needed.",
+   "weight": 1.2,
+   "min_week": 3,
+   "max_week": null,
+   "effect": {
+    "productivity_factor": 0.8,
+    "affects_steps_with_tag": "weather_sensitive",
+    "duration_weeks": 2
+   }
+  },
+  {
+   "id": "wind_stop",
+   "name": "High wind: lifts stopped",
+   "text": "Gusts above the crane limit. All heavy lifts are stood down.",
+   "weight": 1.8,
+   "min_week": 5,
+   "max_week": null,
+   "effect": {
+    "productivity_factor": 0.55,
+    "affects_steps_with_tag": "heavy_lift",
+    "duration_weeks": 1
+   }
+  },
+  {
+   "id": "rfi_steel",
+   "name": "RFI on a steel connection",
+   "text": "The fabricator queries a moment connection detail.",
+   "weight": 1.8,
+   "min_week": 7,
+   "max_week": null,
+   "trigger": {
+    "phase_active": "steel"
+   },
+   "effect": {
+    "productivity_factor": 0.75,
+    "affects_steps_with_tag": "steel_connection",
+    "duration_weeks": 2
+   },
+   "choices": [
+    {
+     "label": "Pay for an expedited engineering review",
+     "effect": {
+      "cash_delta": -3000
+     }
+    },
+    {
+     "label": "Wait for the formal response",
+     "effect": {
+      "productivity_factor": 0.75,
+      "affects_steps_with_tag": "steel_connection",
+      "duration_weeks": 2
+     }
+    }
+   ]
+  },
+  {
+   "id": "module_late",
+   "name": "Fabricator slips module delivery",
+   "text": "The module yard reports a weld repair. Delivery may slip.",
+   "weight": 1.2,
+   "min_week": 11,
+   "max_week": 45,
+   "trigger": {
+    "phase_active": "foundations"
+   },
+   "effect": {
+    "delay_lead_time_weeks": 1,
+    "affects_steps_with_tag": "module"
+   },
+   "choices": [
+    {
+     "label": "Pay the expediting fee to hold the date",
+     "effect": {
+      "cash_delta": -15000
+     }
+    },
+    {
+     "label": "Accept the slip and re-plan",
+     "effect": {
+      "delay_lead_time_weeks": 1,
+      "affects_steps_with_tag": "module"
+     }
+    }
+   ]
+  },
+  {
+   "id": "utility_strike",
+   "name": "Buried service struck",
+   "text": "The excavator hits an unmarked duct bank. Zone stopped while the owner inspects.",
+   "weight": 1.5,
+   "min_week": 4,
+   "max_week": null,
+   "trigger": {
+    "step_active": "CIV-EARTH-CUT"
+   },
+   "effect": {
+    "incident": true,
+    "pause_zone_weeks": 1,
+    "cash_delta": -7500,
+    "score_delta": -2.0
+   }
+  },
+  {
+   "id": "ndt_failure",
+   "name": "Weld NDT rejects",
+   "text": "Radiography rejects a batch of welds. Re-work on the steel gang.",
+   "weight": 1.5,
+   "min_week": 9,
+   "max_week": null,
+   "trigger": {
+    "step_active": "STR-STEEL-CONN"
+   },
+   "effect": {
+    "productivity_factor": 0.8,
+    "affects_trade": "steel",
+    "duration_weeks": 2,
+    "score_delta": -1.0
+   }
+  },
+  {
+   "id": "tie_in_window",
+   "name": "Shutdown window offered",
+   "text": "The neighbouring operating plant offers a short shutdown window for tie-ins.",
+   "weight": 0.9,
+   "min_week": 15,
+   "max_week": null,
+   "once": true,
+   "trigger": {
+    "phase_active": "piping"
+   },
+   "effect": {
+    "score_delta": 0.0
+   },
+   "choices": [
+    {
+     "label": "Take the window: piping crews +30% for 3 weeks, operations fee applies",
+     "effect": {
+      "productivity_factor": 1.15,
+      "affects_trade": "piping",
+      "duration_weeks": 3,
+      "cash_delta": -10000
+     }
+    },
+    {
+     "label": "Decline and keep the plan",
+     "effect": {
+      "score_delta": 0.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "safety_stand_down",
+   "name": "Safety stand-down",
+   "text": "Crowded work fronts trigger a near miss. The zone stands down for a toolbox talk.",
+   "weight": 1.8,
+   "min_week": 3,
+   "max_week": null,
+   "trigger": {
+    "congestion_over": 1.5
+   },
+   "effect": {
+    "incident": true,
+    "pause_zone_weeks": 1,
+    "score_delta": -2.5
+   }
+  },
+  {
+   "id": "commissioning_vendor",
+   "name": "Vendor engineers delayed",
+   "text": "Vendor commissioning engineers are held up on another site.",
+   "weight": 1.5,
+   "min_week": 3,
+   "max_week": null,
+   "trigger": {
+    "phase_active": "commissioning"
+   },
+   "effect": {
+    "productivity_factor": 0.75,
+    "affects_trade": "commissioning",
+    "duration_weeks": 2
+   }
+  },
+  {
+   "id": "inspector_backlog",
+   "name": "Inspector backlog",
+   "text": "The third-party inspector is booked solid. Hold points take longer.",
+   "weight": 1.2,
+   "min_week": 7,
+   "max_week": null,
+   "effect": {
+    "productivity_factor": 0.75,
+    "affects_steps_with_tag": "hold_point",
+    "duration_weeks": 1
+   }
+  },
+  {
+   "id": "client_advance",
+   "name": "Client advance on materials",
+   "text": "The owner releases an advance to ease your cash flow.",
+   "weight": 2.4,
+   "min_week": 6,
+   "max_week": null,
+   "once": true,
+   "trigger": {
+    "cash_below": 40000
+   },
+   "effect": {
+    "cash_delta": 40000
+   }
+  }
+ ],
+ "scoring": {
+  "weights": {
+   "time": 35,
+   "cost": 25,
+   "safety": 20,
+   "quality": 10,
+   "stability": 10
+  },
+  "max_incidents_hard": 3,
+  "grade_thresholds": {
+   "S": 85,
+   "A": 70,
+   "B": 55,
+   "C": 35
+  }
+ },
+ "tutorial_hints": [
+  {
+   "week": 0,
+   "text": "Welcome, planner. Lay a haul road from the south gate to the ring road around the building. No road means no access, and no access means no work."
+  },
+  {
+   "week": 0,
+   "text": "Hire a civil crew and release the setting-out and pad excavations. Start with the equipment pads: they gate the heavy lifts."
+  },
+  {
+   "week": 1,
+   "text": "Open the procurement panel now. Steel takes 8 weeks, modules 30 weeks and the transformer 40. Order early or the install steps will stall."
+  },
+  {
+   "week": 4,
+   "text": "Pour footings and pads, then request the structural inspection. Pads need a few days of cure time before a module can land on them."
+  },
+  {
+   "week": 7,
+   "text": "Place a crane pad where its reach covers both the steel frame and the module area. The crawler crane reaches farther but costs much more per week."
+  },
+  {
+   "week": 11,
+   "text": "Steel is a heavy lift and wind can stop it. Keep a second work front available so crews are not idle on a windy week."
+  },
+  {
+   "week": 15,
+   "text": "The pipe rack is linear: foundations, steel, spools. Work it bay by bay to avoid stacking three trades in one zone."
+  },
+  {
+   "week": 21,
+   "text": "Every pipe must pass its hydrotest before insulation. The gate holds insulation back until the pressure tests are signed off."
+  },
+  {
+   "week": 27,
+   "text": "Pre-commissioning gate: loop checks, flushing and cable tests. Commissioning crews are scarce, so book them before you need them."
+  },
+  {
+   "week": 33,
+   "text": "Commissioning is by system, not by area. Energise power first, then start up process, then balance air, then compile handover documents."
+  }
+ ]
+}

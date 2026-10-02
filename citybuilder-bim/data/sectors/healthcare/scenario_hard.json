@@ -1,0 +1,886 @@
+{
+ "schema_version": "1.0",
+ "id": "healthcare_hard",
+ "name": "Hospital Wing: Live Ward",
+ "description": "The live ward presses against the site on three sides of the east zone, one gate, scarce crews and tight cash. Long-lead slips and gas test failures bite.",
+ "sector": "healthcare",
+ "difficulty": "hard",
+ "contract_weeks": null,
+ "contract_factor": 1.0,
+ "budget": 0,
+ "budget_factor": 1.05,
+ "start_cash": 550000,
+ "overdraft_limit": 150000,
+ "progress_payment_every_weeks": 4,
+ "retention_pct": 7.5,
+ "weather": {
+  "start_week_of_year": 36,
+  "monthly_factor": [
+   0.7,
+   0.75,
+   0.85,
+   0.92,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   0.95,
+   0.88,
+   0.78,
+   0.7
+  ]
+ },
+ "crews_available": {
+  "concrete": 2,
+  "envelope": 2,
+  "mechanical": 2,
+  "plumbing": 2,
+  "electrical": 2,
+  "interiors": 3,
+  "finishes": 2,
+  "medical": 1,
+  "commissioning": 1,
+  "icra": 1
+ },
+ "equipment": [
+  {
+   "id": "tc1",
+   "type": "tower_crane",
+   "name": "Tower crane",
+   "weekly_cost": 7500,
+   "mobilisation_cost": 22000,
+   "reach_cells": 6,
+   "footprint_cells": 2,
+   "max_count": 1
+  },
+  {
+   "id": "mc1",
+   "type": "mobile_crane",
+   "name": "Mobile crane 60t",
+   "weekly_cost": 4800,
+   "mobilisation_cost": 3500,
+   "reach_cells": 4,
+   "footprint_cells": 2,
+   "max_count": 1
+  },
+  {
+   "id": "ex1",
+   "type": "excavator",
+   "name": "Excavator 20t",
+   "weekly_cost": 3200,
+   "mobilisation_cost": 1500,
+   "reach_cells": 3,
+   "footprint_cells": 1,
+   "max_count": 1
+  },
+  {
+   "id": "pr1",
+   "type": "piling_rig",
+   "name": "Piling rig",
+   "weekly_cost": 8500,
+   "mobilisation_cost": 9000,
+   "reach_cells": 3,
+   "footprint_cells": 2,
+   "max_count": 1
+  },
+  {
+   "id": "cp1",
+   "type": "concrete_pump",
+   "name": "Concrete pump",
+   "weekly_cost": 2200,
+   "mobilisation_cost": 1200,
+   "reach_cells": 4,
+   "footprint_cells": 1,
+   "max_count": 1
+  },
+  {
+   "id": "sl1",
+   "type": "lift",
+   "name": "Scissor lift",
+   "weekly_cost": 900,
+   "mobilisation_cost": 0,
+   "reach_cells": 1,
+   "footprint_cells": 1,
+   "max_count": 3
+  }
+ ],
+ "site": {
+  "gates": [
+   [
+    0,
+    5
+   ]
+  ],
+  "occupied_cells": [
+   [
+    11,
+    1
+   ],
+   [
+    11,
+    2
+   ],
+   [
+    11,
+    3
+   ],
+   [
+    11,
+    4
+   ],
+   [
+    11,
+    5
+   ],
+   [
+    11,
+    6
+   ],
+   [
+    11,
+    7
+   ],
+   [
+    11,
+    8
+   ],
+   [
+    12,
+    1
+   ],
+   [
+    12,
+    2
+   ],
+   [
+    12,
+    3
+   ],
+   [
+    12,
+    4
+   ],
+   [
+    12,
+    5
+   ],
+   [
+    12,
+    6
+   ],
+   [
+    12,
+    7
+   ],
+   [
+    12,
+    8
+   ],
+   [
+    13,
+    1
+   ],
+   [
+    13,
+    2
+   ],
+   [
+    13,
+    3
+   ],
+   [
+    13,
+    4
+   ],
+   [
+    13,
+    5
+   ],
+   [
+    13,
+    6
+   ],
+   [
+    13,
+    7
+   ],
+   [
+    13,
+    8
+   ]
+  ],
+  "blocked_cells": [
+   [
+    0,
+    0
+   ],
+   [
+    1,
+    0
+   ],
+   [
+    0,
+    1
+   ],
+   [
+    0,
+    9
+   ],
+   [
+    1,
+    9
+   ]
+  ],
+  "initial_tiles": [
+   {
+    "tile": "existing_road",
+    "cell": [
+     2,
+     9
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     3,
+     9
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     4,
+     9
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     5,
+     9
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     6,
+     9
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     7,
+     9
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     8,
+     9
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     9,
+     9
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     10,
+     9
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     11,
+     9
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     12,
+     9
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     13,
+     9
+    ]
+   },
+   {
+    "tile": "gate",
+    "cell": [
+     0,
+     5
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     11,
+     1
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     11,
+     2
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     11,
+     3
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     11,
+     4
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     11,
+     5
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     11,
+     6
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     11,
+     7
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     11,
+     8
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     12,
+     1
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     12,
+     2
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     12,
+     3
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     12,
+     4
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     12,
+     5
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     12,
+     6
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     12,
+     7
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     12,
+     8
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     13,
+     1
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     13,
+     2
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     13,
+     3
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     13,
+     4
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     13,
+     5
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     13,
+     6
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     13,
+     7
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     13,
+     8
+    ]
+   },
+   {
+    "tile": "trees",
+    "cell": [
+     0,
+     0
+    ]
+   },
+   {
+    "tile": "trees",
+    "cell": [
+     1,
+     0
+    ]
+   },
+   {
+    "tile": "trees",
+    "cell": [
+     0,
+     1
+    ]
+   },
+   {
+    "tile": "trees",
+    "cell": [
+     0,
+     9
+    ]
+   },
+   {
+    "tile": "trees",
+    "cell": [
+     1,
+     9
+    ]
+   }
+  ],
+  "tile_costs": {
+   "haul_road": {
+    "place": 600,
+    "weekly": 60
+   },
+   "laydown": {
+    "place": 450,
+    "weekly": 130
+   },
+   "crane_pad": {
+    "place": 4000,
+    "weekly": 0
+   },
+   "welfare": {
+    "place": 6000,
+    "weekly": 500
+   },
+   "hoarding": {
+    "place": 250,
+    "weekly": 15
+   },
+   "gate": {
+    "place": 800,
+    "weekly": 40
+   },
+   "icra_barrier": {
+    "place": 1200,
+    "weekly": 150
+   },
+   "traffic_cones": {
+    "place": 150,
+    "weekly": 60
+   }
+  }
+ },
+ "events": [
+  {
+   "id": "wet_week",
+   "name": "Wet week",
+   "text": "Heavy rain. Slab pours, roofing and curtain wall work slow down.",
+   "weight": 5.2,
+   "min_week": 0,
+   "max_week": null,
+   "effect": {
+    "productivity_factor": 0.38,
+    "affects_steps_with_tag": "weather_sensitive",
+    "duration_weeks": 1
+   }
+  },
+  {
+   "id": "quiet_hours",
+   "name": "Hospital asks for quiet hours",
+   "text": "The ward manager asks for no noisy work near the live ward during treatment hours.",
+   "weight": 3.9,
+   "min_week": 2,
+   "max_week": null,
+   "trigger": {
+    "zone_tag": "occupied_adjacent"
+   },
+   "effect": {
+    "productivity_factor": 0.25,
+    "affects_steps_with_tag": "noisy",
+    "affects_zone_tag": "occupied_adjacent",
+    "duration_weeks": 2
+   },
+   "choices": [
+    {
+     "label": "Shift noisy work to evenings and nights",
+     "effect": {
+      "productivity_factor": 0.75,
+      "affects_steps_with_tag": "noisy",
+      "affects_zone_tag": "occupied_adjacent",
+      "duration_weeks": 2,
+      "cash_delta": -10000
+     }
+    },
+    {
+     "label": "Comply and slow down",
+     "effect": {
+      "productivity_factor": 0.25,
+      "affects_steps_with_tag": "noisy",
+      "affects_zone_tag": "occupied_adjacent",
+      "duration_weeks": 2
+     }
+    }
+   ]
+  },
+  {
+   "id": "icra_audit",
+   "name": "Infection control audit",
+   "text": "The hospital audits dust control next to the ward. A missing barrier stops the zone.",
+   "weight": 5.2,
+   "min_week": 2,
+   "max_week": null,
+   "trigger": {
+    "missing_tile_adjacent_to_tag": "occupied_adjacent"
+   },
+   "effect": {
+    "pause_zone_weeks": 1,
+    "score_delta": -6.2,
+    "affects_zone_tag": "occupied_adjacent",
+    "cash_delta": -6000
+   }
+  },
+  {
+   "id": "dust_complaint",
+   "name": "Dust complaint from the ward",
+   "text": "Dust is detected on the corridor side of the barrier.",
+   "weight": 3.9,
+   "min_week": 4,
+   "max_week": null,
+   "trigger": {
+    "zone_tag": "occupied_adjacent",
+    "step_active": "ARC-WALL-BOARD"
+   },
+   "effect": {
+    "productivity_factor": 0.38,
+    "affects_steps_with_tag": "dusty",
+    "affects_zone_tag": "occupied_adjacent",
+    "duration_weeks": 1,
+    "score_delta": -2.5
+   },
+   "choices": [
+    {
+     "label": "Hire HEPA scrubbers for the zone",
+     "effect": {
+      "cash_delta": -6000
+     }
+    },
+    {
+     "label": "Stop dusty work for a week and re-seal",
+     "effect": {
+      "productivity_factor": 0.0,
+      "affects_steps_with_tag": "dusty",
+      "affects_zone_tag": "occupied_adjacent",
+      "duration_weeks": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "mri_slip",
+   "name": "MRI magnet delayed",
+   "text": "The magnet factory reports a cryostat issue. Delivery may slip.",
+   "weight": 2.6,
+   "min_week": 8,
+   "max_week": 60,
+   "once": true,
+   "effect": {
+    "delay_lead_time_weeks": 3,
+    "affects_steps_with_tag": "mri"
+   },
+   "choices": [
+    {
+     "label": "Pay for priority air freight",
+     "effect": {
+      "cash_delta": -50000
+     }
+    },
+    {
+     "label": "Accept the slip and re-plan",
+     "effect": {
+      "delay_lead_time_weeks": 3,
+      "affects_steps_with_tag": "mri"
+     }
+    }
+   ]
+  },
+  {
+   "id": "transformer_slip",
+   "name": "Transformer delayed at factory",
+   "text": "The 40 week transformer misses its test slot.",
+   "weight": 1.95,
+   "min_week": 6,
+   "max_week": 45,
+   "once": true,
+   "effect": {
+    "delay_lead_time_weeks": 4,
+    "affects_steps_with_tag": "transformer",
+    "score_delta": -2.5
+   }
+  },
+  {
+   "id": "ceiling_clash",
+   "name": "Clash in the ceiling void",
+   "text": "Ducts, pipes and trays collide above the corridor. RFI raised.",
+   "weight": 3.9,
+   "min_week": 6,
+   "max_week": null,
+   "trigger": {
+    "phase_active": "mep_roughin"
+   },
+   "effect": {
+    "productivity_factor": 0.38,
+    "affects_trade": "mechanical",
+    "duration_weeks": 2
+   },
+   "choices": [
+    {
+     "label": "Hold a coordination workshop",
+     "effect": {
+      "productivity_factor": 0.88,
+      "affects_trade": "mechanical",
+      "duration_weeks": 1,
+      "cash_delta": -6000
+     }
+    },
+    {
+     "label": "Resolve through the RFI process",
+     "effect": {
+      "productivity_factor": 0.38,
+      "affects_trade": "mechanical",
+      "duration_weeks": 2
+     }
+    }
+   ]
+  },
+  {
+   "id": "gas_test_fail",
+   "name": "Medical gas test fails",
+   "text": "A leak is found at a brazed joint. Re-braze and re-test.",
+   "weight": 3.9,
+   "min_week": 8,
+   "max_week": null,
+   "trigger": {
+    "step_active": "MED-GAS-TEST"
+   },
+   "effect": {
+    "productivity_factor": 0.38,
+    "affects_trade": "plumbing",
+    "duration_weeks": 2,
+    "score_delta": -3.8,
+    "cash_delta": -7500
+   }
+  },
+  {
+   "id": "inspector_backlog",
+   "name": "Inspector backlog",
+   "text": "The building inspector is booked solid. Hold points take longer.",
+   "weight": 2.6,
+   "min_week": 3,
+   "max_week": null,
+   "effect": {
+    "productivity_factor": 0.38,
+    "affects_steps_with_tag": "hold_point",
+    "duration_weeks": 1
+   }
+  },
+  {
+   "id": "crane_wind",
+   "name": "High wind: tower crane stopped",
+   "text": "Gusts above the crane limit. Heavy lifts are stood down.",
+   "weight": 2.6,
+   "min_week": 2,
+   "max_week": null,
+   "effect": {
+    "productivity_factor": 0.0,
+    "affects_steps_with_tag": "heavy_lift",
+    "duration_weeks": 1
+   }
+  },
+  {
+   "id": "live_cable_strike",
+   "name": "Live cable struck",
+   "text": "The excavator nicks a hospital feeder. A brief power flicker on the ward and an incident report.",
+   "weight": 2.6,
+   "min_week": 1,
+   "max_week": null,
+   "trigger": {
+    "step_active": "CIV-EARTH-CUT"
+   },
+   "effect": {
+    "incident": true,
+    "pause_zone_weeks": 1,
+    "cash_delta": -15000,
+    "score_delta": -7.5,
+    "goodwill_delta": -5.0
+   }
+  },
+  {
+   "id": "vendor_delay",
+   "name": "Vendor engineers delayed",
+   "text": "The scanner vendor engineers are held up on another hospital.",
+   "weight": 3.25,
+   "min_week": 0,
+   "max_week": null,
+   "trigger": {
+    "phase_active": "medical_equipment"
+   },
+   "effect": {
+    "productivity_factor": 0.38,
+    "affects_trade": "medical",
+    "duration_weeks": 2
+   }
+  },
+  {
+   "id": "safety_stand_down",
+   "name": "Safety stand-down",
+   "text": "Trade stacking causes a near miss. The zone stands down for a toolbox talk.",
+   "weight": 3.9,
+   "min_week": 0,
+   "max_week": null,
+   "trigger": {
+    "congestion_over": 1.5
+   },
+   "effect": {
+    "incident": true,
+    "pause_zone_weeks": 1,
+    "score_delta": -6.2
+   }
+  },
+  {
+   "id": "cold_snap",
+   "name": "Cold snap",
+   "text": "Overnight frost delays pours and external work.",
+   "weight": 2.6,
+   "min_week": 0,
+   "max_week": null,
+   "effect": {
+    "productivity_factor": 0.5,
+    "affects_steps_with_tag": "weather_sensitive",
+    "duration_weeks": 2
+   }
+  },
+  {
+   "id": "client_advance",
+   "name": "Client advance on equipment",
+   "text": "The health trust releases an advance for long-lead equipment.",
+   "weight": 5.2,
+   "min_week": 3,
+   "max_week": null,
+   "once": true,
+   "trigger": {
+    "cash_below": 40000
+   },
+   "effect": {
+    "cash_delta": 40000
+   }
+  }
+ ],
+ "scoring": {
+  "weights": {
+   "time": 35,
+   "cost": 25,
+   "safety": 20,
+   "quality": 10,
+   "stability": 10
+  },
+  "max_incidents_hard": 3,
+  "grade_thresholds": {
+   "S": 92,
+   "A": 80,
+   "B": 65,
+   "C": 45
+  }
+ }
+}

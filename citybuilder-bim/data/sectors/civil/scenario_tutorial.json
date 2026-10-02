@@ -1,0 +1,717 @@
+{
+ "schema_version": "1.0",
+ "id": "civil_tutorial",
+ "name": "Bypass Road: Tutorial",
+ "description": "A short road link with one culvert and a small overbridge. Learn traffic stages, utility diversions, cut and fill, and drainage before pavement.",
+ "sector": "civil",
+ "difficulty": "tutorial",
+ "contract_weeks": null,
+ "contract_factor": 1.3,
+ "budget": 0,
+ "budget_factor": 1.25,
+ "start_cash": 600000,
+ "overdraft_limit": 250000,
+ "progress_payment_every_weeks": 4,
+ "retention_pct": 5,
+ "weather": {
+  "start_week_of_year": 14,
+  "monthly_factor": [
+   0.5,
+   0.55,
+   0.75,
+   0.9,
+   1.0,
+   1.0,
+   1.0,
+   1.0,
+   0.95,
+   0.85,
+   0.7,
+   0.5
+  ]
+ },
+ "crews_available": {
+  "earthworks": 5,
+  "utilities": 3,
+  "piling": 2,
+  "concrete": 3,
+  "erection": 2,
+  "paving": 3,
+  "traffic": 3,
+  "finishing": 3,
+  "qa": 3
+ },
+ "equipment": [
+  {
+   "id": "ex1",
+   "type": "excavator",
+   "name": "Excavator 35t",
+   "weekly_cost": 4500,
+   "mobilisation_cost": 2500,
+   "reach_cells": 3,
+   "footprint_cells": 1,
+   "max_count": 3
+  },
+  {
+   "id": "pr1",
+   "type": "piling_rig",
+   "name": "Piling rig",
+   "weekly_cost": 9500,
+   "mobilisation_cost": 12000,
+   "reach_cells": 3,
+   "footprint_cells": 2,
+   "max_count": 1
+  },
+  {
+   "id": "cc1",
+   "type": "crawler_crane",
+   "name": "Crawler crane 300t",
+   "weekly_cost": 22000,
+   "mobilisation_cost": 25000,
+   "reach_cells": 7,
+   "footprint_cells": 3,
+   "max_count": 1
+  },
+  {
+   "id": "mc1",
+   "type": "mobile_crane",
+   "name": "Mobile crane 60t",
+   "weekly_cost": 6500,
+   "mobilisation_cost": 8000,
+   "reach_cells": 5,
+   "footprint_cells": 2,
+   "max_count": 2
+  },
+  {
+   "id": "pv1",
+   "type": "paver",
+   "name": "Asphalt paver",
+   "weekly_cost": 12000,
+   "mobilisation_cost": 10000,
+   "reach_cells": 4,
+   "footprint_cells": 2,
+   "max_count": 1
+  },
+  {
+   "id": "cp1",
+   "type": "concrete_pump",
+   "name": "Concrete pump",
+   "weekly_cost": 3000,
+   "mobilisation_cost": 2000,
+   "reach_cells": 4,
+   "footprint_cells": 1,
+   "max_count": 1
+  },
+  {
+   "id": "sl1",
+   "type": "lift",
+   "name": "Mobile elevating work platform",
+   "weekly_cost": 800,
+   "mobilisation_cost": 0,
+   "reach_cells": 1,
+   "footprint_cells": 1,
+   "max_count": 3
+  }
+ ],
+ "site": {
+  "gates": [
+   [
+    0,
+    3
+   ],
+   [
+    31,
+    3
+   ],
+   [
+    15,
+    0
+   ]
+  ],
+  "occupied_cells": [
+   [
+    8,
+    7
+   ],
+   [
+    9,
+    7
+   ],
+   [
+    10,
+    7
+   ],
+   [
+    11,
+    7
+   ],
+   [
+    12,
+    7
+   ],
+   [
+    13,
+    7
+   ],
+   [
+    14,
+    7
+   ],
+   [
+    15,
+    7
+   ],
+   [
+    16,
+    7
+   ],
+   [
+    17,
+    7
+   ],
+   [
+    18,
+    7
+   ],
+   [
+    19,
+    7
+   ],
+   [
+    20,
+    7
+   ],
+   [
+    21,
+    7
+   ],
+   [
+    22,
+    7
+   ],
+   [
+    23,
+    7
+   ],
+   [
+    24,
+    7
+   ]
+  ],
+  "blocked_cells": [],
+  "initial_tiles": [
+   {
+    "tile": "existing_road",
+    "cell": [
+     8,
+     7
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     9,
+     7
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     10,
+     7
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     11,
+     7
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     12,
+     7
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     13,
+     7
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     14,
+     7
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     15,
+     7
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     16,
+     7
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     17,
+     7
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     18,
+     7
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     19,
+     7
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     20,
+     7
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     21,
+     7
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     22,
+     7
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     23,
+     7
+    ]
+   },
+   {
+    "tile": "existing_road",
+    "cell": [
+     24,
+     7
+    ]
+   },
+   {
+    "tile": "gate",
+    "cell": [
+     0,
+     3
+    ]
+   },
+   {
+    "tile": "gate",
+    "cell": [
+     31,
+     3
+    ]
+   },
+   {
+    "tile": "gate",
+    "cell": [
+     15,
+     0
+    ]
+   },
+   {
+    "tile": "haul_road",
+    "cell": [
+     1,
+     3
+    ]
+   },
+   {
+    "tile": "haul_road",
+    "cell": [
+     2,
+     3
+    ]
+   },
+   {
+    "tile": "haul_road",
+    "cell": [
+     3,
+     3
+    ]
+   }
+  ],
+  "tile_costs": {
+   "haul_road": {
+    "place": 900,
+    "weekly": 90
+   },
+   "laydown": {
+    "place": 500,
+    "weekly": 130
+   },
+   "crane_pad": {
+    "place": 5000,
+    "weekly": 0
+   },
+   "welfare": {
+    "place": 6500,
+    "weekly": 550
+   },
+   "hoarding": {
+    "place": 300,
+    "weekly": 20
+   },
+   "gate": {
+    "place": 1000,
+    "weekly": 50
+   },
+   "icra_barrier": {
+    "place": 900,
+    "weekly": 120
+   },
+   "traffic_cones": {
+    "place": 200,
+    "weekly": 80
+   }
+  }
+ },
+ "events": [
+  {
+   "id": "wet_week",
+   "name": "Wet week",
+   "text": "Rain all week. Earthworks, pours and paving all slow down.",
+   "weight": 3.0,
+   "min_week": 3,
+   "max_week": null,
+   "effect": {
+    "productivity_factor": 0.65,
+    "affects_steps_with_tag": "weather_sensitive",
+    "duration_weeks": 1
+   }
+  },
+  {
+   "id": "asphalt_cold",
+   "name": "Too cold to lay asphalt",
+   "text": "Surface temperature is under the paving limit. The paver stays parked.",
+   "weight": 1.2,
+   "min_week": 7,
+   "max_week": null,
+   "trigger": {
+    "phase_active": "pavement"
+   },
+   "effect": {
+    "productivity_factor": 0.5,
+    "affects_steps_with_tag": "asphalt",
+    "duration_weeks": 2
+   }
+  },
+  {
+   "id": "utility_strike",
+   "name": "Utility strike",
+   "text": "The excavator slices an unmarked cable. Zone stopped, repair bill and an incident report.",
+   "weight": 1.8,
+   "min_week": 4,
+   "max_week": null,
+   "trigger": {
+    "step_active": "CIV-EARTH-CUT"
+   },
+   "effect": {
+    "incident": true,
+    "pause_zone_weeks": 1,
+    "cash_delta": -10000,
+    "score_delta": -2.0,
+    "goodwill_delta": -1.5
+   }
+  },
+  {
+   "id": "unforeseen_rock",
+   "name": "Rock in the cutting",
+   "text": "Ripping hits unexpected rock. Production collapses.",
+   "weight": 1.2,
+   "min_week": 5,
+   "max_week": 40,
+   "trigger": {
+    "step_active": "CIV-EARTH-CUT"
+   },
+   "effect": {
+    "productivity_factor": 0.7,
+    "affects_steps_with_tag": "excavation",
+    "duration_weeks": 3
+   },
+   "choices": [
+    {
+     "label": "Hire a rock breaker",
+     "effect": {
+      "productivity_factor": 0.85,
+      "affects_steps_with_tag": "excavation",
+      "duration_weeks": 2,
+      "cash_delta": -12500
+     }
+    },
+    {
+     "label": "Blast under permit",
+     "effect": {
+      "cash_delta": -7500,
+      "pause_zone_weeks": 1
+     }
+    },
+    {
+     "label": "Grind on regardless",
+     "effect": {
+      "productivity_factor": 0.7,
+      "affects_steps_with_tag": "excavation",
+      "duration_weeks": 3
+     }
+    }
+   ]
+  },
+  {
+   "id": "traffic_complaint",
+   "name": "Motorists complain",
+   "text": "Queues build at the lane closure. The press is asking questions.",
+   "weight": 1.8,
+   "min_week": 5,
+   "max_week": null,
+   "trigger": {
+    "zone_tag": "live_traffic"
+   },
+   "effect": {
+    "goodwill_delta": -4.0,
+    "score_delta": -0.5
+   },
+   "choices": [
+    {
+     "label": "Add a variable message sign and publish closure times",
+     "effect": {
+      "cash_delta": -2000,
+      "goodwill_delta": -1.0
+     }
+    },
+    {
+     "label": "Say nothing",
+     "effect": {
+      "goodwill_delta": -4.0,
+      "score_delta": -1.0
+     }
+    }
+   ]
+  },
+  {
+   "id": "taper_strike",
+   "name": "Vehicle hits the taper",
+   "text": "A distracted driver ploughs into the cone taper. Nobody is hurt but the work front stops.",
+   "weight": 1.2,
+   "min_week": 6,
+   "max_week": null,
+   "trigger": {
+    "zone_tag": "live_traffic"
+   },
+   "effect": {
+    "incident": true,
+    "pause_zone_weeks": 1,
+    "score_delta": -2.5,
+    "goodwill_delta": -2.5,
+    "affects_zone_tag": "live_traffic"
+   }
+  },
+  {
+   "id": "night_closure_denied",
+   "name": "Night closure refused",
+   "text": "The road authority withdraws the night possession for the beam lift.",
+   "weight": 1.2,
+   "min_week": 9,
+   "max_week": null,
+   "trigger": {
+    "phase_active": "structures"
+   },
+   "effect": {
+    "productivity_factor": 0.5,
+    "affects_steps_with_tag": "road_closure",
+    "duration_weeks": 1
+   },
+   "choices": [
+    {
+     "label": "Pay for a police escort and rolling closure",
+     "effect": {
+      "cash_delta": -6000
+     }
+    },
+    {
+     "label": "Wait for the next possession",
+     "effect": {
+      "productivity_factor": 0.5,
+      "affects_steps_with_tag": "road_closure",
+      "duration_weeks": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "bearing_late",
+   "name": "Bearings held at the factory",
+   "text": "The bearing supplier misses its test slot.",
+   "weight": 1.2,
+   "min_week": 7,
+   "max_week": 40,
+   "trigger": {
+    "phase_active": "earthworks"
+   },
+   "effect": {
+    "delay_lead_time_weeks": 1,
+    "affects_steps_with_tag": "bearing"
+   },
+   "choices": [
+    {
+     "label": "Pay for air freight and expediting",
+     "effect": {
+      "cash_delta": -9000
+     }
+    },
+    {
+     "label": "Accept the slip",
+     "effect": {
+      "delay_lead_time_weeks": 1,
+      "affects_steps_with_tag": "bearing"
+     }
+    }
+   ]
+  },
+  {
+   "id": "river_flood",
+   "name": "River in flood",
+   "text": "The watercourse floods the low ground. Excavation and piling stop.",
+   "weight": 0.9,
+   "min_week": 5,
+   "max_week": null,
+   "effect": {
+    "productivity_factor": 0.6,
+    "affects_steps_with_tag": "excavation",
+    "duration_weeks": 2
+   }
+  },
+  {
+   "id": "asphalt_plant",
+   "name": "Asphalt plant breakdown",
+   "text": "The batching plant is down. No mix for a few days.",
+   "weight": 1.2,
+   "min_week": 11,
+   "max_week": null,
+   "trigger": {
+    "phase_active": "pavement"
+   },
+   "effect": {
+    "productivity_factor": 0.65,
+    "affects_steps_with_tag": "asphalt",
+    "duration_weeks": 1
+   }
+  },
+  {
+   "id": "inspector_backlog",
+   "name": "Inspector backlog",
+   "text": "The independent engineer is booked solid. Hold points take longer.",
+   "weight": 1.2,
+   "min_week": 7,
+   "max_week": null,
+   "effect": {
+    "productivity_factor": 0.75,
+    "affects_steps_with_tag": "hold_point",
+    "duration_weeks": 1
+   }
+  },
+  {
+   "id": "client_advance",
+   "name": "Client advance on materials",
+   "text": "The road authority releases an advance for bridge materials.",
+   "weight": 2.4,
+   "min_week": 6,
+   "max_week": null,
+   "once": true,
+   "trigger": {
+    "cash_below": 40000
+   },
+   "effect": {
+    "cash_delta": 40000
+   }
+  }
+ ],
+ "scoring": {
+  "weights": {
+   "time": 35,
+   "cost": 25,
+   "safety": 20,
+   "quality": 10,
+   "stability": 10
+  },
+  "max_incidents_hard": 3,
+  "grade_thresholds": {
+   "S": 85,
+   "A": 70,
+   "B": 55,
+   "C": 35
+  }
+ },
+ "tutorial_hints": [
+  {
+   "week": 0,
+   "text": "Welcome, planner. This is a linear job: each zone is a stretch of chainage. Lay a haul road from the west gate along the working strip."
+  },
+  {
+   "week": 0,
+   "text": "Traffic first. Stage 1 lane closure and cones must be in place before utilities or earthworks start in zones tagged live traffic."
+  },
+  {
+   "week": 2,
+   "text": "Divert and prove utilities before you dig. Skipping the diversion invites a utility strike."
+  },
+  {
+   "week": 4,
+   "text": "Cut feeds fill. Once cutting has started anywhere, fill can follow five days later. Short haul distances keep productivity up."
+  },
+  {
+   "week": 7,
+   "text": "Order the long-lead bridge items now: bearings take 10 weeks and precast beams 8."
+  },
+  {
+   "week": 11,
+   "text": "Bridge order: piles, pile caps, piers, bearings, beams, deck, barriers. Each step waits for the one before it."
+  },
+  {
+   "week": 15,
+   "text": "Beam lifts need the crawler crane and a night closure. They are the riskiest steps on the job. Keep the zone clear of other crews."
+  },
+  {
+   "week": 19,
+   "text": "Drainage must be tested and backfilled before pavement. The gates hold pavement back until traffic stage 2 is in place."
+  },
+  {
+   "week": 25,
+   "text": "Asphalt hates cold and rain. Check the monthly weather factors and schedule paving for the warmer months."
+  },
+  {
+   "week": 30,
+   "text": "Finish with markings, signs and lighting, then compile the handover pack."
+  }
+ ]
+}

@@ -1,0 +1,1028 @@
+{
+ "schema_version": "1.0",
+ "sector": "healthcare",
+ "step_library": "step_library.json",
+ "rules": [
+  {
+   "id": "R-icra-zone",
+   "description": "Zones next to the live hospital get an ICRA barrier, HEPA clean and clearance. Not chained: dependencies come from step predecessors (same_zone).",
+   "priority": 400,
+   "match": {
+    "ifc_class": [
+     "IfcSlab"
+    ],
+    "zone_tags_any": [
+     "occupied_adjacent"
+    ]
+   },
+   "steps": [
+    {
+     "step": "GEN-ICRA-SETUP",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "GEN-HEPA-CLEAN",
+     "quantity": "area_m2",
+     "min_quantity": 1
+    },
+    {
+     "step": "GEN-ICRA-CLOSEOUT",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "continue": true,
+   "chain": false,
+   "visual": "slab"
+  },
+  {
+   "id": "R-mri",
+   "description": "MRI: 26 week lead, shielded room first.",
+   "priority": 395,
+   "match": {
+    "ifc_class": [
+     "IfcMedicalDevice"
+    ],
+    "name_regex": "(?i)(\\bMRI\\b|magnet|magnetic)"
+   },
+   "steps": [
+    {
+     "step": "MED-MRI-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  },
+  {
+   "id": "R-ct",
+   "description": "CT and imaging: 20 week lead, shielded room.",
+   "priority": 390,
+   "match": {
+    "ifc_class": [
+     "IfcMedicalDevice"
+    ],
+    "name_regex": "(?i)(\\bCT\\b|computed|scanner|x.?ray|radiograph|fluoro|angio)"
+   },
+   "steps": [
+    {
+     "step": "MED-CT-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  },
+  {
+   "id": "R-steriliser",
+   "description": "Sterilisers: 12 week lead, needs steam, water and gas.",
+   "priority": 385,
+   "match": {
+    "ifc_class": [
+     "IfcMedicalDevice"
+    ],
+    "name_regex": "(?i)(steril|autoclave|washer|cssd|disinfect)"
+   },
+   "steps": [
+    {
+     "step": "MED-STERIL-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  },
+  {
+   "id": "R-medical-device",
+   "description": "Other clinical equipment.",
+   "priority": 380,
+   "match": {
+    "ifc_class": [
+     "IfcMedicalDevice"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MED-EQUIP-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  },
+  {
+   "id": "R-gas-pipe",
+   "description": "Medical gas pipe (system_id MG-*): install, pressure test, certify.",
+   "priority": 375,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MED-GAS-PIPE-INSTALL",
+     "quantity": "length_m"
+    },
+    {
+     "step": "MED-GAS-TEST",
+     "quantity": "length_m"
+    },
+    {
+     "step": "MED-GAS-CERT",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "pipe",
+   "system_prefix": "MG-"
+  },
+  {
+   "id": "R-pipe-fire",
+   "description": "Sprinkler mains (system_id FP-*): one head or drop per 2 m.",
+   "priority": 370,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "FIR-SPRINK-INSTALL",
+     "quantity": "length_m",
+     "quantity_factor": 0.5,
+     "unit_override": "ea"
+    }
+   ],
+   "visual": "pipe",
+   "system_prefix": "FP-"
+  },
+  {
+   "id": "R-pipe-underground",
+   "description": "Underground drainage under the ground slab.",
+   "priority": 365,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ],
+    "storey_index_max": -1
+   },
+   "steps": [
+    {
+     "step": "CIV-EARTH-CUT",
+     "quantity": "length_m",
+     "quantity_factor": 1.2,
+     "unit_override": "m3"
+    },
+    {
+     "step": "PLB-UG-INSTALL",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "pipe"
+  },
+  {
+   "id": "R-pipe",
+   "description": "Water, waste and heating pipe.",
+   "priority": 360,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PLB-PIPE-INSTALL",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "pipe"
+  },
+  {
+   "id": "R-fitting",
+   "description": "Fittings, chambers and similar.",
+   "priority": 355,
+   "match": {
+    "ifc_class": [
+     "IfcPipeFitting",
+     "IfcDuctFitting",
+     "IfcDistributionChamberElement"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-FITTING-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "pipe"
+  },
+  {
+   "id": "R-duct",
+   "description": "Ductwork.",
+   "priority": 350,
+   "match": {
+    "ifc_class": [
+     "IfcDuctSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "duct"
+  },
+  {
+   "id": "R-tray",
+   "description": "Containment.",
+   "priority": 345,
+   "match": {
+    "ifc_class": [
+     "IfcCableCarrierSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-TRAY-INSTALL",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "cable_tray"
+  },
+  {
+   "id": "R-cable",
+   "description": "Cabling with electrical inspection.",
+   "priority": 340,
+   "match": {
+    "ifc_class": [
+     "IfcCableSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ELE-CABLE-PULL",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "cable_tray"
+  },
+  {
+   "id": "R-air-terminal-pressure",
+   "description": "Pressure-controlled rooms (theatres, isolation): diffuser, balance, pressure test.",
+   "priority": 335,
+   "match": {
+    "ifc_class": [
+     "IfcAirTerminal"
+    ],
+    "zone_tags_any": [
+     "pressure_room"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-DIFFUSER-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CX-AIR-BALANCE",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CX-PRESSURE-TEST",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "terminal"
+  },
+  {
+   "id": "R-air-terminal",
+   "description": "Diffusers with air balancing.",
+   "priority": 330,
+   "match": {
+    "ifc_class": [
+     "IfcAirTerminal",
+     "IfcFlowTerminal"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-DIFFUSER-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CX-AIR-BALANCE",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "terminal"
+  },
+  {
+   "id": "R-sanitary",
+   "description": "Basins, WCs, sinks.",
+   "priority": 325,
+   "match": {
+    "ifc_class": [
+     "IfcSanitaryTerminal"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PLB-FIXTURE-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "terminal"
+  },
+  {
+   "id": "R-sprinkler",
+   "description": "Sprinkler heads and drops.",
+   "priority": 320,
+   "match": {
+    "ifc_class": [
+     "IfcFireSuppressionTerminal"
+    ]
+   },
+   "steps": [
+    {
+     "step": "FIR-SPRINK-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "terminal"
+  },
+  {
+   "id": "R-light",
+   "description": "Light fittings after ceiling.",
+   "priority": 315,
+   "match": {
+    "ifc_class": [
+     "IfcLightFixture",
+     "IfcLamp"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ELE-LIGHT-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "terminal"
+  },
+  {
+   "id": "R-alarm",
+   "description": "Detectors, alarms and controls with acceptance test.",
+   "priority": 310,
+   "match": {
+    "ifc_class": [
+     "IfcSensor",
+     "IfcAlarm",
+     "IfcActuator",
+     "IfcController",
+     "IfcUnitaryControlElement"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ELE-LIGHT-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CX-FIRE-TEST",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "terminal"
+  },
+  {
+   "id": "R-valve",
+   "description": "Valves and dampers.",
+   "priority": 305,
+   "match": {
+    "ifc_class": [
+     "IfcFlowController"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-FITTING-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "generic"
+  },
+  {
+   "id": "R-chiller",
+   "description": "Chillers and boilers: 16 week lead.",
+   "priority": 300,
+   "match": {
+    "ifc_class": [
+     "IfcEnergyConversionDevice"
+    ],
+    "name_regex": "(?i)(chiller|boiler|heat.?pump|cooling)"
+   },
+   "steps": [
+    {
+     "step": "MEP-CHILLER-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  },
+  {
+   "id": "R-transformer",
+   "description": "Transformer: 40 week lead.",
+   "priority": 295,
+   "match": {
+    "ifc_class": [
+     "IfcTransformer"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ELE-XFMR-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CX-POWER-ENERGISE",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  },
+  {
+   "id": "R-plant",
+   "description": "AHUs, pumps, tanks: 12 week lead.",
+   "priority": 290,
+   "match": {
+    "ifc_class": [
+     "IfcFlowMovingDevice",
+     "IfcFlowStorageDevice",
+     "IfcEnergyConversionDevice"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-AHU-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  },
+  {
+   "id": "R-switchgear",
+   "description": "Main switchgear: 24 week lead.",
+   "priority": 285,
+   "match": {
+    "ifc_class": [
+     "IfcElectricDistributionBoard"
+    ],
+    "name_regex": "(?i)(switchgear|swgr|main|msb|\\bMV\\b|\\bLV\\b|ups|generator)"
+   },
+   "steps": [
+    {
+     "step": "ELE-SWGR-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CX-POWER-ENERGISE",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  },
+  {
+   "id": "R-board",
+   "description": "Distribution boards.",
+   "priority": 280,
+   "match": {
+    "ifc_class": [
+     "IfcElectricDistributionBoard"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ELE-PANEL-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CX-POWER-ENERGISE",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  },
+  {
+   "id": "R-pile",
+   "description": "Piles with integrity test.",
+   "priority": 275,
+   "match": {
+    "ifc_class": [
+     "IfcPile"
+    ]
+   },
+   "steps": [
+    {
+     "step": "GEN-SETOUT",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CIV-PILE-DRIVE",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "pile"
+  },
+  {
+   "id": "R-footing",
+   "description": "Footings and pile caps (setting-out is folded into the excavation).",
+   "priority": 270,
+   "match": {
+    "ifc_class": [
+     "IfcFooting"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-EARTH-CUT",
+     "quantity": "volume_m3",
+     "quantity_factor": 3.0,
+     "unit_override": "m3"
+    },
+    {
+     "step": "STR-FOOT-REBAR",
+     "quantity": "volume_m3",
+     "quantity_factor": 0.1,
+     "unit_override": "t"
+    },
+    {
+     "step": "STR-FOOT-POUR",
+     "quantity": "volume_m3"
+    }
+   ],
+   "visual": "footing"
+  },
+  {
+   "id": "R-slab-ground",
+   "description": "Ground slab, ground ramps and stairs.",
+   "priority": 265,
+   "match": {
+    "ifc_class": [
+     "IfcSlab",
+     "IfcRamp",
+     "IfcStair"
+    ],
+    "storey_index_max": 0
+   },
+   "steps": [
+    {
+     "step": "STR-GSLAB-POUR",
+     "quantity": "volume_m3"
+    }
+   ],
+   "visual": "slab"
+  },
+  {
+   "id": "R-slab-suspended",
+   "description": "Suspended slab: form, rebar, pour, strike 7 days later.",
+   "priority": 260,
+   "match": {
+    "ifc_class": [
+     "IfcSlab",
+     "IfcRamp",
+     "IfcStair"
+    ],
+    "storey_index_min": 1
+   },
+   "steps": [
+    {
+     "step": "STR-SLAB-FORM",
+     "quantity": "area_m2"
+    },
+    {
+     "step": "STR-SLAB-REBAR",
+     "quantity": "volume_m3",
+     "quantity_factor": 0.11,
+     "unit_override": "t"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "quantity": "volume_m3"
+    },
+    {
+     "step": "STR-SLAB-STRIKE",
+     "quantity": "area_m2",
+     "lag_days": 7
+    }
+   ],
+   "visual": "slab"
+  },
+  {
+   "id": "R-steel-frame",
+   "description": "Steel columns, beams, members and plates.",
+   "priority": 255,
+   "match": {
+    "ifc_class": [
+     "IfcColumn",
+     "IfcBeam",
+     "IfcMember",
+     "IfcPlate"
+    ],
+    "material_regex": "(?i)(steel|s355|s275|metal)"
+   },
+   "steps": [
+    {
+     "step": "STR-STEEL-ERECT",
+     "quantity": "weight_t",
+     "min_quantity": 0.05
+    }
+   ],
+   "visual": "beam"
+  },
+  {
+   "id": "R-column",
+   "description": "Concrete column needs footing or slab below.",
+   "priority": 250,
+   "match": {
+    "ifc_class": [
+     "IfcColumn"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-COL-POUR",
+     "quantity": "volume_m3"
+    }
+   ],
+   "visual": "column"
+  },
+  {
+   "id": "R-beam",
+   "description": "Concrete beam after columns.",
+   "priority": 245,
+   "match": {
+    "ifc_class": [
+     "IfcBeam"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-BEAM-POUR",
+     "quantity": "volume_m3"
+    }
+   ],
+   "visual": "beam"
+  },
+  {
+   "id": "R-proxy-equipment",
+   "description": "Proxy elements that are clinical fixed equipment. Anything else falls to the default rule.",
+   "priority": 240,
+   "match": {
+    "ifc_class": [
+     "IfcBuildingElementProxy"
+    ],
+    "name_regex": "(?i)(equip|cabinet|bed.?head|pendant|boom|theatre|nurse|pod|headwall)"
+   },
+   "steps": [
+    {
+     "step": "MED-EQUIP-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  },
+  {
+   "id": "R-wall-shield",
+   "description": "Lead-lined wall (properties.Shielding): framing, fire-stop, lead boarding.",
+   "priority": 235,
+   "match": {
+    "ifc_class": [
+     "IfcWall",
+     "IfcWallStandardCase"
+    ],
+    "properties": {
+     "Shielding": true
+    }
+   },
+   "steps": [
+    {
+     "step": "ARC-WALL-FRAME",
+     "quantity": "area_m2"
+    },
+    {
+     "step": "FIR-STOP-INSTALL",
+     "quantity": "area_m2",
+     "quantity_factor": 0.15,
+     "unit_override": "ea"
+    },
+    {
+     "step": "ARC-SHIELD-WALL",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "wall"
+  },
+  {
+   "id": "R-wall-core",
+   "description": "Concrete cores and shear walls.",
+   "priority": 230,
+   "match": {
+    "ifc_class": [
+     "IfcWall",
+     "IfcWallStandardCase"
+    ],
+    "material_regex": "(?i)(concrete|precast)"
+   },
+   "steps": [
+    {
+     "step": "STR-WALL-POUR",
+     "quantity": "area_m2",
+     "quantity_factor": 0.25,
+     "unit_override": "m3"
+    }
+   ],
+   "visual": "wall"
+  },
+  {
+   "id": "R-wall-external",
+   "description": "External wall (IsExternal): after the slab above.",
+   "priority": 225,
+   "match": {
+    "ifc_class": [
+     "IfcWall",
+     "IfcWallStandardCase"
+    ],
+    "properties": {
+     "IsExternal": true
+    }
+   },
+   "steps": [
+    {
+     "step": "ARC-EXTWALL-BUILD",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "wall"
+  },
+  {
+   "id": "R-wall-partition",
+   "description": "Partition: frame, fire-stop, board. Closed only after in-wall services and gas test.",
+   "priority": 220,
+   "match": {
+    "ifc_class": [
+     "IfcWall",
+     "IfcWallStandardCase"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-WALL-FRAME",
+     "quantity": "area_m2"
+    },
+    {
+     "step": "FIR-STOP-INSTALL",
+     "quantity": "area_m2",
+     "quantity_factor": 0.15,
+     "unit_override": "ea"
+    },
+    {
+     "step": "ARC-WALL-BOARD",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "wall"
+  },
+  {
+   "id": "R-curtain",
+   "description": "Curtain wall: 14 week lead.",
+   "priority": 215,
+   "match": {
+    "ifc_class": [
+     "IfcCurtainWall"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-CURTAIN-INSTALL",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "curtain_wall"
+  },
+  {
+   "id": "R-roof",
+   "description": "Roof deck, insulation and membrane.",
+   "priority": 210,
+   "match": {
+    "ifc_class": [
+     "IfcRoof"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-ROOF-INSTALL",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "roof"
+  },
+  {
+   "id": "R-door",
+   "description": "Doors after host wall.",
+   "priority": 205,
+   "match": {
+    "ifc_class": [
+     "IfcDoor"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-DOOR-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "door"
+  },
+  {
+   "id": "R-window",
+   "description": "Windows after host wall.",
+   "priority": 200,
+   "match": {
+    "ifc_class": [
+     "IfcWindow"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-WINDOW-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "window"
+  },
+  {
+   "id": "R-railing",
+   "description": "Handrails.",
+   "priority": 195,
+   "match": {
+    "ifc_class": [
+     "IfcRailing"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-RAIL-INSTALL",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "generic"
+  },
+  {
+   "id": "R-floor-hygienic",
+   "description": "Hygienic welded flooring (properties.Hygienic): 15 percent allowance for welded coves.",
+   "priority": 190,
+   "match": {
+    "ifc_class": [
+     "IfcCovering"
+    ],
+    "properties": {
+     "Hygienic": true
+    }
+   },
+   "steps": [
+    {
+     "step": "ARC-FLOOR-FINISH",
+     "quantity": "area_m2",
+     "quantity_factor": 1.15
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "floor_finish"
+  },
+  {
+   "id": "R-floor",
+   "description": "Floor finish after partitions and ceilings; room handover.",
+   "priority": 185,
+   "match": {
+    "ifc_class": [
+     "IfcCovering"
+    ],
+    "predefined_type": [
+     "FLOORING"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-FLOOR-FINISH",
+     "quantity": "area_m2"
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "floor_finish"
+  },
+  {
+   "id": "R-ceiling",
+   "description": "Ceilings close after all rough-in.",
+   "priority": 180,
+   "match": {
+    "ifc_class": [
+     "IfcCovering"
+    ],
+    "predefined_type": [
+     "CEILING"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-CEILING-CLOSE",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "ceiling"
+  }
+ ],
+ "default": {
+  "steps": [
+   {
+    "step": "GEN-ELEM-INSTALL",
+    "quantity": "count",
+    "min_quantity": 1
+   }
+  ],
+  "visual": "generic"
+ }
+}

@@ -1,0 +1,1075 @@
+{
+ "schema_version": "1.0",
+ "sector": "industrial",
+ "step_library": "step_library.json",
+ "rules": [
+  {
+   "id": "R-module-set",
+   "description": "Process module: set on pad, connect, start up, hand over.",
+   "priority": 400,
+   "match": {
+    "ifc_class": [
+     "IfcBuildingElementProxy",
+     "IfcDistributionElement"
+    ],
+    "properties": {
+     "Module": true
+    }
+   },
+   "steps": [
+    {
+     "step": "PRC-MOD-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "PRC-MOD-CONNECT",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CX-PROCESS-STARTUP",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  },
+  {
+   "id": "R-transformer",
+   "description": "Transformer: 40 week lead, set on pad, energise.",
+   "priority": 395,
+   "match": {
+    "ifc_class": [
+     "IfcTransformer"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ELE-XFMR-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CX-POWER-ENERGISE",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  },
+  {
+   "id": "R-tank",
+   "description": "Tank: set, hydrotest, start-up, hand over.",
+   "priority": 390,
+   "match": {
+    "ifc_class": [
+     "IfcTank"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PRC-TANK-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "PRC-TANK-HYDRO",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CX-PROCESS-STARTUP",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "tank"
+  },
+  {
+   "id": "R-chimney",
+   "description": "Stack erected as a heavy equipment lift.",
+   "priority": 385,
+   "match": {
+    "ifc_class": [
+     "IfcChimney"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PRC-EQUIP-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "tank"
+  },
+  {
+   "id": "R-switchgear",
+   "description": "Major switchgear and MCC lineups: 24 week lead.",
+   "priority": 380,
+   "match": {
+    "ifc_class": [
+     "IfcElectricDistributionBoard"
+    ],
+    "name_regex": "(?i)(mcc|switchgear|swgr|switchboard|\\bMV\\b|\\bHV\\b|motor control|pcc)"
+   },
+   "steps": [
+    {
+     "step": "ELE-SWGR-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CX-POWER-ENERGISE",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  },
+  {
+   "id": "R-board",
+   "description": "Local panels and junction boxes.",
+   "priority": 375,
+   "match": {
+    "ifc_class": [
+     "IfcElectricDistributionBoard"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ELE-PANEL-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CX-POWER-ENERGISE",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  },
+  {
+   "id": "R-pile",
+   "description": "Driven piles with integrity test hold point.",
+   "priority": 370,
+   "match": {
+    "ifc_class": [
+     "IfcPile",
+     "IfcDeepFoundation"
+    ]
+   },
+   "steps": [
+    {
+     "step": "GEN-SETOUT",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CIV-PILE-DRIVE",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "pile"
+  },
+  {
+   "id": "R-footing-pilecap",
+   "description": "Pile cap after piles.",
+   "priority": 365,
+   "match": {
+    "ifc_class": [
+     "IfcFooting"
+    ],
+    "name_regex": "(?i)pile.?cap"
+   },
+   "steps": [
+    {
+     "step": "CIV-EARTH-CUT",
+     "quantity": "volume_m3",
+     "quantity_factor": 2.0,
+     "unit_override": "m3"
+    },
+    {
+     "step": "STR-FOOT-REBAR",
+     "quantity": "volume_m3",
+     "quantity_factor": 0.12,
+     "unit_override": "t"
+    },
+    {
+     "step": "STR-PILECAP-POUR",
+     "quantity": "volume_m3"
+    },
+    {
+     "step": "CIV-BACKFILL-COMPACT",
+     "quantity": "volume_m3",
+     "quantity_factor": 1.5,
+     "unit_override": "m3"
+    }
+   ],
+   "visual": "footing"
+  },
+  {
+   "id": "R-footing-eqpad",
+   "description": "Equipment pad with cure time before the lift.",
+   "priority": 360,
+   "match": {
+    "ifc_class": [
+     "IfcFooting",
+     "IfcSlab"
+    ],
+    "name_regex": "(?i)(equip|pump|vessel|tank|module|skid|compressor|transformer)\\w*[\\s_-]*(pad|plinth|base|foundation)|\\bEQ.?pad\\b"
+   },
+   "steps": [
+    {
+     "step": "CIV-EARTH-CUT",
+     "quantity": "volume_m3",
+     "quantity_factor": 2.5,
+     "unit_override": "m3"
+    },
+    {
+     "step": "STR-FOOT-REBAR",
+     "quantity": "volume_m3",
+     "quantity_factor": 0.1,
+     "unit_override": "t"
+    },
+    {
+     "step": "STR-EQPAD-POUR",
+     "quantity": "volume_m3"
+    },
+    {
+     "step": "CIV-BACKFILL-COMPACT",
+     "quantity": "volume_m3",
+     "quantity_factor": 1.0,
+     "unit_override": "m3"
+    }
+   ],
+   "visual": "footing"
+  },
+  {
+   "id": "R-footing-pad",
+   "description": "Pad, strip and rack footings (excavation setting-out and backfill are folded into the cut and pour).",
+   "priority": 355,
+   "match": {
+    "ifc_class": [
+     "IfcFooting"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-EARTH-CUT",
+     "quantity": "volume_m3",
+     "quantity_factor": 3.0,
+     "unit_override": "m3"
+    },
+    {
+     "step": "STR-FOOT-REBAR",
+     "quantity": "volume_m3",
+     "quantity_factor": 0.1,
+     "unit_override": "t"
+    },
+    {
+     "step": "STR-FOOT-POUR",
+     "quantity": "volume_m3"
+    }
+   ],
+   "visual": "footing"
+  },
+  {
+   "id": "R-roof",
+   "description": "Roof deck and membrane (also roof slabs modelled as IfcSlab ROOF).",
+   "priority": 350,
+   "match": {
+    "ifc_class": [
+     "IfcRoof",
+     "IfcSlab"
+    ],
+    "predefined_type": [
+     "ROOF",
+     "FLAT_ROOF",
+     "GABLE_ROOF",
+     "SHED_ROOF",
+     "HIP_ROOF",
+     "DOME_ROOF",
+     "BARREL_ROOF",
+     "FREEFORM"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-ROOF-DECK",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "roof"
+  },
+  {
+   "id": "R-slab-ground",
+   "description": "Slab on grade and ground ramps.",
+   "priority": 345,
+   "match": {
+    "ifc_class": [
+     "IfcSlab",
+     "IfcRamp"
+    ],
+    "storey_index_max": 0
+   },
+   "steps": [
+    {
+     "step": "GEN-SITE-PREP",
+     "quantity": "area_m2"
+    },
+    {
+     "step": "CIV-EARTH-FILL",
+     "quantity": "area_m2",
+     "quantity_factor": 0.3,
+     "unit_override": "m3"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "quantity": "volume_m3"
+    }
+   ],
+   "visual": "slab"
+  },
+  {
+   "id": "R-slab-suspended",
+   "description": "Mezzanine and platform slabs on metal deck.",
+   "priority": 340,
+   "match": {
+    "ifc_class": [
+     "IfcSlab",
+     "IfcRamp"
+    ],
+    "storey_index_min": 1
+   },
+   "steps": [
+    {
+     "step": "STR-SLAB-POUR",
+     "quantity": "volume_m3"
+    }
+   ],
+   "visual": "slab"
+  },
+  {
+   "id": "R-rack-steel",
+   "description": "Pipe rack steel: linear frames erected bay by bay.",
+   "priority": 335,
+   "match": {
+    "ifc_class": [
+     "IfcColumn",
+     "IfcBeam",
+     "IfcMember"
+    ],
+    "name_regex": "(?i)(rack|pipe.?bridge|sleeper)"
+   },
+   "steps": [
+    {
+     "step": "STR-RACK-ERECT",
+     "quantity": "weight_t"
+    },
+    {
+     "step": "STR-RACK-CONN",
+     "quantity": "weight_t"
+    }
+   ],
+   "visual": "beam"
+  },
+  {
+   "id": "R-column-steel",
+   "description": "Steel column, connections, then fireproofing.",
+   "priority": 330,
+   "match": {
+    "ifc_class": [
+     "IfcColumn"
+    ],
+    "material_regex": "(?i)(steel|s355|s275|a992|metal)"
+   },
+   "steps": [
+    {
+     "step": "STR-STEEL-COL",
+     "quantity": "weight_t"
+    },
+    {
+     "step": "STR-STEEL-CONN",
+     "quantity": "weight_t"
+    },
+    {
+     "step": "INS-COATING-APPLY",
+     "quantity": "weight_t",
+     "quantity_factor": 22,
+     "unit_override": "m2"
+    }
+   ],
+   "visual": "column"
+  },
+  {
+   "id": "R-column-concrete",
+   "description": "Cast-in-place column.",
+   "priority": 325,
+   "match": {
+    "ifc_class": [
+     "IfcColumn"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-COL-POUR",
+     "quantity": "volume_m3"
+    }
+   ],
+   "visual": "column"
+  },
+  {
+   "id": "R-beam-steel",
+   "description": "Steel beam and connections (secondary steel is not fireproofed here).",
+   "priority": 320,
+   "match": {
+    "ifc_class": [
+     "IfcBeam"
+    ],
+    "material_regex": "(?i)(steel|s355|s275|a992|metal)"
+   },
+   "steps": [
+    {
+     "step": "STR-STEEL-BEAM",
+     "quantity": "weight_t"
+    },
+    {
+     "step": "STR-STEEL-CONN",
+     "quantity": "weight_t"
+    }
+   ],
+   "visual": "beam"
+  },
+  {
+   "id": "R-beam-concrete",
+   "description": "Cast-in-place beam.",
+   "priority": 315,
+   "match": {
+    "ifc_class": [
+     "IfcBeam"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-COL-POUR",
+     "quantity": "volume_m3"
+    }
+   ],
+   "visual": "beam"
+  },
+  {
+   "id": "R-member-plate",
+   "description": "Bracing, platform members and plates.",
+   "priority": 310,
+   "match": {
+    "ifc_class": [
+     "IfcMember",
+     "IfcPlate"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-STEEL-BEAM",
+     "quantity": "weight_t",
+     "min_quantity": 0.05
+    },
+    {
+     "step": "STR-STEEL-CONN",
+     "quantity": "weight_t",
+     "min_quantity": 0.05
+    }
+   ],
+   "visual": "beam"
+  },
+  {
+   "id": "R-wall-concrete",
+   "description": "Concrete walls and tank bunds (0.3 m thick assumed).",
+   "priority": 305,
+   "match": {
+    "ifc_class": [
+     "IfcWall",
+     "IfcWallStandardCase"
+    ],
+    "material_regex": "(?i)(concrete|bund|precast)"
+   },
+   "steps": [
+    {
+     "step": "STR-WALL-POUR",
+     "quantity": "area_m2",
+     "quantity_factor": 0.3,
+     "unit_override": "m3"
+    }
+   ],
+   "visual": "wall"
+  },
+  {
+   "id": "R-wall-masonry",
+   "description": "Blockwork walls with paint coat.",
+   "priority": 300,
+   "match": {
+    "ifc_class": [
+     "IfcWall",
+     "IfcWallStandardCase"
+    ],
+    "material_regex": "(?i)(block|brick|masonry|cmu)"
+   },
+   "steps": [
+    {
+     "step": "ARC-BLOCK-WALL",
+     "quantity": "area_m2"
+    },
+    {
+     "step": "INS-COATING-APPLY",
+     "quantity": "area_m2",
+     "quantity_factor": 1.0
+    }
+   ],
+   "visual": "wall"
+  },
+  {
+   "id": "R-wall-cladding",
+   "description": "Cladding panels and glazed curtain walls on steel.",
+   "priority": 295,
+   "match": {
+    "ifc_class": [
+     "IfcWall",
+     "IfcWallStandardCase",
+     "IfcCurtainWall"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-CLAD-INSTALL",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "wall"
+  },
+  {
+   "id": "R-door",
+   "description": "Doors after host wall.",
+   "priority": 290,
+   "match": {
+    "ifc_class": [
+     "IfcDoor"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-DOOR-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "door"
+  },
+  {
+   "id": "R-window",
+   "description": "Windows after host wall.",
+   "priority": 285,
+   "match": {
+    "ifc_class": [
+     "IfcWindow"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-WINDOW-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "window"
+  },
+  {
+   "id": "R-stair",
+   "description": "Stairs and access platforms.",
+   "priority": 280,
+   "match": {
+    "ifc_class": [
+     "IfcStair"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-STAIR-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "stair"
+  },
+  {
+   "id": "R-railing",
+   "description": "Handrails and guardrails.",
+   "priority": 275,
+   "match": {
+    "ifc_class": [
+     "IfcRailing"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-RAIL-INSTALL",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "generic"
+  },
+  {
+   "id": "R-covering-floor",
+   "description": "Floor finishes after partitions and ceilings.",
+   "priority": 270,
+   "match": {
+    "ifc_class": [
+     "IfcCovering"
+    ],
+    "predefined_type": [
+     "FLOORING"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-FLOOR-FINISH",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "floor_finish"
+  },
+  {
+   "id": "R-covering-ceiling",
+   "description": "Ceilings after MEP.",
+   "priority": 265,
+   "match": {
+    "ifc_class": [
+     "IfcCovering"
+    ],
+    "predefined_type": [
+     "CEILING"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-CEILING-INSTALL",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "ceiling"
+  },
+  {
+   "id": "R-covering-pipe-insulation",
+   "description": "Pipe insulation modelled as a covering: waits for the hydrotest of its system.",
+   "priority": 260,
+   "match": {
+    "ifc_class": [
+     "IfcCovering"
+    ],
+    "predefined_type": [
+     "INSULATION"
+    ],
+    "name_regex": "(?i)(rack|pipe|line|lagg|process|duct)"
+   },
+   "steps": [
+    {
+     "step": "INS-PIPE-INSULATE",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "pipe"
+  },
+  {
+   "id": "R-covering-insulation",
+   "description": "Equipment insulation, wrapping and coatings.",
+   "priority": 255,
+   "match": {
+    "ifc_class": [
+     "IfcCovering"
+    ],
+    "predefined_type": [
+     "INSULATION",
+     "CLADDING",
+     "WRAPPING",
+     "MEMBRANE"
+    ]
+   },
+   "steps": [
+    {
+     "step": "INS-COATING-APPLY",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "generic"
+  },
+  {
+   "id": "R-pipe-underground",
+   "description": "Underground drainage: trench, lay, backfill.",
+   "priority": 250,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ],
+    "storey_index_max": -1
+   },
+   "steps": [
+    {
+     "step": "CIV-EARTH-CUT",
+     "quantity": "length_m",
+     "quantity_factor": 1.4,
+     "unit_override": "m3"
+    },
+    {
+     "step": "CIV-DRAIN-INSTALL",
+     "quantity": "length_m"
+    },
+    {
+     "step": "CIV-BACKFILL-COMPACT",
+     "quantity": "length_m",
+     "quantity_factor": 1.2,
+     "unit_override": "m3"
+    }
+   ],
+   "visual": "pipe"
+  },
+  {
+   "id": "R-pipe-rack",
+   "description": "Rack pipe: spool lay, hydrotest, flush (insulation is its own covering element).",
+   "priority": 245,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ],
+    "name_regex": "(?i)(rack|bridge|spool)"
+   },
+   "steps": [
+    {
+     "step": "PIP-SPOOL-LAY",
+     "quantity": "length_m"
+    },
+    {
+     "step": "PIP-PIPE-TEST",
+     "quantity": "length_m"
+    },
+    {
+     "step": "CX-PIPE-FLUSH",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "pipe"
+  },
+  {
+   "id": "R-pipe-process",
+   "description": "Process and utility pipe: install, test, flush.",
+   "priority": 240,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PIP-PIPE-INSTALL",
+     "quantity": "length_m"
+    },
+    {
+     "step": "PIP-PIPE-TEST",
+     "quantity": "length_m"
+    },
+    {
+     "step": "CX-PIPE-FLUSH",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "pipe"
+  },
+  {
+   "id": "R-fitting",
+   "description": "Fittings, flanges and valves.",
+   "priority": 235,
+   "match": {
+    "ifc_class": [
+     "IfcPipeFitting",
+     "IfcDuctFitting"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PIP-FITTING-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "pipe"
+  },
+  {
+   "id": "R-duct-segment",
+   "description": "HVAC ductwork.",
+   "priority": 230,
+   "match": {
+    "ifc_class": [
+     "IfcDuctSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "duct"
+  },
+  {
+   "id": "R-tray",
+   "description": "Cable tray and ladder.",
+   "priority": 225,
+   "match": {
+    "ifc_class": [
+     "IfcCableCarrierSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ELE-TRAY-INSTALL",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "cable_tray"
+  },
+  {
+   "id": "R-cable",
+   "description": "Cable pull and megger test.",
+   "priority": 220,
+   "match": {
+    "ifc_class": [
+     "IfcCableSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ELE-CABLE-PULL",
+     "quantity": "length_m"
+    },
+    {
+     "step": "ELE-CABLE-TEST",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "cable_tray"
+  },
+  {
+   "id": "R-terminal-air",
+   "description": "Diffusers with air balancing.",
+   "priority": 215,
+   "match": {
+    "ifc_class": [
+     "IfcAirTerminal"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-TERM-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CX-AIR-BALANCE",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "terminal"
+  },
+  {
+   "id": "R-terminal-fire",
+   "description": "Sprinkler and deluge heads.",
+   "priority": 210,
+   "match": {
+    "ifc_class": [
+     "IfcFireSuppressionTerminal"
+    ]
+   },
+   "steps": [
+    {
+     "step": "FIR-SPRINK-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "terminal"
+  },
+  {
+   "id": "R-terminal",
+   "description": "Other terminals and fittings.",
+   "priority": 205,
+   "match": {
+    "ifc_class": [
+     "IfcFlowTerminal",
+     "IfcLightFixture",
+     "IfcSanitaryTerminal",
+     "IfcLamp"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-TERM-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "terminal"
+  },
+  {
+   "id": "R-instrument",
+   "description": "Field instruments with loop check.",
+   "priority": 200,
+   "match": {
+    "ifc_class": [
+     "IfcSensor",
+     "IfcActuator",
+     "IfcController",
+     "IfcAlarm",
+     "IfcUnitaryControlElement"
+    ]
+   },
+   "steps": [
+    {
+     "step": "IC-INSTR-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "IC-LOOP-CHECK",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  },
+  {
+   "id": "R-valve",
+   "description": "Valves and dampers.",
+   "priority": 195,
+   "match": {
+    "ifc_class": [
+     "IfcFlowController"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PIP-FITTING-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "generic"
+  },
+  {
+   "id": "R-pump",
+   "description": "Pumps, compressors and fans: set then start up.",
+   "priority": 190,
+   "match": {
+    "ifc_class": [
+     "IfcFlowMovingDevice"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PRC-PUMP-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CX-PROCESS-STARTUP",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  },
+  {
+   "id": "R-equipment",
+   "description": "Exchangers, heaters and vessels.",
+   "priority": 185,
+   "match": {
+    "ifc_class": [
+     "IfcEnergyConversionDevice",
+     "IfcFlowStorageDevice"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PRC-EQUIP-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "CX-PROCESS-STARTUP",
+     "quantity": "count",
+     "min_quantity": 1
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "equipment"
+  },
+  {
+   "id": "R-chamber",
+   "description": "Manholes and chambers.",
+   "priority": 180,
+   "match": {
+    "ifc_class": [
+     "IfcDistributionChamberElement"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-CHAMBER-SET",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "generic"
+  }
+ ],
+ "default": {
+  "steps": [
+   {
+    "step": "GEN-ELEM-INSTALL",
+    "quantity": "count",
+    "min_quantity": 1
+   }
+  ],
+  "visual": "generic"
+ }
+}

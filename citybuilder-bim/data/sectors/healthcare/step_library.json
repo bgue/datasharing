@@ -1,0 +1,2555 @@
+{
+ "schema_version": "1.0",
+ "sector": "healthcare",
+ "phases": [
+  {
+   "id": "mobilise",
+   "name": "Mobilise",
+   "order": 0,
+   "description": "Survey control and infection-control (ICRA) barrier set-up next to the live hospital."
+  },
+  {
+   "id": "substructure",
+   "name": "Substructure",
+   "order": 1,
+   "description": "Excavation, piles, footings, ground slab and underground drainage."
+  },
+  {
+   "id": "superstructure",
+   "name": "Superstructure",
+   "order": 2,
+   "description": "Concrete frame, floor slabs with strike lag, cores and roof steel."
+  },
+  {
+   "id": "envelope",
+   "name": "Envelope",
+   "order": 3,
+   "description": "External walls, curtain wall, windows and roof, closed in before services."
+  },
+  {
+   "id": "mep_roughin",
+   "name": "MEP rough-in",
+   "order": 4,
+   "description": "Partition framing, ducts, pipes, medical gas, sprinklers, trays, plant and electrical gear."
+  },
+  {
+   "id": "interiors",
+   "name": "Interiors",
+   "order": 5,
+   "description": "Boarding, ceiling close-out, floors, doors and lead-lined walls."
+  },
+  {
+   "id": "mep_finish",
+   "name": "MEP finish",
+   "order": 6,
+   "description": "Diffusers, light fittings, devices and plumbing fixtures."
+  },
+  {
+   "id": "medical_equipment",
+   "name": "Medical equipment",
+   "order": 7,
+   "description": "MRI, CT, sterilisers and fixed clinical equipment built into finished rooms."
+  },
+  {
+   "id": "commissioning",
+   "name": "Commissioning",
+   "order": 8,
+   "description": "Air balance, pressure tests, fire alarm, power and medical gas certification."
+  },
+  {
+   "id": "icra_closeout",
+   "name": "ICRA close-out",
+   "order": 9,
+   "description": "HEPA clean and infection control sign-off before barriers come down."
+  },
+  {
+   "id": "handover",
+   "name": "Handover",
+   "order": 10,
+   "description": "Room-by-room documentation and handover."
+  }
+ ],
+ "trades": [
+  {
+   "id": "concrete",
+   "name": "Concrete and groundworks crew",
+   "weekly_cost": 9500,
+   "crew_size": 6,
+   "max_hire_per_week": 2,
+   "color": "#8d8d8d"
+  },
+  {
+   "id": "envelope",
+   "name": "Steel, envelope and roofing crew",
+   "weekly_cost": 10000,
+   "crew_size": 6,
+   "max_hire_per_week": 2,
+   "color": "#d8553c"
+  },
+  {
+   "id": "mechanical",
+   "name": "Mechanical (HVAC) crew",
+   "weekly_cost": 10500,
+   "crew_size": 4,
+   "max_hire_per_week": 3,
+   "color": "#5b8def"
+  },
+  {
+   "id": "plumbing",
+   "name": "Plumbing and medical gas crew",
+   "weekly_cost": 10000,
+   "crew_size": 4,
+   "max_hire_per_week": 3,
+   "color": "#3f9fbf"
+  },
+  {
+   "id": "electrical",
+   "name": "Electrical crew",
+   "weekly_cost": 9500,
+   "crew_size": 4,
+   "max_hire_per_week": 3,
+   "color": "#e0c030"
+  },
+  {
+   "id": "interiors",
+   "name": "Drywall and ceilings crew",
+   "weekly_cost": 8000,
+   "crew_size": 5,
+   "max_hire_per_week": 3,
+   "color": "#d9a066"
+  },
+  {
+   "id": "finishes",
+   "name": "Floors and joinery crew",
+   "weekly_cost": 7500,
+   "crew_size": 4,
+   "max_hire_per_week": 2,
+   "color": "#c48f65"
+  },
+  {
+   "id": "medical",
+   "name": "Medical equipment installers",
+   "weekly_cost": 12500,
+   "crew_size": 3,
+   "max_hire_per_week": 1,
+   "color": "#9b59b6"
+  },
+  {
+   "id": "commissioning",
+   "name": "Commissioning and TAB team",
+   "weekly_cost": 8500,
+   "crew_size": 3,
+   "max_hire_per_week": 1,
+   "color": "#4caf50"
+  },
+  {
+   "id": "icra",
+   "name": "Infection control crew",
+   "weekly_cost": 6500,
+   "crew_size": 3,
+   "max_hire_per_week": 2,
+   "color": "#e91e63"
+  }
+ ],
+ "steps": [
+  {
+   "id": "GEN-SETOUT",
+   "name": "Survey setting-out",
+   "phase": "mobilise",
+   "trade": "concrete",
+   "discipline": "general",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 12,
+   "unit_cost": 120,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.05,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [],
+   "tags": [
+    "concrete"
+   ]
+  },
+  {
+   "id": "GEN-ICRA-SETUP",
+   "name": "Erect ICRA barrier and negative air",
+   "description": "Dust containment barrier with negative air next to the live hospital. Every dusty or noisy step in an occupied_adjacent zone waits for it.",
+   "phase": "mobilise",
+   "trade": "icra",
+   "discipline": "general",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 2,
+   "unit_cost": 2500,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "icra",
+   "risk": 0.1,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [],
+   "tags": [
+    "icra",
+    "hold_point"
+   ]
+  },
+  {
+   "id": "CIV-EARTH-CUT",
+   "name": "Excavate for foundations and trenches",
+   "phase": "substructure",
+   "trade": "concrete",
+   "discipline": "civil",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 500,
+   "unit_cost": 9,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.4,
+   "weather_sensitive": true,
+   "noisy": true,
+   "dusty": true,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "GEN-SETOUT",
+     "scope": "same_element"
+    },
+    {
+     "step": "GEN-ICRA-SETUP",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "noisy",
+    "dusty",
+    "concrete"
+   ]
+  },
+  {
+   "id": "CIV-PILE-DRIVE",
+   "name": "Bore or drive pile",
+   "phase": "substructure",
+   "trade": "concrete",
+   "discipline": "civil",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 3,
+   "unit_cost": 3200,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "geotechnical",
+   "risk": 0.55,
+   "weather_sensitive": false,
+   "noisy": true,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "GEN-SETOUT",
+     "scope": "same_element"
+    },
+    {
+     "step": "GEN-ICRA-SETUP",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "piling",
+    "noisy",
+    "hold_point",
+    "high_risk",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-FOOT-REBAR",
+   "name": "Fix footing reinforcement",
+   "phase": "substructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 2.0,
+   "unit_cost": 1850,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.15,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "CIV-EARTH-CUT",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-FOOT-POUR",
+   "name": "Pour footing or pile cap",
+   "phase": "substructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 12,
+   "unit_cost": 220,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.2,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-FOOT-REBAR",
+     "scope": "same_element"
+    },
+    {
+     "step": "CIV-PILE-DRIVE",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "hold_point",
+    "concrete"
+   ]
+  },
+  {
+   "id": "PLB-UG-INSTALL",
+   "name": "Lay underground drainage and service ducts",
+   "phase": "substructure",
+   "trade": "plumbing",
+   "discipline": "plumbing",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 30,
+   "unit_cost": 150,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "plumbing",
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "CIV-EARTH-CUT",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "plumbing"
+   ]
+  },
+  {
+   "id": "STR-GSLAB-POUR",
+   "name": "Pour ground slab",
+   "phase": "substructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 14,
+   "unit_cost": 200,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.15,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "PLB-UG-INSTALL",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "hold_point",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-COL-POUR",
+   "name": "Form, reinforce and pour column",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 5,
+   "unit_cost": 450,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell_below"
+    },
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_below"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "heavy_lift",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-BEAM-POUR",
+   "name": "Form, reinforce and pour beam",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 8,
+   "unit_cost": 420,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-COL-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-SLAB-FORM",
+   "name": "Erect slab formwork and falsework",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 30,
+   "unit_cost": 48,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.35,
+   "weather_sensitive": false,
+   "noisy": true,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "STR-COL-POUR",
+     "scope": "same_cell_below"
+    },
+    {
+     "step": "STR-BEAM-POUR",
+     "scope": "same_cell_below"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_below"
+    }
+   ],
+   "tags": [
+    "noisy",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-SLAB-REBAR",
+   "name": "Fix slab reinforcement and services sleeves",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 2.2,
+   "unit_cost": 1850,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.25,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-FORM",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-SLAB-POUR",
+   "name": "Pour suspended slab",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 12,
+   "unit_cost": 260,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.2,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-REBAR",
+     "scope": "same_element"
+    },
+    {
+     "step": "STR-COL-POUR",
+     "scope": "same_cell_below"
+    },
+    {
+     "step": "STR-BEAM-POUR",
+     "scope": "same_cell_below"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "hold_point",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-SLAB-STRIKE",
+   "name": "Strike formwork",
+   "description": "Formwork can only be struck 7 days after the pour. Finishing and services work in the storey below waits for the strike above it.",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 80,
+   "unit_cost": 2,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": true,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_element",
+     "lag_days": 7
+    }
+   ],
+   "tags": [
+    "noisy",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-WALL-POUR",
+   "name": "Pour core or shear wall",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 10,
+   "unit_cost": 280,
+   "min_duration_days": 2,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.3,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_below"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "hold_point",
+    "concrete"
+   ]
+  },
+  {
+   "id": "STR-STEEL-ERECT",
+   "name": "Erect steel member",
+   "phase": "superstructure",
+   "trade": "envelope",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 10,
+   "unit_cost": 3400,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 8,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.65,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-COL-POUR",
+     "scope": "same_cell_below"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_below"
+    }
+   ],
+   "tags": [
+    "heavy_lift",
+    "long_lead",
+    "high_risk",
+    "envelope"
+   ]
+  },
+  {
+   "id": "ARC-EXTWALL-BUILD",
+   "name": "Build external wall and cladding",
+   "description": "External walls only start once the slab above is in place.",
+   "phase": "envelope",
+   "trade": "envelope",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 20,
+   "unit_cost": 140,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.35,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "STR-WALL-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "envelope"
+   ]
+  },
+  {
+   "id": "ARC-CURTAIN-INSTALL",
+   "name": "Install curtain wall",
+   "phase": "envelope",
+   "trade": "envelope",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 25,
+   "unit_cost": 480,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 14,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.55,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_above"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "heavy_lift",
+    "long_lead",
+    "high_risk",
+    "envelope"
+   ]
+  },
+  {
+   "id": "ARC-WINDOW-INSTALL",
+   "name": "Install windows",
+   "phase": "envelope",
+   "trade": "envelope",
+   "discipline": "architecture",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 6,
+   "unit_cost": 560,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 8,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.35,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "ARC-EXTWALL-BUILD",
+     "scope": "host"
+    }
+   ],
+   "tags": [
+    "long_lead",
+    "envelope"
+   ]
+  },
+  {
+   "id": "ARC-ROOF-INSTALL",
+   "name": "Install roof deck, insulation and membrane",
+   "phase": "envelope",
+   "trade": "envelope",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 80,
+   "unit_cost": 85,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.6,
+   "weather_sensitive": true,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-STEEL-ERECT",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-COL-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "weather_sensitive",
+    "heavy_lift",
+    "high_risk",
+    "envelope"
+   ]
+  },
+  {
+   "id": "ARC-WALL-FRAME",
+   "name": "Frame partition walls",
+   "description": "Stud framing; track cutting and anchor drilling make dust, so ICRA applies.",
+   "phase": "mep_roughin",
+   "trade": "interiors",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 55,
+   "unit_cost": 42,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.2,
+   "weather_sensitive": false,
+   "noisy": true,
+   "dusty": true,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "STR-SLAB-STRIKE",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "ARC-EXTWALL-BUILD",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-ICRA-SETUP",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "noisy",
+    "dusty",
+    "interiors"
+   ]
+  },
+  {
+   "id": "MEP-DUCT-INSTALL",
+   "name": "Install ductwork",
+   "phase": "mep_roughin",
+   "trade": "mechanical",
+   "discipline": "mechanical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 20,
+   "unit_cost": 150,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "mechanical",
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "STR-SLAB-STRIKE",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "ARC-ROOF-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ARC-WALL-FRAME",
+     "scope": "same_cell",
+     "type": "SS",
+     "lag_days": 5
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "mechanical"
+   ]
+  },
+  {
+   "id": "MEP-FITTING-INSTALL",
+   "name": "Install fittings, dampers and valves",
+   "phase": "mep_roughin",
+   "trade": "mechanical",
+   "discipline": "mechanical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 25,
+   "unit_cost": 95,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.2,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "scope": "same_cell",
+     "type": "SS",
+     "lag_days": 1
+    },
+    {
+     "step": "PLB-PIPE-INSTALL",
+     "scope": "same_cell",
+     "type": "SS",
+     "lag_days": 1
+    }
+   ],
+   "tags": [
+    "mechanical"
+   ]
+  },
+  {
+   "id": "MEP-AHU-SET",
+   "name": "Set air handling unit or plant item",
+   "phase": "mep_roughin",
+   "trade": "mechanical",
+   "discipline": "mechanical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 1,
+   "unit_cost": 38000,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 12,
+   "inspection": true,
+   "inspection_type": "mechanical",
+   "risk": 0.6,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-STEEL-ERECT",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "plant",
+    "heavy_lift",
+    "long_lead",
+    "hold_point",
+    "high_risk",
+    "mechanical"
+   ]
+  },
+  {
+   "id": "MEP-CHILLER-SET",
+   "name": "Set chiller or boiler",
+   "phase": "mep_roughin",
+   "trade": "mechanical",
+   "discipline": "mechanical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 0.5,
+   "unit_cost": 110000,
+   "min_duration_days": 2,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 3,
+   "lead_time_weeks": 16,
+   "inspection": true,
+   "inspection_type": "mechanical",
+   "risk": 0.65,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-STEEL-ERECT",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "plant",
+    "heavy_lift",
+    "long_lead",
+    "hold_point",
+    "high_risk",
+    "mechanical"
+   ]
+  },
+  {
+   "id": "PLB-PIPE-INSTALL",
+   "name": "Install water, waste and heating pipe",
+   "phase": "mep_roughin",
+   "trade": "plumbing",
+   "discipline": "plumbing",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 30,
+   "unit_cost": 90,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "plumbing",
+   "risk": 0.25,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "STR-SLAB-STRIKE",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "PLB-UG-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "ARC-WALL-FRAME",
+     "scope": "same_cell",
+     "type": "SS",
+     "lag_days": 3
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "plumbing"
+   ]
+  },
+  {
+   "id": "MED-GAS-PIPE-INSTALL",
+   "name": "Install medical gas pipe",
+   "phase": "mep_roughin",
+   "trade": "plumbing",
+   "discipline": "medical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 25,
+   "unit_cost": 140,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "STR-SLAB-STRIKE",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "ARC-WALL-FRAME",
+     "scope": "same_cell",
+     "type": "SS",
+     "lag_days": 3
+    }
+   ],
+   "tags": [
+    "medical_gas",
+    "plumbing"
+   ]
+  },
+  {
+   "id": "MED-GAS-TEST",
+   "name": "Medical gas pressure test and purge",
+   "description": "Hold point: walls cannot be boarded and equipment cannot be installed until this passes.",
+   "phase": "mep_roughin",
+   "trade": "plumbing",
+   "discipline": "medical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 300,
+   "unit_cost": 5,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "medical_gas",
+   "risk": 0.2,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "MED-GAS-PIPE-INSTALL",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "medical_gas",
+    "hold_point",
+    "plumbing"
+   ]
+  },
+  {
+   "id": "FIR-SPRINK-INSTALL",
+   "name": "Install sprinkler pipework and drops",
+   "phase": "mep_roughin",
+   "trade": "plumbing",
+   "discipline": "fire",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 25,
+   "unit_cost": 190,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "fire",
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "STR-SLAB-STRIKE",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "scope": "same_cell",
+     "type": "SS",
+     "lag_days": 3
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "plumbing"
+   ]
+  },
+  {
+   "id": "FIR-STOP-INSTALL",
+   "name": "Fire-stop penetrations",
+   "description": "Fire-stopping of every wall penetration; inspected before the wall can be closed.",
+   "phase": "mep_roughin",
+   "trade": "interiors",
+   "discipline": "fire",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 40,
+   "unit_cost": 35,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "fire",
+   "risk": 0.1,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": true,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "PLB-PIPE-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "MED-GAS-PIPE-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "FIR-SPRINK-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "MEP-TRAY-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "GEN-ICRA-SETUP",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "dusty",
+    "hold_point",
+    "interiors"
+   ]
+  },
+  {
+   "id": "MEP-TRAY-INSTALL",
+   "name": "Install cable tray and containment",
+   "phase": "mep_roughin",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 40,
+   "unit_cost": 68,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "framed",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "STR-SLAB-STRIKE",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "ARC-WALL-FRAME",
+     "scope": "same_cell",
+     "type": "SS",
+     "lag_days": 3
+    }
+   ],
+   "tags": [
+    "electrical"
+   ]
+  },
+  {
+   "id": "ELE-CABLE-PULL",
+   "name": "Pull and terminate cable",
+   "phase": "mep_roughin",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 200,
+   "unit_cost": 22,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "electrical",
+   "risk": 0.2,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "MEP-TRAY-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ELE-PANEL-INSTALL",
+     "scope": "same_system"
+    },
+    {
+     "step": "ELE-SWGR-SET",
+     "scope": "same_system"
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "electrical"
+   ]
+  },
+  {
+   "id": "ELE-PANEL-INSTALL",
+   "name": "Install distribution board",
+   "phase": "mep_roughin",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 3,
+   "unit_cost": 3500,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 10,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.2,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ARC-WALL-FRAME",
+     "scope": "same_cell",
+     "type": "SS",
+     "lag_days": 2
+    }
+   ],
+   "tags": [
+    "long_lead",
+    "electrical"
+   ]
+  },
+  {
+   "id": "ELE-SWGR-SET",
+   "name": "Set main switchgear",
+   "phase": "mep_roughin",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 2,
+   "unit_cost": 60000,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 24,
+   "inspection": true,
+   "inspection_type": "electrical",
+   "risk": 0.4,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ARC-EXTWALL-BUILD",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "heavy_lift",
+    "long_lead",
+    "hold_point",
+    "electrical"
+   ]
+  },
+  {
+   "id": "ELE-XFMR-SET",
+   "name": "Set transformer",
+   "description": "Longest lead item of the building services: 40 weeks.",
+   "phase": "mep_roughin",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 1,
+   "unit_cost": 85000,
+   "min_duration_days": 1,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 40,
+   "inspection": true,
+   "inspection_type": "electrical",
+   "risk": 0.6,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "transformer",
+    "heavy_lift",
+    "long_lead",
+    "hold_point",
+    "high_risk",
+    "electrical"
+   ]
+  },
+  {
+   "id": "ARC-WALL-BOARD",
+   "name": "Board, tape and finish partition walls",
+   "phase": "interiors",
+   "trade": "interiors",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 50,
+   "unit_cost": 38,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.15,
+   "weather_sensitive": false,
+   "noisy": true,
+   "dusty": true,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "ARC-WALL-FRAME",
+     "scope": "same_element"
+    },
+    {
+     "step": "FIR-STOP-INSTALL",
+     "scope": "same_element"
+    },
+    {
+     "step": "PLB-PIPE-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "MED-GAS-TEST",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ELE-CABLE-PULL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "GEN-ICRA-SETUP",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "noisy",
+    "dusty",
+    "interiors"
+   ]
+  },
+  {
+   "id": "ARC-CEILING-CLOSE",
+   "name": "Close ceiling",
+   "description": "Only after every service above the ceiling in the cell is installed and inspected.",
+   "phase": "interiors",
+   "trade": "interiors",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 70,
+   "unit_cost": 55,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.2,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": true,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "MEP-FITTING-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "PLB-PIPE-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "MED-GAS-PIPE-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "MED-GAS-TEST",
+     "scope": "same_cell"
+    },
+    {
+     "step": "FIR-SPRINK-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "FIR-STOP-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "MEP-TRAY-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ELE-CABLE-PULL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ARC-WALL-BOARD",
+     "scope": "same_cell"
+    },
+    {
+     "step": "GEN-ICRA-SETUP",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "dusty",
+    "interiors"
+   ]
+  },
+  {
+   "id": "ARC-FLOOR-FINISH",
+   "name": "Install hygienic floor finish",
+   "phase": "interiors",
+   "trade": "finishes",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 40,
+   "unit_cost": 95,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.1,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "ARC-WALL-BOARD",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ARC-CEILING-CLOSE",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "finishes"
+   ]
+  },
+  {
+   "id": "ARC-DOOR-INSTALL",
+   "name": "Hang doors and ironmongery",
+   "phase": "interiors",
+   "trade": "interiors",
+   "discipline": "architecture",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 8,
+   "unit_cost": 780,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.1,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "ARC-WALL-BOARD",
+     "scope": "host"
+    },
+    {
+     "step": "ARC-WALL-FRAME",
+     "scope": "host"
+    },
+    {
+     "step": "ARC-EXTWALL-BUILD",
+     "scope": "host"
+    }
+   ],
+   "tags": [
+    "interiors"
+   ]
+  },
+  {
+   "id": "ARC-SHIELD-WALL",
+   "name": "Install lead-lined and RF-shielded wall",
+   "phase": "interiors",
+   "trade": "interiors",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 12,
+   "unit_cost": 420,
+   "min_duration_days": 2,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": true,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "ARC-WALL-FRAME",
+     "scope": "same_element"
+    },
+    {
+     "step": "MED-GAS-TEST",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ELE-CABLE-PULL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "GEN-ICRA-SETUP",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "shielding",
+    "dusty",
+    "interiors"
+   ]
+  },
+  {
+   "id": "ARC-RAIL-INSTALL",
+   "name": "Install handrail and corner guards",
+   "phase": "interiors",
+   "trade": "finishes",
+   "discipline": "architecture",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 40,
+   "unit_cost": 120,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.15,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ARC-WALL-BOARD",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "finishes"
+   ]
+  },
+  {
+   "id": "ELE-LIGHT-INSTALL",
+   "name": "Install light fittings and devices",
+   "phase": "mep_finish",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 30,
+   "unit_cost": 130,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.25,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "ARC-CEILING-CLOSE",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ELE-CABLE-PULL",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "electrical"
+   ]
+  },
+  {
+   "id": "MEP-DIFFUSER-SET",
+   "name": "Set diffusers and grilles",
+   "phase": "mep_finish",
+   "trade": "mechanical",
+   "discipline": "mechanical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 25,
+   "unit_cost": 85,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.2,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "ARC-CEILING-CLOSE",
+     "scope": "same_cell"
+    },
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "mechanical"
+   ]
+  },
+  {
+   "id": "PLB-FIXTURE-SET",
+   "name": "Set sanitary fixtures and taps",
+   "phase": "mep_finish",
+   "trade": "plumbing",
+   "discipline": "plumbing",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 8,
+   "unit_cost": 650,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.15,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "ARC-WALL-BOARD",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ARC-FLOOR-FINISH",
+     "scope": "same_cell"
+    },
+    {
+     "step": "PLB-PIPE-INSTALL",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "plumbing"
+   ]
+  },
+  {
+   "id": "MED-MRI-INSTALL",
+   "name": "Install MRI scanner",
+   "description": "26 week lead. Room must be shielded, floored and gas-tested before the magnet arrives.",
+   "phase": "medical_equipment",
+   "trade": "medical",
+   "discipline": "medical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 0.1,
+   "unit_cost": 350000,
+   "min_duration_days": 10,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 3,
+   "lead_time_weeks": 26,
+   "inspection": true,
+   "inspection_type": "electrical",
+   "risk": 0.6,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "ARC-SHIELD-WALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "MED-GAS-TEST",
+     "scope": "same_zone"
+    },
+    {
+     "step": "ARC-FLOOR-FINISH",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ELE-PANEL-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "mri",
+    "medical_equipment",
+    "heavy_lift",
+    "long_lead",
+    "hold_point",
+    "high_risk",
+    "medical"
+   ]
+  },
+  {
+   "id": "MED-CT-INSTALL",
+   "name": "Install CT scanner",
+   "phase": "medical_equipment",
+   "trade": "medical",
+   "discipline": "medical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 0.15,
+   "unit_cost": 220000,
+   "min_duration_days": 7,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 20,
+   "inspection": true,
+   "inspection_type": "electrical",
+   "risk": 0.5,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "ARC-SHIELD-WALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "MED-GAS-TEST",
+     "scope": "same_zone"
+    },
+    {
+     "step": "ARC-FLOOR-FINISH",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ELE-PANEL-INSTALL",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "medical_equipment",
+    "heavy_lift",
+    "long_lead",
+    "hold_point",
+    "high_risk",
+    "medical"
+   ]
+  },
+  {
+   "id": "MED-STERIL-INSTALL",
+   "name": "Install steriliser or washer-disinfector",
+   "phase": "medical_equipment",
+   "trade": "medical",
+   "discipline": "medical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 0.5,
+   "unit_cost": 90000,
+   "min_duration_days": 3,
+   "requires_crane": true,
+   "requires_access": true,
+   "laydown_cells": 2,
+   "lead_time_weeks": 12,
+   "inspection": true,
+   "inspection_type": "mechanical",
+   "risk": 0.4,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "MED-GAS-TEST",
+     "scope": "same_zone"
+    },
+    {
+     "step": "PLB-PIPE-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "ARC-FLOOR-FINISH",
+     "scope": "same_cell"
+    },
+    {
+     "step": "PLB-FIXTURE-SET",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "medical_equipment",
+    "heavy_lift",
+    "long_lead",
+    "hold_point",
+    "medical"
+   ]
+  },
+  {
+   "id": "MED-EQUIP-INSTALL",
+   "name": "Install fixed clinical equipment",
+   "description": "Bed-heads, theatre lights, pendants, nurse-call and similar.",
+   "phase": "medical_equipment",
+   "trade": "medical",
+   "discipline": "medical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 4,
+   "unit_cost": 12000,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 6,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.15,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [
+    {
+     "step": "MED-GAS-TEST",
+     "scope": "same_zone"
+    },
+    {
+     "step": "ARC-FLOOR-FINISH",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ELE-LIGHT-INSTALL",
+     "scope": "same_cell"
+    }
+   ],
+   "tags": [
+    "medical_equipment",
+    "long_lead",
+    "medical"
+   ]
+  },
+  {
+   "id": "CX-AIR-BALANCE",
+   "name": "Test and balance air system",
+   "description": "Air balancing must finish before the room can be handed over.",
+   "phase": "commissioning",
+   "trade": "commissioning",
+   "discipline": "commissioning",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 12,
+   "unit_cost": 120,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.05,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "scope": "same_system",
+     "required": true
+    },
+    {
+     "step": "MEP-AHU-SET",
+     "scope": "same_system"
+    },
+    {
+     "step": "MEP-DIFFUSER-SET",
+     "scope": "same_element"
+    }
+   ],
+   "tags": [
+    "commissioning"
+   ]
+  },
+  {
+   "id": "CX-PRESSURE-TEST",
+   "name": "Room pressure differential test",
+   "phase": "commissioning",
+   "trade": "commissioning",
+   "discipline": "commissioning",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 4,
+   "unit_cost": 600,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "mechanical",
+   "risk": 0.05,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "CX-AIR-BALANCE",
+     "scope": "same_element"
+    },
+    {
+     "step": "ARC-FLOOR-FINISH",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "commissioning"
+   ]
+  },
+  {
+   "id": "CX-FIRE-TEST",
+   "name": "Fire alarm and sprinkler acceptance test",
+   "phase": "commissioning",
+   "trade": "commissioning",
+   "discipline": "fire",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 20,
+   "unit_cost": 150,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "fire",
+   "risk": 0.05,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "ELE-LIGHT-INSTALL",
+     "scope": "same_element"
+    },
+    {
+     "step": "FIR-SPRINK-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "ELE-CABLE-PULL",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "commissioning"
+   ]
+  },
+  {
+   "id": "CX-POWER-ENERGISE",
+   "name": "Energise and test electrical systems",
+   "phase": "commissioning",
+   "trade": "commissioning",
+   "discipline": "commissioning",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 1,
+   "unit_cost": 3500,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "electrical",
+   "risk": 0.35,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "MEP-TRAY-INSTALL",
+     "scope": "same_system",
+     "required": true
+    },
+    {
+     "step": "ELE-CABLE-PULL",
+     "scope": "same_system"
+    },
+    {
+     "step": "ELE-XFMR-SET",
+     "scope": "same_system"
+    },
+    {
+     "step": "ELE-SWGR-SET",
+     "scope": "same_system"
+    },
+    {
+     "step": "ELE-PANEL-INSTALL",
+     "scope": "same_system"
+    }
+   ],
+   "tags": [
+    "hold_point",
+    "commissioning"
+   ]
+  },
+  {
+   "id": "MED-GAS-CERT",
+   "name": "Medical gas certification",
+   "description": "Third-party verification of purity, flow and alarms for every outlet.",
+   "phase": "commissioning",
+   "trade": "commissioning",
+   "discipline": "medical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 400,
+   "unit_cost": 4,
+   "min_duration_days": 2,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "medical_gas",
+   "risk": 0.1,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "MED-GAS-TEST",
+     "scope": "same_element"
+    },
+    {
+     "step": "MED-GAS-PIPE-INSTALL",
+     "scope": "same_system",
+     "required": true
+    },
+    {
+     "step": "MED-EQUIP-INSTALL",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "medical_gas",
+    "hold_point",
+    "commissioning"
+   ]
+  },
+  {
+   "id": "GEN-HEPA-CLEAN",
+   "name": "HEPA terminal clean",
+   "phase": "icra_closeout",
+   "trade": "icra",
+   "discipline": "general",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 400,
+   "unit_cost": 3,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.05,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "ARC-FLOOR-FINISH",
+     "scope": "same_zone"
+    },
+    {
+     "step": "ARC-CEILING-CLOSE",
+     "scope": "same_zone"
+    },
+    {
+     "step": "MED-EQUIP-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CX-AIR-BALANCE",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-ICRA-SETUP",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "icra"
+   ]
+  },
+  {
+   "id": "GEN-ICRA-CLOSEOUT",
+   "name": "ICRA clearance and barrier removal",
+   "phase": "icra_closeout",
+   "trade": "icra",
+   "discipline": "general",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 2,
+   "unit_cost": 800,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "icra",
+   "risk": 0.05,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "GEN-HEPA-CLEAN",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-ICRA-SETUP",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "icra",
+    "hold_point"
+   ]
+  },
+  {
+   "id": "GEN-HANDOVER-DOC",
+   "name": "Room-by-room handover documentation",
+   "description": "Air balance, medical gas certificate and fire test must all be signed off first.",
+   "phase": "handover",
+   "trade": "commissioning",
+   "discipline": "general",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 6,
+   "unit_cost": 450,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.0,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "CX-AIR-BALANCE",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CX-FIRE-TEST",
+     "scope": "same_zone"
+    },
+    {
+     "step": "MED-GAS-CERT",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CX-POWER-ENERGISE",
+     "scope": "same_system"
+    },
+    {
+     "step": "GEN-ICRA-CLOSEOUT",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "commissioning"
+   ]
+  },
+  {
+   "id": "GEN-ELEM-INSTALL",
+   "name": "Install miscellaneous element",
+   "description": "Default step for any element no rule matched. Shows up in the authoring feedback list.",
+   "phase": "interiors",
+   "trade": "finishes",
+   "discipline": "general",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 6,
+   "unit_cost": 900,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.15,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "solid",
+   "predecessors": [],
+   "tags": [
+    "finishes"
+   ]
+  }
+ ],
+ "gates": [
+  {
+   "id": "G-foundations",
+   "name": "Foundations before frame",
+   "after_phase": "substructure",
+   "before_phase": "superstructure",
+   "scope": "storey",
+   "requires_inspection_types": [
+    "geotechnical",
+    "structural",
+    "plumbing"
+   ],
+   "description": "Piles tested, footings and ground slab inspected and drains proven on the storey before columns go up."
+  },
+  {
+   "id": "G-weathertight",
+   "name": "Weathertight before MEP rough-in",
+   "after_phase": "envelope",
+   "before_phase": "mep_roughin",
+   "scope": "storey",
+   "requires_inspection_types": [
+    "structural"
+   ],
+   "description": "Frame inspected and envelope closed on the storey before any services go in."
+  },
+  {
+   "id": "G-ceiling-closeout",
+   "name": "Ceiling close-out gate",
+   "after_phase": "mep_roughin",
+   "before_phase": "interiors",
+   "scope": "zone",
+   "requires_inspection_types": [
+    "mechanical",
+    "plumbing",
+    "electrical",
+    "fire",
+    "medical_gas"
+   ],
+   "description": "Every rough-in inspection in the zone passed before boarding and ceilings close the services in."
+  },
+  {
+   "id": "G-clinical-ready",
+   "name": "Rooms ready for clinical equipment",
+   "after_phase": "mep_finish",
+   "before_phase": "medical_equipment",
+   "scope": "zone",
+   "requires_inspection_types": [
+    "medical_gas"
+   ],
+   "description": "Medical gas pressure test passed in the zone before any medical equipment is installed."
+  },
+  {
+   "id": "G-commissioning",
+   "name": "Strict commissioning gate",
+   "after_phase": "commissioning",
+   "before_phase": "icra_closeout",
+   "scope": "project",
+   "requires_inspection_types": [
+    "medical_gas",
+    "electrical",
+    "fire",
+    "mechanical"
+   ],
+   "description": "Pressure tests, air balance, fire test and medical gas certification complete before ICRA barriers come down."
+  },
+  {
+   "id": "G-handover",
+   "name": "ICRA sign-off before handover",
+   "after_phase": "icra_closeout",
+   "before_phase": "handover",
+   "scope": "project",
+   "requires_inspection_types": [
+    "icra"
+   ],
+   "description": "Infection control clearance for every occupied-adjacent zone before documents are issued."
+  }
+ ]
+}
