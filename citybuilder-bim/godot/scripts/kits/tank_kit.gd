@@ -17,7 +17,7 @@ func _build() -> void:
     _avail = maxf(0.1, s * 0.5 - _r)
     _base_h = clampf(height_m * 0.03, 0.2, 0.5)
     _roof_h = clampf(_r * 0.2, 0.3, 1.6)
-    _shell_h = maxf(0.5, height_m - _base_h - _roof_h)
+    _shell_h = maxf(0.5, height_m - _base_h - maxf(_roof_h, 0.9))
     if begin_layer("ring_foundation"):
         ring(Vector3.ZERO, _r * 0.7, _r * 1.12, _base_h, CONCRETE, 16)
     if begin_layer("shell"):
@@ -26,6 +26,8 @@ func _build() -> void:
         var top: float = _base_h + _shell_h
         cyl(Vector3(0, top, 0), Vector3(0, top + _roof_h, 0), _r * 1.02, 0.0, STEEL_LIGHT, 16, 1)
         vcyl(Vector3(0, top + _roof_h, 0), minf(0.4, height_m - top - _roof_h), 0.18, STEEL_DARK, 6)
+        # roof handrail around the rim
+        ring_rail(Vector3(0, top, 0), _r * 0.98, STEEL_LIGHT, minf(0.9, height_m - top) - 0.03, 14)
         # rim ring
         cyl(Vector3(0, top - 0.12, 0), Vector3(0, top, 0), _r * 1.04, _r * 1.04, STEEL_DARK, 16, 0)
     if begin_layer("stair"):

@@ -34,13 +34,18 @@ func _build() -> void:
             var c2: Vector3 = _cell_centre(i, nx, pitch)
             box_mm(Vector3(c2.x - cell * 0.5, casing_top, c2.z - cell * 0.5), Vector3(c2.x + cell * 0.5, casing_top + deck_t, c2.z + cell * 0.5), STEEL_LIGHT)
             tube(Vector3(c2.x, casing_top + deck_t, c2.z), Vector3(c2.x, casing_top + deck_t + shroud_h, c2.z), sr, sr * 0.88, STEEL, 10)
+            # fan ring lip
+            tube(Vector3(c2.x, casing_top + deck_t + shroud_h * 0.86, c2.z), Vector3(c2.x, casing_top + deck_t + shroud_h, c2.z), sr * 1.1, sr * 0.8, STEEL_DARK, 10)
     if begin_layer("fans"):
         for i in n:
             set_part(i, n)
             var c3: Vector3 = _cell_centre(i, nx, pitch)
             var fy: float = casing_top + deck_t + shroud_h * 0.55
-            box(Vector3(c3.x, fy, c3.z), Vector3(sr * 1.7, 0.05, sr * 0.28), STEEL_DARK)
-            box(Vector3(c3.x, fy, c3.z), Vector3(sr * 0.28, 0.05, sr * 1.7), STEEL_DARK)
+            for bl in 3:
+                push_xf(at(Vector3(c3.x, fy, c3.z), PI * float(bl) / 3.0))
+                box(Vector3.ZERO, Vector3(sr * 1.7, 0.05, sr * 0.28), STEEL_DARK)
+                pop_xf()
+            cone(Vector3(c3.x, fy, c3.z), 0.3, 0.28, STEEL_LIGHT, 8)
             box(Vector3(c3.x, fy - 0.1, c3.z), Vector3(0.25, 0.25, 0.25), PIPE_ORANGE)
 
 

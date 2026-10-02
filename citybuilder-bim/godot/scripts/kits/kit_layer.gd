@@ -34,6 +34,9 @@ var _since_update: float = 0.0
 var _since_lod: float = 0.0
 var _progress: Callable = Callable()
 var _task_state: Callable = Callable()
+var selected_index: int = -1
+var _sel_mi: MeshInstance3D = null
+var _sel_mat: StandardMaterial3D = null
 var _deadline_us: int = 0
 var _deferred: bool = false
 
@@ -100,6 +103,46 @@ func instance_node(i: int) -> MeshInstance3D:
 
 func instance_mode(i: int) -> String:
     return str(_nodes[i]["mode"])
+
+
+## World-space box (grid units) of an instance: its cell rectangle on the storey plane up to its height.
+func instance_aabb(i: int) -> AABB:
+    var inst: Dictionary = kit_instances.instances()[i]
+    var r: Rect2i = inst["rect"]
+    var y: float = gs.bundle.storey_y_for_index(int(inst["storey_index"]))
+    return AABB(Vector3(float(r.position.x) - 0.5, y, float(r.position.y) - 0.5),
+            Vector3(float(r.size.x), float(inst["height_m"]) / _cell_m, float(r.size.y)))
+
+
+## Outlines instance `i` (-1 clears): a yellow box drawn on top of the scene.
+func set_selected(i: int) -> void:
+    selected_index = i
+    if _sel_mi == null:
+        _sel_mi = MeshInstance3D.new()
+        _sel_mi.name = "Selection"
+        _sel_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        var m := StandardMaterial3D.new()
+        m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        m.albedo_color = Color(1.0, 0.85, 0.2)
+        m.no_depth_test = true
+        m.render_priority = 10
+        _sel_mat = m
+        add_child(_sel_mi)
+    if i < 0 or i >= _nodes.size():
+        _sel_mi.visible = false
+        return
+    var bb: AABB = instance_aabb(i)
+    var im := ImmediateMesh.new()
+    im.surface_begin(Mesh.PRIMITIVE_LINES, _sel_mat)
+    var c: Array[Vector3] = []
+    for k in 8:
+        c.append(bb.position + Vector3(bb.size.x * float(k & 1), bb.size.y * float((k >> 1) & 1), bb.size.z * float((k >> 2) & 1)))
+    for e in [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]]:
+        im.surface_add_vertex(c[e[0]])
+        im.surface_add_vertex(c[e[1]])
+    im.surface_end()
+    _sel_mi.mesh = im
+    _sel_mi.visible = true
 
 
 func set_focus_storey(idx: int) -> void:

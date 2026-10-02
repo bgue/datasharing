@@ -24,12 +24,17 @@ func _build() -> void:
         for i in 2:
             set_part(i, 2)
             var x: float = lerpf(-bw * 0.3, bw * 0.3, float(i))
-            box_mm(Vector3(x - 0.6, wy0, bd * 0.5), Vector3(x + 0.6, wy0 + minf(2.2, wh * 0.8), bd * 0.5 + 0.06), PIPE_BLUE)
+            var dh: float = minf(2.2, wh * 0.8)
+            box_mm(Vector3(x - 0.7, wy0, bd * 0.5), Vector3(x + 0.7, wy0 + dh + 0.1, bd * 0.5 + 0.03), STEEL_DARK)
+            box_mm(Vector3(x - 0.6, wy0, bd * 0.5 + 0.03), Vector3(x + 0.6, wy0 + dh, bd * 0.5 + 0.08), PIPE_BLUE)
+            box_mm(Vector3(x + 0.35, wy0 + dh * 0.45, bd * 0.5 + 0.08), Vector3(x + 0.5, wy0 + dh * 0.5, bd * 0.5 + 0.14), ELEC_YELLOW)
+            box_mm(Vector3(x - 0.9, wy0 + dh + 0.1, bd * 0.5), Vector3(x + 0.9, wy0 + dh + 0.18, bd * 0.5 + 0.45), STEEL_LIGHT)
     if begin_layer("louvres"):
         for i in 4:
             set_part(i, 4)
             var y: float = wy0 + wh * 0.5 + 0.2 * float(i)
             box_mm(Vector3(bw * 0.5, y, -bd * 0.25), Vector3(bw * 0.5 + 0.05, y + 0.1, bd * 0.25), STEEL_DARK)
+            box_mm(Vector3(-bw * 0.5 - 0.05, y, -bd * 0.25), Vector3(-bw * 0.5, y + 0.1, bd * 0.25), STEEL_DARK)
     if begin_layer("trench"):
         var tz: float = bd * 0.5 + 0.45
         box_grow(Vector3(-bw * 0.4, 0, tz - 0.3), Vector3(bw * 0.4, 0.06, tz + 0.3), layer_fill(), 0, ELEC_YELLOW)

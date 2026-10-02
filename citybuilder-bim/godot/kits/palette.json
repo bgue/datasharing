@@ -1,0 +1,104 @@
+{
+  "source": "godot/models/Textures/colormap.png (dominant solid colours, sampled in-engine)",
+  "base": {
+    "ink": "38383d",
+    "slate": "4f5260",
+    "steel": "868ba1",
+    "mist": "a0a8c9",
+    "sky": "d0e8ff",
+    "white": "ffffff",
+    "cream": "fde4c7",
+    "tan": "f2bf99",
+    "salmon": "f1976c",
+    "brown": "b06041",
+    "orange": "ff7e44",
+    "yellow": "ffc044",
+    "green": "61cb8b",
+    "blue": "6794d9",
+    "red": "cf534f",
+    "purple": "a878e8",
+    "pink": "f378f0"
+  },
+  "roles": {
+    "STEEL": {
+      "hex": "868ba1",
+      "from": "steel"
+    },
+    "STEEL_DARK": {
+      "hex": "4f5260",
+      "from": "slate"
+    },
+    "STEEL_LIGHT": {
+      "hex": "a0a8c9",
+      "from": "mist"
+    },
+    "CONCRETE": {
+      "hex": "d3c9c8",
+      "from": "mist+cream"
+    },
+    "CONCRETE_DARK": {
+      "hex": "959194",
+      "from": "steel+cream, darker"
+    },
+    "PIPE_ORANGE": {
+      "hex": "ff7e44",
+      "from": "orange"
+    },
+    "PIPE_BLUE": {
+      "hex": "6794d9",
+      "from": "blue"
+    },
+    "PIPE_GREEN": {
+      "hex": "61cb8b",
+      "from": "green"
+    },
+    "PIPE_RED": {
+      "hex": "cf534f",
+      "from": "red"
+    },
+    "ELEC_YELLOW": {
+      "hex": "ffc044",
+      "from": "yellow"
+    },
+    "INSTR_PURPLE": {
+      "hex": "a878e8",
+      "from": "purple"
+    },
+    "WHITE": {
+      "hex": "ecf6ff",
+      "from": "sky+white"
+    },
+    "TANK_GREY": {
+      "hex": "bacbe7",
+      "from": "sky+mist"
+    },
+    "BRICK": {
+      "hex": "b06041",
+      "from": "brown"
+    },
+    "BEIGE": {
+      "hex": "f0d9bd",
+      "from": "cream"
+    },
+    "DARK": {
+      "hex": "38383d",
+      "from": "ink"
+    },
+    "PAINT_RED": {
+      "hex": "cf534f",
+      "from": "red"
+    },
+    "MED_MAGENTA": {
+      "hex": "f378f0",
+      "from": "pink"
+    }
+  },
+  "discipline_identity": {
+    "structure": "STEEL",
+    "process": "PIPE_ORANGE",
+    "electrical": "ELEC_YELLOW",
+    "mechanical": "PIPE_BLUE",
+    "piping": "PIPE_GREEN",
+    "medical": "MED_MAGENTA"
+  }
+}

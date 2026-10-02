@@ -56,6 +56,10 @@ func _steel() -> void:
             box_mm(Vector3(x - 0.15, 0, side * _rw * 0.5 - 0.15), Vector3(x + 0.15, _col_h, side * _rw * 0.5 + 0.15), STEEL)
         for k in _tiers:
             ibeam(Vector3(x, _tier_y[k], -_rw * 0.5 - 0.15), Vector3(x, _tier_y[k], _rw * 0.5 + 0.15), 0.3, 0.2, STEEL_LIGHT, simple)
+            # knee braces under each tier beam
+            var kb: float = minf(0.9, _rw * 0.25)
+            for side: float in [-1.0, 1.0]:
+                bar(Vector3(x, _tier_y[k] - kb - 0.15, side * _rw * 0.5), Vector3(x, _tier_y[k] - 0.15, side * (_rw * 0.5 - kb)), 0.07, 0.07, STEEL_DARK)
         # bays: longitudinal struts to the next bent appear with it
         if i + 1 < _bents:
             set_part(i + 1, _bents)

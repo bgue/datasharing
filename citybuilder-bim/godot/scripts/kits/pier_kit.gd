@@ -9,7 +9,7 @@ func _build() -> void:
     orient_long()
     var n: int = maxi(footprint.x, footprint.y)
     var cap_h: float = height_m * 0.1
-    var head_h: float = height_m * 0.12
+    var head_h: float = height_m * 0.12 + 0.3
     var cap_w: float = lz * 0.5
     var stem_r: float = minf(lz * 0.13, 0.9)
     var stem_top: float = height_m - head_h - 0.15
@@ -20,12 +20,14 @@ func _build() -> void:
             var x: float = _stem_x(i, n)
             cyl_grow(Vector3(x, cap_h, 0), Vector3(x, stem_top, 0), stem_r, stem_r * 0.85, CONCRETE, part_fill(i, n), 8, 2)
     if begin_layer("pier_head"):
-        box_grow(Vector3(-lx * 0.46, stem_top, -cap_w * 0.4), Vector3(lx * 0.46, height_m - 0.15, cap_w * 0.4), layer_fill(), 0, CONCRETE)
+        box_grow(Vector3(-lx * 0.46, stem_top, -cap_w * 0.4), Vector3(lx * 0.46, height_m - 0.35, cap_w * 0.4), layer_fill(), 0, CONCRETE)
     if begin_layer("bearings"):
         for i in n:
             set_part(i, n)
             var x: float = _stem_x(i, n)
             for dz: float in [-0.5, 0.5]:
+                # bearing shelf (concrete step) with the bearing pad on it
+                box(Vector3(x, height_m - 0.25, dz * cap_w * 0.55), Vector3(0.9, 0.2, 0.9), CONCRETE_DARK)
                 box(Vector3(x, height_m - 0.075, dz * cap_w * 0.55), Vector3(0.5, 0.15, 0.5), PIPE_RED)
     end_orient()
 

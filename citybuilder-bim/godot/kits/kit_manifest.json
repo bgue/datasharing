@@ -92,7 +92,8 @@
           "insul"
         ]
       },
-      "lod_collapse_distance": 100
+      "lod_collapse_distance": 100,
+      "title": "Pipe rack"
     },
     "tank": {
       "builder": "TankKit",
@@ -177,7 +178,8 @@
           "follows": "shell"
         }
       ],
-      "lod_collapse_distance": 90
+      "lod_collapse_distance": 90,
+      "title": "Storage tank"
     },
     "turbine": {
       "builder": "TurbineKit",
@@ -277,7 +279,8 @@
           "follows": "exhaust_stack"
         }
       ],
-      "lod_collapse_distance": 90
+      "lod_collapse_distance": 90,
+      "title": "Turbine"
     },
     "vessel_v": {
       "builder": "VesselKit",
@@ -352,7 +355,8 @@
           "follows": "heads"
         }
       ],
-      "lod_collapse_distance": 90
+      "lod_collapse_distance": 90,
+      "title": "Vertical vessel"
     },
     "vessel_h": {
       "builder": "VesselKit",
@@ -427,7 +431,8 @@
           "follows": "heads"
         }
       ],
-      "lod_collapse_distance": 90
+      "lod_collapse_distance": 90,
+      "title": "Horizontal vessel"
     },
     "pump_plinth": {
       "builder": "PumpKit",
@@ -491,7 +496,8 @@
           "weight": 1
         }
       ],
-      "lod_collapse_distance": 60
+      "lod_collapse_distance": 60,
+      "title": "Pump"
     },
     "exchanger": {
       "builder": "ExchangerKit",
@@ -553,7 +559,8 @@
           "weight": 1
         }
       ],
-      "lod_collapse_distance": 80
+      "lod_collapse_distance": 80,
+      "title": "Heat exchanger"
     },
     "compressor": {
       "builder": "CompressorKit",
@@ -629,7 +636,8 @@
           "weight": 1
         }
       ],
-      "lod_collapse_distance": 80
+      "lod_collapse_distance": 80,
+      "title": "Compressor"
     },
     "transformer": {
       "builder": "TransformerKit",
@@ -704,7 +712,8 @@
           "follows": "bushings"
         }
       ],
-      "lod_collapse_distance": 80
+      "lod_collapse_distance": 80,
+      "title": "Transformer"
     },
     "switchroom": {
       "builder": "BoxBuildingKit",
@@ -785,7 +794,8 @@
           "follows": "walls"
         }
       ],
-      "lod_collapse_distance": 80
+      "lod_collapse_distance": 80,
+      "title": "Switchroom"
     },
     "cooling_tower": {
       "builder": "CoolingTowerKit",
@@ -850,7 +860,8 @@
           "weight": 1
         }
       ],
-      "lod_collapse_distance": 100
+      "lod_collapse_distance": 100,
+      "title": "Cooling tower"
     },
     "stack": {
       "builder": "StackKit",
@@ -908,7 +919,8 @@
           "follows": "shaft"
         }
       ],
-      "lod_collapse_distance": 120
+      "lod_collapse_distance": 120,
+      "title": "Stack"
     },
     "module": {
       "builder": "ModuleKit",
@@ -959,7 +971,8 @@
           "weight": 2
         }
       ],
-      "lod_collapse_distance": 90
+      "lod_collapse_distance": 90,
+      "title": "Process module"
     },
     "ahu": {
       "builder": "AhuKit",
@@ -1026,7 +1039,8 @@
           "follows": "ducts"
         }
       ],
-      "lod_collapse_distance": 60
+      "lod_collapse_distance": 60,
+      "title": "Air handling unit"
     },
     "chiller": {
       "builder": "ChillerKit",
@@ -1112,7 +1126,8 @@
           "follows": "compressor"
         }
       ],
-      "lod_collapse_distance": 60
+      "lod_collapse_distance": 60,
+      "title": "Chiller"
     },
     "mri": {
       "builder": "MriKit",
@@ -1175,7 +1190,8 @@
           "weight": 1
         }
       ],
-      "lod_collapse_distance": 60
+      "lod_collapse_distance": 60,
+      "title": "MRI suite"
     },
     "bridge_pier": {
       "builder": "PierKit",
@@ -1240,7 +1256,8 @@
           "weight": 0.5
         }
       ],
-      "lod_collapse_distance": 100
+      "lod_collapse_distance": 100,
+      "title": "Bridge pier"
     },
     "culvert": {
       "builder": "CulvertKit",
@@ -1288,7 +1305,8 @@
           "weight": 1
         }
       ],
-      "lod_collapse_distance": 100
+      "lod_collapse_distance": 100,
+      "title": "Culvert"
     }
   },
   "markers": {

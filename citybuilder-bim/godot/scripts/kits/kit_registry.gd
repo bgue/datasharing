@@ -128,6 +128,19 @@ func layer_ids(kit: String) -> Array[String]:
     return out
 
 
+## Display name of a kit ("Pipe rack"); the manifest `title`, else the id with spaces.
+func kit_title(kit: String) -> String:
+    var t: String = str((kits.get(kit, {}) as Dictionary).get("title", ""))
+    return t if t != "" else kit.replace("_", " ").capitalize()
+
+
+## Short display label of a layer id for tooltips: "ei" -> "EI", "ring_foundation" -> "ring foundation".
+static func layer_label(id: String) -> String:
+    if id.length() <= 2:
+        return id.to_upper()
+    return id.replace("_", " ")
+
+
 func lod_distance(kit: String) -> float:
     return float((kits.get(kit, {}) as Dictionary).get("lod_collapse_distance", DEFAULT_LOD))
 

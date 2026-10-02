@@ -205,12 +205,20 @@ func _make(kit: String, storey_id: String, members: Array[ElementData]) -> Dicti
     if kit == "rack" and systems.size() > 0:
         counts["pipes"] = systems.size()
     var storey_index: int = int(bundle.storey_index_by_id.get(storey_id, 0))
+    var title: String = registry.kit_title(kit)
+    var rect := Rect2i(minx, minz, maxx - minx + 1, maxz - minz + 1)
+    var nm: String = members[0].name
+    if str(registry.kit_param(kit, "instancing", "element")) == "group" and members.size() > 1:
+        nm = "%s %dx%d at (%d,%d)" % [title, rect.size.x, rect.size.y, rect.position.x, rect.position.y]
     return {
+        "title": title,
+        "name": nm,
+        "zone_id": members[0].zone_id,
         "kit": kit,
         "storey_id": storey_id,
         "storey_index": storey_index,
         "cells": cells,
-        "rect": Rect2i(minx, minz, maxx - minx + 1, maxz - minz + 1),
+        "rect": rect,
         "element_guids": guids,
         "height_m": h,
         "counts": counts,
@@ -264,6 +272,22 @@ func kit_guids() -> Dictionary:
 func refresh(progress: Callable, task_state: Callable = Callable()) -> void:
     for i in _list.size():
         refresh_one(i, progress, task_state)
+
+
+## refresh() with the progress and states read from a simulation (same rules as KitLayer).
+func refresh_from(gs: SimState) -> void:
+    var progress: Callable = func(t: TaskData) -> float:
+        var rt: TaskRuntime = gs.runtime.get(t.task_id)
+        if rt == null:
+            return 0.0
+        match rt.state:
+            TaskRuntime.State.AWAITING_INSPECTION, TaskRuntime.State.DONE, TaskRuntime.State.INSPECTED:
+                return t.estimated_crew_days
+        return minf(rt.progress, t.estimated_crew_days)
+    var state_of: Callable = func(t: TaskData) -> int:
+        var rt: TaskRuntime = gs.runtime.get(t.task_id)
+        return TaskRuntime.State.NOT_STARTED if rt == null else rt.state
+    refresh(progress, state_of)
 
 
 func refresh_one(i: int, progress: Callable, task_state: Callable = Callable()) -> void:

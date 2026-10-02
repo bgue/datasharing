@@ -1,7 +1,7 @@
 class_name MriKit
 extends KitBuilder
 ## MRI suite: RF-shielded room walls (grow height, open top for the cut-away look), shield lining,
-## magnet (ring housing with bore), patient table.
+## magnet (ring housing with bore and front bezel), patient table.
 ## Layers: room (grow height), shield (grow height), magnet (count), table.
 
 
@@ -29,7 +29,10 @@ func _build() -> void:
     var my: float = mr + 0.25
     if begin_layer("magnet"):
         set_part(0, 2)
+        # the bore runs along x: housing ring, dark bore lining and a coloured front bezel
         tube(Vector3(-mr * 0.9, my, -rd * 0.1), Vector3(mr * 0.9, my, -rd * 0.1), mr, mr * 0.45, WHITE, 14)
+        tube(Vector3(mr * 0.9, my, -rd * 0.1), Vector3(mr * 0.9 + 0.1, my, -rd * 0.1), mr * 1.04, mr * 0.45, MED_MAGENTA, 14)
+        tube(Vector3(-mr * 0.9 - 0.1, my, -rd * 0.1), Vector3(-mr * 0.9, my, -rd * 0.1), mr * 1.04, mr * 0.45, MED_MAGENTA, 14)
         set_part(1, 2)
         box_mm(Vector3(-mr * 0.9, 0, -rd * 0.1 - mr * 0.7), Vector3(mr * 0.9, my - mr * 0.8, -rd * 0.1 + mr * 0.7), STEEL_LIGHT)
         box_mm(Vector3(-mr * 0.5, my + mr, -rd * 0.1 - mr * 0.3), Vector3(mr * 0.5, my + mr + 0.2, -rd * 0.1 + mr * 0.3), MED_MAGENTA)

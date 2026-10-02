@@ -34,6 +34,9 @@ func _build() -> void:
             var bh: float = minf(height_m * 0.3, height_m - by)
             cyl(Vector3(x, by, tw * 0.15), Vector3(x, by + bh * 0.75, tw * 0.15), 0.1, 0.07, BRICK, 8, 3)
             cone(Vector3(x, by + bh * 0.75, tw * 0.15), bh * 0.25, 0.1, STEEL_DARK, 8)
+            for k in 3:
+                var dy: float = by + bh * (0.12 + 0.2 * float(k))
+                cyl(Vector3(x, dy, tw * 0.15), Vector3(x, dy + 0.05, tw * 0.15), 0.19, 0.19, BEIGE, 6, 3)
     if begin_layer("firewall"):
         var fz: float = -depth_m * 0.5 + 0.3
         box_grow(Vector3(-width_m * 0.45, 0, fz - 0.15), Vector3(width_m * 0.45, height_m * 0.85, fz + 0.15), layer_fill(), 0, CONCRETE_DARK)

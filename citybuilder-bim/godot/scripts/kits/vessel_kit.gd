@@ -38,6 +38,7 @@ func _vertical() -> void:
             var d := Vector3(cos(ang), 0, sin(ang))
             var y: float = skirt_h + shell_h * (0.25 + 0.3 * float(i))
             cyl(d * (r - 0.05) + Vector3(0, y, 0), d * (r + reach) + Vector3(0, y, 0), 0.14, 0.14, PIPE_ORANGE, 8, 3)
+            flange(d * (r + reach - 0.07) + Vector3(0, y, 0), d, 0.22, STEEL_DARK)
     if begin_layer("platforms"):
         var pw: float = minf(0.8, avail * 0.7)
         set_part(0, 3)
@@ -47,10 +48,7 @@ func _vertical() -> void:
         set_part(1, 3)
         for k in 2:
             var y2: float = skirt_h + shell_h * (0.45 + 0.35 * float(k)) + 0.08
-            for i in 12:
-                if i % 3 == 0:
-                    var a: float = TAU * float(i) / 12.0
-                    box(Vector3(cos(a), 0, sin(a)) * (r + pw) + Vector3(0, y2 + 0.5, 0), Vector3(0.05, 1.0, 0.05), STEEL_LIGHT)
+            ring_rail(Vector3(0, y2, 0), r + pw - 0.03, STEEL_LIGHT, 1.0, 12)
         set_part(2, 3)
         ladder(Vector3(r + 0.02, skirt_h, 0), shell_h * 0.8, STEEL_LIGHT, 0.0, 0.4)
 
@@ -82,11 +80,12 @@ func _horizontal() -> void:
             set_part(i, 3)
             var x: float = shell_l * (-0.3 + 0.3 * float(i))
             cyl(Vector3(x, yc + r - 0.05, 0), Vector3(x, minf(height_m, yc + r + 0.4), 0), 0.14, 0.14, PIPE_ORANGE, 8, 3)
+            flange(Vector3(x, minf(height_m, yc + r + 0.4) - 0.07, 0), Vector3.UP, 0.22, STEEL_DARK)
     if begin_layer("platforms"):
         var pw: float = minf(0.9, avail * 0.8)
         var py: float = yc + r * 0.1
         set_part(0, 2)
-        platform(Vector3(-shell_l * 0.15, py, r + 0.02), Vector3(shell_l * 0.15, py + 0.08, r + pw), STEEL_DARK, false)
+        platform(Vector3(-shell_l * 0.15, py, r + 0.02), Vector3(shell_l * 0.15, py + 0.08, r + pw), STEEL_DARK, true)
         set_part(1, 2)
         ladder(Vector3(shell_l * 0.15, 0, r + pw - 0.05), py, STEEL_LIGHT, 0.0, 0.4)
     end_orient()

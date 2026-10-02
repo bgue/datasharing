@@ -41,8 +41,16 @@ func _build() -> void:
             box_mm(Vector3(xa, 0.15, -hw * 0.5), Vector3(xb, hh, -bw * 0.5 + wt), BRICK)
             box_mm(Vector3(xa, 0.15, bw * 0.5 - wt), Vector3(xb, hh, hw * 0.5), BRICK)
             box_mm(Vector3(xa, open_h, -bw * 0.5 + wt), Vector3(xb, hh, bw * 0.5 - wt), BRICK)
-            # splayed wing walls
+            # splayed wing walls: tapered prisms (tall at the headwall, low at the far end)
             var xe: float = xa if e == 0 else xb
             for sz: float in [-1.0, 1.0]:
-                bar(Vector3(xe, hh * 0.45, sz * hw * 0.5), Vector3(xe + sgn * wing * 0.9, hh * 0.45, sz * (lz * 0.5 - 0.3)), 0.25, hh * 0.7, BRICK)
+                var pa := Vector2(xe, sz * hw * 0.5)
+                var pb := Vector2(xe + sgn * wing * 0.9, sz * (lz * 0.5 - 0.3))
+                var dir: Vector2 = (pb - pa).normalized()
+                var th := Vector2(-dir.y, dir.x) * 0.12
+                var y0: float = 0.15
+                var ya: float = hh * 0.9
+                var yb: float = hh * 0.35
+                hexa([Vector3(pa.x - th.x, y0, pa.y - th.y), Vector3(pa.x + th.x, y0, pa.y + th.y), Vector3(pb.x + th.x, y0, pb.y + th.y), Vector3(pb.x - th.x, y0, pb.y - th.y),
+                        Vector3(pa.x - th.x, ya, pa.y - th.y), Vector3(pa.x + th.x, ya, pa.y + th.y), Vector3(pb.x + th.x, yb, pb.y + th.y), Vector3(pb.x - th.x, yb, pb.y - th.y)], BRICK)
     end_orient()

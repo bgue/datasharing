@@ -31,4 +31,6 @@ func _build() -> void:
             set_part(k, 3)
             var y: float = bh + (height_m - bh) * (0.35 + 0.25 * float(k))
             var r: float = lerpf(rb, rt, (y - bh) / (height_m - bh))
-            ring(Vector3(0, y, 0), r + 0.02, minf(r + 0.7, s * 0.5 - 0.05), 0.08, STEEL_DARK, 10)
+            var ro: float = minf(r + 0.7, s * 0.5 - 0.05)
+            ring(Vector3(0, y, 0), r + 0.02, ro, 0.08, STEEL_DARK, 10)
+            ring_rail(Vector3(0, y + 0.08, 0), ro - 0.03, STEEL_LIGHT, minf(1.0, height_m - y - 0.08), 8)

@@ -20,25 +20,25 @@ const EPS: float = 0.001
 const INSPECTED_TINT: Color = Color(0.2, 0.9, 0.35)
 const REWORK_TINT: Color = Color(0.95, 0.15, 0.1)
 
-# Flat Kenney-like palette
-const STEEL: Color = Color(0.55, 0.57, 0.61)
-const STEEL_DARK: Color = Color(0.34, 0.36, 0.4)
-const STEEL_LIGHT: Color = Color(0.72, 0.74, 0.78)
-const CONCRETE: Color = Color(0.74, 0.73, 0.7)
-const CONCRETE_DARK: Color = Color(0.58, 0.57, 0.55)
-const PIPE_ORANGE: Color = Color(0.95, 0.5, 0.1)
-const PIPE_BLUE: Color = Color(0.25, 0.5, 0.95)
-const PIPE_GREEN: Color = Color(0.3, 0.7, 0.4)
-const PIPE_RED: Color = Color(0.85, 0.25, 0.2)
-const ELEC_YELLOW: Color = Color(0.98, 0.85, 0.2)
-const INSTR_PURPLE: Color = Color(0.6, 0.4, 0.85)
-const WHITE: Color = Color(0.92, 0.92, 0.94)
-const TANK_GREY: Color = Color(0.8, 0.82, 0.86)
-const BRICK: Color = Color(0.72, 0.5, 0.38)
-const BEIGE: Color = Color(0.86, 0.78, 0.6)
-const DARK: Color = Color(0.2, 0.21, 0.24)
-const PAINT_RED: Color = Color(0.82, 0.2, 0.18)
-const MED_MAGENTA: Color = Color(0.85, 0.2, 0.7)
+# Kenney colormap palette (kits/palette.json is the table; test_kits checks these constants against it)
+const STEEL: Color = Color(0.525, 0.545, 0.631)
+const STEEL_DARK: Color = Color(0.310, 0.322, 0.376)
+const STEEL_LIGHT: Color = Color(0.627, 0.659, 0.788)
+const CONCRETE: Color = Color(0.828, 0.788, 0.784)
+const CONCRETE_DARK: Color = Color(0.586, 0.567, 0.581)
+const PIPE_ORANGE: Color = Color(1.000, 0.494, 0.267)
+const PIPE_BLUE: Color = Color(0.404, 0.580, 0.851)
+const PIPE_GREEN: Color = Color(0.380, 0.796, 0.545)
+const PIPE_RED: Color = Color(0.812, 0.325, 0.310)
+const ELEC_YELLOW: Color = Color(1.000, 0.753, 0.267)
+const INSTR_PURPLE: Color = Color(0.659, 0.471, 0.910)
+const WHITE: Color = Color(0.926, 0.964, 1.000)
+const TANK_GREY: Color = Color(0.731, 0.797, 0.905)
+const BRICK: Color = Color(0.690, 0.376, 0.255)
+const BEIGE: Color = Color(0.943, 0.849, 0.741)
+const DARK: Color = Color(0.220, 0.220, 0.239)
+const PAINT_RED: Color = Color(0.812, 0.325, 0.310)
+const MED_MAGENTA: Color = Color(0.953, 0.471, 0.941)
 
 static var _solid_material: StandardMaterial3D = null
 static var _ghost_material: StandardMaterial3D = null
@@ -298,6 +298,18 @@ static func shade(c: Color, k: float) -> Color:
 
 # ------------------------------------------------------------------ triangle emission
 
+## Edge darkening: top faces keep the palette colour, side faces get darker (and x / z facing sides differ a
+## little) so neighbouring flat-shaded parts of one colour still separate.
+static func _edge_shade(col: Color, n: Vector3) -> Color:
+    var k: float
+    if n.y >= 0.0:
+        k = 0.84 + 0.16 * n.y
+    else:
+        k = 0.7
+    k *= 1.0 - 0.07 * absf(n.x)
+    return Color(col.r * k, col.g * k, col.b * k, col.a)
+
+
 func _paint(col: Color) -> Color:
     if _solid:
         var c: Color = col
@@ -330,7 +342,7 @@ func tri(a: Vector3, b: Vector3, c: Vector3, col: Color, hint: Vector3) -> void:
         n = -n
     if n.y < -0.95 and a.y <= 0.002 and b.y <= 0.002 and c.y <= 0.002:
         return  # floor-facing faces on the ground are never seen
-    var pc: Color = _paint(col)
+    var pc: Color = _paint(_edge_shade(col, n))
     if _solid:
         _sv.push_back(a)
         _sv.push_back(c)
@@ -510,6 +522,39 @@ func tube(p0: Vector3, p1: Vector3, r_out: float, r_in: float, col: Color, segs:
         quad(p0 + d0 * r_in, p0 + d1 * r_in, p0 + d1 * r_out, p0 + d0 * r_out, col, -ax)
         quad(p1 + d0 * r_in, p1 + d1 * r_in, p1 + d1 * r_out, p1 + d0 * r_out, col, ax)
         prev_d = d1
+
+
+## Convex solid from 8 corners: 0..3 the bottom loop, 4..7 the top loop above them (same order).
+## Used for tapered / chamfered walls.
+func hexa(p: Array, col: Color) -> void:
+    var c := Vector3.ZERO
+    for v in p:
+        c += v as Vector3
+    c /= 8.0
+    var faces: Array = [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]]
+    for f in faces:
+        var a: Vector3 = p[f[0]]
+        var b: Vector3 = p[f[1]]
+        var cc: Vector3 = p[f[2]]
+        var d: Vector3 = p[f[3]]
+        quad(a, b, cc, d, col, (a + b + cc + d) * 0.25 - c)
+
+
+## Circular handrail at height h above `centre`: posts and a top bar around radius r.
+func ring_rail(centre: Vector3, r: float, col: Color, h: float = 1.0, segs: int = 12) -> void:
+    var prev: Vector3 = centre + Vector3(r, h, 0)
+    for i in range(1, segs + 1):
+        var a: float = TAU * float(i) / float(segs)
+        var p: Vector3 = centre + Vector3(cos(a) * r, h, sin(a) * r)
+        box(centre + Vector3(cos(a) * r, h * 0.5, sin(a) * r), Vector3(0.05, h, 0.05), col)
+        bar(prev, p, 0.05, 0.05, col)
+        prev = p
+
+
+## Pipe flange: a short disc around a pipe end.
+func flange(at_p: Vector3, dir: Vector3, r: float, col: Color) -> void:
+    var d: Vector3 = dir.normalized()
+    cyl(at_p, at_p + d * 0.07, r, r, col, 8, 3)
 
 
 ## Pipe along a polyline. f < 0 draws it with the current solid / ghost state; f in 0..1 makes the first
