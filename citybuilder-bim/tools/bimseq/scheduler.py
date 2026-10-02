@@ -329,15 +329,19 @@ DEFAULT_TRADE_WEEKLY_COST = 8000.0
 MOBILISATION_ALLOWANCE = 0.05
 START_CASH_WEEKS = 8
 OVERDRAFT_WEEKS = 4
+#: Crews are paid for whole weeks, including time waiting on gates, inspections and
+#: deliveries. Baseline labour is therefore crew-days divided by an expected utilisation.
+LABOUR_UTILISATION = 0.65
 
 
 def labour_costs(tasks: Seq[Task], library: StepLibrary) -> list[float]:
-    """Wages per task: ``estimated_crew_days * trade.weekly_cost / 5`` (8000/week if trade unknown)."""
+    """Wages per task: ``estimated_crew_days * trade.weekly_cost / 5 / LABOUR_UTILISATION``
+    (8000/week if trade unknown)."""
     out = []
     for t in tasks:
         trade = library.trades.get(t.trade)
         weekly = trade.weekly_cost if trade is not None else DEFAULT_TRADE_WEEKLY_COST
-        out.append(t.estimated_crew_days * weekly / DAYS_PER_WEEK)
+        out.append(t.estimated_crew_days * weekly / DAYS_PER_WEEK / LABOUR_UTILISATION)
     return out
 
 
