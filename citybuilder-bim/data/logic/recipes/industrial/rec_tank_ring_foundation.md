@@ -11,18 +11,18 @@ A tank is only as good as its foundation settlement behaviour. The recipe survey
 ## Sequence
 
 1. `GEN-SURVEY-SETOUT` Survey set-out of the work area (virtual task, survey marker)
-2. `CIV-EARTH-CUT` Excavate pad, trench or bulk cut (BIM-bound, from foundation element). To formation level.
-3. `GEN-DEWATER-RUN` Run dewatering (time driven) (virtual task, dewatering marker; 10 days, time driven; starts with CIV-EARTH-CUT)
-4. `STR-FOOT-REBAR` Form and fix footing reinforcement (BIM-bound, from foundation element). Ring beam reinforcement.
-5. `STR-FOOT-POUR` Pour footing (BIM-bound, from foundation element; hold point: structural inspection). Ring beam and compacted pad.
-6. `GEN-CURING-WATCH` Concrete curing watch (time driven) (virtual task, test marker; 14 days, time driven)
-7. `settlement_baseline` As-built survey and record (virtual task, survey marker). Level survey of the ring and pad as the settlement baseline.
-8. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker)
-9. `GEN-PERMIT-HOT` Hot work permit and fire watch (virtual task, permit marker)
+2. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker)
+3. `GEN-PERMIT-HOT` Hot work permit and fire watch (virtual task, permit marker)
+4. `CIV-EARTH-CUT` Excavate pad, trench or bulk cut (BIM-bound, from foundation element; optional). To formation level.
+5. `GEN-DEWATER-RUN` Run dewatering (time driven) (virtual task, dewatering marker; 10 days, time driven; starts with CIV-EARTH-CUT)
+6. `STR-FOOT-REBAR` Form and fix footing reinforcement (BIM-bound, from foundation element; optional). Ring beam reinforcement.
+7. `STR-FOOT-POUR` Pour footing (BIM-bound, from foundation element; optional; hold point: structural inspection). Ring beam and compacted pad.
+8. `GEN-CURING-WATCH` Concrete curing watch (time driven) (virtual task, test marker; optional; 14 days, time driven)
+9. `settlement_baseline` As-built survey and record (virtual task, survey marker). Level survey of the ring and pad as the settlement baseline.
 10. `PRC-TANK-SET` Set tank or vessel (BIM-bound, from self element). Erect shell, roof and fittings or set a shop-built tank.
-11. `PRC-TANK-HYDRO` Tank water-fill and settlement test (BIM-bound, from self element; hold point: pressure_test inspection). Water-fill test with settlement monitoring.
-12. `PIP-FITTING-INSTALL` Install fittings, flanges and valves (BIM-bound, from system element). Nozzle tie-ins.
-13. `INS-COATING-APPLY` Apply fireproofing or coating (BIM-bound, from self element)
+11. `PIP-FITTING-INSTALL` Install fittings, flanges and valves (BIM-bound, from self element; optional). Nozzle tie-ins.
+12. `INS-COATING-APPLY` Apply fireproofing or coating (BIM-bound, from self element; optional)
+13. `PRC-TANK-HYDRO` Tank water-fill and settlement test (BIM-bound, from self element; hold point: pressure_test inspection). Water-fill test with settlement monitoring.
 14. `GEN-PRECOMM-CHECK` Pre-commissioning checks (virtual task, test marker)
 
 ## Ordering beyond the chain
@@ -61,5 +61,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

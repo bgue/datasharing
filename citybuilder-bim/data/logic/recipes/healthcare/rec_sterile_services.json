@@ -43,34 +43,8 @@
   {
    "ref": "GEN-ICRA-SETUP",
    "hold_point": "icra",
-   "from_element": "zone"
-  },
-  {
-   "ref": "ARC-WALL-FRAME",
-   "from_element": "zone"
-  },
-  {
-   "ref": "PLB-PIPE-INSTALL",
-   "from_element": "system",
-   "note": "Steam, condensate, RO water and drains"
-  },
-  {
-   "ref": "ELE-CABLE-PULL",
-   "from_element": "system"
-  },
-  {
-   "ref": "FIR-STOP-INSTALL",
-   "hold_point": "fire",
-   "from_element": "zone"
-  },
-  {
-   "ref": "ARC-WALL-BOARD",
-   "from_element": "zone"
-  },
-  {
-   "ref": "ARC-FLOOR-FINISH",
    "from_element": "zone",
-   "note": "Chemical-resistant floor with falls"
+   "optional": true
   },
   {
    "ref": "GEN-LIFT-PLAN",
@@ -85,8 +59,32 @@
    "optional": true
   },
   {
-   "ref": "MED-STERIL-INSTALL",
-   "hold_point": "mechanical"
+   "ref": "ARC-WALL-FRAME",
+   "from_element": "zone",
+   "optional": true
+  },
+  {
+   "ref": "PLB-PIPE-INSTALL",
+   "note": "Steam, condensate, RO water and drains",
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
+  },
+  {
+   "ref": "FIR-STOP-INSTALL",
+   "hold_point": "fire",
+   "from_element": "zone",
+   "optional": true
   },
   {
    "ref": "GEN-HYDROTEST",
@@ -94,6 +92,26 @@
    "marker": "test",
    "hold_point": "pressure_test",
    "note": "Steam line pressure test"
+  },
+  {
+   "ref": "ARC-WALL-BOARD",
+   "from_element": "zone",
+   "optional": true
+  },
+  {
+   "ref": "ARC-FLOOR-FINISH",
+   "from_element": "zone",
+   "note": "Chemical-resistant floor with falls",
+   "optional": true
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test"
+  },
+  {
+   "ref": "MED-STERIL-INSTALL",
+   "hold_point": "mechanical"
   },
   {
    "ref": "GEN-VENDOR-REP",
@@ -105,21 +123,19 @@
   {
    "ref": "CX-PRESSURE-TEST",
    "hold_point": "mechanical",
-   "from_element": "zone"
-  },
-  {
-   "ref": "GEN-PRECOMM-CHECK",
-   "virtual": true,
-   "marker": "test"
+   "from_element": "zone",
+   "optional": true
   },
   {
    "ref": "GEN-HEPA-CLEAN",
-   "from_element": "zone"
+   "from_element": "zone",
+   "optional": true
   },
   {
    "ref": "GEN-ICRA-CLOSEOUT",
    "hold_point": "icra",
-   "from_element": "zone"
+   "from_element": "zone",
+   "optional": true
   }
  ],
  "logic": [

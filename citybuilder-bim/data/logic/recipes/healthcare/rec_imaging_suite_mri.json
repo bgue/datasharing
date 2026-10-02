@@ -50,41 +50,8 @@
   {
    "ref": "GEN-ICRA-SETUP",
    "hold_point": "icra",
-   "from_element": "zone"
-  },
-  {
-   "ref": "ARC-WALL-FRAME",
-   "from_element": "zone"
-  },
-  {
-   "ref": "ARC-SHIELD-WALL",
    "from_element": "zone",
-   "note": "RF and magnetic shielding as the vendor specifies"
-  },
-  {
-   "ref": "MEP-DUCT-INSTALL",
-   "from_element": "zone"
-  },
-  {
-   "ref": "ELE-CABLE-PULL",
-   "hold_point": "electrical",
-   "from_element": "zone"
-  },
-  {
-   "ref": "FIR-STOP-INSTALL",
-   "hold_point": "fire",
-   "from_element": "zone"
-  },
-  {
-   "ref": "ARC-FLOOR-FINISH",
-   "from_element": "zone",
-   "note": "Non-magnetic materials only"
-  },
-  {
-   "ref": "GEN-ANCHOR-SURVEY",
-   "virtual": true,
-   "marker": "survey",
-   "note": "Magnet plinth and floor loading check"
+   "optional": true
   },
   {
    "ref": "GEN-PERMIT-WORK",
@@ -104,6 +71,46 @@
    "marker": "crane"
   },
   {
+   "ref": "GEN-ANCHOR-SURVEY",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Magnet plinth and floor loading check"
+  },
+  {
+   "ref": "ARC-WALL-FRAME",
+   "from_element": "zone",
+   "optional": true
+  },
+  {
+   "ref": "MEP-DUCT-INSTALL",
+   "from_element": "zone",
+   "optional": true
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "hold_point": "electrical",
+   "from_element": "zone",
+   "optional": true
+  },
+  {
+   "ref": "FIR-STOP-INSTALL",
+   "hold_point": "fire",
+   "from_element": "zone",
+   "optional": true
+  },
+  {
+   "ref": "ARC-SHIELD-WALL",
+   "from_element": "zone",
+   "note": "RF and magnetic shielding as the vendor specifies",
+   "optional": true
+  },
+  {
+   "ref": "ARC-FLOOR-FINISH",
+   "from_element": "zone",
+   "note": "Non-magnetic materials only",
+   "optional": true
+  },
+  {
    "ref": "MED-MRI-INSTALL",
    "hold_point": "electrical",
    "note": "Wall opening left until the magnet is in"
@@ -118,20 +125,22 @@
   {
    "ref": "CX-POWER-ENERGISE",
    "hold_point": "electrical",
-   "from_element": "system"
+   "optional": true
   },
   {
    "ref": "CX-AIR-BALANCE",
-   "from_element": "system"
+   "optional": true
   },
   {
    "ref": "GEN-HEPA-CLEAN",
-   "from_element": "zone"
+   "from_element": "zone",
+   "optional": true
   },
   {
    "ref": "GEN-ICRA-CLOSEOUT",
    "hold_point": "icra",
-   "from_element": "zone"
+   "from_element": "zone",
+   "optional": true
   },
   {
    "ref": "GEN-HANDOVER-DOC",

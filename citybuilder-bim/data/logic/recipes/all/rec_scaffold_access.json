@@ -2,7 +2,7 @@
  "schema_version": "1.0",
  "id": "rec_scaffold_access",
  "name": "Scaffold access for any installation",
- "summary": "Design check, erect, inspect and tag the scaffold, keep it through the work, dismantle after the last trade has finished.",
+ "summary": "Design check, erect with a handover inspection hold point, keep it through the work, dismantle after the last trade has finished.",
  "sector": "all",
  "tags": [
   "scaffold",
@@ -57,25 +57,26 @@
    "ref": "GEN-SCAFFOLD-ERECT",
    "virtual": true,
    "marker": "scaffold",
-   "note": "Erect in lifts with handover inspection"
-  },
-  {
-   "ref": "GEN-PRECOMM-CHECK",
-   "virtual": true,
-   "marker": "test",
-   "key": "scaffold_inspection",
-   "note": "Inspection and tag before first use, then at the agreed interval"
+   "hold_point": "structural",
+   "note": "Erect in lifts; handover inspection and tag before first use, then at the agreed interval"
   },
   {
    "ref": "GEN-SCAFFOLD-DISMANTLE",
    "virtual": true,
    "marker": "scaffold",
    "note": "Only after the last trade confirms they are finished"
+  },
+  {
+   "ref": "GEN-PUNCH-CLEAR",
+   "virtual": true,
+   "marker": "test",
+   "optional": true,
+   "note": "Remove tags and clear the area"
   }
  ],
  "logic": [
   {
-   "after": "scaffold_inspection",
+   "after": "GEN-SCAFFOLD-ERECT",
    "before": "GEN-SCAFFOLD-DISMANTLE",
    "reason": "Dismantle only after the last handover"
   }

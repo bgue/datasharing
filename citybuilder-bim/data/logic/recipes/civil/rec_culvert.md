@@ -12,14 +12,14 @@ A culvert is a short job that depends on controlling water. Dewatering runs in p
 
 1. `GEN-SURVEY-SETOUT` Survey set-out of the work area (virtual task, survey marker)
 2. `GEN-UTIL-LOCATE` Locate and mark buried utilities (virtual task, survey marker)
-3. `GEN-DEWATER-INSTALL` Install wellpoints or sump pumps (virtual task, dewatering marker)
+3. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker)
 4. `GEN-SHORING-INSTALL` Install trench or pit shoring (virtual task, shoring marker)
-5. `CIV-TRENCH-DIG` Dig drainage or culvert trench (BIM-bound, from self element)
-6. `GEN-DEWATER-RUN` Run dewatering (time driven) (virtual task, dewatering marker; 10 days, time driven; starts with CIV-TRENCH-DIG)
-7. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker)
+5. `GEN-DEWATER-INSTALL` Install wellpoints or sump pumps (virtual task, dewatering marker)
+6. `CIV-TRENCH-DIG` Dig drainage or culvert trench (BIM-bound, from self element)
+7. `GEN-DEWATER-RUN` Run dewatering (time driven) (virtual task, dewatering marker; 6 days, time driven; starts with CIV-TRENCH-DIG)
 8. `CIV-CULVERT-SET` Set precast culvert units (BIM-bound, from self element; hold point: structural inspection). Unit joints sealed and checked.
-9. `STR-WALL-POUR` Pour retaining or building wall (BIM-bound, from self element). Headwalls and wing walls.
-10. `GEN-CURING-WATCH` Concrete curing watch (time driven) (virtual task, test marker; 7 days, time driven)
+9. `STR-WALL-POUR` Pour retaining or building wall (BIM-bound, from self element; optional). Headwalls and wing walls.
+10. `GEN-CURING-WATCH` Concrete curing watch (time driven) (virtual task, test marker; optional; 7 days, time driven)
 11. `CIV-STRUCT-BACKFILL` Backfill behind structure (BIM-bound, from self element). Backfill symmetrically in layers.
 12. `GEN-SHORING-REMOVE` Remove trench or pit shoring (virtual task, shoring marker)
 13. `GEN-SURVEY-ASBUILT` As-built survey and record (virtual task, survey marker)
@@ -57,5 +57,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

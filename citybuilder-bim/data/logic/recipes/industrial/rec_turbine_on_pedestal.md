@@ -11,20 +11,20 @@ A turbine train combines the longest cure, the heaviest lift and the most vendor
 ## Sequence
 
 1. `GEN-SURVEY-SETOUT` Survey set-out of the work area (virtual task, survey marker)
-2. `STR-FOOT-REBAR` Form and fix footing reinforcement (BIM-bound, from foundation element)
-3. `STR-EQPAD-POUR` Pour equipment pad with anchor bolts (BIM-bound, from foundation element; hold point: structural inspection). Mass pour with temperature control.
-4. `GEN-CURING-WATCH` Concrete curing watch (time driven) (virtual task, test marker; 14 days, time driven). Thermal monitoring and cure.
-5. `GEN-ANCHOR-SURVEY` Anchor bolt and grout survey (virtual task, survey marker)
-6. `GEN-PERMIT-WORK` Permit to work (virtual task, permit marker)
-7. `lift` nested recipe `rec_crane_lift_heavy`. Heaviest lift on site: engineered lift.
+2. `GEN-PERMIT-WORK` Permit to work (virtual task, permit marker)
+3. `lift` nested recipe `rec_crane_lift_heavy`. Heaviest lift on site: engineered lift.
+4. `STR-FOOT-REBAR` Form and fix footing reinforcement (BIM-bound, from foundation element; optional)
+5. `STR-EQPAD-POUR` Pour equipment pad with anchor bolts (BIM-bound, from foundation element; optional; hold point: structural inspection). Mass pour with temperature control.
+6. `GEN-CURING-WATCH` Concrete curing watch (time driven) (virtual task, test marker; optional; 14 days, time driven). Thermal monitoring and cure.
+7. `GEN-ANCHOR-SURVEY` Anchor bolt and grout survey (virtual task, survey marker)
 8. `PRC-EQUIP-SET` Set heavy equipment or stack (BIM-bound, from self element; hold point: mechanical inspection)
-9. `GEN-VENDOR-REP` Vendor representative attendance (time driven) (virtual task, permit marker; 10 days, time driven). Vendor supervises alignment, coupling and grouting.
-10. `PIP-PIPE-INSTALL` Install process pipe (BIM-bound, from system element)
-11. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from system element)
-12. `IC-INSTR-INSTALL` Install field instrument (BIM-bound, from system element)
-13. `IC-LOOP-CHECK` Instrument loop check (BIM-bound, from system element)
+9. `GEN-VENDOR-REP` Vendor representative attendance (time driven) (virtual task, permit marker; 8 days, time driven). Vendor supervises alignment, coupling and grouting.
+10. `PIP-PIPE-INSTALL` Install process pipe (BIM-bound, from self element; optional)
+11. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from self element; optional)
+12. `IC-INSTR-INSTALL` Install field instrument (BIM-bound, from self element; optional)
+13. `IC-LOOP-CHECK` Instrument loop check (BIM-bound, from self element; optional)
 14. `GEN-PRECOMM-CHECK` Pre-commissioning checks (virtual task, test marker)
-15. `CX-PROCESS-STARTUP` Process system start-up (BIM-bound, from system element)
+15. `CX-PROCESS-STARTUP` Process system start-up (BIM-bound, from self element)
 
 ## Ordering beyond the chain
 
@@ -61,5 +61,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

@@ -43,14 +43,17 @@
   },
   {
    "ref": "CIV-SUBGRADE-PREP",
-   "hold_point": "geotechnical"
+   "hold_point": "geotechnical",
+   "optional": true
   },
   {
-   "ref": "CIV-SUBBASE-LAY"
+   "ref": "CIV-SUBBASE-LAY",
+   "optional": true
   },
   {
    "ref": "CIV-BASE-LAY",
-   "hold_point": "pavement"
+   "hold_point": "pavement",
+   "optional": true
   },
   {
    "ref": "CIV-KERB-LAY",
@@ -58,7 +61,8 @@
   },
   {
    "ref": "CIV-ASPHALT-BASE",
-   "note": "Needs a paver and a paving train of three crews"
+   "note": "Needs a paver and a paving train of three crews",
+   "optional": true
   },
   {
    "ref": "CIV-ASPHALT-WEAR",

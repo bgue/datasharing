@@ -59,14 +59,19 @@
    "marker": "survey"
   },
   {
-   "ref": "GEN-DEWATER-INSTALL",
+   "ref": "GEN-LIFT-PLAN",
    "virtual": true,
-   "marker": "dewatering"
+   "marker": "lift_plan"
   },
   {
    "ref": "GEN-SHORING-INSTALL",
    "virtual": true,
    "marker": "shoring"
+  },
+  {
+   "ref": "GEN-DEWATER-INSTALL",
+   "virtual": true,
+   "marker": "dewatering"
   },
   {
    "ref": "CIV-TRENCH-DIG"
@@ -75,13 +80,8 @@
    "ref": "GEN-DEWATER-RUN",
    "virtual": true,
    "marker": "dewatering",
-   "duration_days": 10,
+   "duration_days": 6,
    "parallel_with": "CIV-TRENCH-DIG"
-  },
-  {
-   "ref": "GEN-LIFT-PLAN",
-   "virtual": true,
-   "marker": "lift_plan"
   },
   {
    "ref": "CIV-CULVERT-SET",
@@ -90,13 +90,15 @@
   },
   {
    "ref": "STR-WALL-POUR",
-   "note": "Headwalls and wing walls"
+   "note": "Headwalls and wing walls",
+   "optional": true
   },
   {
    "ref": "GEN-CURING-WATCH",
    "virtual": true,
    "marker": "test",
-   "duration_days": 7
+   "duration_days": 7,
+   "optional": true
   },
   {
    "ref": "CIV-STRUCT-BACKFILL",

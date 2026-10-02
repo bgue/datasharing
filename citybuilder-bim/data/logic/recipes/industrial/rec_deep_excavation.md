@@ -19,14 +19,13 @@ Deep pits fail through water, collapse and struck services. The recipe puts the 
 7. `CIV-EARTH-CUT` Excavate pad, trench or bulk cut (BIM-bound, from self element). Dig in stages, shoring follows the excavation.
 8. `GEN-DEWATER-RUN` Run dewatering (time driven) (virtual task, dewatering marker; 15 days, time driven; starts with CIV-EARTH-CUT). Run until the base slab has enough weight against uplift.
 9. `formation_survey` As-built survey and record (virtual task, survey marker). Formation level and clearance check.
-10. `STR-FOOT-REBAR` Form and fix footing reinforcement (BIM-bound, from self element; optional). Blinding then base reinforcement.
-11. `CIV-BACKFILL-COMPACT` Backfill and compact around foundation (BIM-bound, from self element)
+10. `STR-FOOT-REBAR` Form and fix footing reinforcement (BIM-bound, from self element). Blinding then base reinforcement.
+11. `CIV-BACKFILL-COMPACT` Backfill and compact around foundation (BIM-bound, from self element; optional)
 12. `GEN-SHORING-REMOVE` Remove trench or pit shoring (virtual task, shoring marker)
 
 ## Ordering beyond the chain
 
 * `GEN-DEWATER-INSTALL` before `CIV-EARTH-CUT` (FS): Groundwater must be controlled before the cut goes below the water table
-* `CIV-BACKFILL-COMPACT` before `GEN-DEWATER-RUN` (FF): Dewatering stays on until backfill passes groundwater level
 
 ## Prerequisites
 
@@ -58,5 +57,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

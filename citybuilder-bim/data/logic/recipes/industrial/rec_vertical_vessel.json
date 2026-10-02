@@ -51,13 +51,19 @@
   {
    "ref": "STR-EQPAD-POUR",
    "hold_point": "structural",
-   "from_element": "foundation"
+   "from_element": "foundation",
+   "optional": true,
+   "quantity": {
+    "basis": "volume_m3",
+    "value": 6
+   }
   },
   {
    "ref": "GEN-CURING-WATCH",
    "virtual": true,
    "marker": "test",
-   "duration_days": 7
+   "duration_days": 7,
+   "optional": true
   },
   {
    "ref": "GEN-ANCHOR-SURVEY",
@@ -70,22 +76,18 @@
    "note": "Tailing and upending usually needs two cranes; nest the heavy lift recipe"
   },
   {
-   "ref": "PRC-EQUIP-SET",
-   "hold_point": "mechanical",
-   "note": "Upend and set on anchors"
-  },
-  {
    "ref": "ARC-STAIR-INSTALL",
    "note": "Ladders and platforms",
    "optional": true
   },
   {
-   "ref": "PIP-FITTING-INSTALL",
-   "from_element": "system"
+   "ref": "PRC-EQUIP-SET",
+   "hold_point": "mechanical",
+   "note": "Upend and set on anchors"
   },
   {
-   "ref": "IC-INSTR-INSTALL",
-   "from_element": "system"
+   "ref": "PIP-FITTING-INSTALL",
+   "optional": true
   },
   {
    "ref": "GEN-HYDROTEST",
@@ -94,7 +96,12 @@
    "hold_point": "pressure_test"
   },
   {
-   "ref": "INS-COATING-APPLY"
+   "ref": "IC-INSTR-INSTALL",
+   "optional": true
+  },
+  {
+   "ref": "INS-COATING-APPLY",
+   "optional": true
   },
   {
    "ref": "GEN-PRECOMM-CHECK",
@@ -102,8 +109,7 @@
    "marker": "test"
   },
   {
-   "ref": "CX-PROCESS-STARTUP",
-   "from_element": "system"
+   "ref": "CX-PROCESS-STARTUP"
   }
  ],
  "logic": [

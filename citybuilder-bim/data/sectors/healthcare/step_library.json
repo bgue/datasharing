@@ -3092,7 +3092,7 @@
    "quantity_basis": "count",
    "rate_per_crew_day": 2,
    "unit_cost": 900,
-   "min_duration_days": 2,
+   "min_duration_days": 1,
    "requires_crane": false,
    "requires_access": false,
    "laydown_cells": 0,
@@ -3122,7 +3122,7 @@
    "quantity_basis": "count",
    "rate_per_crew_day": 1,
    "unit_cost": 6000,
-   "min_duration_days": 2,
+   "min_duration_days": 1,
    "requires_crane": false,
    "requires_access": true,
    "laydown_cells": 3,
@@ -3233,8 +3233,7 @@
    "predecessors": [
     {
      "step": "PLB-PIPE-INSTALL",
-     "scope": "same_system",
-     "required": true
+     "scope": "same_system"
     }
    ],
    "tags": [

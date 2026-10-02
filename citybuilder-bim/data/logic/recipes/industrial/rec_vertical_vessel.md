@@ -11,18 +11,18 @@ Tall vessels are lifted once. The recipe front-loads the anchor survey and lift 
 ## Sequence
 
 1. `GEN-SURVEY-SETOUT` Survey set-out of the work area (virtual task, survey marker)
-2. `STR-EQPAD-POUR` Pour equipment pad with anchor bolts (BIM-bound, from foundation element; hold point: structural inspection)
-3. `GEN-CURING-WATCH` Concrete curing watch (time driven) (virtual task, test marker; 7 days, time driven)
+2. `STR-EQPAD-POUR` Pour equipment pad with anchor bolts (BIM-bound, from foundation element; optional; hold point: structural inspection)
+3. `GEN-CURING-WATCH` Concrete curing watch (time driven) (virtual task, test marker; optional; 7 days, time driven)
 4. `GEN-ANCHOR-SURVEY` Anchor bolt and grout survey (virtual task, survey marker)
 5. `lift` nested recipe `rec_crane_lift_heavy`. Tailing and upending usually needs two cranes; nest the heavy lift recipe.
-6. `PRC-EQUIP-SET` Set heavy equipment or stack (BIM-bound, from self element; hold point: mechanical inspection). Upend and set on anchors.
-7. `ARC-STAIR-INSTALL` Install stair or access platform (BIM-bound, from self element; optional). Ladders and platforms.
-8. `PIP-FITTING-INSTALL` Install fittings, flanges and valves (BIM-bound, from system element)
-9. `IC-INSTR-INSTALL` Install field instrument (BIM-bound, from system element)
-10. `GEN-HYDROTEST` System hydrotest or pressure test (virtual task, test marker; hold point: pressure_test inspection)
-11. `INS-COATING-APPLY` Apply fireproofing or coating (BIM-bound, from self element)
+6. `ARC-STAIR-INSTALL` Install stair or access platform (BIM-bound, from self element; optional). Ladders and platforms.
+7. `PRC-EQUIP-SET` Set heavy equipment or stack (BIM-bound, from self element; hold point: mechanical inspection). Upend and set on anchors.
+8. `PIP-FITTING-INSTALL` Install fittings, flanges and valves (BIM-bound, from self element; optional)
+9. `GEN-HYDROTEST` System hydrotest or pressure test (virtual task, test marker; hold point: pressure_test inspection)
+10. `IC-INSTR-INSTALL` Install field instrument (BIM-bound, from self element; optional)
+11. `INS-COATING-APPLY` Apply fireproofing or coating (BIM-bound, from self element; optional)
 12. `GEN-PRECOMM-CHECK` Pre-commissioning checks (virtual task, test marker)
-13. `CX-PROCESS-STARTUP` Process system start-up (BIM-bound, from system element)
+13. `CX-PROCESS-STARTUP` Process system start-up (BIM-bound, from self element)
 
 ## Ordering beyond the chain
 
@@ -60,5 +60,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

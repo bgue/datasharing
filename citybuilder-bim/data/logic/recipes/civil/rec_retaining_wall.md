@@ -14,9 +14,9 @@ Backfilling a wall too early is the classic failure. The recipe separates pour, 
 2. `GEN-UTIL-LOCATE` Locate and mark buried utilities (virtual task, survey marker)
 3. `GEN-TW-CHECK` Temporary works design check and permit to load (virtual task, permit marker). Excavation support and surcharge design.
 4. `GEN-SHORING-INSTALL` Install trench or pit shoring (virtual task, shoring marker)
-5. `CIV-EARTH-CUT` Excavate cut to formation (BIM-bound, from foundation element)
-6. `STR-FOOT-REBAR` Fix footing reinforcement (BIM-bound, from foundation element)
-7. `STR-FOOT-POUR` Pour footing (BIM-bound, from foundation element; hold point: structural inspection)
+5. `CIV-EARTH-CUT` Excavate cut to formation (BIM-bound, from foundation element; optional)
+6. `STR-FOOT-REBAR` Fix footing reinforcement (BIM-bound, from foundation element; optional)
+7. `STR-FOOT-POUR` Pour footing (BIM-bound, from foundation element; optional; hold point: structural inspection)
 8. `STR-WALL-POUR` Pour retaining or building wall (BIM-bound, from self element; hold point: structural inspection)
 9. `GEN-CURING-WATCH` Concrete curing watch (time driven) (virtual task, test marker; 7 days, time driven)
 10. `CIV-STRUCT-BACKFILL` Backfill behind structure (BIM-bound, from self element). Free-draining fill in layers with drainage behind the wall.
@@ -56,5 +56,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

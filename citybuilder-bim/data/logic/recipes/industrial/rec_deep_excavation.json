@@ -98,11 +98,11 @@
   },
   {
    "ref": "STR-FOOT-REBAR",
-   "note": "Blinding then base reinforcement",
-   "optional": true
+   "note": "Blinding then base reinforcement"
   },
   {
-   "ref": "CIV-BACKFILL-COMPACT"
+   "ref": "CIV-BACKFILL-COMPACT",
+   "optional": true
   },
   {
    "ref": "GEN-SHORING-REMOVE",
@@ -115,12 +115,6 @@
    "after": "GEN-DEWATER-INSTALL",
    "before": "CIV-EARTH-CUT",
    "reason": "Groundwater must be controlled before the cut goes below the water table"
-  },
-  {
-   "after": "CIV-BACKFILL-COMPACT",
-   "before": "GEN-DEWATER-RUN",
-   "type": "FF",
-   "reason": "Dewatering stays on until backfill passes groundwater level"
   }
  ],
  "checks": [

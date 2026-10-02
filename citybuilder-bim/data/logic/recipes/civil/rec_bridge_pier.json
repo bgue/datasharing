@@ -65,22 +65,15 @@
   },
   {
    "ref": "CIV-PILE-DRIVE",
-   "hold_point": "geotechnical"
+   "hold_point": "geotechnical",
+   "optional": true
   },
   {
-   "ref": "GEN-SURVEY-ASBUILT",
-   "virtual": true,
-   "marker": "survey",
-   "key": "pile_survey"
-  },
-  {
-   "ref": "STR-CAP-REBAR",
-   "from_element": "foundation"
+   "ref": "STR-CAP-REBAR"
   },
   {
    "ref": "STR-CAP-POUR",
-   "hold_point": "structural",
-   "from_element": "foundation"
+   "hold_point": "structural"
   },
   {
    "ref": "GEN-CURING-WATCH",
@@ -96,14 +89,16 @@
   },
   {
    "ref": "STR-PIER-POUR",
-   "hold_point": "structural"
+   "hold_point": "structural",
+   "optional": true
   },
   {
    "ref": "GEN-CURING-WATCH",
    "virtual": true,
    "marker": "test",
    "key": "pier_cure",
-   "duration_days": 7
+   "duration_days": 7,
+   "optional": true
   },
   {
    "ref": "GEN-ANCHOR-SURVEY",
@@ -114,12 +109,19 @@
   {
    "ref": "STR-BEARING-SET",
    "hold_point": "structural",
-   "note": "10 week lead item"
+   "note": "10 week lead item",
+   "optional": true
   },
   {
    "ref": "GEN-SCAFFOLD-DISMANTLE",
    "virtual": true,
    "marker": "scaffold"
+  },
+  {
+   "ref": "GEN-SURVEY-ASBUILT",
+   "virtual": true,
+   "marker": "survey",
+   "key": "pile_survey"
   }
  ],
  "logic": [

@@ -45,40 +45,53 @@
   {
    "ref": "GEN-ICRA-SETUP",
    "hold_point": "icra",
-   "from_element": "zone"
-  },
-  {
-   "ref": "ARC-WALL-FRAME",
-   "from_element": "zone"
-  },
-  {
-   "ref": "ARC-SHIELD-WALL",
    "from_element": "zone",
-   "note": "Lead lining to the radiation physicist specification"
-  },
-  {
-   "ref": "MEP-DUCT-INSTALL",
-   "from_element": "zone"
-  },
-  {
-   "ref": "ELE-CABLE-PULL",
-   "hold_point": "electrical",
-   "from_element": "zone"
-  },
-  {
-   "ref": "FIR-STOP-INSTALL",
-   "hold_point": "fire",
-   "from_element": "zone"
-  },
-  {
-   "ref": "ARC-FLOOR-FINISH",
-   "from_element": "zone"
+   "optional": true
   },
   {
    "ref": "GEN-LIFT-PLAN",
    "virtual": true,
    "marker": "lift_plan",
    "note": "Route and weight check for the gantry"
+  },
+  {
+   "ref": "ARC-WALL-FRAME",
+   "from_element": "zone",
+   "optional": true
+  },
+  {
+   "ref": "MEP-DUCT-INSTALL",
+   "from_element": "zone",
+   "optional": true
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "hold_point": "electrical",
+   "from_element": "zone",
+   "optional": true
+  },
+  {
+   "ref": "FIR-STOP-INSTALL",
+   "hold_point": "fire",
+   "from_element": "zone",
+   "optional": true
+  },
+  {
+   "ref": "ARC-SHIELD-WALL",
+   "from_element": "zone",
+   "note": "Lead lining to the radiation physicist specification",
+   "optional": true
+  },
+  {
+   "ref": "ARC-FLOOR-FINISH",
+   "from_element": "zone",
+   "optional": true
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test",
+   "note": "Radiation survey and interlock test"
   },
   {
    "ref": "MED-CT-INSTALL",
@@ -94,26 +107,22 @@
   {
    "ref": "CX-POWER-ENERGISE",
    "hold_point": "electrical",
-   "from_element": "system"
+   "optional": true
   },
   {
    "ref": "CX-AIR-BALANCE",
-   "from_element": "system"
-  },
-  {
-   "ref": "GEN-PRECOMM-CHECK",
-   "virtual": true,
-   "marker": "test",
-   "note": "Radiation survey and interlock test"
+   "optional": true
   },
   {
    "ref": "GEN-HEPA-CLEAN",
-   "from_element": "zone"
+   "from_element": "zone",
+   "optional": true
   },
   {
    "ref": "GEN-ICRA-CLOSEOUT",
    "hold_point": "icra",
-   "from_element": "zone"
+   "from_element": "zone",
+   "optional": true
   }
  ],
  "logic": [

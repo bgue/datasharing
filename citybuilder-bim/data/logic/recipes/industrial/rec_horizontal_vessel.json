@@ -44,36 +44,42 @@
    "marker": "survey"
   },
   {
+   "ref": "GEN-LIFT-PLAN",
+   "virtual": true,
+   "marker": "lift_plan"
+  },
+  {
    "ref": "STR-FOOT-REBAR",
-   "from_element": "foundation"
+   "from_element": "foundation",
+   "optional": true,
+   "quantity": {
+    "basis": "weight_t",
+    "value": 1
+   }
   },
   {
    "ref": "STR-FOOT-POUR",
    "hold_point": "structural",
    "from_element": "foundation",
-   "note": "Saddle footings"
+   "note": "Saddle footings",
+   "optional": true,
+   "quantity": {
+    "basis": "volume_m3",
+    "value": 6
+   }
   },
   {
    "ref": "GEN-CURING-WATCH",
    "virtual": true,
    "marker": "test",
-   "duration_days": 7
+   "duration_days": 7,
+   "optional": true
   },
   {
    "ref": "GEN-ANCHOR-SURVEY",
    "virtual": true,
    "marker": "survey",
    "note": "Saddle spacing and level, sliding saddle slots"
-  },
-  {
-   "ref": "GEN-LIFT-PLAN",
-   "virtual": true,
-   "marker": "lift_plan"
-  },
-  {
-   "ref": "PRC-EQUIP-SET",
-   "hold_point": "mechanical",
-   "note": "Fixed saddle first, sliding saddle with PTFE pads"
   },
   {
    "ref": "GEN-SURVEY-ASBUILT",
@@ -83,12 +89,13 @@
    "note": "Alignment and slope as installed"
   },
   {
-   "ref": "PIP-FITTING-INSTALL",
-   "from_element": "system"
+   "ref": "PRC-EQUIP-SET",
+   "hold_point": "mechanical",
+   "note": "Fixed saddle first, sliding saddle with PTFE pads"
   },
   {
-   "ref": "IC-INSTR-INSTALL",
-   "from_element": "system"
+   "ref": "PIP-FITTING-INSTALL",
+   "optional": true
   },
   {
    "ref": "GEN-HYDROTEST",
@@ -97,7 +104,12 @@
    "hold_point": "pressure_test"
   },
   {
-   "ref": "INS-COATING-APPLY"
+   "ref": "IC-INSTR-INSTALL",
+   "optional": true
+  },
+  {
+   "ref": "INS-COATING-APPLY",
+   "optional": true
   },
   {
    "ref": "GEN-PRECOMM-CHECK",

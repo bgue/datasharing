@@ -64,16 +64,31 @@
   },
   {
    "ref": "CIV-EARTH-CUT",
-   "from_element": "foundation"
+   "from_element": "foundation",
+   "optional": true,
+   "quantity": {
+    "basis": "volume_m3",
+    "value": 6
+   }
   },
   {
    "ref": "STR-FOOT-REBAR",
-   "from_element": "foundation"
+   "from_element": "foundation",
+   "optional": true,
+   "quantity": {
+    "basis": "weight_t",
+    "value": 1
+   }
   },
   {
    "ref": "STR-FOOT-POUR",
    "hold_point": "structural",
-   "from_element": "foundation"
+   "from_element": "foundation",
+   "optional": true,
+   "quantity": {
+    "basis": "volume_m3",
+    "value": 6
+   }
   },
   {
    "ref": "STR-WALL-POUR",

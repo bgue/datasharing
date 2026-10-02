@@ -12,14 +12,14 @@ Medical gas is a safety-critical life-support system. Installation errors cause 
 
 1. `GEN-SURVEY-SETOUT` Survey set-out of the work area (virtual task, survey marker)
 2. `GEN-PERMIT-HOT` Hot work permit and fire watch (virtual task, permit marker). Brazing with oxygen-free nitrogen purge.
-3. `MED-GAS-PIPE-INSTALL` Install medical gas pipe (BIM-bound, from system element)
-4. `MED-GAS-TEST` Medical gas pressure test and purge (BIM-bound, from system element; hold point: medical_gas inspection). Standing pressure, leak and cross-connection tests.
-5. `FIR-STOP-INSTALL` Fire-stop penetrations (BIM-bound, from system element; hold point: fire inspection)
-6. `ARC-WALL-BOARD` Board, tape and finish partition walls (BIM-bound, from system element). Walls closed only after the test.
-7. `MED-EQUIP-INSTALL` Install fixed clinical equipment (BIM-bound, from system element). Terminal units, alarms and pendants.
-8. `MED-GAS-CERT` Medical gas certification (BIM-bound, from system element; hold point: medical_gas inspection). Independent verification of identity, flow and purity.
-9. `GEN-PRECOMM-CHECK` Pre-commissioning checks (virtual task, test marker). Alarm panel and area valve checks.
-10. `GEN-HANDOVER-DOC` Room-by-room handover documentation (BIM-bound, from system element)
+3. `MED-GAS-PIPE-INSTALL` Install medical gas pipe (BIM-bound, from self element)
+4. `MED-GAS-TEST` Medical gas pressure test and purge (BIM-bound, from self element; hold point: medical_gas inspection). Standing pressure, leak and cross-connection tests.
+5. `FIR-STOP-INSTALL` Fire-stop penetrations (BIM-bound, from self element; optional; hold point: fire inspection)
+6. `ARC-WALL-BOARD` Board, tape and finish partition walls (BIM-bound, from self element; optional). Walls closed only after the test.
+7. `GEN-PRECOMM-CHECK` Pre-commissioning checks (virtual task, test marker). Alarm panel and area valve checks.
+8. `MED-EQUIP-INSTALL` Install fixed clinical equipment (BIM-bound, from self element; optional). Terminal units, alarms and pendants.
+9. `MED-GAS-CERT` Medical gas certification (BIM-bound, from self element; hold point: medical_gas inspection). Independent verification of identity, flow and purity.
+10. `GEN-HANDOVER-DOC` Room-by-room handover documentation (BIM-bound, from self element; optional)
 
 ## Ordering beyond the chain
 
@@ -56,5 +56,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

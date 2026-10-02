@@ -20,9 +20,9 @@ Counts at a glance:
 
 | Sector | Phases | Trades | Steps | Rules (+default) | Gates | Events per level (tutorial / standard / hard) |
 | --- | --- | --- | --- | --- | --- | --- |
-| industrial | 12 | 9 | 59 | 45 | 6 | 12 / 15 / 15 |
-| civil | 10 | 9 | 51 | 41 | 6 | 12 / 15 / 15 |
-| healthcare | 11 | 10 | 57 | 45 | 6 | 12 / 15 / 15 |
+| industrial | 12 | 9 | 79 | 53 | 6 | 12 / 15 / 15 |
+| civil | 10 | 9 | 70 | 45 | 6 | 12 / 15 / 15 |
+| healthcare | 11 | 10 | 77 | 49 | 6 | 12 / 15 / 15 |
 
 ## How a library is organised
 
@@ -237,3 +237,17 @@ For the recipes in `data/logic/` each library gained about 20 non-BIM steps with
 No new trade was added: crews would also have needed new entries in every scenario's `crews_available`, which the logic work package does not own. Instead each step uses an existing, sensible trade, for example survey and utility locate on the civil crew (industrial), the QA team (civil) and the groundworks crew (healthcare), scaffold on the steel, erection and envelope crews, paperwork on the commissioning team or QA team, hydrotest on the piping, utilities and plumbing crews. Paperwork steps have `requires_access: false`.
 
 Existing steps gained optional predecessors on the virtual steps (all skipped when the virtual task does not exist, so the synthetic baselines are unchanged): every `requires_crane` step waits for `GEN-LIFT-PLAN` in the zone, excavation and trenching wait for set-out, utility locate, shoring and dewatering install, piling waits for set-out, hot work steps wait for `GEN-PERMIT-HOT`, equipment set steps wait for `GEN-ANCHOR-SURVEY`, and civil bearings wait for the anchor survey. `GEN-HYDROTEST` requires pipe installation in the same system. Phase ordering is preserved: virtual set-out, lift plan and permits are in the mobilise phase.
+
+## Recipes attached to mapping rules
+
+Rules may carry `recipe: "rec_..."` (see `data/logic/README.md`). The recipe is expanded once per matched element, so the rules attach it to one anchor per installation: industrial modules, tanks, transformers, pumps, turbines and compressors, exchangers, vessels, pile caps, pit excavations, rack lines (one expansion loop each) and slabs in the heavy-lift bays; civil pile caps (bridge pier), the first girder of each span (deck), culvert segments, headwalls (retaining wall recipe), the first segment of each drain and each diverted service, one wearing-course element, signs and temporary signs; healthcare MRI, CT, sterilisers, AHUs, the first line of each medical gas system, one ceiling per operating room or pressure room, dampers next to the live ward and the ICRA slabs. About 15 new narrow rules (clones of the generic ones) exist for this, with `_lead`, `-bay`, `-or` or `-pressure` style ids. The healthcare hygienic floor rule now only matches `FLOORING` so hygienic ceilings reach the ceiling rules.
+
+Result on the synthetic bundles (standard scenario, `build-samples`):
+
+| Sector | Rules with a recipe | Virtual tasks | Total tasks (before) | Sequencing gaps | Baseline weeks (before) |
+| --- | --- | --- | --- | --- | --- |
+| industrial | 14 | 257 | 2189 (1931) | 0 | 39 (36) |
+| civil | 9 | 167 | 1755 (1588) | 0 | 24 (20) |
+| healthcare | 9 | 161 | 1526 (1370) | 0 | 49 (47) |
+
+To keep the gaps at zero the library predecessors on virtual steps were reduced to cross-element logic: civil `GEN-SHORING-REMOVE` moved to the structures phase and `GEN-DEWATER-RUN` to the drainage phase, `GEN-HYDROTEST` is no longer `required`, civil anchor survey and curing watch wait only for the set-out, and `STR-BEARING-SET` no longer waits for the anchor survey. Crane steps keep waiting for the lift plan in their zone.

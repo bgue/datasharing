@@ -10,21 +10,21 @@ CT shares the shielded room logic of MRI but without the magnet logistics. The r
 
 ## Sequence
 
-1. `GEN-ICRA-SETUP` Erect ICRA barrier and negative air (BIM-bound, from zone element; hold point: icra inspection)
-2. `ARC-WALL-FRAME` Frame partition walls (BIM-bound, from zone element)
-3. `ARC-SHIELD-WALL` Install lead-lined and RF-shielded wall (BIM-bound, from zone element). Lead lining to the radiation physicist specification.
-4. `MEP-DUCT-INSTALL` Install ductwork (BIM-bound, from zone element)
-5. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from zone element; hold point: electrical inspection)
-6. `FIR-STOP-INSTALL` Fire-stop penetrations (BIM-bound, from zone element; hold point: fire inspection)
-7. `ARC-FLOOR-FINISH` Install hygienic floor finish (BIM-bound, from zone element)
-8. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker). Route and weight check for the gantry.
-9. `MED-CT-INSTALL` Install CT scanner (BIM-bound, from self element; hold point: electrical inspection)
-10. `GEN-VENDOR-REP` Vendor representative attendance (time driven) (virtual task, permit marker; 7 days, time driven). Calibration and acceptance tests.
-11. `CX-POWER-ENERGISE` Energise and test electrical systems (BIM-bound, from system element; hold point: electrical inspection)
-12. `CX-AIR-BALANCE` Test and balance air system (BIM-bound, from system element)
-13. `GEN-PRECOMM-CHECK` Pre-commissioning checks (virtual task, test marker). Radiation survey and interlock test.
-14. `GEN-HEPA-CLEAN` HEPA terminal clean (BIM-bound, from zone element)
-15. `GEN-ICRA-CLOSEOUT` ICRA clearance and barrier removal (BIM-bound, from zone element; hold point: icra inspection)
+1. `GEN-ICRA-SETUP` Erect ICRA barrier and negative air (BIM-bound, from zone element; optional; hold point: icra inspection)
+2. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker). Route and weight check for the gantry.
+3. `ARC-WALL-FRAME` Frame partition walls (BIM-bound, from zone element; optional)
+4. `MEP-DUCT-INSTALL` Install ductwork (BIM-bound, from zone element; optional)
+5. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from zone element; optional; hold point: electrical inspection)
+6. `FIR-STOP-INSTALL` Fire-stop penetrations (BIM-bound, from zone element; optional; hold point: fire inspection)
+7. `ARC-SHIELD-WALL` Install lead-lined and RF-shielded wall (BIM-bound, from zone element; optional). Lead lining to the radiation physicist specification.
+8. `ARC-FLOOR-FINISH` Install hygienic floor finish (BIM-bound, from zone element; optional)
+9. `GEN-PRECOMM-CHECK` Pre-commissioning checks (virtual task, test marker). Radiation survey and interlock test.
+10. `MED-CT-INSTALL` Install CT scanner (BIM-bound, from self element; hold point: electrical inspection)
+11. `GEN-VENDOR-REP` Vendor representative attendance (time driven) (virtual task, permit marker; 7 days, time driven). Calibration and acceptance tests.
+12. `CX-POWER-ENERGISE` Energise and test electrical systems (BIM-bound, from self element; optional; hold point: electrical inspection)
+13. `CX-AIR-BALANCE` Test and balance air system (BIM-bound, from self element; optional)
+14. `GEN-HEPA-CLEAN` HEPA terminal clean (BIM-bound, from zone element; optional)
+15. `GEN-ICRA-CLOSEOUT` ICRA clearance and barrier removal (BIM-bound, from zone element; optional; hold point: icra inspection)
 
 ## Ordering beyond the chain
 
@@ -60,5 +60,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

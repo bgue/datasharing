@@ -51,28 +51,9 @@
    "marker": "survey"
   },
   {
-   "ref": "STR-FOOT-REBAR",
-   "from_element": "foundation"
-  },
-  {
-   "ref": "STR-FOOT-POUR",
-   "hold_point": "structural",
-   "from_element": "foundation"
-  },
-  {
-   "ref": "GEN-ANCHOR-SURVEY",
-   "virtual": true,
-   "marker": "survey"
-  },
-  {
    "ref": "GEN-PERMIT-HOT",
    "virtual": true,
    "marker": "permit"
-  },
-  {
-   "ref": "GEN-SCAFFOLD-ERECT",
-   "virtual": true,
-   "marker": "scaffold"
   },
   {
    "ref": "GEN-LIFT-PLAN",
@@ -80,19 +61,53 @@
    "marker": "lift_plan"
   },
   {
-   "ref": "STR-RACK-ERECT"
+   "ref": "STR-FOOT-REBAR",
+   "from_element": "foundation",
+   "optional": true,
+   "quantity": {
+    "basis": "weight_t",
+    "value": 1
+   }
+  },
+  {
+   "ref": "STR-FOOT-POUR",
+   "hold_point": "structural",
+   "from_element": "foundation",
+   "optional": true,
+   "quantity": {
+    "basis": "volume_m3",
+    "value": 6
+   }
+  },
+  {
+   "ref": "GEN-ANCHOR-SURVEY",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-SCAFFOLD-ERECT",
+   "virtual": true,
+   "marker": "scaffold"
+  },
+  {
+   "ref": "STR-RACK-ERECT",
+   "optional": true
   },
   {
    "ref": "STR-RACK-CONN",
-   "hold_point": "welding"
+   "hold_point": "welding",
+   "optional": true
   },
   {
    "ref": "PIP-SPOOL-LAY",
-   "from_element": "system"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
-   "ref": "PIP-FITTING-INSTALL",
-   "from_element": "system"
+   "ref": "PIP-FITTING-INSTALL"
   },
   {
    "ref": "GEN-HYDROTEST",
@@ -102,15 +117,27 @@
   },
   {
    "ref": "ELE-TRAY-INSTALL",
-   "from_element": "system"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
    "ref": "ELE-CABLE-PULL",
-   "from_element": "system"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
    "ref": "INS-PIPE-INSULATE",
-   "from_element": "system"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
    "ref": "GEN-SCAFFOLD-DISMANTLE",
@@ -119,7 +146,11 @@
   },
   {
    "ref": "CX-PIPE-FLUSH",
-   "from_element": "system"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   }
  ],
  "logic": [

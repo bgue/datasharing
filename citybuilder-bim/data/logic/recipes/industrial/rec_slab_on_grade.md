@@ -13,9 +13,9 @@ The slab is the plant floor for everything above it. Drainage and sleeves must g
 1. `GEN-SURVEY-SETOUT` Survey set-out of the work area (virtual task, survey marker)
 2. `GEN-SITE-PREP` Strip topsoil and prepare platform (BIM-bound, from self element). Strip and proof-roll.
 3. `CIV-EARTH-FILL` Place and compact engineered fill (BIM-bound, from self element). Engineered fill in layers with compaction tests.
-4. `CIV-DRAIN-INSTALL` Lay underground drain or duct bank (BIM-bound, from system element; optional). Under-slab drainage and sleeves.
+4. `CIV-DRAIN-INSTALL` Lay underground drain or duct bank (BIM-bound, from self element; optional). Under-slab drainage and sleeves.
 5. `STR-GSLAB-POUR` Pour ground slab (BIM-bound, from self element; hold point: structural inspection)
-6. `GEN-CURING-WATCH` Concrete curing watch (time driven) (virtual task, test marker; 7 days, time driven). Wet cure or membrane, protect from traffic.
+6. `GEN-CURING-WATCH` Concrete curing watch (time driven) (virtual task, test marker; optional; 7 days, time driven). Wet cure or membrane, protect from traffic.
 7. `flatness_survey` As-built survey and record (virtual task, survey marker). Level and flatness survey for equipment and racking.
 8. `ARC-FLOOR-FINISH` Install floor finish (BIM-bound, from self element; optional)
 
@@ -51,5 +51,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

@@ -52,35 +52,26 @@
    "note": "Brazing with oxygen-free nitrogen purge"
   },
   {
-   "ref": "MED-GAS-PIPE-INSTALL",
-   "from_element": "system"
+   "ref": "MED-GAS-PIPE-INSTALL"
   },
   {
    "ref": "MED-GAS-TEST",
    "hold_point": "medical_gas",
-   "from_element": "system",
    "note": "Standing pressure, leak and cross-connection tests"
   },
   {
    "ref": "FIR-STOP-INSTALL",
    "hold_point": "fire",
-   "from_element": "system"
+   "optional": true
   },
   {
    "ref": "ARC-WALL-BOARD",
-   "from_element": "system",
-   "note": "Walls closed only after the test"
-  },
-  {
-   "ref": "MED-EQUIP-INSTALL",
-   "from_element": "system",
-   "note": "Terminal units, alarms and pendants"
-  },
-  {
-   "ref": "MED-GAS-CERT",
-   "hold_point": "medical_gas",
-   "from_element": "system",
-   "note": "Independent verification of identity, flow and purity"
+   "note": "Walls closed only after the test",
+   "optional": true,
+   "quantity": {
+    "basis": "area_m2",
+    "value": 20
+   }
   },
   {
    "ref": "GEN-PRECOMM-CHECK",
@@ -89,8 +80,18 @@
    "note": "Alarm panel and area valve checks"
   },
   {
+   "ref": "MED-EQUIP-INSTALL",
+   "note": "Terminal units, alarms and pendants",
+   "optional": true
+  },
+  {
+   "ref": "MED-GAS-CERT",
+   "hold_point": "medical_gas",
+   "note": "Independent verification of identity, flow and purity"
+  },
+  {
    "ref": "GEN-HANDOVER-DOC",
-   "from_element": "system"
+   "optional": true
   }
  ],
  "logic": [

@@ -66,27 +66,23 @@
    "optional": true
   },
   {
-   "ref": "CIV-TRENCH-DIG",
-   "from_element": "system"
+   "ref": "CIV-TRENCH-DIG"
   },
   {
    "ref": "CIV-DRAIN-INSTALL",
-   "from_element": "system",
    "note": "Bedding and laying to level"
   },
   {
    "ref": "CIV-CHAMBER-SET",
-   "from_element": "system"
+   "optional": true
   },
   {
    "ref": "CIV-DRAIN-TEST",
    "hold_point": "plumbing",
-   "from_element": "system",
    "note": "Air or water test and CCTV"
   },
   {
-   "ref": "CIV-DRAIN-BACKFILL",
-   "from_element": "system"
+   "ref": "CIV-DRAIN-BACKFILL"
   },
   {
    "ref": "GEN-SHORING-REMOVE",

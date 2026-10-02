@@ -10,23 +10,23 @@ The MRI is ordered 26 weeks ahead and delivered through a wall opening. The reci
 
 ## Sequence
 
-1. `GEN-ICRA-SETUP` Erect ICRA barrier and negative air (BIM-bound, from zone element; hold point: icra inspection)
-2. `ARC-WALL-FRAME` Frame partition walls (BIM-bound, from zone element)
-3. `ARC-SHIELD-WALL` Install lead-lined and RF-shielded wall (BIM-bound, from zone element). RF and magnetic shielding as the vendor specifies.
-4. `MEP-DUCT-INSTALL` Install ductwork (BIM-bound, from zone element)
-5. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from zone element; hold point: electrical inspection)
-6. `FIR-STOP-INSTALL` Fire-stop penetrations (BIM-bound, from zone element; hold point: fire inspection)
-7. `ARC-FLOOR-FINISH` Install hygienic floor finish (BIM-bound, from zone element). Non-magnetic materials only.
-8. `GEN-ANCHOR-SURVEY` Anchor bolt and grout survey (virtual task, survey marker). Magnet plinth and floor loading check.
-9. `GEN-PERMIT-WORK` Permit to work (virtual task, permit marker). Quench pipe route and magnet delivery permit.
-10. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker). Route, door opening and rigging plan.
-11. `GEN-CRANE-MOBILISE` Mobilise, assemble and load-test crane (virtual task, crane marker)
+1. `GEN-ICRA-SETUP` Erect ICRA barrier and negative air (BIM-bound, from zone element; optional; hold point: icra inspection)
+2. `GEN-PERMIT-WORK` Permit to work (virtual task, permit marker). Quench pipe route and magnet delivery permit.
+3. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker). Route, door opening and rigging plan.
+4. `GEN-CRANE-MOBILISE` Mobilise, assemble and load-test crane (virtual task, crane marker)
+5. `GEN-ANCHOR-SURVEY` Anchor bolt and grout survey (virtual task, survey marker). Magnet plinth and floor loading check.
+6. `ARC-WALL-FRAME` Frame partition walls (BIM-bound, from zone element; optional)
+7. `MEP-DUCT-INSTALL` Install ductwork (BIM-bound, from zone element; optional)
+8. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from zone element; optional; hold point: electrical inspection)
+9. `FIR-STOP-INSTALL` Fire-stop penetrations (BIM-bound, from zone element; optional; hold point: fire inspection)
+10. `ARC-SHIELD-WALL` Install lead-lined and RF-shielded wall (BIM-bound, from zone element; optional). RF and magnetic shielding as the vendor specifies.
+11. `ARC-FLOOR-FINISH` Install hygienic floor finish (BIM-bound, from zone element; optional). Non-magnetic materials only.
 12. `MED-MRI-INSTALL` Install MRI scanner (BIM-bound, from self element; hold point: electrical inspection). Wall opening left until the magnet is in.
 13. `GEN-VENDOR-REP` Vendor representative attendance (time driven) (virtual task, permit marker; 15 days, time driven). Ramp-up, shimming, image quality tests.
-14. `CX-POWER-ENERGISE` Energise and test electrical systems (BIM-bound, from system element; hold point: electrical inspection)
-15. `CX-AIR-BALANCE` Test and balance air system (BIM-bound, from system element)
-16. `GEN-HEPA-CLEAN` HEPA terminal clean (BIM-bound, from zone element)
-17. `GEN-ICRA-CLOSEOUT` ICRA clearance and barrier removal (BIM-bound, from zone element; hold point: icra inspection)
+14. `CX-POWER-ENERGISE` Energise and test electrical systems (BIM-bound, from self element; optional; hold point: electrical inspection)
+15. `CX-AIR-BALANCE` Test and balance air system (BIM-bound, from self element; optional)
+16. `GEN-HEPA-CLEAN` HEPA terminal clean (BIM-bound, from zone element; optional)
+17. `GEN-ICRA-CLOSEOUT` ICRA clearance and barrier removal (BIM-bound, from zone element; optional; hold point: icra inspection)
 18. `GEN-HANDOVER-DOC` Room-by-room handover documentation (BIM-bound, from zone element)
 
 ## Ordering beyond the chain
@@ -65,5 +65,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

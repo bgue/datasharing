@@ -35,23 +35,35 @@ All three libraries carry the same virtual step ids, with a phase and trade that
 | Step | Marker | Time driven | Library predecessors (all optional unless stated) |
 | --- | --- | --- | --- |
 | `GEN-SURVEY-SETOUT` | survey | no | none; before excavation, piling, shoring and dewatering in the zone |
-| `GEN-SURVEY-ASBUILT` | survey | no | after the pours in the zone |
+| `GEN-SURVEY-ASBUILT` | survey | no | industrial and healthcare: after the pours in the zone; civil: after deck, pier, wearing course and drain backfill in the zone |
 | `GEN-UTIL-LOCATE` | survey | no | before excavation and shoring in the zone |
-| `GEN-DEWATER-INSTALL` and `GEN-DEWATER-RUN` | dewatering | run | install after set-out; run after install |
-| `GEN-SHORING-INSTALL` and `GEN-SHORING-REMOVE` | shoring | no | install after set-out, utility locate, temporary works check; remove after install |
+| `GEN-DEWATER-INSTALL` and `GEN-DEWATER-RUN` | dewatering | run | install after set-out; run after install (civil: the run sits in the drainage phase so it can run in parallel with trenching) |
+| `GEN-SHORING-INSTALL` and `GEN-SHORING-REMOVE` | shoring | no | install after set-out, utility locate, temporary works check; remove after install (civil: remove sits in the structures phase so it can follow backfill) |
 | `GEN-SCAFFOLD-ERECT` and `GEN-SCAFFOLD-DISMANTLE` | scaffold | no | dismantle after erect |
 | `GEN-TW-CHECK` | permit | no | none (paperwork) |
 | `GEN-LIFT-PLAN` | lift_plan | no | none; before every `requires_crane` step in the zone (FS, lag 0) |
 | `GEN-CRANE-MOBILISE` | crane | no | after the lift plan |
 | `GEN-PERMIT-WORK`, `GEN-PERMIT-HOT` | permit | no | hot work permit before the welding and brazing steps |
-| `GEN-HYDROTEST` | test | no | after pipe install in the same system, required |
+| `GEN-HYDROTEST` | test | no | after pipe install in the same system (not required: a recipe may attach to equipment without pipes) |
 | `GEN-PRECOMM-CHECK` | test | no | after system tests and installs |
-| `GEN-CURING-WATCH` | test | yes | after the pours in the zone |
-| `GEN-ANCHOR-SURVEY` | survey | no | after pad or pier pours; before equipment and bearings |
+| `GEN-CURING-WATCH` | test | yes | industrial and healthcare: after the pours in the zone; civil: after the set-out in the zone (the recipe chain orders it after its pour) |
+| `GEN-ANCHOR-SURVEY` | survey | no | industrial and healthcare: after pad or slab pours, before equipment sets; civil: after the set-out in the zone |
 | `GEN-VENDOR-REP` | permit | yes | industrial: after the anchor survey |
 | `GEN-PUNCH-CLEAR` | test | no | after floors, doors and equipment |
 
 Existing steps reused instead of duplicated: healthcare `GEN-ICRA-SETUP` and `GEN-ICRA-CLOSEOUT` for ICRA barriers, civil `CIV-TM-STAGE1` and `CIV-TM-STAGE2` for closures and traffic switches, and `GEN-PUNCH-CLEAR` (existing in civil).
+
+## Attaching recipes in mapping rules
+
+A rule may carry `recipe: "rec_..."` next to its `steps` (or alone). The pipeline expands the recipe **once per matched element (the anchor)**, so the choice of anchor decides how many tasks appear. The sector rules follow these conventions:
+
+* **One anchor per installation, not per part.** Equipment recipes sit on the equipment rule (module, tank, pump, transformer, turbine, exchanger, vessel); room recipes sit on one representative element per room (one ceiling per operating room or pressure room, never every partition); linear runs sit on the first segment of a run or the first girder of a span; ICRA containment sits on the slabs the zone rule already uses.
+* **Each recipe is attached to one rule class**, so the anchor's own steps (the rule's `steps`) are known. A recipe step the anchor naturally carries is reused (same element and step) and is not duplicated. Other BIM-bound steps are marked `optional` by the data build because the model already produces them with other elements; opt in per zone from the game or the API. Virtual steps are always created.
+* **`from_element: zone`** creates a zone-level virtual task, `foundation` binds to the footing or slab under the anchor, `system` to every element of the anchor's system. The sector recipes keep `zone` for room recipes and use `self` otherwise; opt-in steps that would otherwise multiply tasks carry a fixed `quantity`.
+* **The recipe is the authority on local order, the library only holds cross-element logic.** Library predecessor rules on virtual steps never contradict a recipe: recipes list steps in non-decreasing library phase order (paperwork, permits, lift plans and crane mobilisation first, as-builts and tests at their phase) and use `parallel_with` only for partners in the same or an earlier phase. Cumulative gates would otherwise report `gate_cycle` gaps. A `logic` link may not run from a later phase back to an earlier one.
+* **Time-driven virtual steps still occupy a crew slot** in the baseline scheduler (curing watch, dewatering run, vendor attendance), so durations are short and a curing watch is only created when its pour is.
+
+Current attachments (synthetic projects, standard level): industrial 14 rules with recipes and 257 virtual tasks, civil 9 and 167, healthcare 9 and 161.
 
 ## Marker vocabulary
 

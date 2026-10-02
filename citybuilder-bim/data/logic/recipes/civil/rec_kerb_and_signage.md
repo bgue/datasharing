@@ -12,12 +12,12 @@ Roadside furniture is small, numerous and visible. The recipe puts markings afte
 
 1. `GEN-SURVEY-SETOUT` Survey set-out of the work area (virtual task, survey marker)
 2. `GEN-UTIL-LOCATE` Locate and mark buried utilities (virtual task, survey marker; optional)
-3. `CIV-KERB-LAY` Lay kerb and channel (BIM-bound, from self element)
-4. `CIV-GUARDRAIL-INSTALL` Install safety barrier (BIM-bound, from self element)
+3. `CIV-KERB-LAY` Lay kerb and channel (BIM-bound, from self element; optional)
+4. `CIV-GUARDRAIL-INSTALL` Install safety barrier (BIM-bound, from self element; optional)
 5. `CIV-SIGN-INSTALL` Install sign or gantry sign (BIM-bound, from self element)
 6. `CIV-LIGHT-INSTALL` Erect lighting column or luminaire (BIM-bound, from self element; optional)
 7. `CIV-CABLE-PULL` Pull and test cable (BIM-bound, from self element; optional)
-8. `CIV-MARKING-APPLY` Apply road markings (BIM-bound, from self element)
+8. `CIV-MARKING-APPLY` Apply road markings (BIM-bound, from self element; optional)
 9. `GEN-PRECOMM-CHECK` Pre-commissioning checks (virtual task, test marker). Lighting, sign visibility and marking retro-reflectivity.
 10. `GEN-SURVEY-ASBUILT` As-built survey and record (virtual task, survey marker)
 11. `GEN-PUNCH-CLEAR` Clear defects and demobilise (virtual task, test marker)
@@ -54,5 +54,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

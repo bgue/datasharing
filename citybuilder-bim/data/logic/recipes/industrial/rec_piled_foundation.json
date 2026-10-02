@@ -59,7 +59,12 @@
   {
    "ref": "CIV-PILE-DRIVE",
    "hold_point": "geotechnical",
-   "note": "Integrity testing of a sample of piles"
+   "note": "Integrity testing of a sample of piles",
+   "optional": true
+  },
+  {
+   "ref": "CIV-EARTH-CUT",
+   "note": "Excavate to cap level and trim pile heads"
   },
   {
    "ref": "GEN-SURVEY-ASBUILT",
@@ -69,18 +74,11 @@
    "note": "As-built pile positions and levels, check against the pile cap design"
   },
   {
-   "ref": "CIV-EARTH-CUT",
-   "from_element": "foundation",
-   "note": "Excavate to cap level and trim pile heads"
-  },
-  {
-   "ref": "STR-FOOT-REBAR",
-   "from_element": "foundation"
+   "ref": "STR-FOOT-REBAR"
   },
   {
    "ref": "STR-PILECAP-POUR",
-   "hold_point": "structural",
-   "from_element": "foundation"
+   "hold_point": "structural"
   },
   {
    "ref": "GEN-CURING-WATCH",
@@ -89,8 +87,7 @@
    "duration_days": 7
   },
   {
-   "ref": "CIV-BACKFILL-COMPACT",
-   "from_element": "foundation"
+   "ref": "CIV-BACKFILL-COMPACT"
   }
  ],
  "logic": [

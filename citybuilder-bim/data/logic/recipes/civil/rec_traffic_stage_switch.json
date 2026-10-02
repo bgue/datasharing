@@ -54,7 +54,12 @@
   },
   {
    "ref": "CIV-TM-STAGE1",
-   "note": "Initial closure and works zone"
+   "note": "Initial closure and works zone",
+   "optional": true
+  },
+  {
+   "ref": "CIV-TM-STAGE2",
+   "note": "Switch traffic to the completed carriageway"
   },
   {
    "ref": "GEN-PRECOMM-CHECK",
@@ -62,10 +67,6 @@
    "marker": "test",
    "key": "stage1_check",
    "note": "Night-time inspection of signing, lighting and taper"
-  },
-  {
-   "ref": "CIV-TM-STAGE2",
-   "note": "Switch traffic to the completed carriageway"
   },
   {
    "ref": "GEN-PRECOMM-CHECK",
@@ -82,11 +83,6 @@
   }
  ],
  "logic": [
-  {
-   "after": "stage1_check",
-   "before": "CIV-TM-STAGE2",
-   "reason": "Switch only after stage 1 is stable"
-  },
   {
    "after": "CIV-TM-STAGE1",
    "before": "CIV-TM-STAGE2",

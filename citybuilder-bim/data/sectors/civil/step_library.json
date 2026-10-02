@@ -1196,10 +1196,6 @@
     {
      "step": "GEN-LIFT-PLAN",
      "scope": "same_zone"
-    },
-    {
-     "step": "GEN-ANCHOR-SURVEY",
-     "scope": "same_zone"
     }
    ],
    "tags": [
@@ -2494,7 +2490,7 @@
   {
    "id": "GEN-DEWATER-RUN",
    "name": "Run dewatering (time driven)",
-   "phase": "earthworks",
+   "phase": "drainage",
    "trade": "utilities",
    "discipline": "civil",
    "work_face": "below_ground",
@@ -2571,7 +2567,7 @@
   {
    "id": "GEN-SHORING-REMOVE",
    "name": "Remove trench or pit shoring",
-   "phase": "drainage",
+   "phase": "structures",
    "trade": "utilities",
    "discipline": "civil",
    "work_face": "below_ground",
@@ -2680,7 +2676,7 @@
    "id": "GEN-TW-CHECK",
    "name": "Temporary works design check and permit to load",
    "phase": "mobilise",
-   "trade": "qa",
+   "trade": "erection",
    "discipline": "structure",
    "work_face": "any",
    "quantity_basis": "count",
@@ -2703,20 +2699,20 @@
     "virtual",
     "paperwork",
     "temporary_works",
-    "qa"
+    "erection"
    ]
   },
   {
    "id": "GEN-LIFT-PLAN",
    "name": "Prepare and approve lift plan",
    "phase": "mobilise",
-   "trade": "qa",
+   "trade": "erection",
    "discipline": "general",
    "work_face": "any",
    "quantity_basis": "count",
    "rate_per_crew_day": 2,
    "unit_cost": 900,
-   "min_duration_days": 2,
+   "min_duration_days": 1,
    "requires_crane": false,
    "requires_access": false,
    "laydown_cells": 0,
@@ -2733,7 +2729,7 @@
     "virtual",
     "paperwork",
     "lift_plan",
-    "qa"
+    "erection"
    ]
   },
   {
@@ -2746,7 +2742,7 @@
    "quantity_basis": "count",
    "rate_per_crew_day": 1,
    "unit_cost": 6000,
-   "min_duration_days": 2,
+   "min_duration_days": 1,
    "requires_crane": false,
    "requires_access": true,
    "laydown_cells": 3,
@@ -2775,7 +2771,7 @@
    "id": "GEN-PERMIT-WORK",
    "name": "Permit to work",
    "phase": "mobilise",
-   "trade": "qa",
+   "trade": "erection",
    "discipline": "general",
    "work_face": "any",
    "quantity_basis": "count",
@@ -2798,14 +2794,14 @@
     "virtual",
     "paperwork",
     "permit",
-    "qa"
+    "erection"
    ]
   },
   {
    "id": "GEN-PERMIT-HOT",
    "name": "Hot work permit and fire watch",
    "phase": "mobilise",
-   "trade": "qa",
+   "trade": "erection",
    "discipline": "general",
    "work_face": "any",
    "quantity_basis": "count",
@@ -2829,7 +2825,7 @@
     "paperwork",
     "permit",
     "hot_work",
-    "qa"
+    "erection"
    ]
   },
   {
@@ -2857,8 +2853,7 @@
    "predecessors": [
     {
      "step": "CIV-DRAIN-INSTALL",
-     "scope": "same_system",
-     "required": true
+     "scope": "same_system"
     },
     {
      "step": "CIV-UTIL-DIVERT",
@@ -2934,15 +2929,7 @@
    "progress_visual": "none",
    "predecessors": [
     {
-     "step": "STR-DECK-POUR",
-     "scope": "same_zone"
-    },
-    {
-     "step": "STR-CAP-POUR",
-     "scope": "same_zone"
-    },
-    {
-     "step": "STR-PIER-POUR",
+     "step": "GEN-SURVEY-SETOUT",
      "scope": "same_zone"
     }
    ],
@@ -2976,11 +2963,7 @@
    "progress_visual": "none",
    "predecessors": [
     {
-     "step": "STR-PIER-POUR",
-     "scope": "same_zone"
-    },
-    {
-     "step": "STR-ABUT-POUR",
+     "step": "GEN-SURVEY-SETOUT",
      "scope": "same_zone"
     }
    ],

@@ -52,28 +52,6 @@
    "marker": "survey"
   },
   {
-   "ref": "STR-FOOT-REBAR",
-   "from_element": "foundation"
-  },
-  {
-   "ref": "STR-EQPAD-POUR",
-   "hold_point": "structural",
-   "from_element": "foundation",
-   "note": "Mass pour with temperature control"
-  },
-  {
-   "ref": "GEN-CURING-WATCH",
-   "virtual": true,
-   "marker": "test",
-   "duration_days": 14,
-   "note": "Thermal monitoring and cure"
-  },
-  {
-   "ref": "GEN-ANCHOR-SURVEY",
-   "virtual": true,
-   "marker": "survey"
-  },
-  {
    "ref": "GEN-PERMIT-WORK",
    "virtual": true,
    "marker": "permit"
@@ -84,6 +62,39 @@
    "note": "Heaviest lift on site: engineered lift"
   },
   {
+   "ref": "STR-FOOT-REBAR",
+   "from_element": "foundation",
+   "optional": true,
+   "quantity": {
+    "basis": "weight_t",
+    "value": 1
+   }
+  },
+  {
+   "ref": "STR-EQPAD-POUR",
+   "hold_point": "structural",
+   "from_element": "foundation",
+   "note": "Mass pour with temperature control",
+   "optional": true,
+   "quantity": {
+    "basis": "volume_m3",
+    "value": 6
+   }
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 14,
+   "note": "Thermal monitoring and cure",
+   "optional": true
+  },
+  {
+   "ref": "GEN-ANCHOR-SURVEY",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
    "ref": "PRC-EQUIP-SET",
    "hold_point": "mechanical"
   },
@@ -91,24 +102,32 @@
    "ref": "GEN-VENDOR-REP",
    "virtual": true,
    "marker": "permit",
-   "duration_days": 10,
+   "duration_days": 8,
    "note": "Vendor supervises alignment, coupling and grouting"
   },
   {
    "ref": "PIP-PIPE-INSTALL",
-   "from_element": "system"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
    "ref": "ELE-CABLE-PULL",
-   "from_element": "system"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
    "ref": "IC-INSTR-INSTALL",
-   "from_element": "system"
+   "optional": true
   },
   {
    "ref": "IC-LOOP-CHECK",
-   "from_element": "system"
+   "optional": true
   },
   {
    "ref": "GEN-PRECOMM-CHECK",
@@ -116,8 +135,7 @@
    "marker": "test"
   },
   {
-   "ref": "CX-PROCESS-STARTUP",
-   "from_element": "system"
+   "ref": "CX-PROCESS-STARTUP"
   }
  ],
  "logic": [

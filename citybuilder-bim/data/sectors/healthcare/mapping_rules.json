@@ -34,7 +34,8 @@
    ],
    "continue": true,
    "chain": false,
-   "visual": "slab"
+   "visual": "slab",
+   "recipe": "rec_icra_containment"
   },
   {
    "id": "R-mri",
@@ -58,7 +59,8 @@
      "min_quantity": 1
     }
    ],
-   "visual": "equipment"
+   "visual": "equipment",
+   "recipe": "rec_imaging_suite_mri"
   },
   {
    "id": "R-ct",
@@ -82,7 +84,8 @@
      "min_quantity": 1
     }
    ],
-   "visual": "equipment"
+   "visual": "equipment",
+   "recipe": "rec_imaging_suite_ct"
   },
   {
    "id": "R-steriliser",
@@ -106,7 +109,8 @@
      "min_quantity": 1
     }
    ],
-   "visual": "equipment"
+   "visual": "equipment",
+   "recipe": "rec_sterile_services"
   },
   {
    "id": "R-medical-device",
@@ -132,9 +136,37 @@
    "visual": "equipment"
   },
   {
+   "id": "R-gas-pipe-lead",
+   "description": "First line of each medical gas system carries the pipeline recipe.",
+   "priority": 375,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ],
+    "name_regex": "(?i)line L00 1$"
+   },
+   "steps": [
+    {
+     "step": "MED-GAS-PIPE-INSTALL",
+     "quantity": "length_m"
+    },
+    {
+     "step": "MED-GAS-TEST",
+     "quantity": "length_m"
+    },
+    {
+     "step": "MED-GAS-CERT",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "pipe",
+   "system_prefix": "MG-",
+   "recipe": "rec_medical_gas_system"
+  },
+  {
    "id": "R-gas-pipe",
    "description": "Medical gas pipe (system_id MG-*): install, pressure test, certify.",
-   "priority": 375,
+   "priority": 370,
    "match": {
     "ifc_class": [
      "IfcPipeSegment"
@@ -160,7 +192,7 @@
   {
    "id": "R-pipe-fire",
    "description": "Sprinkler mains (system_id FP-*): one head or drop per 2 m.",
-   "priority": 370,
+   "priority": 365,
    "match": {
     "ifc_class": [
      "IfcPipeSegment"
@@ -180,7 +212,7 @@
   {
    "id": "R-pipe-underground",
    "description": "Underground drainage under the ground slab.",
-   "priority": 365,
+   "priority": 360,
    "match": {
     "ifc_class": [
      "IfcPipeSegment"
@@ -204,7 +236,7 @@
   {
    "id": "R-pipe",
    "description": "Water, waste and heating pipe.",
-   "priority": 360,
+   "priority": 355,
    "match": {
     "ifc_class": [
      "IfcPipeSegment"
@@ -221,7 +253,7 @@
   {
    "id": "R-fitting",
    "description": "Fittings, chambers and similar.",
-   "priority": 355,
+   "priority": 350,
    "match": {
     "ifc_class": [
      "IfcPipeFitting",
@@ -241,7 +273,7 @@
   {
    "id": "R-duct",
    "description": "Ductwork.",
-   "priority": 350,
+   "priority": 345,
    "match": {
     "ifc_class": [
      "IfcDuctSegment"
@@ -258,7 +290,7 @@
   {
    "id": "R-tray",
    "description": "Containment.",
-   "priority": 345,
+   "priority": 340,
    "match": {
     "ifc_class": [
      "IfcCableCarrierSegment"
@@ -275,7 +307,7 @@
   {
    "id": "R-cable",
    "description": "Cabling with electrical inspection.",
-   "priority": 340,
+   "priority": 335,
    "match": {
     "ifc_class": [
      "IfcCableSegment"
@@ -292,7 +324,7 @@
   {
    "id": "R-air-terminal-pressure",
    "description": "Pressure-controlled rooms (theatres, isolation): diffuser, balance, pressure test.",
-   "priority": 335,
+   "priority": 330,
    "match": {
     "ifc_class": [
      "IfcAirTerminal"
@@ -323,7 +355,7 @@
   {
    "id": "R-air-terminal",
    "description": "Diffusers with air balancing.",
-   "priority": 330,
+   "priority": 325,
    "match": {
     "ifc_class": [
      "IfcAirTerminal",
@@ -347,7 +379,7 @@
   {
    "id": "R-sanitary",
    "description": "Basins, WCs, sinks.",
-   "priority": 325,
+   "priority": 320,
    "match": {
     "ifc_class": [
      "IfcSanitaryTerminal"
@@ -365,7 +397,7 @@
   {
    "id": "R-sprinkler",
    "description": "Sprinkler heads and drops.",
-   "priority": 320,
+   "priority": 315,
    "match": {
     "ifc_class": [
      "IfcFireSuppressionTerminal"
@@ -383,7 +415,7 @@
   {
    "id": "R-light",
    "description": "Light fittings after ceiling.",
-   "priority": 315,
+   "priority": 310,
    "match": {
     "ifc_class": [
      "IfcLightFixture",
@@ -402,7 +434,7 @@
   {
    "id": "R-alarm",
    "description": "Detectors, alarms and controls with acceptance test.",
-   "priority": 310,
+   "priority": 305,
    "match": {
     "ifc_class": [
      "IfcSensor",
@@ -427,9 +459,31 @@
    "visual": "terminal"
   },
   {
+   "id": "R-valve-tie-in",
+   "description": "Valves and dampers next to the live ward carry the tie-in recipe.",
+   "priority": 300,
+   "match": {
+    "ifc_class": [
+     "IfcFlowController"
+    ],
+    "zone_tags_any": [
+     "occupied_adjacent"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-FITTING-INSTALL",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "generic",
+   "recipe": "rec_live_hospital_tie_in"
+  },
+  {
    "id": "R-valve",
    "description": "Valves and dampers.",
-   "priority": 305,
+   "priority": 295,
    "match": {
     "ifc_class": [
      "IfcFlowController"
@@ -447,7 +501,7 @@
   {
    "id": "R-chiller",
    "description": "Chillers and boilers: 16 week lead.",
-   "priority": 300,
+   "priority": 290,
    "match": {
     "ifc_class": [
      "IfcEnergyConversionDevice"
@@ -471,7 +525,7 @@
   {
    "id": "R-transformer",
    "description": "Transformer: 40 week lead.",
-   "priority": 295,
+   "priority": 285,
    "match": {
     "ifc_class": [
      "IfcTransformer"
@@ -499,7 +553,7 @@
   {
    "id": "R-plant",
    "description": "AHUs, pumps, tanks: 12 week lead.",
-   "priority": 290,
+   "priority": 280,
    "match": {
     "ifc_class": [
      "IfcFlowMovingDevice",
@@ -519,12 +573,13 @@
      "min_quantity": 1
     }
    ],
-   "visual": "equipment"
+   "visual": "equipment",
+   "recipe": "rec_plant_room_ahu"
   },
   {
    "id": "R-switchgear",
    "description": "Main switchgear: 24 week lead.",
-   "priority": 285,
+   "priority": 275,
    "match": {
     "ifc_class": [
      "IfcElectricDistributionBoard"
@@ -553,7 +608,7 @@
   {
    "id": "R-board",
    "description": "Distribution boards.",
-   "priority": 280,
+   "priority": 270,
    "match": {
     "ifc_class": [
      "IfcElectricDistributionBoard"
@@ -576,7 +631,7 @@
   {
    "id": "R-pile",
    "description": "Piles with integrity test.",
-   "priority": 275,
+   "priority": 265,
    "match": {
     "ifc_class": [
      "IfcPile"
@@ -599,7 +654,7 @@
   {
    "id": "R-footing",
    "description": "Footings and pile caps (setting-out is folded into the excavation).",
-   "priority": 270,
+   "priority": 260,
    "match": {
     "ifc_class": [
      "IfcFooting"
@@ -628,7 +683,7 @@
   {
    "id": "R-slab-ground",
    "description": "Ground slab, ground ramps and stairs.",
-   "priority": 265,
+   "priority": 255,
    "match": {
     "ifc_class": [
      "IfcSlab",
@@ -648,7 +703,7 @@
   {
    "id": "R-slab-suspended",
    "description": "Suspended slab: form, rebar, pour, strike 7 days later.",
-   "priority": 260,
+   "priority": 250,
    "match": {
     "ifc_class": [
      "IfcSlab",
@@ -683,7 +738,7 @@
   {
    "id": "R-steel-frame",
    "description": "Steel columns, beams, members and plates.",
-   "priority": 255,
+   "priority": 245,
    "match": {
     "ifc_class": [
      "IfcColumn",
@@ -705,7 +760,7 @@
   {
    "id": "R-column",
    "description": "Concrete column needs footing or slab below.",
-   "priority": 250,
+   "priority": 240,
    "match": {
     "ifc_class": [
      "IfcColumn"
@@ -722,7 +777,7 @@
   {
    "id": "R-beam",
    "description": "Concrete beam after columns.",
-   "priority": 245,
+   "priority": 235,
    "match": {
     "ifc_class": [
      "IfcBeam"
@@ -739,7 +794,7 @@
   {
    "id": "R-proxy-equipment",
    "description": "Proxy elements that are clinical fixed equipment. Anything else falls to the default rule.",
-   "priority": 240,
+   "priority": 230,
    "match": {
     "ifc_class": [
      "IfcBuildingElementProxy"
@@ -758,7 +813,7 @@
   {
    "id": "R-wall-shield",
    "description": "Lead-lined wall (properties.Shielding): framing, fire-stop, lead boarding.",
-   "priority": 235,
+   "priority": 225,
    "match": {
     "ifc_class": [
      "IfcWall",
@@ -789,7 +844,7 @@
   {
    "id": "R-wall-core",
    "description": "Concrete cores and shear walls.",
-   "priority": 230,
+   "priority": 220,
    "match": {
     "ifc_class": [
      "IfcWall",
@@ -810,7 +865,7 @@
   {
    "id": "R-wall-external",
    "description": "External wall (IsExternal): after the slab above.",
-   "priority": 225,
+   "priority": 215,
    "match": {
     "ifc_class": [
      "IfcWall",
@@ -831,7 +886,7 @@
   {
    "id": "R-wall-partition",
    "description": "Partition: frame, fire-stop, board. Closed only after in-wall services and gas test.",
-   "priority": 220,
+   "priority": 210,
    "match": {
     "ifc_class": [
      "IfcWall",
@@ -859,7 +914,7 @@
   {
    "id": "R-curtain",
    "description": "Curtain wall: 14 week lead.",
-   "priority": 215,
+   "priority": 205,
    "match": {
     "ifc_class": [
      "IfcCurtainWall"
@@ -876,7 +931,7 @@
   {
    "id": "R-roof",
    "description": "Roof deck, insulation and membrane.",
-   "priority": 210,
+   "priority": 200,
    "match": {
     "ifc_class": [
      "IfcRoof"
@@ -893,7 +948,7 @@
   {
    "id": "R-door",
    "description": "Doors after host wall.",
-   "priority": 205,
+   "priority": 195,
    "match": {
     "ifc_class": [
      "IfcDoor"
@@ -911,7 +966,7 @@
   {
    "id": "R-window",
    "description": "Windows after host wall.",
-   "priority": 200,
+   "priority": 190,
    "match": {
     "ifc_class": [
      "IfcWindow"
@@ -929,7 +984,7 @@
   {
    "id": "R-railing",
    "description": "Handrails.",
-   "priority": 195,
+   "priority": 185,
    "match": {
     "ifc_class": [
      "IfcRailing"
@@ -946,14 +1001,17 @@
   {
    "id": "R-floor-hygienic",
    "description": "Hygienic welded flooring (properties.Hygienic): 15 percent allowance for welded coves.",
-   "priority": 190,
+   "priority": 180,
    "match": {
     "ifc_class": [
      "IfcCovering"
     ],
     "properties": {
      "Hygienic": true
-    }
+    },
+    "predefined_type": [
+     "FLOORING"
+    ]
    },
    "steps": [
     {
@@ -972,7 +1030,7 @@
   {
    "id": "R-floor",
    "description": "Floor finish after partitions and ceilings; room handover.",
-   "priority": 185,
+   "priority": 175,
    "match": {
     "ifc_class": [
      "IfcCovering"
@@ -995,9 +1053,57 @@
    "visual": "floor_finish"
   },
   {
+   "id": "R-ceiling-or",
+   "description": "One ceiling per operating room carries the OR recipe (not every partition).",
+   "priority": 170,
+   "match": {
+    "ifc_class": [
+     "IfcCovering"
+    ],
+    "predefined_type": [
+     "CEILING"
+    ],
+    "zone_tags_any": [
+     "or_room"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-CEILING-CLOSE",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "ceiling",
+   "recipe": "rec_or_room"
+  },
+  {
+   "id": "R-ceiling-pressure",
+   "description": "One ceiling per pressure room carries the pressure room recipe.",
+   "priority": 165,
+   "match": {
+    "ifc_class": [
+     "IfcCovering"
+    ],
+    "predefined_type": [
+     "CEILING"
+    ],
+    "zone_tags_any": [
+     "pressure_room"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-CEILING-CLOSE",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "ceiling",
+   "recipe": "rec_pressure_room"
+  },
+  {
    "id": "R-ceiling",
    "description": "Ceilings close after all rough-in.",
-   "priority": 180,
+   "priority": 160,
    "match": {
     "ifc_class": [
      "IfcCovering"

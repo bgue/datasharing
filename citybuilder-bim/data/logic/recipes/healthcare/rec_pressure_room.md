@@ -10,20 +10,20 @@ A pressure room is a mechanical system in which the building envelope is a compo
 
 ## Sequence
 
-1. `GEN-ICRA-SETUP` Erect ICRA barrier and negative air (BIM-bound, from zone element; hold point: icra inspection)
-2. `ARC-WALL-FRAME` Frame partition walls (BIM-bound, from zone element)
-3. `MEP-DUCT-INSTALL` Install ductwork (BIM-bound, from zone element)
-4. `FIR-STOP-INSTALL` Fire-stop penetrations (BIM-bound, from zone element; hold point: fire inspection). Seal every penetration for air tightness.
-5. `ARC-WALL-BOARD` Board, tape and finish partition walls (BIM-bound, from zone element)
+1. `GEN-ICRA-SETUP` Erect ICRA barrier and negative air (BIM-bound, from zone element; optional; hold point: icra inspection)
+2. `ARC-WALL-FRAME` Frame partition walls (BIM-bound, from zone element; optional)
+3. `MEP-DUCT-INSTALL` Install ductwork (BIM-bound, from zone element; optional)
+4. `FIR-STOP-INSTALL` Fire-stop penetrations (BIM-bound, from zone element; optional; hold point: fire inspection). Seal every penetration for air tightness.
+5. `ARC-WALL-BOARD` Board, tape and finish partition walls (BIM-bound, from zone element; optional)
 6. `ARC-CEILING-CLOSE` Close ceiling (BIM-bound, from zone element). Sealed ceiling.
-7. `ARC-FLOOR-FINISH` Install hygienic floor finish (BIM-bound, from zone element)
-8. `ARC-DOOR-INSTALL` Hang doors and ironmongery (BIM-bound, from host element). Sealed doors with closers.
-9. `MEP-DIFFUSER-SET` Set diffusers and grilles (BIM-bound, from zone element). HEPA terminals.
-10. `CX-AIR-BALANCE` Test and balance air system (BIM-bound, from system element)
-11. `CX-PRESSURE-TEST` Room pressure differential test (BIM-bound, from zone element; hold point: mechanical inspection). Pressure differential with doors closed and open.
-12. `GEN-PRECOMM-CHECK` Pre-commissioning checks (virtual task, test marker). Monitor and alarm check.
-13. `GEN-HEPA-CLEAN` HEPA terminal clean (BIM-bound, from zone element)
-14. `GEN-ICRA-CLOSEOUT` ICRA clearance and barrier removal (BIM-bound, from zone element; hold point: icra inspection)
+7. `ARC-FLOOR-FINISH` Install hygienic floor finish (BIM-bound, from zone element; optional)
+8. `ARC-DOOR-INSTALL` Hang doors and ironmongery (BIM-bound, from host element; optional). Sealed doors with closers.
+9. `MEP-DIFFUSER-SET` Set diffusers and grilles (BIM-bound, from zone element; optional). HEPA terminals.
+10. `GEN-PRECOMM-CHECK` Pre-commissioning checks (virtual task, test marker). Monitor and alarm check.
+11. `CX-AIR-BALANCE` Test and balance air system (BIM-bound, from self element; optional)
+12. `CX-PRESSURE-TEST` Room pressure differential test (BIM-bound, from zone element; hold point: mechanical inspection). Pressure differential with doors closed and open.
+13. `GEN-HEPA-CLEAN` HEPA terminal clean (BIM-bound, from zone element; optional)
+14. `GEN-ICRA-CLOSEOUT` ICRA clearance and barrier removal (BIM-bound, from zone element; optional; hold point: icra inspection)
 
 ## Ordering beyond the chain
 
@@ -58,5 +58,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

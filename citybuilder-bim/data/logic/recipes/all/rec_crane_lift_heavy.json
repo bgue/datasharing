@@ -2,7 +2,7 @@
  "schema_version": "1.0",
  "id": "rec_crane_lift_heavy",
  "name": "Heavy crane lift",
- "summary": "Permit, survey, lift plan, crane mobilisation and load test, the lift itself (bound to a BIM step), as-built survey and demobilisation attendance.",
+ "summary": "Permit, survey, lift plan, crane mobilisation and load test, then the lift itself (bound to a BIM step in the host recipe) and the as-built record.",
  "sector": "all",
  "tags": [
   "heavy_lift",
@@ -66,14 +66,7 @@
    "ref": "GEN-CRANE-MOBILISE",
    "virtual": true,
    "marker": "crane",
-   "note": "Assemble, inspect and load-test"
-  },
-  {
-   "ref": "GEN-PRECOMM-CHECK",
-   "virtual": true,
-   "marker": "test",
-   "key": "pre_lift_check",
-   "note": "Toolbox talk, rigging inspection, weather check on the day"
+   "note": "Assemble, inspect and load-test; toolbox talk, rigging inspection and weather check on the day"
   },
   {
    "ref": "GEN-SURVEY-ASBUILT",
@@ -94,11 +87,6 @@
    "after": "GEN-LIFT-PLAN",
    "before": "GEN-CRANE-MOBILISE",
    "reason": "The crane is selected from the plan"
-  },
-  {
-   "after": "pre_lift_check",
-   "before": "GEN-SURVEY-ASBUILT",
-   "reason": "The lifted step runs between these two; bind it from the sector library"
   }
  ],
  "checks": [

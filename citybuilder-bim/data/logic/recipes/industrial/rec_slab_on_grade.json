@@ -50,9 +50,12 @@
   },
   {
    "ref": "CIV-DRAIN-INSTALL",
-   "from_element": "system",
    "optional": true,
-   "note": "Under-slab drainage and sleeves"
+   "note": "Under-slab drainage and sleeves",
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
    "ref": "STR-GSLAB-POUR",
@@ -63,6 +66,7 @@
    "virtual": true,
    "marker": "test",
    "duration_days": 7,
+   "optional": true,
    "note": "Wet cure or membrane, protect from traffic"
   },
   {

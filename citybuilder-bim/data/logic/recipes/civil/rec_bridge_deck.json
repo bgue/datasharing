@@ -66,7 +66,8 @@
   },
   {
    "ref": "CIV-TM-STAGE1",
-   "note": "Road closure for the lift"
+   "note": "Road closure for the lift",
+   "optional": true
   },
   {
    "ref": "STR-BEAM-LIFT",
@@ -80,34 +81,39 @@
    "note": "Edge protection and soffit access"
   },
   {
-   "ref": "STR-DECK-REBAR"
+   "ref": "STR-DECK-REBAR",
+   "optional": true
   },
   {
    "ref": "STR-DECK-POUR",
-   "hold_point": "structural"
+   "hold_point": "structural",
+   "optional": true
   },
   {
    "ref": "GEN-CURING-WATCH",
    "virtual": true,
    "marker": "test",
-   "duration_days": 7
+   "duration_days": 7,
+   "optional": true
   },
   {
-   "ref": "STR-DECK-WATERPROOF"
+   "ref": "STR-DECK-WATERPROOF",
+   "optional": true
   },
   {
-   "ref": "STR-PARAPET-INSTALL"
+   "ref": "STR-PARAPET-INSTALL",
+   "optional": true
+  },
+  {
+   "ref": "GEN-SCAFFOLD-DISMANTLE",
+   "virtual": true,
+   "marker": "scaffold"
   },
   {
    "ref": "GEN-SURVEY-ASBUILT",
    "virtual": true,
    "marker": "survey",
    "note": "Deck levels and camber before surfacing"
-  },
-  {
-   "ref": "GEN-SCAFFOLD-DISMANTLE",
-   "virtual": true,
-   "marker": "scaffold"
   }
  ],
  "logic": [

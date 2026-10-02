@@ -51,10 +51,12 @@
    "optional": true
   },
   {
-   "ref": "CIV-KERB-LAY"
+   "ref": "CIV-KERB-LAY",
+   "optional": true
   },
   {
-   "ref": "CIV-GUARDRAIL-INSTALL"
+   "ref": "CIV-GUARDRAIL-INSTALL",
+   "optional": true
   },
   {
    "ref": "CIV-SIGN-INSTALL"
@@ -68,7 +70,8 @@
    "optional": true
   },
   {
-   "ref": "CIV-MARKING-APPLY"
+   "ref": "CIV-MARKING-APPLY",
+   "optional": true
   },
   {
    "ref": "GEN-PRECOMM-CHECK",

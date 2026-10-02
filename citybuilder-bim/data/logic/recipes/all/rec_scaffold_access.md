@@ -2,7 +2,7 @@
 
 *Recipe `rec_scaffold_access`, sector `all`, typical duration 1 to 6 weeks.*
 
-Design check, erect, inspect and tag the scaffold, keep it through the work, dismantle after the last trade has finished.
+Design check, erect with a handover inspection hold point, keep it through the work, dismantle after the last trade has finished.
 
 ## Rationale
 
@@ -13,13 +13,13 @@ Scaffold is the most common virtual cost of an installation: it has no BIM eleme
 1. `GEN-SURVEY-SETOUT` Survey set-out of the work area (virtual task, survey marker). Mark the scaffold footprint and ground check.
 2. `GEN-TW-CHECK` Temporary works design check and permit to load (virtual task, permit marker). Design check for loads and ties.
 3. `GEN-PERMIT-WORK` Permit to work (virtual task, permit marker; optional). Permit to erect near live areas.
-4. `GEN-SCAFFOLD-ERECT` Erect access scaffold (virtual task, scaffold marker). Erect in lifts with handover inspection.
-5. `scaffold_inspection` Pre-commissioning checks (virtual task, test marker). Inspection and tag before first use, then at the agreed interval.
-6. `GEN-SCAFFOLD-DISMANTLE` Dismantle access scaffold (virtual task, scaffold marker). Only after the last trade confirms they are finished.
+4. `GEN-SCAFFOLD-ERECT` Erect access scaffold (virtual task, scaffold marker; hold point: structural inspection). Erect in lifts; handover inspection and tag before first use, then at the agreed interval.
+5. `GEN-SCAFFOLD-DISMANTLE` Dismantle access scaffold (virtual task, scaffold marker). Only after the last trade confirms they are finished.
+6. `GEN-PUNCH-CLEAR` Punch list close-out (virtual task, test marker; optional). Remove tags and clear the area.
 
 ## Ordering beyond the chain
 
-* `scaffold_inspection` before `GEN-SCAFFOLD-DISMANTLE` (FS): Dismantle only after the last handover
+* `GEN-SCAFFOLD-ERECT` before `GEN-SCAFFOLD-DISMANTLE` (FS): Dismantle only after the last handover
 
 ## Prerequisites
 
@@ -51,5 +51,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

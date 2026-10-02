@@ -13,16 +13,16 @@ The beam lift is the riskiest single event on a road job: a crane, a closed road
 1. `GEN-PERMIT-WORK` Permit to work (virtual task, permit marker). Night possession and road closure permit.
 2. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker). Beam lift plan with crane positions and exclusion zone.
 3. `GEN-CRANE-MOBILISE` Mobilise, assemble and load-test crane (virtual task, crane marker)
-4. `CIV-TM-STAGE1` Traffic management stage 1: close lane and set cones (BIM-bound, from self element). Road closure for the lift.
+4. `CIV-TM-STAGE1` Traffic management stage 1: close lane and set cones (BIM-bound, from self element; optional). Road closure for the lift.
 5. `STR-BEAM-LIFT` Lift precast beam (night closure) (BIM-bound, from self element; hold point: structural inspection). Beams lifted onto bearings at night.
 6. `GEN-SCAFFOLD-ERECT` Erect access scaffold (virtual task, scaffold marker). Edge protection and soffit access.
-7. `STR-DECK-REBAR` Fix deck reinforcement and formwork (BIM-bound, from self element)
-8. `STR-DECK-POUR` Pour bridge deck (BIM-bound, from self element; hold point: structural inspection)
-9. `GEN-CURING-WATCH` Concrete curing watch (time driven) (virtual task, test marker; 7 days, time driven)
-10. `STR-DECK-WATERPROOF` Waterproof deck (BIM-bound, from self element)
-11. `STR-PARAPET-INSTALL` Install bridge parapet or barrier (BIM-bound, from self element)
-12. `GEN-SURVEY-ASBUILT` As-built survey and record (virtual task, survey marker). Deck levels and camber before surfacing.
-13. `GEN-SCAFFOLD-DISMANTLE` Dismantle access scaffold (virtual task, scaffold marker)
+7. `STR-DECK-REBAR` Fix deck reinforcement and formwork (BIM-bound, from self element; optional)
+8. `STR-DECK-POUR` Pour bridge deck (BIM-bound, from self element; optional; hold point: structural inspection)
+9. `GEN-CURING-WATCH` Concrete curing watch (time driven) (virtual task, test marker; optional; 7 days, time driven)
+10. `STR-DECK-WATERPROOF` Waterproof deck (BIM-bound, from self element; optional)
+11. `STR-PARAPET-INSTALL` Install bridge parapet or barrier (BIM-bound, from self element; optional)
+12. `GEN-SCAFFOLD-DISMANTLE` Dismantle access scaffold (virtual task, scaffold marker)
+13. `GEN-SURVEY-ASBUILT` As-built survey and record (virtual task, survey marker). Deck levels and camber before surfacing.
 
 ## Ordering beyond the chain
 
@@ -60,5 +60,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

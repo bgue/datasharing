@@ -42,23 +42,8 @@
   {
    "ref": "GEN-ICRA-SETUP",
    "hold_point": "icra",
-   "from_element": "zone"
-  },
-  {
-   "ref": "ARC-WALL-FRAME",
-   "from_element": "zone"
-  },
-  {
-   "ref": "MEP-DUCT-INSTALL",
-   "from_element": "zone"
-  },
-  {
-   "ref": "PLB-PIPE-INSTALL",
-   "from_element": "zone"
-  },
-  {
-   "ref": "MED-GAS-PIPE-INSTALL",
-   "from_element": "system"
+   "from_element": "zone",
+   "optional": true
   },
   {
    "ref": "GEN-PERMIT-HOT",
@@ -67,24 +52,54 @@
    "note": "Brazing of medical gas pipework"
   },
   {
+   "ref": "ARC-WALL-FRAME",
+   "from_element": "zone",
+   "optional": true
+  },
+  {
+   "ref": "MEP-DUCT-INSTALL",
+   "from_element": "zone",
+   "optional": true
+  },
+  {
+   "ref": "PLB-PIPE-INSTALL",
+   "from_element": "zone",
+   "optional": true
+  },
+  {
+   "ref": "MED-GAS-PIPE-INSTALL",
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
+  },
+  {
    "ref": "MED-GAS-TEST",
    "hold_point": "medical_gas",
-   "from_element": "system"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
    "ref": "FIR-STOP-INSTALL",
    "hold_point": "fire",
-   "from_element": "zone"
+   "from_element": "zone",
+   "optional": true
   },
   {
    "ref": "ELE-CABLE-PULL",
    "hold_point": "electrical",
-   "from_element": "zone"
+   "from_element": "zone",
+   "optional": true
   },
   {
    "ref": "ARC-WALL-BOARD",
    "from_element": "zone",
-   "note": "Sealed, smooth walls"
+   "note": "Sealed, smooth walls",
+   "optional": true
   },
   {
    "ref": "ARC-CEILING-CLOSE",
@@ -94,29 +109,34 @@
   {
    "ref": "ARC-FLOOR-FINISH",
    "from_element": "zone",
-   "note": "Welded, coved flooring"
+   "note": "Welded, coved flooring",
+   "optional": true
   },
   {
    "ref": "ARC-DOOR-INSTALL",
-   "from_element": "host"
+   "from_element": "host",
+   "optional": true
   },
   {
    "ref": "ELE-LIGHT-INSTALL",
-   "from_element": "zone"
+   "from_element": "zone",
+   "optional": true
   },
   {
    "ref": "MEP-DIFFUSER-SET",
    "from_element": "zone",
-   "note": "HEPA terminals"
+   "note": "HEPA terminals",
+   "optional": true
   },
   {
    "ref": "MED-EQUIP-INSTALL",
    "from_element": "zone",
-   "note": "Pendants and theatre lights"
+   "note": "Pendants and theatre lights",
+   "optional": true
   },
   {
    "ref": "CX-AIR-BALANCE",
-   "from_element": "system"
+   "optional": true
   },
   {
    "ref": "CX-PRESSURE-TEST",
@@ -125,12 +145,14 @@
   },
   {
    "ref": "GEN-HEPA-CLEAN",
-   "from_element": "zone"
+   "from_element": "zone",
+   "optional": true
   },
   {
    "ref": "GEN-ICRA-CLOSEOUT",
    "hold_point": "icra",
-   "from_element": "zone"
+   "from_element": "zone",
+   "optional": true
   }
  ],
  "logic": [

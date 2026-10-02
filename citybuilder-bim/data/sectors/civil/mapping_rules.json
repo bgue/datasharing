@@ -74,7 +74,8 @@
      "min_quantity": 100
     }
    ],
-   "visual": "sign"
+   "visual": "sign",
+   "recipe": "rec_traffic_stage_switch"
   },
   {
    "id": "R-culvert",
@@ -110,7 +111,8 @@
      "min_quantity": 60
     }
    ],
-   "visual": "culvert"
+   "visual": "culvert",
+   "recipe": "rec_culvert"
   },
   {
    "id": "R-earth-cut-bulk",
@@ -228,7 +230,8 @@
      "quantity": "volume_m3"
     }
    ],
-   "visual": "footing"
+   "visual": "footing",
+   "recipe": "rec_bridge_pier"
   },
   {
    "id": "R-pile",
@@ -323,9 +326,32 @@
    "visual": "beam"
   },
   {
+   "id": "R-bridge-girder-lead",
+   "description": "First girder of each span carries the beam lift and deck recipe (one expansion per span, not per girder).",
+   "priority": 335,
+   "match": {
+    "ifc_class": [
+     "IfcBeam"
+    ],
+    "properties_present": [
+     "BridgePart"
+    ],
+    "name_regex": "G\\d-2$"
+   },
+   "steps": [
+    {
+     "step": "STR-BEAM-LIFT",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "beam",
+   "recipe": "rec_bridge_deck"
+  },
+  {
    "id": "R-bridge-girder",
    "description": "Precast bridge beam: crane plus night closure after piers and bearings.",
-   "priority": 335,
+   "priority": 330,
    "match": {
     "ifc_class": [
      "IfcBeam"
@@ -346,7 +372,7 @@
   {
    "id": "R-beam-cast",
    "description": "Cast crossheads and capping beams.",
-   "priority": 330,
+   "priority": 325,
    "match": {
     "ifc_class": [
      "IfcBeam"
@@ -363,7 +389,7 @@
   {
    "id": "R-deck",
    "description": "Bridge deck: reinforce, pour, waterproof.",
-   "priority": 325,
+   "priority": 320,
    "match": {
     "ifc_class": [
      "IfcSlab"
@@ -393,7 +419,7 @@
   {
    "id": "R-slab",
    "description": "Approach slabs, base slabs, steps and ramps.",
-   "priority": 320,
+   "priority": 315,
    "match": {
     "ifc_class": [
      "IfcSlab",
@@ -412,7 +438,7 @@
   {
    "id": "R-column-pier",
    "description": "Pier after pile cap.",
-   "priority": 315,
+   "priority": 310,
    "match": {
     "ifc_class": [
      "IfcColumn"
@@ -432,7 +458,7 @@
   {
    "id": "R-column-light",
    "description": "Lighting columns and masts.",
-   "priority": 310,
+   "priority": 305,
    "match": {
     "ifc_class": [
      "IfcColumn"
@@ -451,7 +477,7 @@
   {
    "id": "R-column",
    "description": "Cast columns.",
-   "priority": 305,
+   "priority": 300,
    "match": {
     "ifc_class": [
      "IfcColumn"
@@ -468,7 +494,7 @@
   {
    "id": "R-wall-abutment",
    "description": "Abutment and wing walls.",
-   "priority": 300,
+   "priority": 295,
    "match": {
     "ifc_class": [
      "IfcWall",
@@ -497,7 +523,7 @@
   {
    "id": "R-wall-retaining",
    "description": "Retaining and noise walls with backfill.",
-   "priority": 295,
+   "priority": 290,
    "match": {
     "ifc_class": [
      "IfcWall",
@@ -519,12 +545,13 @@
      "unit_override": "m3"
     }
    ],
-   "visual": "wall"
+   "visual": "wall",
+   "recipe": "rec_retaining_wall"
   },
   {
    "id": "R-wall",
    "description": "Other walls.",
-   "priority": 290,
+   "priority": 285,
    "match": {
     "ifc_class": [
      "IfcWall",
@@ -544,7 +571,7 @@
   {
    "id": "R-building-shell",
    "description": "Envelope of small buildings (pump station, cabin).",
-   "priority": 285,
+   "priority": 280,
    "match": {
     "ifc_class": [
      "IfcCurtainWall",
@@ -564,7 +591,7 @@
   {
    "id": "R-door-window",
    "description": "Doors and windows after host.",
-   "priority": 280,
+   "priority": 275,
    "match": {
     "ifc_class": [
      "IfcDoor",
@@ -583,7 +610,7 @@
   {
    "id": "R-railing-bridge",
    "description": "Bridge barriers after deck.",
-   "priority": 275,
+   "priority": 270,
    "match": {
     "ifc_class": [
      "IfcRailing"
@@ -609,7 +636,7 @@
   {
    "id": "R-railing",
    "description": "Roadside safety barrier.",
-   "priority": 270,
+   "priority": 265,
    "match": {
     "ifc_class": [
      "IfcRailing"
@@ -627,7 +654,7 @@
   {
    "id": "R-kerb",
    "description": "Kerb and channel.",
-   "priority": 265,
+   "priority": 260,
    "match": {
     "ifc_class": [
      "IfcKerb"
@@ -644,7 +671,7 @@
   {
    "id": "R-sign",
    "description": "Signs and gantries.",
-   "priority": 260,
+   "priority": 255,
    "match": {
     "ifc_class": [
      "IfcSign"
@@ -662,12 +689,44 @@
      "min_quantity": 1
     }
    ],
-   "visual": "sign"
+   "visual": "sign",
+   "recipe": "rec_kerb_and_signage"
+  },
+  {
+   "id": "R-pavement-lead",
+   "description": "Representative wearing-course element carries the pavement recipe.",
+   "priority": 250,
+   "match": {
+    "ifc_class": [
+     "IfcPavement",
+     "IfcCourse"
+    ],
+    "name_regex": "(?i)wearing course CH000-2$"
+   },
+   "steps": [
+    {
+     "step": "CIV-ASPHALT-WEAR",
+     "quantity": "area_m2"
+    },
+    {
+     "step": "CIV-MARKING-APPLY",
+     "quantity": "area_m2",
+     "quantity_factor": 0.35,
+     "unit_override": "m"
+    },
+    {
+     "step": "GEN-HANDOVER-DOC",
+     "quantity": "count",
+     "min_quantity": 1
+    }
+   ],
+   "visual": "pavement",
+   "recipe": "rec_pavement_build"
   },
   {
    "id": "R-course-subbase",
    "description": "Subgrade and subbase layers.",
-   "priority": 255,
+   "priority": 245,
    "match": {
     "ifc_class": [
      "IfcCourse",
@@ -690,7 +749,7 @@
   {
    "id": "R-course-base",
    "description": "Road base and asphalt binder layers.",
-   "priority": 250,
+   "priority": 240,
    "match": {
     "ifc_class": [
      "IfcCourse",
@@ -713,7 +772,7 @@
   {
    "id": "R-course-wearing",
    "description": "Wearing course, then markings and handover pack.",
-   "priority": 245,
+   "priority": 235,
    "match": {
     "ifc_class": [
      "IfcCourse",
@@ -743,7 +802,7 @@
   {
    "id": "R-pavement",
    "description": "Whole pavement structure as one element: all layers in order.",
-   "priority": 240,
+   "priority": 230,
    "match": {
     "ifc_class": [
      "IfcPavement",
@@ -785,9 +844,33 @@
    "visual": "pavement"
   },
   {
+   "id": "R-pipe-utility-lead",
+   "description": "First segment of each diverted service carries the diversion recipe.",
+   "priority": 225,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ],
+    "storey_index_max": -1,
+    "name_regex": "(?i)(water|gas|telecom|power|divert).*CH000$"
+   },
+   "steps": [
+    {
+     "step": "CIV-UTIL-DIVERT",
+     "quantity": "length_m"
+    },
+    {
+     "step": "CIV-UTIL-TEST",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "pipe",
+   "recipe": "rec_utility_diversion"
+  },
+  {
    "id": "R-pipe-utility",
    "description": "Utility diversions before earthworks.",
-   "priority": 235,
+   "priority": 220,
    "match": {
     "ifc_class": [
      "IfcPipeSegment"
@@ -808,9 +891,40 @@
    "visual": "pipe"
   },
   {
+   "id": "R-pipe-drain-lead",
+   "description": "First segment of each drainage run carries the drainage recipe.",
+   "priority": 215,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ],
+    "name_regex": "(?i)(storm|drain|sewer).*CH000$"
+   },
+   "steps": [
+    {
+     "step": "CIV-TRENCH-DIG",
+     "quantity": "length_m"
+    },
+    {
+     "step": "CIV-DRAIN-INSTALL",
+     "quantity": "length_m"
+    },
+    {
+     "step": "CIV-DRAIN-TEST",
+     "quantity": "length_m"
+    },
+    {
+     "step": "CIV-DRAIN-BACKFILL",
+     "quantity": "length_m"
+    }
+   ],
+   "visual": "pipe",
+   "recipe": "rec_drainage_run"
+  },
+  {
    "id": "R-pipe-drain",
    "description": "Drainage: trench, lay, test, backfill; must precede pavement.",
-   "priority": 230,
+   "priority": 210,
    "match": {
     "ifc_class": [
      "IfcPipeSegment"
@@ -839,7 +953,7 @@
   {
    "id": "R-fitting",
    "description": "Fittings installed with the run.",
-   "priority": 225,
+   "priority": 205,
    "match": {
     "ifc_class": [
      "IfcPipeFitting",
@@ -858,7 +972,7 @@
   {
    "id": "R-duct",
    "description": "Cable ducts and carriers below pavement.",
-   "priority": 220,
+   "priority": 200,
    "match": {
     "ifc_class": [
      "IfcDuctSegment",
@@ -876,7 +990,7 @@
   {
    "id": "R-cable",
    "description": "Cable pull for lighting and ITS.",
-   "priority": 215,
+   "priority": 195,
    "match": {
     "ifc_class": [
      "IfcCableSegment"
@@ -893,7 +1007,7 @@
   {
    "id": "R-chamber",
    "description": "Manholes and gullies.",
-   "priority": 210,
+   "priority": 190,
    "match": {
     "ifc_class": [
      "IfcDistributionChamberElement"
@@ -911,7 +1025,7 @@
   {
    "id": "R-lighting",
    "description": "Luminaires and other terminals.",
-   "priority": 205,
+   "priority": 185,
    "match": {
     "ifc_class": [
      "IfcFlowTerminal",
@@ -932,7 +1046,7 @@
   {
    "id": "R-equipment",
    "description": "Pump station and roadside equipment.",
-   "priority": 200,
+   "priority": 180,
    "match": {
     "ifc_class": [
      "IfcFlowMovingDevice",

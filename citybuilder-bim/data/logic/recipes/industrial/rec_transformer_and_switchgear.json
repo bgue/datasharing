@@ -50,18 +50,6 @@
    "marker": "survey"
   },
   {
-   "ref": "STR-EQPAD-POUR",
-   "hold_point": "structural",
-   "from_element": "foundation",
-   "note": "Transformer plinth with oil bund"
-  },
-  {
-   "ref": "GEN-CURING-WATCH",
-   "virtual": true,
-   "marker": "test",
-   "duration_days": 7
-  },
-  {
    "ref": "GEN-LIFT-PLAN",
    "virtual": true,
    "marker": "lift_plan"
@@ -72,33 +60,64 @@
    "marker": "crane"
   },
   {
+   "ref": "GEN-PERMIT-WORK",
+   "virtual": true,
+   "marker": "permit",
+   "key": "energisation_permit",
+   "note": "Energisation permit and lock-out plan"
+  },
+  {
+   "ref": "STR-EQPAD-POUR",
+   "hold_point": "structural",
+   "from_element": "foundation",
+   "note": "Transformer plinth with oil bund",
+   "optional": true,
+   "quantity": {
+    "basis": "volume_m3",
+    "value": 6
+   }
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 7,
+   "optional": true
+  },
+  {
    "ref": "ELE-XFMR-SET",
    "hold_point": "electrical"
   },
   {
    "ref": "ELE-SWGR-SET",
    "hold_point": "electrical",
-   "note": "Switchgear lineup inside the finished switchroom"
+   "note": "Switchgear lineup inside the finished switchroom",
+   "optional": true
   },
   {
    "ref": "ELE-TRAY-INSTALL",
-   "from_element": "system"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
    "ref": "ELE-CABLE-PULL",
-   "from_element": "system"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
    "ref": "ELE-CABLE-TEST",
    "hold_point": "electrical",
-   "from_element": "system"
-  },
-  {
-   "ref": "GEN-PERMIT-WORK",
-   "virtual": true,
-   "marker": "permit",
-   "key": "energisation_permit",
-   "note": "Energisation permit and lock-out plan"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
    "ref": "GEN-PRECOMM-CHECK",
@@ -108,8 +127,7 @@
   },
   {
    "ref": "CX-POWER-ENERGISE",
-   "hold_point": "electrical",
-   "from_element": "system"
+   "hold_point": "electrical"
   }
  ],
  "logic": [

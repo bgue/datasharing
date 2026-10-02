@@ -55,27 +55,6 @@
    "marker": "survey"
   },
   {
-   "ref": "STR-FOOT-REBAR",
-   "from_element": "foundation"
-  },
-  {
-   "ref": "STR-FOOT-POUR",
-   "hold_point": "structural",
-   "from_element": "foundation"
-  },
-  {
-   "ref": "GEN-CURING-WATCH",
-   "virtual": true,
-   "marker": "test",
-   "duration_days": 7
-  },
-  {
-   "ref": "GEN-ANCHOR-SURVEY",
-   "virtual": true,
-   "marker": "survey",
-   "note": "Anchor bolt positions and levels against the module drawing"
-  },
-  {
    "ref": "GEN-LIFT-PLAN",
    "virtual": true,
    "marker": "lift_plan"
@@ -84,6 +63,38 @@
    "ref": "GEN-CRANE-MOBILISE",
    "virtual": true,
    "marker": "crane"
+  },
+  {
+   "ref": "STR-FOOT-REBAR",
+   "from_element": "foundation",
+   "optional": true,
+   "quantity": {
+    "basis": "weight_t",
+    "value": 1
+   }
+  },
+  {
+   "ref": "STR-FOOT-POUR",
+   "hold_point": "structural",
+   "from_element": "foundation",
+   "optional": true,
+   "quantity": {
+    "basis": "volume_m3",
+    "value": 6
+   }
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 7,
+   "optional": true
+  },
+  {
+   "ref": "GEN-ANCHOR-SURVEY",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Anchor bolt positions and levels against the module drawing"
   },
   {
    "ref": "STR-RACK-ERECT",
@@ -95,16 +106,12 @@
   },
   {
    "ref": "PIP-SPOOL-LAY",
-   "from_element": "system",
-   "note": "Spool connections between modules and tie-ins"
-  },
-  {
-   "ref": "ELE-TRAY-INSTALL",
-   "from_element": "system"
-  },
-  {
-   "ref": "ELE-CABLE-PULL",
-   "from_element": "system"
+   "note": "Spool connections between modules and tie-ins",
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
    "ref": "GEN-HYDROTEST",
@@ -113,12 +120,36 @@
    "hold_point": "pressure_test"
   },
   {
+   "ref": "ELE-TRAY-INSTALL",
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
+  },
+  {
    "ref": "INS-PIPE-INSULATE",
-   "from_element": "system"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
    "ref": "CX-PIPE-FLUSH",
-   "from_element": "system"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   }
  ],
  "logic": [

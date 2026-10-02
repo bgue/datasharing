@@ -15,11 +15,11 @@ Drainage is the first thing built below the pavement and the last thing anyone w
 3. `CIV-TM-STAGE1` Traffic management stage 1: close lane and set cones (BIM-bound, from self element; optional)
 4. `GEN-SHORING-INSTALL` Install trench or pit shoring (virtual task, shoring marker)
 5. `GEN-DEWATER-INSTALL` Install wellpoints or sump pumps (virtual task, dewatering marker; optional)
-6. `CIV-TRENCH-DIG` Dig drainage or culvert trench (BIM-bound, from system element)
-7. `CIV-DRAIN-INSTALL` Lay drainage pipe (BIM-bound, from system element). Bedding and laying to level.
-8. `CIV-CHAMBER-SET` Set manhole or gully chamber (BIM-bound, from system element)
-9. `CIV-DRAIN-TEST` CCTV and air test drain (BIM-bound, from system element; hold point: plumbing inspection). Air or water test and CCTV.
-10. `CIV-DRAIN-BACKFILL` Backfill and compact trench (BIM-bound, from system element)
+6. `CIV-TRENCH-DIG` Dig drainage or culvert trench (BIM-bound, from self element)
+7. `CIV-DRAIN-INSTALL` Lay drainage pipe (BIM-bound, from self element). Bedding and laying to level.
+8. `CIV-CHAMBER-SET` Set manhole or gully chamber (BIM-bound, from self element; optional)
+9. `CIV-DRAIN-TEST` CCTV and air test drain (BIM-bound, from self element; hold point: plumbing inspection). Air or water test and CCTV.
+10. `CIV-DRAIN-BACKFILL` Backfill and compact trench (BIM-bound, from self element)
 11. `GEN-SHORING-REMOVE` Remove trench or pit shoring (virtual task, shoring marker)
 12. `GEN-SURVEY-ASBUILT` As-built survey and record (virtual task, survey marker). Invert levels and chamber positions.
 
@@ -55,5 +55,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

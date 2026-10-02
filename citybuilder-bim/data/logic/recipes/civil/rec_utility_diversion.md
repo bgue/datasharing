@@ -13,12 +13,12 @@ A struck service stops the job and can hurt people. Diversion comes first in the
 1. `GEN-SURVEY-SETOUT` Survey set-out of the work area (virtual task, survey marker)
 2. `GEN-UTIL-LOCATE` Locate and mark buried utilities (virtual task, survey marker). Trial holes at crossings.
 3. `GEN-PERMIT-WORK` Permit to work (virtual task, permit marker). Utility owner permit and standby supervision.
-4. `CIV-TM-STAGE1` Traffic management stage 1: close lane and set cones (BIM-bound, from self element). Lane closure and cones for the diversion trench.
-5. `GEN-TW-CHECK` Temporary works design check and permit to load (virtual task, permit marker). Trench support design for deep sections.
+4. `GEN-TW-CHECK` Temporary works design check and permit to load (virtual task, permit marker). Trench support design for deep sections.
+5. `CIV-TM-STAGE1` Traffic management stage 1: close lane and set cones (BIM-bound, from self element; optional). Lane closure and cones for the diversion trench.
 6. `GEN-SHORING-INSTALL` Install trench or pit shoring (virtual task, shoring marker)
 7. `CIV-UTIL-DIVERT` Divert or protect existing utility (BIM-bound, from self element)
-8. `GEN-HYDROTEST` System hydrotest or pressure test (virtual task, test marker; hold point: pressure_test inspection). Pressure or integrity test of the new line.
-9. `CIV-UTIL-TEST` Prove diverted service (BIM-bound, from self element; hold point: pressure_test inspection)
+8. `CIV-UTIL-TEST` Prove diverted service (BIM-bound, from self element; hold point: pressure_test inspection)
+9. `GEN-HYDROTEST` System hydrotest or pressure test (virtual task, test marker; hold point: pressure_test inspection). Pressure or integrity test of the new line.
 10. `GEN-SHORING-REMOVE` Remove trench or pit shoring (virtual task, shoring marker)
 11. `GEN-SURVEY-ASBUILT` As-built survey and record (virtual task, survey marker). As-built record handed to the utility owner.
 
@@ -56,5 +56,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

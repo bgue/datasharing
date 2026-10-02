@@ -43,25 +43,31 @@
    "marker": "survey"
   },
   {
+   "ref": "GEN-LIFT-PLAN",
+   "virtual": true,
+   "marker": "lift_plan"
+  },
+  {
    "ref": "STR-EQPAD-POUR",
    "hold_point": "structural",
-   "from_element": "foundation"
+   "from_element": "foundation",
+   "optional": true,
+   "quantity": {
+    "basis": "volume_m3",
+    "value": 6
+   }
   },
   {
    "ref": "GEN-CURING-WATCH",
    "virtual": true,
    "marker": "test",
-   "duration_days": 7
+   "duration_days": 7,
+   "optional": true
   },
   {
    "ref": "GEN-ANCHOR-SURVEY",
    "virtual": true,
    "marker": "survey"
-  },
-  {
-   "ref": "GEN-LIFT-PLAN",
-   "virtual": true,
-   "marker": "lift_plan"
   },
   {
    "ref": "PRC-EQUIP-SET",
@@ -70,7 +76,7 @@
   },
   {
    "ref": "PIP-FITTING-INSTALL",
-   "from_element": "system"
+   "optional": true
   },
   {
    "ref": "GEN-HYDROTEST",
@@ -80,11 +86,12 @@
    "note": "Shell side and tube side tested separately"
   },
   {
-   "ref": "INS-COATING-APPLY"
+   "ref": "IC-INSTR-INSTALL",
+   "optional": true
   },
   {
-   "ref": "IC-INSTR-INSTALL",
-   "from_element": "system"
+   "ref": "INS-COATING-APPLY",
+   "optional": true
   },
   {
    "ref": "GEN-PRECOMM-CHECK",
@@ -92,8 +99,7 @@
    "marker": "test"
   },
   {
-   "ref": "CX-PROCESS-STARTUP",
-   "from_element": "system"
+   "ref": "CX-PROCESS-STARTUP"
   }
  ],
  "logic": [

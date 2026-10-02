@@ -59,7 +59,8 @@
   {
    "ref": "GEN-ICRA-SETUP",
    "hold_point": "icra",
-   "from_element": "zone"
+   "from_element": "zone",
+   "optional": true
   },
   {
    "ref": "GEN-PERMIT-HOT",
@@ -68,12 +69,15 @@
   },
   {
    "ref": "PLB-PIPE-INSTALL",
-   "from_element": "system",
-   "note": "Prefabricate before the window; connect during the window"
+   "note": "Prefabricate before the window; connect during the window",
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
    "ref": "MEP-FITTING-INSTALL",
-   "from_element": "system",
    "note": "Valves and tie-in fittings"
   },
   {
@@ -85,24 +89,26 @@
   },
   {
    "ref": "ELE-CABLE-PULL",
-   "from_element": "system",
-   "optional": true
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
    "ref": "CX-POWER-ENERGISE",
    "hold_point": "electrical",
-   "from_element": "system",
    "optional": true
   },
   {
    "ref": "CX-AIR-BALANCE",
-   "from_element": "system",
    "optional": true
   },
   {
    "ref": "GEN-ICRA-CLOSEOUT",
    "hold_point": "icra",
-   "from_element": "zone"
+   "from_element": "zone",
+   "optional": true
   }
  ],
  "logic": [

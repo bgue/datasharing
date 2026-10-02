@@ -11,18 +11,18 @@ Transformers and switchgear have the longest lead times on an industrial job and
 ## Sequence
 
 1. `GEN-SURVEY-SETOUT` Survey set-out of the work area (virtual task, survey marker)
-2. `STR-EQPAD-POUR` Pour equipment pad with anchor bolts (BIM-bound, from foundation element; hold point: structural inspection). Transformer plinth with oil bund.
-3. `GEN-CURING-WATCH` Concrete curing watch (time driven) (virtual task, test marker; 7 days, time driven)
-4. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker)
-5. `GEN-CRANE-MOBILISE` Mobilise, assemble and load-test crane (virtual task, crane marker)
-6. `ELE-XFMR-SET` Set power transformer (BIM-bound, from self element; hold point: electrical inspection)
-7. `ELE-SWGR-SET` Set switchgear and MCC lineup (BIM-bound, from self element; hold point: electrical inspection). Switchgear lineup inside the finished switchroom.
-8. `ELE-TRAY-INSTALL` Install cable tray (BIM-bound, from system element)
-9. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from system element)
-10. `ELE-CABLE-TEST` Megger and continuity test (BIM-bound, from system element; hold point: electrical inspection)
-11. `energisation_permit` Permit to work (virtual task, permit marker). Energisation permit and lock-out plan.
+2. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker)
+3. `GEN-CRANE-MOBILISE` Mobilise, assemble and load-test crane (virtual task, crane marker)
+4. `energisation_permit` Permit to work (virtual task, permit marker). Energisation permit and lock-out plan.
+5. `STR-EQPAD-POUR` Pour equipment pad with anchor bolts (BIM-bound, from foundation element; optional; hold point: structural inspection). Transformer plinth with oil bund.
+6. `GEN-CURING-WATCH` Concrete curing watch (time driven) (virtual task, test marker; optional; 7 days, time driven)
+7. `ELE-XFMR-SET` Set power transformer (BIM-bound, from self element; hold point: electrical inspection)
+8. `ELE-SWGR-SET` Set switchgear and MCC lineup (BIM-bound, from self element; optional; hold point: electrical inspection). Switchgear lineup inside the finished switchroom.
+9. `ELE-TRAY-INSTALL` Install cable tray (BIM-bound, from self element; optional)
+10. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from self element; optional)
+11. `ELE-CABLE-TEST` Megger and continuity test (BIM-bound, from self element; optional; hold point: electrical inspection)
 12. `GEN-PRECOMM-CHECK` Pre-commissioning checks (virtual task, test marker). Protection relay settings, interlocks, phasing.
-13. `CX-POWER-ENERGISE` Energise and test power system (BIM-bound, from system element; hold point: electrical inspection)
+13. `CX-POWER-ENERGISE` Energise and test power system (BIM-bound, from self element; hold point: electrical inspection)
 
 ## Ordering beyond the chain
 
@@ -58,5 +58,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

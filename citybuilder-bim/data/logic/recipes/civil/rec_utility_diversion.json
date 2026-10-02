@@ -62,14 +62,15 @@
    "note": "Utility owner permit and standby supervision"
   },
   {
-   "ref": "CIV-TM-STAGE1",
-   "note": "Lane closure and cones for the diversion trench"
-  },
-  {
    "ref": "GEN-TW-CHECK",
    "virtual": true,
    "marker": "permit",
    "note": "Trench support design for deep sections"
+  },
+  {
+   "ref": "CIV-TM-STAGE1",
+   "note": "Lane closure and cones for the diversion trench",
+   "optional": true
   },
   {
    "ref": "GEN-SHORING-INSTALL",
@@ -77,8 +78,11 @@
    "marker": "shoring"
   },
   {
-   "ref": "CIV-UTIL-DIVERT",
-   "from_element": "self"
+   "ref": "CIV-UTIL-DIVERT"
+  },
+  {
+   "ref": "CIV-UTIL-TEST",
+   "hold_point": "pressure_test"
   },
   {
    "ref": "GEN-HYDROTEST",
@@ -86,10 +90,6 @@
    "marker": "test",
    "hold_point": "pressure_test",
    "note": "Pressure or integrity test of the new line"
-  },
-  {
-   "ref": "CIV-UTIL-TEST",
-   "hold_point": "pressure_test"
   },
   {
    "ref": "GEN-SHORING-REMOVE",

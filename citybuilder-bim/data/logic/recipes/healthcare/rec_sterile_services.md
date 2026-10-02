@@ -10,22 +10,22 @@ Sterile services is a process plant inside a hospital: steam, RO water, drains a
 
 ## Sequence
 
-1. `GEN-ICRA-SETUP` Erect ICRA barrier and negative air (BIM-bound, from zone element; hold point: icra inspection)
-2. `ARC-WALL-FRAME` Frame partition walls (BIM-bound, from zone element)
-3. `PLB-PIPE-INSTALL` Install water, waste and heating pipe (BIM-bound, from system element). Steam, condensate, RO water and drains.
-4. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from system element)
-5. `FIR-STOP-INSTALL` Fire-stop penetrations (BIM-bound, from zone element; hold point: fire inspection)
-6. `ARC-WALL-BOARD` Board, tape and finish partition walls (BIM-bound, from zone element)
-7. `ARC-FLOOR-FINISH` Install hygienic floor finish (BIM-bound, from zone element). Chemical-resistant floor with falls.
-8. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker). Door and route widths for the machines.
-9. `GEN-CRANE-MOBILISE` Mobilise, assemble and load-test crane (virtual task, crane marker; optional)
-10. `MED-STERIL-INSTALL` Install steriliser or washer-disinfector (BIM-bound, from self element; hold point: mechanical inspection)
-11. `GEN-HYDROTEST` System hydrotest or pressure test (virtual task, test marker; hold point: pressure_test inspection). Steam line pressure test.
-12. `GEN-VENDOR-REP` Vendor representative attendance (time driven) (virtual task, permit marker; 7 days, time driven). Commissioning and validation cycles.
-13. `CX-PRESSURE-TEST` Room pressure differential test (BIM-bound, from zone element; hold point: mechanical inspection)
-14. `GEN-PRECOMM-CHECK` Pre-commissioning checks (virtual task, test marker)
-15. `GEN-HEPA-CLEAN` HEPA terminal clean (BIM-bound, from zone element)
-16. `GEN-ICRA-CLOSEOUT` ICRA clearance and barrier removal (BIM-bound, from zone element; hold point: icra inspection)
+1. `GEN-ICRA-SETUP` Erect ICRA barrier and negative air (BIM-bound, from zone element; optional; hold point: icra inspection)
+2. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker). Door and route widths for the machines.
+3. `GEN-CRANE-MOBILISE` Mobilise, assemble and load-test crane (virtual task, crane marker; optional)
+4. `ARC-WALL-FRAME` Frame partition walls (BIM-bound, from zone element; optional)
+5. `PLB-PIPE-INSTALL` Install water, waste and heating pipe (BIM-bound, from self element; optional). Steam, condensate, RO water and drains.
+6. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from self element; optional)
+7. `FIR-STOP-INSTALL` Fire-stop penetrations (BIM-bound, from zone element; optional; hold point: fire inspection)
+8. `GEN-HYDROTEST` System hydrotest or pressure test (virtual task, test marker; hold point: pressure_test inspection). Steam line pressure test.
+9. `ARC-WALL-BOARD` Board, tape and finish partition walls (BIM-bound, from zone element; optional)
+10. `ARC-FLOOR-FINISH` Install hygienic floor finish (BIM-bound, from zone element; optional). Chemical-resistant floor with falls.
+11. `GEN-PRECOMM-CHECK` Pre-commissioning checks (virtual task, test marker)
+12. `MED-STERIL-INSTALL` Install steriliser or washer-disinfector (BIM-bound, from self element; hold point: mechanical inspection)
+13. `GEN-VENDOR-REP` Vendor representative attendance (time driven) (virtual task, permit marker; 7 days, time driven). Commissioning and validation cycles.
+14. `CX-PRESSURE-TEST` Room pressure differential test (BIM-bound, from zone element; optional; hold point: mechanical inspection)
+15. `GEN-HEPA-CLEAN` HEPA terminal clean (BIM-bound, from zone element; optional)
+16. `GEN-ICRA-CLOSEOUT` ICRA clearance and barrier removal (BIM-bound, from zone element; optional; hold point: icra inspection)
 
 ## Ordering beyond the chain
 
@@ -62,5 +62,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

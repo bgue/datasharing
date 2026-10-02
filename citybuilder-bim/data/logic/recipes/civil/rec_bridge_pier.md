@@ -12,17 +12,17 @@ A pier is a sequence in which each step creates the datum for the next. The reci
 
 1. `GEN-SURVEY-SETOUT` Survey set-out of the work area (virtual task, survey marker)
 2. `GEN-DEWATER-INSTALL` Install wellpoints or sump pumps (virtual task, dewatering marker; optional)
-3. `CIV-PILE-DRIVE` Drive or bore pile (BIM-bound, from self element; hold point: geotechnical inspection)
-4. `pile_survey` As-built survey and record (virtual task, survey marker)
-5. `STR-CAP-REBAR` Fix pile cap reinforcement (BIM-bound, from foundation element)
-6. `STR-CAP-POUR` Pour pile cap (BIM-bound, from foundation element; hold point: structural inspection)
-7. `cap_cure` Concrete curing watch (time driven) (virtual task, test marker; 7 days, time driven)
-8. `GEN-SCAFFOLD-ERECT` Erect access scaffold (virtual task, scaffold marker)
-9. `STR-PIER-POUR` Form, reinforce and pour pier or column (BIM-bound, from self element; hold point: structural inspection)
-10. `pier_cure` Concrete curing watch (time driven) (virtual task, test marker; 7 days, time driven)
-11. `GEN-ANCHOR-SURVEY` Anchor bolt and grout survey (virtual task, survey marker). Bearing seat levels and plan position.
-12. `STR-BEARING-SET` Set bridge bearings (BIM-bound, from self element; hold point: structural inspection). 10 week lead item.
-13. `GEN-SCAFFOLD-DISMANTLE` Dismantle access scaffold (virtual task, scaffold marker)
+3. `CIV-PILE-DRIVE` Drive or bore pile (BIM-bound, from self element; optional; hold point: geotechnical inspection)
+4. `STR-CAP-REBAR` Fix pile cap reinforcement (BIM-bound, from self element)
+5. `STR-CAP-POUR` Pour pile cap (BIM-bound, from self element; hold point: structural inspection)
+6. `cap_cure` Concrete curing watch (time driven) (virtual task, test marker; 7 days, time driven)
+7. `GEN-SCAFFOLD-ERECT` Erect access scaffold (virtual task, scaffold marker)
+8. `STR-PIER-POUR` Form, reinforce and pour pier or column (BIM-bound, from self element; optional; hold point: structural inspection)
+9. `pier_cure` Concrete curing watch (time driven) (virtual task, test marker; optional; 7 days, time driven)
+10. `GEN-ANCHOR-SURVEY` Anchor bolt and grout survey (virtual task, survey marker). Bearing seat levels and plan position.
+11. `STR-BEARING-SET` Set bridge bearings (BIM-bound, from self element; optional; hold point: structural inspection). 10 week lead item.
+12. `GEN-SCAFFOLD-DISMANTLE` Dismantle access scaffold (virtual task, scaffold marker)
+13. `pile_survey` As-built survey and record (virtual task, survey marker)
 
 ## Ordering beyond the chain
 
@@ -59,5 +59,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

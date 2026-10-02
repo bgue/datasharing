@@ -11,22 +11,22 @@ Stick-built racks need more site time but fewer heavy lifts. The recipe adds sca
 ## Sequence
 
 1. `GEN-SURVEY-SETOUT` Survey set-out of the work area (virtual task, survey marker)
-2. `STR-FOOT-REBAR` Form and fix footing reinforcement (BIM-bound, from foundation element)
-3. `STR-FOOT-POUR` Pour footing (BIM-bound, from foundation element; hold point: structural inspection)
-4. `GEN-ANCHOR-SURVEY` Anchor bolt and grout survey (virtual task, survey marker)
-5. `GEN-PERMIT-HOT` Hot work permit and fire watch (virtual task, permit marker)
-6. `GEN-SCAFFOLD-ERECT` Erect access scaffold (virtual task, scaffold marker)
-7. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker)
-8. `STR-RACK-ERECT` Erect pipe rack frame (BIM-bound, from self element)
-9. `STR-RACK-CONN` Bolt-up and weld rack connections (BIM-bound, from self element; hold point: welding inspection)
-10. `PIP-SPOOL-LAY` Lift and lay pipe spools on rack (BIM-bound, from system element)
-11. `PIP-FITTING-INSTALL` Install fittings, flanges and valves (BIM-bound, from system element)
+2. `GEN-PERMIT-HOT` Hot work permit and fire watch (virtual task, permit marker)
+3. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker)
+4. `STR-FOOT-REBAR` Form and fix footing reinforcement (BIM-bound, from foundation element; optional)
+5. `STR-FOOT-POUR` Pour footing (BIM-bound, from foundation element; optional; hold point: structural inspection)
+6. `GEN-ANCHOR-SURVEY` Anchor bolt and grout survey (virtual task, survey marker)
+7. `GEN-SCAFFOLD-ERECT` Erect access scaffold (virtual task, scaffold marker)
+8. `STR-RACK-ERECT` Erect pipe rack frame (BIM-bound, from self element; optional)
+9. `STR-RACK-CONN` Bolt-up and weld rack connections (BIM-bound, from self element; optional; hold point: welding inspection)
+10. `PIP-SPOOL-LAY` Lift and lay pipe spools on rack (BIM-bound, from self element; optional)
+11. `PIP-FITTING-INSTALL` Install fittings, flanges and valves (BIM-bound, from self element)
 12. `GEN-HYDROTEST` System hydrotest or pressure test (virtual task, test marker; hold point: pressure_test inspection)
-13. `ELE-TRAY-INSTALL` Install cable tray (BIM-bound, from system element)
-14. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from system element)
-15. `INS-PIPE-INSULATE` Insulate and clad pipe (BIM-bound, from system element)
+13. `ELE-TRAY-INSTALL` Install cable tray (BIM-bound, from self element; optional)
+14. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from self element; optional)
+15. `INS-PIPE-INSULATE` Insulate and clad pipe (BIM-bound, from self element; optional)
 16. `GEN-SCAFFOLD-DISMANTLE` Dismantle access scaffold (virtual task, scaffold marker)
-17. `CX-PIPE-FLUSH` Flush and blow pipework (BIM-bound, from system element)
+17. `CX-PIPE-FLUSH` Flush and blow pipework (BIM-bound, from self element; optional)
 
 ## Ordering beyond the chain
 
@@ -64,5 +64,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

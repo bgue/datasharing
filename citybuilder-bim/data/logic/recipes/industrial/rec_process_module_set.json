@@ -51,23 +51,6 @@
    "marker": "survey"
   },
   {
-   "ref": "STR-GSLAB-POUR",
-   "from_element": "foundation",
-   "note": "Pad or ground slab area under the module",
-   "optional": true
-  },
-  {
-   "ref": "GEN-CURING-WATCH",
-   "virtual": true,
-   "marker": "test",
-   "duration_days": 7
-  },
-  {
-   "ref": "GEN-ANCHOR-SURVEY",
-   "virtual": true,
-   "marker": "survey"
-  },
-  {
    "ref": "GEN-LIFT-PLAN",
    "virtual": true,
    "marker": "lift_plan",
@@ -79,9 +62,37 @@
    "marker": "crane"
   },
   {
+   "ref": "STR-GSLAB-POUR",
+   "from_element": "foundation",
+   "note": "Pad or ground slab area under the module",
+   "optional": true,
+   "quantity": {
+    "basis": "volume_m3",
+    "value": 6
+   }
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 7,
+   "optional": true
+  },
+  {
+   "ref": "GEN-ANCHOR-SURVEY",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
    "ref": "PRC-MOD-SET",
    "hold_point": "mechanical",
    "note": "Needs a cured pad, crane reach and road access in the same week"
+  },
+  {
+   "ref": "GEN-VENDOR-REP",
+   "virtual": true,
+   "marker": "permit",
+   "duration_days": 3
   },
   {
    "ref": "PRC-MOD-CONNECT",
@@ -89,21 +100,7 @@
   },
   {
    "ref": "PIP-FITTING-INSTALL",
-   "from_element": "system"
-  },
-  {
-   "ref": "ELE-CABLE-PULL",
-   "from_element": "system"
-  },
-  {
-   "ref": "IC-INSTR-INSTALL",
-   "from_element": "system"
-  },
-  {
-   "ref": "GEN-VENDOR-REP",
-   "virtual": true,
-   "marker": "permit",
-   "duration_days": 5
+   "optional": true
   },
   {
    "ref": "GEN-HYDROTEST",
@@ -112,13 +109,24 @@
    "hold_point": "pressure_test"
   },
   {
+   "ref": "ELE-CABLE-PULL",
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
+  },
+  {
+   "ref": "IC-INSTR-INSTALL",
+   "optional": true
+  },
+  {
    "ref": "GEN-PRECOMM-CHECK",
    "virtual": true,
    "marker": "test"
   },
   {
-   "ref": "CX-PROCESS-STARTUP",
-   "from_element": "system"
+   "ref": "CX-PROCESS-STARTUP"
   }
  ],
  "logic": [

@@ -2,7 +2,7 @@
 
 *Recipe `rec_crane_lift_heavy`, sector `all`, typical duration 1 to 4 weeks.*
 
-Permit, survey, lift plan, crane mobilisation and load test, the lift itself (bound to a BIM step), as-built survey and demobilisation attendance.
+Permit, survey, lift plan, crane mobilisation and load test, then the lift itself (bound to a BIM step in the host recipe) and the as-built record.
 
 ## Rationale
 
@@ -14,15 +14,13 @@ A heavy lift is a paperwork-heavy event: most of the time is plan, mobilise and 
 2. `GEN-PERMIT-WORK` Permit to work (virtual task, permit marker). Lifting permit and exclusion zone approval.
 3. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker). Plan by an appointed person: weights, radii, rigging, weather limits.
 4. `GEN-TW-CHECK` Temporary works design check and permit to load (virtual task, permit marker; optional). Crane base and mat design check.
-5. `GEN-CRANE-MOBILISE` Mobilise, assemble and load-test crane (virtual task, crane marker). Assemble, inspect and load-test.
-6. `pre_lift_check` Pre-commissioning checks (virtual task, test marker). Toolbox talk, rigging inspection, weather check on the day.
-7. `GEN-SURVEY-ASBUILT` As-built survey and record (virtual task, survey marker). Positions of the set item against the design.
-8. `GEN-PUNCH-CLEAR` Punch list close-out (virtual task, test marker; optional). Demobilise and close the permit.
+5. `GEN-CRANE-MOBILISE` Mobilise, assemble and load-test crane (virtual task, crane marker). Assemble, inspect and load-test; toolbox talk, rigging inspection and weather check on the day.
+6. `GEN-SURVEY-ASBUILT` As-built survey and record (virtual task, survey marker). Positions of the set item against the design.
+7. `GEN-PUNCH-CLEAR` Punch list close-out (virtual task, test marker; optional). Demobilise and close the permit.
 
 ## Ordering beyond the chain
 
 * `GEN-LIFT-PLAN` before `GEN-CRANE-MOBILISE` (FS): The crane is selected from the plan
-* `pre_lift_check` before `GEN-SURVEY-ASBUILT` (FS): The lifted step runs between these two; bind it from the sector library
 
 ## Prerequisites
 
@@ -54,5 +52,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

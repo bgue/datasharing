@@ -32,8 +32,8 @@
  },
  "crews_available": {
   "concrete": 2,
-  "envelope": 2,
-  "mechanical": 2,
+  "envelope": 3,
+  "mechanical": 3,
   "plumbing": 2,
   "electrical": 2,
   "interiors": 3,

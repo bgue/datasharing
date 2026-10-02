@@ -12,15 +12,15 @@ A tie-in has a window of hours, not weeks. The recipe moves everything that can 
 
 1. `GEN-PERMIT-WORK` Permit to work (virtual task, permit marker). Clinical risk assessment and isolation plan.
 2. `GEN-UTIL-LOCATE` Locate and mark buried utilities (virtual task, survey marker)
-3. `GEN-ICRA-SETUP` Erect ICRA barrier and negative air (BIM-bound, from zone element; hold point: icra inspection)
+3. `GEN-ICRA-SETUP` Erect ICRA barrier and negative air (BIM-bound, from zone element; optional; hold point: icra inspection)
 4. `GEN-PERMIT-HOT` Hot work permit and fire watch (virtual task, permit marker)
-5. `PLB-PIPE-INSTALL` Install water, waste and heating pipe (BIM-bound, from system element). Prefabricate before the window; connect during the window.
-6. `MEP-FITTING-INSTALL` Install fittings, dampers and valves (BIM-bound, from system element). Valves and tie-in fittings.
+5. `PLB-PIPE-INSTALL` Install water, waste and heating pipe (BIM-bound, from self element; optional). Prefabricate before the window; connect during the window.
+6. `MEP-FITTING-INSTALL` Install fittings, dampers and valves (BIM-bound, from self element). Valves and tie-in fittings.
 7. `GEN-HYDROTEST` System hydrotest or pressure test (virtual task, test marker; hold point: pressure_test inspection). Pressure test of the new connection before reinstatement.
-8. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from system element; optional)
-9. `CX-POWER-ENERGISE` Energise and test electrical systems (BIM-bound, from system element; optional; hold point: electrical inspection)
-10. `CX-AIR-BALANCE` Test and balance air system (BIM-bound, from system element; optional)
-11. `GEN-ICRA-CLOSEOUT` ICRA clearance and barrier removal (BIM-bound, from zone element; hold point: icra inspection)
+8. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from self element; optional)
+9. `CX-POWER-ENERGISE` Energise and test electrical systems (BIM-bound, from self element; optional; hold point: electrical inspection)
+10. `CX-AIR-BALANCE` Test and balance air system (BIM-bound, from self element; optional)
+11. `GEN-ICRA-CLOSEOUT` ICRA clearance and barrier removal (BIM-bound, from zone element; optional; hold point: icra inspection)
 
 ## Ordering beyond the chain
 
@@ -53,5 +53,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

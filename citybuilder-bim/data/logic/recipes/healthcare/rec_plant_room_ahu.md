@@ -10,22 +10,22 @@ Replacing an AHU in a live hospital is mostly about the window: ventilation can 
 
 ## Sequence
 
-1. `GEN-ICRA-SETUP` Erect ICRA barrier and negative air (BIM-bound, from zone element; hold point: icra inspection)
+1. `GEN-ICRA-SETUP` Erect ICRA barrier and negative air (BIM-bound, from zone element; optional; hold point: icra inspection)
 2. `GEN-PERMIT-WORK` Permit to work (virtual task, permit marker). Isolation, shutdown window and clinical risk assessment.
 3. `GEN-SURVEY-SETOUT` Survey set-out of the work area (virtual task, survey marker)
-4. `GEN-ANCHOR-SURVEY` Anchor bolt and grout survey (virtual task, survey marker)
-5. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker). Route, crane position and quiet-hours window.
-6. `GEN-CRANE-MOBILISE` Mobilise, assemble and load-test crane (virtual task, crane marker)
+4. `GEN-LIFT-PLAN` Prepare and approve lift plan (virtual task, lift_plan marker). Route, crane position and quiet-hours window.
+5. `GEN-CRANE-MOBILISE` Mobilise, assemble and load-test crane (virtual task, crane marker)
+6. `GEN-ANCHOR-SURVEY` Anchor bolt and grout survey (virtual task, survey marker)
 7. `MEP-AHU-SET` Set air handling unit or plant item (BIM-bound, from self element; hold point: mechanical inspection)
 8. `MEP-CHILLER-SET` Set chiller or boiler (BIM-bound, from self element; optional; hold point: mechanical inspection)
-9. `MEP-DUCT-INSTALL` Install ductwork (BIM-bound, from system element)
-10. `MEP-FITTING-INSTALL` Install fittings, dampers and valves (BIM-bound, from system element)
-11. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from system element)
-12. `GEN-VENDOR-REP` Vendor representative attendance (time driven) (virtual task, permit marker; 5 days, time driven)
-13. `CX-POWER-ENERGISE` Energise and test electrical systems (BIM-bound, from system element; hold point: electrical inspection)
-14. `CX-AIR-BALANCE` Test and balance air system (BIM-bound, from system element)
-15. `GEN-PRECOMM-CHECK` Pre-commissioning checks (virtual task, test marker)
-16. `GEN-ICRA-CLOSEOUT` ICRA clearance and barrier removal (BIM-bound, from zone element; hold point: icra inspection)
+9. `MEP-DUCT-INSTALL` Install ductwork (BIM-bound, from self element; optional)
+10. `MEP-FITTING-INSTALL` Install fittings, dampers and valves (BIM-bound, from self element; optional)
+11. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from self element; optional)
+12. `GEN-PRECOMM-CHECK` Pre-commissioning checks (virtual task, test marker)
+13. `GEN-VENDOR-REP` Vendor representative attendance (time driven) (virtual task, permit marker; 5 days, time driven)
+14. `CX-POWER-ENERGISE` Energise and test electrical systems (BIM-bound, from self element; optional; hold point: electrical inspection)
+15. `CX-AIR-BALANCE` Test and balance air system (BIM-bound, from self element; optional)
+16. `GEN-ICRA-CLOSEOUT` ICRA clearance and barrier removal (BIM-bound, from zone element; optional; hold point: icra inspection)
 
 ## Ordering beyond the chain
 
@@ -64,5 +64,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

@@ -54,7 +54,8 @@
   {
    "ref": "GEN-ICRA-SETUP",
    "hold_point": "icra",
-   "from_element": "zone"
+   "from_element": "zone",
+   "optional": true
   },
   {
    "ref": "GEN-PERMIT-WORK",
@@ -64,11 +65,6 @@
   },
   {
    "ref": "GEN-SURVEY-SETOUT",
-   "virtual": true,
-   "marker": "survey"
-  },
-  {
-   "ref": "GEN-ANCHOR-SURVEY",
    "virtual": true,
    "marker": "survey"
   },
@@ -84,6 +80,11 @@
    "marker": "crane"
   },
   {
+   "ref": "GEN-ANCHOR-SURVEY",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
    "ref": "MEP-AHU-SET",
    "hold_point": "mechanical"
   },
@@ -94,15 +95,28 @@
   },
   {
    "ref": "MEP-DUCT-INSTALL",
-   "from_element": "system"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
    "ref": "MEP-FITTING-INSTALL",
-   "from_element": "system"
+   "optional": true
   },
   {
    "ref": "ELE-CABLE-PULL",
-   "from_element": "system"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test"
   },
   {
    "ref": "GEN-VENDOR-REP",
@@ -113,21 +127,17 @@
   {
    "ref": "CX-POWER-ENERGISE",
    "hold_point": "electrical",
-   "from_element": "system"
+   "optional": true
   },
   {
    "ref": "CX-AIR-BALANCE",
-   "from_element": "system"
-  },
-  {
-   "ref": "GEN-PRECOMM-CHECK",
-   "virtual": true,
-   "marker": "test"
+   "optional": true
   },
   {
    "ref": "GEN-ICRA-CLOSEOUT",
    "hold_point": "icra",
-   "from_element": "zone"
+   "from_element": "zone",
+   "optional": true
   }
  ],
  "logic": [

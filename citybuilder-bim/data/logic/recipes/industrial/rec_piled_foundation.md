@@ -13,13 +13,13 @@ A piled foundation is a chain of tolerances: set-out, pile, as-built, cap. Surve
 1. `GEN-SURVEY-SETOUT` Survey set-out of the work area (virtual task, survey marker)
 2. `GEN-UTIL-LOCATE` Locate and mark buried utilities (virtual task, survey marker)
 3. `GEN-PERMIT-WORK` Permit to work (virtual task, permit marker). Piling near live services or plant needs a permit.
-4. `CIV-PILE-DRIVE` Drive piles (BIM-bound, from self element; hold point: geotechnical inspection). Integrity testing of a sample of piles.
-5. `pile_survey` As-built survey and record (virtual task, survey marker). As-built pile positions and levels, check against the pile cap design.
-6. `CIV-EARTH-CUT` Excavate pad, trench or bulk cut (BIM-bound, from foundation element). Excavate to cap level and trim pile heads.
-7. `STR-FOOT-REBAR` Form and fix footing reinforcement (BIM-bound, from foundation element)
-8. `STR-PILECAP-POUR` Pour pile cap (BIM-bound, from foundation element; hold point: structural inspection)
+4. `CIV-PILE-DRIVE` Drive piles (BIM-bound, from self element; optional; hold point: geotechnical inspection). Integrity testing of a sample of piles.
+5. `CIV-EARTH-CUT` Excavate pad, trench or bulk cut (BIM-bound, from self element). Excavate to cap level and trim pile heads.
+6. `pile_survey` As-built survey and record (virtual task, survey marker). As-built pile positions and levels, check against the pile cap design.
+7. `STR-FOOT-REBAR` Form and fix footing reinforcement (BIM-bound, from self element)
+8. `STR-PILECAP-POUR` Pour pile cap (BIM-bound, from self element; hold point: structural inspection)
 9. `GEN-CURING-WATCH` Concrete curing watch (time driven) (virtual task, test marker; 7 days, time driven)
-10. `CIV-BACKFILL-COMPACT` Backfill and compact around foundation (BIM-bound, from foundation element)
+10. `CIV-BACKFILL-COMPACT` Backfill and compact around foundation (BIM-bound, from self element)
 
 ## Ordering beyond the chain
 
@@ -55,5 +55,5 @@ General standards and guidance names only; check the current edition that applie
 
 ## How to use
 
-Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied to a zone.
+Steps marked BIM-bound are covered by tasks the mapper creates from the model. Steps marked virtual have no element: the pipeline creates virtual tasks for them when the recipe is applied. Optional steps are other work the model already covers with its own elements (or work the planner opts into); when a rule attaches the recipe to one anchor element, only the anchor element's own steps and the virtual steps are created by default.
 

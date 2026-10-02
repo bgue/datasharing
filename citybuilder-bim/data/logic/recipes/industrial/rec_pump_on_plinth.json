@@ -44,13 +44,19 @@
   {
    "ref": "STR-EQPAD-POUR",
    "hold_point": "structural",
-   "from_element": "foundation"
+   "from_element": "foundation",
+   "optional": true,
+   "quantity": {
+    "basis": "volume_m3",
+    "value": 6
+   }
   },
   {
    "ref": "GEN-CURING-WATCH",
    "virtual": true,
    "marker": "test",
-   "duration_days": 7
+   "duration_days": 7,
+   "optional": true
   },
   {
    "ref": "GEN-ANCHOR-SURVEY",
@@ -66,29 +72,37 @@
    "ref": "GEN-VENDOR-REP",
    "virtual": true,
    "marker": "permit",
-   "duration_days": 2,
+   "duration_days": 1,
    "note": "Alignment check and grouting witnessed by the vendor"
   },
   {
    "ref": "PIP-FITTING-INSTALL",
-   "from_element": "system",
-   "note": "Strain-free pipe connections"
+   "note": "Strain-free pipe connections",
+   "optional": true
   },
   {
    "ref": "ELE-CABLE-PULL",
-   "from_element": "system"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
    "ref": "IC-INSTR-INSTALL",
-   "from_element": "system"
+   "optional": true
   },
   {
    "ref": "CX-PIPE-FLUSH",
-   "from_element": "system"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
    "ref": "IC-LOOP-CHECK",
-   "from_element": "system"
+   "optional": true
   },
   {
    "ref": "GEN-PRECOMM-CHECK",
@@ -97,8 +111,7 @@
    "note": "Rotation check, seal flush plan, lube"
   },
   {
-   "ref": "CX-PROCESS-STARTUP",
-   "from_element": "system"
+   "ref": "CX-PROCESS-STARTUP"
   }
  ],
  "logic": [
