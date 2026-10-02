@@ -321,3 +321,21 @@ Sensible defaults when nothing is given:
 | WP-P MCP | MCP agent | `explain_installation`, `apply_recipe`, `author_manual_chain`, resources |
 
 Order: J → (K, L, M, O in parallel) → (N, P) → integration.
+
+---
+
+## Phase 4 plan (visuals, after Phase 3 delivered the 18 kits)
+
+Rendering under `xvfb-run` with the OpenGL 3 driver works in the build
+environment, so this phase adds screenshot-based visual QA to the headless
+tests.
+
+| WP | Scope |
+| --- | --- |
+| WP-Q element progress visuals | Ordinary (non-kit) elements show partial completion: slabs, walls, footings, piers, earthworks and pavements grow in height with crew-days done; linear elements (pipes, ducts, trays, roads, kerbs, drains) grow in length along their cell run; in-progress scaffold box stays; inspected and rework tints match the kits. Per-cell progress heat overlay (toggle H) colouring each cell by done share. `BimView.highlight_elements(guids)` selection API for the sequence editor and API (`view.highlight`). |
+| WP-R visual QA and screenshots | `godot/tools/screenshot.gd`: loads a scenario, optionally runs the autopilot N weeks, frames a camera bookmark, toggles panels, saves PNGs. Captures for every bundle at weeks 0, 15 and 30 plus each panel (Gantt, sequence editor, What's needed, procurement, report) are checked into `docs/img/`. The agent inspects the images and fixes layout, overlap, contrast, framing and reflow defects in the UI and camera. A headless test runs the harness once under Xvfb when available. |
+| WP-S kit polish and installations | Palette aligned with the Kenney colormap; edge darkening for readability; cheap detail (ladders, handrails, nozzles, doors); hover picking of kit instances with a tooltip (installation name, variant, layer fills); an Installations panel listing kit instances with "jump to" camera bookmarks; `element_visual_layers` in the API; a kit catalogue sheet (all kits at fills 0, 0.5, 1) rendered to `docs/img/kits_catalogue.png`. |
+
+Acceptance: screenshots exist for all bundles and panels; a reviewer can
+name every kit in the catalogue sheet; half-poured slabs read as half; the
+suite stays green; no panel overlaps another at 1280×720 or 1920×1080.
