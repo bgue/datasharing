@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "sitebuilder": {
+      "command": "python3",
+      "args": ["-m", "sitebuilder_mcp"],
+      "cwd": "/path/to/citybuilder-bim/tools",
+      "env": {
+        "SITEBUILDER_URL": "ws://127.0.0.1:8765",
+        "SITEBUILDER_TOKEN": ""
+      }
+    }
+  }
+}
