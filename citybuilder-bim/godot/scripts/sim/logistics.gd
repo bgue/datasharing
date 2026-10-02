@@ -12,9 +12,13 @@ static func tile_at(tiles: Dictionary, cell: Vector2i) -> String:
     return ""
 
 
-## BFS from the gate cells over road tiles (gate / haul_road / existing_road) and the
-## zone's own cells; success when a cell of, or adjacent to, the zone is reached.
-static func bfs_access(tiles: Dictionary, gates: Array[Vector2i], zone_cells: Array[Vector2i]) -> bool:
+## BFS from the gate cells over road tiles (gate / haul_road / existing_road), the zone's own
+## cells and the optional interior (footprint) cells; success when a cell of, or adjacent to,
+## the zone is reached.
+## `interior` (Vector2i -> true, optional) are cells of the building footprint: haul roads cannot be
+## placed there, but vehicles and crews circulate through them, so a zone enclosed by other zones is
+## reached through its neighbours once a road touches the footprint.
+static func bfs_access(tiles: Dictionary, gates: Array[Vector2i], zone_cells: Array[Vector2i], interior: Dictionary = {}) -> bool:
     if zone_cells.is_empty() or gates.is_empty():
         return false
     var zone_set: Dictionary = {}
@@ -40,7 +44,7 @@ static func bfs_access(tiles: Dictionary, gates: Array[Vector2i], zone_cells: Ar
                 return true
             if visited.has(n):
                 continue
-            if SiteTiles.is_road(tile_at(tiles, n)) or gate_set.has(n):
+            if SiteTiles.is_road(tile_at(tiles, n)) or gate_set.has(n) or interior.has(n):
                 visited[n] = true
                 queue.append(n)
     return false
@@ -103,7 +107,7 @@ static func laydown_capacity(gs: SimState) -> int:
     var n: int = 0
     for c in gs.tiles:
         if str((gs.tiles[c] as Dictionary).get("tile", "")) == SiteTiles.LAYDOWN:
-            n += 1
+            n += SiteTiles.LAYDOWN_CAPACITY_PER_TILE
     return n
 
 

@@ -74,7 +74,7 @@ func test_combined_factors_and_weekly_progress() -> void:
     # crew budget is 5 crew-days; footings need 4 * 0.24 / (0.85*0.8) crew-days of budget
     ok(gs.advance_week(), "advance")
     for tid in ["T000001", "T000002", "T000003", "T000004"]:
-        eq(state_of(gs, tid), TaskRuntime.State.AWAITING_INSPECTION, "%s worked to completion in week 0" % tid)
+        ok(state_of(gs, tid) in [TaskRuntime.State.AWAITING_INSPECTION, TaskRuntime.State.INSPECTED], "%s worked to completion in week 0" % tid)
     gs.free()
 
 

@@ -1,6 +1,7 @@
 class_name Inspections
 extends RefCounted
-## Hold-point inspections: 1 week wait, 10% base fail, rework = 25% of estimated crew days.
+## Hold-point inspections: resolved at the end of the day after next (work_done_day + 2), 10% base
+## fail, rework = 25% of estimated crew days.
 
 const BASE_FAIL_CHANCE: float = 0.10
 const REWORK_FRACTION: float = 0.25
@@ -12,12 +13,14 @@ static func fail_chance(gs: SimState) -> float:
     return BASE_FAIL_CHANCE
 
 
-## Resolves every inspection due this week. Returns number of tasks resolved.
-static func run_week(gs: SimState) -> int:
+## Resolves every inspection due at the end of working day `d` of the current week
+## (due day = work_done_day + 2). Returns the number resolved.
+static func run_day(gs: SimState, d: int) -> int:
+    var end_of_day: int = gs.week * 5 + d + 1
     var resolved: int = 0
     for t in gs.bundle.tasks:
         var rt: TaskRuntime = gs.runtime[t.task_id]
-        if rt.state != TaskRuntime.State.AWAITING_INSPECTION or rt.inspection_due_week > gs.week:
+        if rt.state != TaskRuntime.State.AWAITING_INSPECTION or rt.inspection_due_day > end_of_day:
             continue
         resolved += 1
         var first_attempt: bool = rt.inspection_failures == 0
@@ -29,7 +32,7 @@ static func run_week(gs: SimState) -> int:
             if first_attempt:
                 gs.inspections_first_total += 1
                 gs.inspections_first_pass += 1
-            rt.actual_finish_day = maxi(rt.work_done_day, gs.week * 5)
+            rt.actual_finish_day = maxi(rt.work_done_day, end_of_day)
             gs.set_task_state(t.task_id, TaskRuntime.State.INSPECTED)
             gs.log_event("Inspection passed: %s" % Readiness.pred_label(gs, t.task_id))
     return resolved

@@ -3,41 +3,46 @@ extends TC
 const RS := TaskRuntime.State
 
 
-## Runs the footings to AWAITING_INSPECTION with a road + one concrete crew.
-func _footings_awaiting() -> SimState:
+## Runs the footings to the end of week 0 with a road + one concrete crew. With the day-resolution
+## work pass they finish on day 0 (work_done_day 1) and their inspection falls due on day 3.
+func _footings_week0(fail_chance: float) -> SimState:
     var gs: SimState = new_state()
     gs.scenario.events.clear()
+    gs.inspection_fail_override = fail_chance
     build_road(gs)
     var id: int = gs.hire("concrete")
     gs.assign_crew(id, "L00-Z1")
-    gs.advance_week()
     return gs
 
 
-func test_one_week_wait_then_pass() -> void:
-    var gs: SimState = _footings_awaiting()
-    eq(state_of(gs, "T000001"), RS.AWAITING_INSPECTION, "footing awaits inspection after work")
-    eq((gs.runtime["T000001"] as TaskRuntime).inspection_due_week, 1, "due the following week")
-    gs.inspection_fail_override = 0.0
-    gs.advance_week()
-    eq(state_of(gs, "T000001"), RS.INSPECTED, "passes after one week")
-    ok((gs.runtime["T000001"] as TaskRuntime).actual_finish_day >= 5, "finish day recorded at inspection")
+func test_two_working_day_wait_then_pass() -> void:
+    var gs: SimState = _footings_week0(0.0)
+    gs.refresh_states()
+    gs.run_work_day(0)
+    var rt: TaskRuntime = gs.runtime["T000001"]
+    eq(rt.state, RS.AWAITING_INSPECTION, "footing awaits inspection after its work day")
+    eq(rt.work_done_day, 1, "work done at the end of day 0")
+    eq(rt.inspection_due_day, rt.work_done_day + 2, "inspection due two working days after the work")
+    gs.run_work_day(1)
+    eq(state_of(gs, "T000001"), RS.AWAITING_INSPECTION, "still waiting at the end of day 1")
+    gs.run_work_day(2)
+    eq(state_of(gs, "T000001"), RS.INSPECTED, "passes at the end of day 2 (no full week lost)")
+    eq(rt.actual_finish_day, 3, "finish day recorded at true day resolution")
+    ok(rt.actual_start_day >= 0 and rt.actual_start_day <= 1, "start day is a day of week 0")
     gs.free()
 
 
 func test_failed_inspection_creates_rework() -> void:
-    var gs: SimState = _footings_awaiting()
-    gs.inspection_fail_override = 1.0  # force failure
+    var gs: SimState = _footings_week0(1.0)  # force failure
     var rt: TaskRuntime = gs.runtime["T000001"]
     var t: TaskData = gs.bundle.tasks_by_id["T000001"]
     gs.advance_week()
-    # Inspection fails in the same pass -> REWORK; the crew then reworks 25% of estimated crew days.
     ok(rt.inspection_failures >= 1, "failure counted")
-    near(rt.rework_days_added, 0.25 * t.estimated_crew_days, "rework adds 25% of estimated crew days")
+    near(rt.rework_days_added / float(rt.inspection_failures), 0.25 * t.estimated_crew_days, "each failure adds 25% of estimated crew days")
     ok(gs.inspection_failures_total >= 1, "stat tracked")
     ok(state_of(gs, "T000001") in [RS.REWORK, RS.AWAITING_INSPECTION], "task sent back for rework")
     gs.inspection_fail_override = 0.0
-    for i in 3:
+    for i in 2:
         gs.advance_week()
     eq(state_of(gs, "T000001"), RS.INSPECTED, "eventually passes after rework")
     gs.free()

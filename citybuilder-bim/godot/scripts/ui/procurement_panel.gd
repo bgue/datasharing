@@ -4,6 +4,8 @@ extends PanelContainer
 
 signal message(text: String)
 
+const MAX_ROWS: int = 12
+
 var gs: SimState = null
 var _body: VBoxContainer
 var _dirty: bool = true
@@ -44,9 +46,17 @@ func refresh() -> void:
     if list.is_empty():
         _body.add_child(UiStyle.label("No long-lead items in this scenario.", 13, UiStyle.MUTED))
         return
+    # Scenarios can carry hundreds of long-lead tasks: list the unfinished ones by planned start.
+    var shown: int = 0
     for t in list:
         var rt: TaskRuntime = gs.runtime[t.task_id]
         var done: bool = TaskRuntime.is_finished(rt.state)
+        if done:
+            continue
+        if shown >= MAX_ROWS:
+            _body.add_child(UiStyle.label("... %d more long-lead items" % (list.size() - shown), 12, UiStyle.MUTED))
+            break
+        shown += 1
         var st: StepDef = gs.bundle.step_of(t)
         var row := VBoxContainer.new()
         var head := HBoxContainer.new()

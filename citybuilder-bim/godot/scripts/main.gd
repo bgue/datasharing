@@ -63,7 +63,7 @@ func _exit_tree() -> void:
 
 func _build_world() -> void:
     var b: SequenceBundle = gs.bundle
-    view.call("frame_site", b.width_cells, b.depth_cells)
+    view.call("frame_site", b.site_rect)
     _build_ground(b)
     builder = SiteBuilder.new()
     builder.name = "SiteBuilder"
@@ -85,12 +85,13 @@ func _build_ground(b: SequenceBundle) -> void:
     add_child(_ground)
     var plane := MeshInstance3D.new()
     var pm := PlaneMesh.new()
-    pm.size = Vector2(b.width_cells + 2.0, b.depth_cells + 2.0)
+    pm.size = Vector2(b.site_rect.size.x + 1.0, b.site_rect.size.y + 1.0)
     var mat := StandardMaterial3D.new()
     mat.albedo_color = Color(0.42, 0.62, 0.36)
     pm.material = mat
     plane.mesh = pm
-    plane.position = Vector3((b.width_cells - 1) * 0.5, -0.02, (b.depth_cells - 1) * 0.5)
+    plane.position = Vector3(b.site_rect.position.x + (b.site_rect.size.x - 1) * 0.5, -0.02,
+            b.site_rect.position.y + (b.site_rect.size.y - 1) * 0.5)
     _ground.add_child(plane)
     # blocked cells read as dark pads
     for c in gs.scenario.blocked_cells:

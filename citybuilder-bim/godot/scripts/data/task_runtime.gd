@@ -16,8 +16,12 @@ var blocked_reason: String = ""
 var actual_start_day: int = -1
 var actual_finish_day: int = -1
 var work_done_day: int = -1
-## Week the inspection is resolved (inclusive).
-var inspection_due_week: int = -1
+## Absolute working day at the end of which the inspection is resolved
+## (work_done_day + 2: the end of the day after next).
+var inspection_due_day: int = -1
+## Mid-day release marker: a task released by a predecessor finishing earlier the same day
+## cannot start before that day (not saved).
+var earliest_start: int = -1
 var inspection_failures: int = 0
 var rework_days_added: float = 0.0
 var ordered: bool = false
@@ -37,7 +41,7 @@ func to_dict() -> Dictionary:
     return {
         "state": state, "progress": progress, "required": required,
         "asd": actual_start_day, "afd": actual_finish_day, "wdd": work_done_day,
-        "iw": inspection_due_week, "if": inspection_failures, "rda": rework_days_added,
+        "idd": inspection_due_day, "if": inspection_failures, "rda": rework_days_added,
         "ordered": ordered, "dw": delivery_week, "paid": paid,
     }
 
@@ -49,7 +53,7 @@ func from_dict(d: Dictionary) -> void:
     actual_start_day = int(d.get("asd", -1))
     actual_finish_day = int(d.get("afd", -1))
     work_done_day = int(d.get("wdd", -1))
-    inspection_due_week = int(d.get("iw", -1))
+    inspection_due_day = int(d.get("idd", -1))
     inspection_failures = int(d.get("if", 0))
     rework_days_added = float(d.get("rda", 0.0))
     ordered = bool(d.get("ordered", false))

@@ -89,13 +89,24 @@ files, otherwise the global class cache is stale and scripts fail to parse.
 
 ### Simulation rules in short
 
-* `advance_week()`: deliveries land, events draw, release pass (readiness refresh), progress,
-  inspections, economy, safety, score snapshot, week + 1.
+* `advance_week()`: deliveries land, events draw, release pass (full readiness refresh), then five
+  working days (progress + inspections at day resolution), then economy, safety, score snapshot,
+  week + 1. Each working day: readiness is re-evaluated incrementally (successors of tasks that
+  started or finished, tasks held by a gate that just opened), every assigned crew spends one
+  crew-day (rework first, then earliest planned start; tiny tasks chain within the day), and
+  inspections due that day resolve. `SimState.before_work_day` is an optional hook (planners, tests).
+* Dates are true working days (`week * 5 + day`). An inspection falls due two working days after the
+  work finishes (`work_done_day + 2`, resolved at the end of that day) with the seeded 10% fail chance.
+* Gates are cumulative (docs/02 section 3.2): within a zone / storey / project instance, a task whose
+  phase order is >= `before_phase` waits until every task at or below `after_phase` is finished.
+* Access BFS passes through the cells of all zones (building interior) once a road touches them.
+* The site extent is the model grid plus all declared gate / occupied / blocked / tile cells (+2 cells);
+  a laydown tile provides 4 laydown cells; civil haul roads may cross the works footprint.
 * Task states: NOT_STARTED, READY, BLOCKED, ACTIVE, AWAITING_INSPECTION, REWORK, DONE, INSPECTED.
   Predecessors count as finished when DONE (no inspection) or INSPECTED. FS/SS/FF with lag in days.
   Gates, procurement and predecessors make a task BLOCKED. Access, crane reach, laydown space and
   zone pauses are *impediments*: the task stays READY but crews will not start it.
-* Each crew has 5 crew-days a week and works READY / ACTIVE / REWORK tasks of its trade in its
+* Each crew has 1 crew-day per working day and works READY / ACTIVE / REWORK tasks of its trade in its
   zone (rework first, then by planned start). Progress is in crew-days against
   `estimated_crew_days`, multiplied by congestion, weather, access, learning and event factors.
 * Cash: crews, equipment hire and tile rent weekly; task material cost (`cost`) when a task starts;

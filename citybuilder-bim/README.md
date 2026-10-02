@@ -54,3 +54,26 @@ python3 -m bimseq schedule element_step_map.json --sector healthcare --out seque
 ```
 
 Start with `docs/01-game-design.md`.
+
+## Status (v1)
+
+| Check | Result |
+| --- | --- |
+| Pipeline tests (`cd tools && python3 -m unittest discover -s tests`) | 83 tests pass |
+| Schema validation (`python3 -m bimseq validate ../data`) | 28 files, all valid |
+| Godot headless tests (`godot --headless --path godot --script res://tests/run_tests.gd`) | 85 tests pass |
+
+Generated sample projects (synthetic BIM, seed 42):
+
+| Sector | Elements | Tasks | Links | Baseline | Contract |
+| --- | --- | --- | --- | --- | --- |
+| industrial | 849 | 1910 | 5436 | 36 weeks | 40 weeks |
+| civil | 723 | 1588 | 11477 | 20 weeks | 22 weeks |
+| healthcare | 834 | 1370 | 5556 | 47 weeks | 52 weeks |
+
+Known gaps: no real IFC file has been run through `ifc-to-elements` yet
+(ifcopenshell is optional and untested here); the Godot UI has only been
+exercised headless, so layout and look-and-feel need a pass in the editor;
+economy balance is first-cut (half crews on healthcare survive 40 weeks but
+trend negative); industrial throughput is bounded by 30 to 40 week
+procurement lead times, which is intended but may want tuning.

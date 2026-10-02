@@ -14,8 +14,10 @@ static func pred_label(gs: SimState, task_id: String) -> String:
 
 
 ## Returns "" when all predecessors are satisfied, else a reason.
-static func predecessor_block(gs: SimState, task: TaskData) -> String:
-    var day: int = gs.week * 5
+## `at_day` < 0 means the start of the current week; Productivity passes a mid-week day so a crew
+## can carry on into successors released by a task it just finished.
+static func predecessor_block(gs: SimState, task: TaskData, at_day: int = -1) -> String:
+    var day: int = gs.week * 5 if at_day < 0 else at_day
     for p in task.predecessors:
         var pid: String = p["task_id"]
         var prt: TaskRuntime = gs.runtime.get(pid, null)
@@ -40,49 +42,32 @@ static func predecessor_block(gs: SimState, task: TaskData) -> String:
 
 
 ## True if an FF predecessor has not yet finished (task cannot complete).
-static func ff_pending(gs: SimState, task: TaskData) -> bool:
+static func ff_pending(gs: SimState, task: TaskData, at_day: int = -1) -> bool:
+    var day: int = gs.week * 5 if at_day < 0 else at_day
     for p in task.predecessors:
         if str(p["type"]) != "FF":
             continue
         var prt: TaskRuntime = gs.runtime.get(p["task_id"], null)
         if prt == null:
             continue
-        if not TaskRuntime.is_finished(prt.state) or gs.week * 5 < prt.actual_finish_day + int(p["lag_days"]):
+        if not TaskRuntime.is_finished(prt.state) or day < prt.actual_finish_day + int(p["lag_days"]):
             return true
     return false
 
 
-static func gate_scope_tasks(gs: SimState, gate: GateDef, task: TaskData) -> Array[TaskData]:
-    var out: Array[TaskData] = []
-    match gate.scope:
-        "zone":
-            out.assign(gs.bundle.tasks_by_zone.get(task.zone_id, []))
-        "storey":
-            out.assign(gs.bundle.tasks_by_storey.get(task.storey_id, []))
-        _:
-            out.assign(gs.bundle.tasks)
-    return out
-
-
-## Returns "" when no gate holds the task, else the reason. `cache` memoises scope checks.
+## Cumulative gates (docs/02 section 3.2): within the task's scope instance (zone / storey /
+## project) a task whose phase order is >= order(before_phase) is held until every task whose
+## phase order is <= order(after_phase) is finished (INSPECTED where the step is inspected).
+## A scope instance with no such tasks passes. Returns "" or the reason; `cache` memoises counts.
 static func gate_block(gs: SimState, task: TaskData, cache: Dictionary = {}) -> String:
+    var task_order: int = gs.bundle.order_of_phase(task.phase)
     for gate in gs.bundle.gates:
-        if gate.before_phase != task.phase:
+        if task_order < gs.bundle.order_of_phase(gate.before_phase):
             continue
-        var scope_key: String = ""
-        match gate.scope:
-            "zone":
-                scope_key = task.zone_id
-            "storey":
-                scope_key = task.storey_id
-            _:
-                scope_key = "*"
-        var key: String = "%s|%s" % [gate.id, scope_key]
+        var key: String = "%s|%s" % [gate.id, SequenceBundle.gate_scope_key(gate, task)]
         if not cache.has(key):
             var open_count: int = 0
-            for t2 in gate_scope_tasks(gs, gate, task):
-                if t2.phase != gate.after_phase:
-                    continue
+            for t2 in gs.bundle.gate_scope_tasks(gate, task):
                 var rt2: TaskRuntime = gs.runtime[t2.task_id]
                 if not TaskRuntime.is_finished(rt2.state):
                     open_count += 1
@@ -93,7 +78,7 @@ static func gate_block(gs: SimState, task: TaskData, cache: Dictionary = {}) -> 
             cache[key] = open_count
         var n: int = int(cache[key])
         if n > 0:
-            return "Gate '%s': %d %s task(s) not complete and inspected" % [gate.name, n, gate.after_phase]
+            return "Gate '%s': %d task(s) up to %s not complete and inspected" % [gate.name, n, gate.after_phase]
     return ""
 
 
@@ -109,8 +94,8 @@ static func procurement_block(gs: SimState, task: TaskData) -> String:
 
 
 ## Result: {"ready": bool, "reason": String}
-static func evaluate(gs: SimState, task: TaskData, gate_cache: Dictionary = {}) -> Dictionary:
-    var r: String = predecessor_block(gs, task)
+static func evaluate(gs: SimState, task: TaskData, gate_cache: Dictionary = {}, at_day: int = -1) -> Dictionary:
+    var r: String = predecessor_block(gs, task, at_day)
     if r == "":
         r = gate_block(gs, task, gate_cache)
     if r == "":
@@ -146,6 +131,8 @@ static func impediment(gs: SimState, task: TaskData, laydown_free: int = NO_LAYD
 ## Re-evaluates every task that has not started. Emits task_state_changed via SimState.
 static func refresh(gs: SimState) -> void:
     var cache: Dictionary = {}
+    gs.dirty_tasks.clear()
+    gs.gate_cache = cache  # shared with the mid-week continuation (counts only fall within a week)
     var free_laydown: int = laydown_free_cells(gs)
     for t in gs.bundle.tasks:
         var rt: TaskRuntime = gs.runtime[t.task_id]
@@ -159,3 +146,52 @@ static func refresh(gs: SimState) -> void:
         else:
             rt.blocked_reason = str(ev["reason"])
             gs.set_task_state(t.task_id, TaskRuntime.State.BLOCKED)
+
+
+## Called by SimState when a task starts (SS links) or finishes (FS/FF links, gates): queues the
+## tasks whose readiness may have changed. Gate open-counts in gs.gate_cache are decremented and a
+## gate that reaches zero queues every task it holds.
+static func note_changed(gs: SimState, task_id: String, new_state: int) -> void:
+    for sid in gs.bundle.successors_by_task.get(task_id, []):
+        gs.dirty_tasks.append(sid)
+    if not TaskRuntime.is_finished(new_state):
+        return
+    var task: TaskData = gs.bundle.tasks_by_id[task_id]
+    var order: int = gs.bundle.order_of_phase(task.phase)
+    for gate in gs.bundle.gates:
+        if order > gs.bundle.order_of_phase(gate.after_phase):
+            continue
+        var key: String = "%s|%s" % [gate.id, SequenceBundle.gate_scope_key(gate, task)]
+        if not gs.gate_cache.has(key):
+            continue
+        var n: int = int(gs.gate_cache[key]) - 1
+        gs.gate_cache[key] = n
+        if n <= 0:
+            for held in gs.bundle.gate_held_tasks(gate, task):
+                gs.dirty_tasks.append(held.task_id)
+
+
+## Re-evaluates the queued tasks at `day` (incremental readiness for the daily work pass).
+static func process_dirty(gs: SimState, day: int) -> void:
+    if gs.dirty_tasks.is_empty():
+        return
+    var ids: Array[String] = gs.dirty_tasks
+    gs.dirty_tasks = []
+    var seen: Dictionary = {}
+    var free_laydown: int = laydown_free_cells(gs)
+    for sid in ids:
+        if seen.has(sid):
+            continue
+        seen[sid] = true
+        var rt: TaskRuntime = gs.runtime[sid]
+        if rt.state != TaskRuntime.State.NOT_STARTED and rt.state != TaskRuntime.State.BLOCKED \
+                and rt.state != TaskRuntime.State.READY:
+            continue
+        var t: TaskData = gs.bundle.tasks_by_id[sid]
+        var ev: Dictionary = evaluate(gs, t, gs.gate_cache, day)
+        if ev["ready"]:
+            rt.blocked_reason = impediment(gs, t, free_laydown)
+            gs.set_task_state(sid, TaskRuntime.State.READY)
+        else:
+            rt.blocked_reason = str(ev["reason"])
+            gs.set_task_state(sid, TaskRuntime.State.BLOCKED)

@@ -83,7 +83,9 @@ func test_placement_rules() -> void:
     var gs: SimState = new_state()
     ok(not gs.place_tile(Vector2i(2, 2), "haul_road"), "building footprint refused")
     ok(not gs.place_tile(Vector2i(6, 2), "laydown"), "occupied cell refused")
-    ok(not gs.place_tile(Vector2i(-1, 0), "laydown"), "outside the site refused")
+    ok(not gs.place_tile(Vector2i(-3, 0), "laydown"), "outside the site refused")
+    ok(gs.place_tile(Vector2i(9, 2), "laydown"), "site extends past the model grid (margin 2 beyond declared cells)")
+    gs.remove_tile(Vector2i(9, 2))
     ok(not gs.place_tile(Vector2i(0, 2), "gate"), "gate is not player placeable")
     var c0: float = gs.cash
     ok(gs.place_tile(Vector2i(5, 5), "laydown"), "laydown placed")
@@ -103,3 +105,21 @@ func test_gate_cell_accepts_road_and_restores_gate() -> void:
     eq(gs.tile_at(Vector2i(0, 2)), "gate", "gate restored")
     ok(not gs.remove_tile(Vector2i(0, 2)), "gate itself is permanent")
     gs.free()
+
+
+func test_laydown_capacity() -> void:
+    var gs: SimState = new_state()
+    eq(Logistics.laydown_capacity(gs), 0, "no laydown tile: no capacity")
+    gs.place_tile(Vector2i(5, 5), "laydown")
+    eq(Logistics.laydown_capacity(gs), SiteTiles.LAYDOWN_CAPACITY_PER_TILE, "one tile provides several laydown cells")
+    gs.free()
+
+
+func test_enclosed_zone_is_reached_through_neighbouring_zones() -> void:
+    var gates: Array[Vector2i] = [Vector2i(0, 0)]
+    var zone: Array[Vector2i] = [Vector2i(3, 0)]
+    var interior: Dictionary = {Vector2i(2, 0): true, Vector2i(3, 0): true}  # another zone at (2,0)
+    var road: Dictionary = _tiles([Vector2i(1, 0)])
+    ok(Logistics.bfs_access(road, gates, zone, interior), "road touches the footprint; zone behind a neighbour zone is reachable")
+    ok(not Logistics.bfs_access({}, gates, zone, interior), "no road: still no access")
+    ok(not Logistics.bfs_access(_tiles([Vector2i(1, 1)]), gates, zone, interior), "road not connected to the gate")

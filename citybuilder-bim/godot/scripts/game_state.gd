@@ -59,6 +59,7 @@ var cumulative_spend_by_week: Array[float] = []
 var crew_count_by_week: Array[int] = []
 var crew_days_worked: float = 0.0
 var crew_days_idle: float = 0.0
+var crew_days_by_trade: Dictionary = {}  # trade -> [worked, idle] (assigned crews only)
 var worked_this_week: Array[String] = []
 var week_log: Array[String] = []
 var last_report: Dictionary = {}
@@ -67,8 +68,17 @@ var won: bool = false
 var result: Dictionary = {}
 var last_error: String = ""
 var focus_storey_index: int = 0
+## Day (0..4) being worked inside advance_week(); 0 otherwise.
+var day_in_week: int = 0
+## Tasks whose readiness must be re-evaluated at the next work day (successors of tasks that
+## started or finished, tasks held by a gate that just opened).
+var dirty_tasks: Array[String] = []
+## Optional hook called with the day index before each work day (auto-planners, tests).
+var before_work_day: Callable = Callable()
 
 var element_visuals: Dictionary = {}  # guid -> Visual
+## Gate open-counts from the last readiness refresh (conservative within a week).
+var gate_cache: Dictionary = {}
 var _access_cache: Dictionary = {}
 var _access_cache_version: int = -1
 var _footprint: Dictionary = {}
@@ -119,6 +129,7 @@ func start(b: SequenceBundle) -> bool:
     crew_count_by_week.clear()
     crew_days_worked = 0.0
     crew_days_idle = 0.0
+    crew_days_by_trade.clear()
     worked_this_week.clear()
     week_log.clear()
     last_report = {}
@@ -146,7 +157,7 @@ func _load_initial_tiles() -> void:
 
 
 func current_day() -> int:
-    return week * WEEK_DAYS
+    return week * WEEK_DAYS + day_in_week
 
 
 func equipment_def(id: String) -> EquipmentDef:
@@ -172,10 +183,12 @@ func set_task_state(task_id: String, new_state: int) -> void:
     var rt: TaskRuntime = runtime[task_id]
     if rt.state == new_state:
         return
-    var old: int = rt.state
+    var old_state: int = rt.state
     rt.state = new_state
     _update_element_visual((bundle.tasks_by_id[task_id] as TaskData).element_guid)
-    task_state_changed.emit(task_id, old, new_state)
+    if new_state == TaskRuntime.State.ACTIVE or TaskRuntime.is_finished(new_state):
+        Readiness.note_changed(self, task_id, new_state)
+    task_state_changed.emit(task_id, old_state, new_state)
 
 
 func refresh_states() -> void:
@@ -312,8 +325,7 @@ func assign_crew(crew_id: int, zone_id: String) -> bool:
     if old != "" and old != zone_id:
         plan_changes += 1
     c["zone_id"] = zone_id
-    crews_changed.emit()
-    refresh_states()
+    crews_changed.emit()  # readiness does not depend on crews, so no refresh_states() here
     return true
 
 
@@ -331,7 +343,7 @@ func crews_in_zone(zone_id: String) -> Array[Dictionary]:
 func placement_error(cell: Vector2i, tile: String) -> String:
     if not SiteTiles.PLAYER_TILES.has(tile):
         return "%s cannot be placed by the player" % tile
-    if cell.x < 0 or cell.y < 0 or cell.x >= bundle.width_cells or cell.y >= bundle.depth_cells:
+    if not bundle.in_site(cell):
         return "Outside the site"
     if scenario.occupied_cells.has(cell):
         return "Cell is occupied (live area)"
@@ -404,7 +416,7 @@ func zone_access(zone_id: String) -> bool:
         _access_cache_version = tiles_version
     if not _access_cache.has(zone_id):
         var z: ZoneData = bundle.zones_by_id.get(zone_id, null)
-        _access_cache[zone_id] = z != null and Logistics.bfs_access(tiles, scenario.gates, z.cells)
+        _access_cache[zone_id] = z != null and Logistics.bfs_access(tiles, scenario.gates, z.cells, bundle.zone_cell_set)
     return bool(_access_cache[zone_id])
 
 
@@ -503,10 +515,10 @@ func advance_week() -> bool:
     Events.draw(self)
     # 3 release pass (states current for the crews' work)
     refresh_states()
-    # 4 progress
-    Productivity.run_week(self)
-    # 5 inspections
-    Inspections.run_week(self)
+    # 4 + 5 progress and inspections at day resolution (5 working days)
+    for d in WEEK_DAYS:
+        run_work_day(d)
+    day_in_week = 0
     # 6 economy
     Economy.run_week(self)
     # 7 safety
@@ -530,6 +542,19 @@ func advance_week() -> bool:
     week_advanced.emit(week)
     _check_finish()
     return true
+
+
+## One working day (0..4 of the current week): incremental readiness, every assigned crew
+## spends one crew-day, inspections due at the end of the day resolve.
+func run_work_day(d: int) -> void:
+    day_in_week = d
+    if d > 0:
+        Readiness.process_dirty(self, week * WEEK_DAYS + d)
+    if before_work_day.is_valid():
+        before_work_day.call(d)
+    Productivity.run_day(self, d)
+    Inspections.run_day(self, d)
+    day_in_week = 0
 
 
 func _expire_modifiers() -> void:

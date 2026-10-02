@@ -49,6 +49,12 @@ var elements_by_guid: Dictionary = {}  # guid -> ElementData
 var phase_order: Dictionary = {}  # phase id -> int
 ## storey_id -> { Vector2i cell -> Array[ZoneData] }
 var zones_by_cell: Dictionary = {}
+## Playable site extent in cells: the model grid plus every declared gate / occupied / blocked /
+## tile / zone cell, plus SITE_MARGIN. Real bundles place gates and live areas outside the grid.
+var site_rect: Rect2i = Rect2i(0, 0, 1, 1)
+## Every cell covered by any zone (Vector2i -> true): the interior vehicles can circulate through.
+var zone_cell_set: Dictionary = {}
+var _gate_scope_cache: Dictionary = {}  # "gate|scope key" -> Array[TaskData]
 
 
 static func load_from_path(path: String) -> SequenceBundle:
@@ -181,7 +187,36 @@ func parse(d: Dictionary) -> void:
         critical_task_ids.append(str(tid))
 
     scenario = ScenarioData.from_dict(d["scenario"])
+    _compute_site_rect()
     valid = errors.is_empty()
+
+
+const SITE_MARGIN: int = 2
+
+
+func _compute_site_rect() -> void:
+    var min_c := Vector2i(0, 0)
+    var max_c := Vector2i(width_cells - 1, depth_cells - 1)
+    var all: Array[Vector2i] = []
+    all.append_array(scenario.gates)
+    all.append_array(scenario.occupied_cells)
+    all.append_array(scenario.blocked_cells)
+    for it in scenario.initial_tiles:
+        all.append(it["cell"])
+    for z in zones:
+        all.append_array(z.cells)
+        for c in z.cells:
+            zone_cell_set[c] = true
+    for c in all:
+        min_c = Vector2i(mini(min_c.x, c.x), mini(min_c.y, c.y))
+        max_c = Vector2i(maxi(max_c.x, c.x), maxi(max_c.y, c.y))
+    min_c -= Vector2i(SITE_MARGIN, SITE_MARGIN)
+    max_c += Vector2i(SITE_MARGIN, SITE_MARGIN)
+    site_rect = Rect2i(min_c, max_c - min_c + Vector2i.ONE)
+
+
+func in_site(c: Vector2i) -> bool:
+    return site_rect.has_point(c)
 
 
 # ---------------------------------------------------------------- derived values
@@ -235,6 +270,61 @@ func element_discipline(guid: String) -> String:
         return "general"
     var st: StepDef = steps_by_id.get(list[0].step_id, null)
     return st.discipline if st != null else "general"
+
+
+## Phase order of a phase id (unknown phases sort first).
+func order_of_phase(phase: String) -> int:
+    return int(phase_order.get(phase, -1))
+
+
+## Scope instance key of a task for a gate scope: zone id, storey id or "*" (project).
+static func gate_scope_key(gate: GateDef, task: TaskData) -> String:
+    match gate.scope:
+        "zone":
+            return task.zone_id
+        "storey":
+            return task.storey_id
+    return "*"
+
+
+## Cumulative gate set: every task in the same scope instance as `task` whose phase order is
+## <= order(gate.after_phase). Cached (the sets are static).
+func gate_scope_tasks(gate: GateDef, task: TaskData) -> Array[TaskData]:
+    var skey: String = gate_scope_key(gate, task)
+    var key: String = "%s|%s" % [gate.id, skey]
+    if not _gate_scope_cache.has(key):
+        var after_o: int = order_of_phase(gate.after_phase)
+        var out: Array[TaskData] = []
+        var source: Array = tasks
+        match gate.scope:
+            "zone":
+                source = tasks_by_zone.get(task.zone_id, [])
+            "storey":
+                source = tasks_by_storey.get(task.storey_id, [])
+        for t in source:
+            if order_of_phase((t as TaskData).phase) <= after_o:
+                out.append(t)
+        _gate_scope_cache[key] = out
+    return _gate_scope_cache[key]
+
+
+## Tasks held by a gate in the same scope instance as `task`: phase order >= order(before_phase). Cached.
+func gate_held_tasks(gate: GateDef, task: TaskData) -> Array[TaskData]:
+    var key: String = "H%s|%s" % [gate.id, gate_scope_key(gate, task)]
+    if not _gate_scope_cache.has(key):
+        var before_o: int = order_of_phase(gate.before_phase)
+        var out: Array[TaskData] = []
+        var source: Array = tasks
+        match gate.scope:
+            "zone":
+                source = tasks_by_zone.get(task.zone_id, [])
+            "storey":
+                source = tasks_by_storey.get(task.storey_id, [])
+        for t in source:
+            if order_of_phase((t as TaskData).phase) >= before_o:
+                out.append(t)
+        _gate_scope_cache[key] = out
+    return _gate_scope_cache[key]
 
 
 func trade_ids() -> Array[String]:

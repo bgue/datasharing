@@ -19,10 +19,10 @@ func _ready():
 	
 	pass
 
-## Centre the camera on a site of the given size (in grid cells).
-func frame_site(width_cells:int, depth_cells:int):
-	var extent:float = float(maxi(width_cells, depth_cells))
-	home_position = Vector3((width_cells - 1) * 0.5, 0, (depth_cells - 1) * 0.5)
+## Centre the camera on the site rectangle (in grid cells).
+func frame_site(rect:Rect2i):
+	var extent:float = float(maxi(rect.size.x, rect.size.y))
+	home_position = Vector3(rect.position.x + (rect.size.x - 1) * 0.5, 0, rect.position.y + (rect.size.y - 1) * 0.5)
 	camera_position = home_position
 	position = home_position
 	zoom_max = maxf(80.0, extent * 4.0)

@@ -37,7 +37,7 @@ func test_incident_stops_zone_for_a_week() -> void:
     gs.advance_week()
     eq(state_of(gs, "T000001"), RS.READY, "no work in the stopped zone while paused")
     gs.advance_week()
-    eq(state_of(gs, "T000001"), RS.AWAITING_INSPECTION, "work resumes once the pause is over")
+    ok(state_of(gs, "T000001") in [RS.AWAITING_INSPECTION, RS.INSPECTED, RS.REWORK], "work resumes once the pause is over")
     gs.free()
 
 

@@ -16,6 +16,9 @@ const EXISTING_ROAD := "existing_road"
 const TREES := "trees"
 const GRASS := "grass"
 
+## Laydown capacity (in `laydown_cells` units) that one laydown tile provides.
+const LAYDOWN_CAPACITY_PER_TILE := 4
+
 ## Tiles the player can place, in palette order.
 const PLAYER_TILES: Array[String] = [
     "haul_road", "laydown", "crane_pad", "welfare", "hoarding", "icra_barrier", "traffic_cones",
