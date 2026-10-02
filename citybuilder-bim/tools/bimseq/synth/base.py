@@ -124,7 +124,8 @@ class SynthBuilder:
     def add(self, ifc_class: str, name: str, storey_id: str, cells: Iterable[Cell], *,
             qty: dict[str, float], predefined: str | None = None, material: str | None = None,
             system: str | None = None, host: str | None = None, props: dict[str, Any] | None = None,
-            bbox: dict[str, list[float]] | None = None, visual: str | None = None) -> str:
+            bbox: dict[str, list[float]] | None = None, visual: str | None = None,
+            kit: str | None = None) -> str:
         """Append an element; its zone is the zone of the first cell. Returns the new GUID."""
         cells = [(int(c[0]), int(c[1])) for c in cells]
         zone = self._zone_at.get((storey_id, cells[0]))
@@ -132,13 +133,16 @@ class SynthBuilder:
             raise ValueError(f"cell {cells[0]} on {storey_id} is not covered by a zone ({name})")
         props = dict(props or {})
         g = self.guid()
-        self.elements.append({
+        element: dict[str, Any] = {
             "guid": g, "ifc_class": ifc_class, "predefined_type": predefined, "name": name,
             "storey_id": storey_id, "zone_id": zone, "system_id": system, "host_guid": host,
             "cells": [[c[0], c[1]] for c in cells], "quantities": qty, "material": material,
             "properties": props, "bbox": bbox,
             "visual": visual or visual_for(ifc_class, props, predefined, name),
-        })
+        }
+        if kit:
+            element["visual_kit"] = kit
+        self.elements.append(element)
         return g
 
     def document(self) -> dict[str, Any]:

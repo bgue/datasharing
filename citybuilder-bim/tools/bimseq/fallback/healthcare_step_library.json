@@ -110,6 +110,13 @@
    "weekly_cost": 6000,
    "crew_size": 2,
    "color": "#4caf50"
+  },
+  {
+   "id": "survey",
+   "name": "Survey crew",
+   "weekly_cost": 6500,
+   "crew_size": 2,
+   "color": "#00bcd4"
   }
  ],
  "steps": [
@@ -726,6 +733,59 @@
    "unit_cost": 8000,
    "requires_access": false,
    "progress_visual": "finished",
+   "predecessors": []
+  },
+  {
+   "id": "GEN-SURVEY-SETOUT",
+   "name": "Survey set-out",
+   "phase": "substructure",
+   "trade": "survey",
+   "discipline": "general",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 2,
+   "unit_cost": 600,
+   "requires_access": false,
+   "tags": [
+    "virtual"
+   ],
+   "predecessors": []
+  },
+  {
+   "id": "GEN-SURVEY-ASBUILT",
+   "name": "As-built survey",
+   "phase": "substructure",
+   "trade": "survey",
+   "discipline": "general",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 2,
+   "unit_cost": 600,
+   "requires_access": false,
+   "tags": [
+    "virtual"
+   ],
+   "predecessors": []
+  },
+  {
+   "id": "CIV-EARTH-CUT",
+   "name": "Excavate to formation",
+   "phase": "substructure",
+   "trade": "concrete",
+   "discipline": "civil",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 80,
+   "unit_cost": 18,
+   "predecessors": []
+  },
+  {
+   "id": "CIV-PILE-DRIVE",
+   "name": "Drive pile",
+   "phase": "substructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 6,
+   "unit_cost": 1400,
+   "noisy": true,
    "predecessors": []
   }
  ],

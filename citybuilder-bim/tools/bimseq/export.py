@@ -18,13 +18,28 @@ def _cell(v: Any) -> Any:
     return "" if v is None else v
 
 
+def aggregate_members(data: Mapping[str, Any]) -> dict[str, list[str]]:
+    """aggregate guid -> member guids, from ``aggregates`` (map) or ``elements[].member_guids`` (bundle)."""
+    out = {k: list(v) for k, v in data.get("aggregates", {}).items()}
+    for e in data.get("elements", []):
+        if e.get("member_guids"):
+            out.setdefault(e["guid"], list(e["member_guids"]))
+    return out
+
+
 def task_rows(data: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """One CSV row per task; missing dates become empty cells."""
+    """One CSV row per task and element; missing dates become empty cells.
+
+    A task on an aggregate element expands to one row per member GUID with the aggregate's dates;
+    virtual tasks (no element) have an empty ``element_guid``.
+    """
+    members = aggregate_members(data)
     rows = []
     for t in data["tasks"]:
         row = {c: _cell(t.get(c)) for c in COLUMNS if c != "predecessor_task_ids"}
         row["predecessor_task_ids"] = ";".join(p["task_id"] for p in t.get("predecessors", []))
-        rows.append({c: row[c] for c in COLUMNS})
+        for guid in members.get(t.get("element_guid"), [t.get("element_guid")]):
+            rows.append({c: (_cell(guid) if c == "element_guid" else row[c]) for c in COLUMNS})
     return rows
 
 

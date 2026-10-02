@@ -19761,7 +19761,8 @@
      6.5
     ]
    },
-   "visual": "pier"
+   "visual": "pier",
+   "visual_kit": "bridge_pier"
   },
   {
    "guid": "2YObVgVkTweEUuqkAj9kzT",
@@ -19800,7 +19801,8 @@
      6.5
     ]
    },
-   "visual": "pier"
+   "visual": "pier",
+   "visual_kit": "bridge_pier"
   },
   {
    "guid": "3rTGVqHXaheFAqrI$PNw1L",
@@ -19839,7 +19841,8 @@
      6.5
     ]
    },
-   "visual": "pier"
+   "visual": "pier",
+   "visual_kit": "bridge_pier"
   },
   {
    "guid": "0rXyCG4t3L9GnsjGpUbFhh",
@@ -19878,7 +19881,8 @@
      6.5
     ]
    },
-   "visual": "pier"
+   "visual": "pier",
+   "visual_kit": "bridge_pier"
   },
   {
    "guid": "059jvqvtbzHNAJ0lwmfuMZ",
@@ -19959,7 +19963,8 @@
      6.5
     ]
    },
-   "visual": "pier"
+   "visual": "pier",
+   "visual_kit": "bridge_pier"
   },
   {
    "guid": "0aZ_uSLaXDTZICQL35O0_3",
@@ -19998,7 +20003,8 @@
      6.5
     ]
    },
-   "visual": "pier"
+   "visual": "pier",
+   "visual_kit": "bridge_pier"
   },
   {
    "guid": "2QasuGwbEFut$XBHZEjAS9",
@@ -20037,7 +20043,8 @@
      6.5
     ]
    },
-   "visual": "pier"
+   "visual": "pier",
+   "visual_kit": "bridge_pier"
   },
   {
    "guid": "2KgZw9e4tCeO41VHmSPXyJ",
@@ -20076,7 +20083,8 @@
      6.5
     ]
    },
-   "visual": "pier"
+   "visual": "pier",
+   "visual_kit": "bridge_pier"
   },
   {
    "guid": "3N$aGPBR0t8_QM4rXmUizN",
@@ -24837,7 +24845,8 @@
      0.0
     ]
    },
-   "visual": "culvert"
+   "visual": "culvert",
+   "visual_kit": "culvert"
   },
   {
    "guid": "3M1EBUwYY2z8JR8om34$tx",
@@ -24878,7 +24887,8 @@
      0.0
     ]
    },
-   "visual": "culvert"
+   "visual": "culvert",
+   "visual_kit": "culvert"
   },
   {
    "guid": "3M158ZazPY3YOUv05t_T6a",
@@ -24919,7 +24929,8 @@
      0.0
     ]
    },
-   "visual": "culvert"
+   "visual": "culvert",
+   "visual_kit": "culvert"
   },
   {
    "guid": "2BlwyKllIfiqMplxibI$qk",
@@ -24960,7 +24971,8 @@
      0.0
     ]
    },
-   "visual": "culvert"
+   "visual": "culvert",
+   "visual_kit": "culvert"
   },
   {
    "guid": "3BWHgjxvL5hIhKHQoArE5D",

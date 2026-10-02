@@ -37,6 +37,50 @@ elsewhere.
 anything, and does not repeat the sector prefix when the scenario id already starts with it
 (`civil_standard` stays `civil_standard`).
 
+## Construction logic, virtual tasks and manual sequencing
+
+```bash
+python3 -m bimseq logic list [--sector healthcare]        # recipes from data/logic/recipes/**/*.json (+ --recipes-dir DIR)
+python3 -m bimseq logic get rec_tank_ring_foundation
+python3 -m bimseq logic index                             # writes data/logic/index.json (build-samples does too)
+python3 -m bimseq logic explain --elements elements.json --guid GUID [--map element_step_map.json]
+python3 -m bimseq logic explain --elements elements.json --zone L01-Z1 [--map ...] [--json]
+python3 -m bimseq manual template --zone L00-Z3 --elements elements.json --library step_library.json [--rules mapping_rules.json] --out manual.json
+python3 -m bimseq map elements.json --rules R --library L --manual manual.json --out map.json
+python3 -m bimseq build-samples ../data/samples --manual-demo   # + healthcare/manual_demo.json and healthcare_manual_demo bundle
+```
+
+* A mapping rule with `recipe` expands the recipe for each matched element (after its own `steps`).
+  `ref` steps bind per `from_element` (`self`; `foundation` = footing/base slab/pile overlapping the cells on
+  the same else a lower storey, else self; `host`; `system` = one task per element of the system; `zone` =
+  virtual task). `virtual` steps become tasks with `element_guid: null`, `virtual: true`, `origin: "recipe"`,
+  `recipe_id`, `duration_days`, `marker` and the zone's cells. Inline `step` definitions are registered into the
+  embedded library (and kept in the map as `inline_steps`). Nested recipes expand recursively (cycles become
+  gaps `recipe_cycle`; unknown ids/steps become `recipe_ref`). An existing task for the same element+step is
+  reused (linked, not duplicated).
+* Order: steps chain FS with their `lag_days`; a `parallel_with` step is an SS side branch and not a chain
+  member (the next step follows the one before it); `logic` entries add links by key or ref; `hold_point` sets
+  `flags.inspection`. `optional` steps only come with `applied_recipes[].include_optional`.
+* Manual sequences (`manual_sequence.json`): `zones_in_manual_mode` suppress generated tasks; manual tasks get
+  `origin: "manual"` and `manual_id`; `element_guid` is the first element, or null (virtual) without elements;
+  the same element+step replaces the generated task; `after` takes M ids or generated T ids (final numbering of
+  the merged map; unknown ids give gap `manual_ref`); `overrides` suppress steps; `applied_recipes` expand
+  recipes; `inherit_logic` (default true) applies library predecessor rules to manual tasks. When authored order
+  conflicts with a library rule the library link is dropped (gap `cycle`). `schedule --manual` embeds the file
+  as `sequence.manual` (merging happens in `map`).
+* `sequence.json` embeds `recipes` (those matching any element or used by a task) and `manual`.
+
+## Aggregation, grid detection
+
+* `map --aggregate PRESET` (presets in `bimseq/aggregation_presets.json`, default off) folds groups of more than
+  `max_members` elements sharing (storey, cell, visual_kit or class, system) into one aggregate element
+  (`AGG-<hash>`, `member_guids`, summed quantities). The map keeps `aggregates` and `aggregated_elements`;
+  `export-csv` expands every aggregate task to one row per member GUID with the aggregate's dates.
+* `grid-detect elements.json|model.ifc` prints the estimated `cell_size_m` (median column nearest-neighbour
+  spacing, 0.5 m snap, clamp 3..12, default 6), `rotation_deg` (dominant wall/beam direction modulo 90, 5 degree
+  snap) and `origin` (site bbox minimum in the rotated frame). `ifc-to-elements` uses it by default
+  (`--grid-mode auto`, `--project-config`); `--grid-mode fixed` keeps 6 m, no rotation.
+
 ## Crew model for levelling
 
 `--crew-model whole` (default for `schedule`): every active task occupies one crew, so at most

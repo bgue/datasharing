@@ -10,7 +10,7 @@ import heapq
 import math
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Mapping, Sequence as Seq
+from typing import Any, Mapping, Sequence as Seq
 
 from . import GENERATOR
 from .graph import cyclic_components, topological_order
@@ -293,6 +293,8 @@ class ScheduleResult:
 
 def duration_days(task: Task, library: StepLibrary) -> int:
     """``max(min_duration_days, ceil(estimated_crew_days))`` for one crew."""
+    if task.duration_days:                       # time-driven (virtual or manual) task
+        return max(1, int(task.duration_days))
     step = library.steps[task.step_id]
     return max(step.min_duration_days, math.ceil(round(task.estimated_crew_days, 6) - 1e-9), 1)
 
@@ -373,7 +375,8 @@ def _round_up(x: float) -> int:
     return int(math.ceil(round(x, 6)))
 
 
-def _light_elements(doc: ElementsDoc, visuals: Mapping[str, str]) -> list[JSON]:
+def _light_elements(doc: ElementsDoc, visuals: Mapping[str, str],
+                    kits: Mapping[str, str] | None = None) -> list[JSON]:
     grid = doc.project["grid"]
     cs, sh = float(grid["cell_size_m"]), float(grid["storey_height_m"])
     out = []
@@ -382,19 +385,26 @@ def _light_elements(doc: ElementsDoc, visuals: Mapping[str, str]) -> list[JSON]:
             e.ifc_class, e.properties, e.predefined_type, e.name)
         if visual not in VISUALS:
             visual = "generic"
-        out.append({
+        light: JSON = {
             "guid": e.guid, "ifc_class": e.ifc_class, "name": e.name, "storey_id": e.storey_id,
             "zone_id": e.zone_id, "system_id": e.system_id,
             "cells": [[c[0], c[1]] for c in e.cells], "visual": visual,
             "size_hint": size_hint({"bbox": e.bbox, "cells": e.cells}, visual, cs, sh),
-        })
+        }
+        kit = (kits or {}).get(e.guid) or e.visual_kit
+        if kit:
+            light["visual_kit"] = kit
+        if e.member_guids:
+            light["member_guids"] = list(e.member_guids)
+        out.append(light)
     return out
 
 
 def build_sequence(step_map: StepMap, library: StepLibrary, scenario: Scenario,
                    elements: ElementsDoc, *, generated_at: str | None = None,
-                   generator: str | None = None,
-                   fractional_crews: bool = False) -> tuple[JSON, list[str]]:
+                   generator: str | None = None, fractional_crews: bool = False,
+                   recipes: Seq[JSON] | None = None,
+                   manual: Mapping[str, Any] | None = None) -> tuple[JSON, list[str]]:
     """Schedule ``step_map`` and assemble the sequence.json bundle; returns (bundle, warnings).
 
     Gate instances disabled because they conflict with task links are also appended to
@@ -402,6 +412,8 @@ def build_sequence(step_map: StepMap, library: StepLibrary, scenario: Scenario,
     and ``card_ref`` gaps are recorded for sequence-card stations that select an unknown phase, trade
     or discipline.
     """
+    for sd in step_map.inline_steps:                                  # steps defined inline by recipes
+        library.register_step(sd)
     tasks = [Task.from_dict(t.to_dict()) for t in step_map.tasks]   # do not mutate the input map
     if not tasks:
         raise SchedulingError("no tasks to schedule")
@@ -459,7 +471,7 @@ def build_sequence(step_map: StepMap, library: StepLibrary, scenario: Scenario,
         "storeys": [s.to_dict() for s in elements.storeys],
         "zones": [z.to_dict() for z in elements.zones],
         "systems": [s.to_dict() for s in elements.systems],
-        "elements": _light_elements(elements, step_map.element_visuals),
+        "elements": _light_elements(elements, step_map.element_visuals, step_map.element_visual_kits),
         "step_library": library.to_dict(),
         "tasks": [t.to_dict() for t in tasks],
         "packages": packages,
@@ -468,4 +480,8 @@ def build_sequence(step_map: StepMap, library: StepLibrary, scenario: Scenario,
         "generated_at": generated_at or utc_now(),
         "generator": generator or GENERATOR,
     }
+    if recipes:
+        bundle["recipes"] = [copy.deepcopy(dict(r)) for r in recipes]
+    if manual:
+        bundle["manual"] = copy.deepcopy(dict(manual))
     return bundle, res.warnings + notes_cards + notes

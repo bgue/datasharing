@@ -108,7 +108,7 @@ def generate(seed: int = 42) -> dict[str, Any]:
             b.add("IfcColumn", f"Pier column P{PIERS.index(sx) + 1}-{z}", "L00", [(sx, z)], predefined="COLUMN",
                   material="Concrete C40/50 reinforced", qty=q(volume=round(3.14159 * 0.8 ** 2 * 6.5, 1), length=6.5),
                   props={"BridgePart": "pier", "LoadBearing": True},
-                  bbox=b.centred((sx, z), "L00", 1.6, 1.6, 0, 6.5))
+                  bbox=b.centred((sx, z), "L00", 1.6, 1.6, 0, 6.5), kit="bridge_pier")
     for sx in ABUTMENTS:
         for z in zs:
             b.add("IfcWall", f"Abutment wall A{ABUTMENTS.index(sx) + 1}-{z}", "L00", [(sx, z)], predefined="RETAININGWALL",
@@ -152,7 +152,7 @@ def generate(seed: int = 42) -> dict[str, Any]:
         b.add("IfcBuildingElementProxy", f"Culvert segment C{z - 1}", "L00", [(CULVERT_X, z)], predefined="USERDEFINED",
               material="Precast concrete box", qty=q(volume=18.0, length=6.0, weight=45.0, area=36.0),
               props={"Precast": True, "LeadTimeWeeks": 8}, bbox=b.centred((CULVERT_X, z), "L00", 6.0, 6.0, -2.5, 0.0),
-              visual="culvert")
+              visual="culvert", kit="culvert")
     for z, side in ((2, "inlet"), (5, "outlet")):
         b.add("IfcWall", f"Culvert headwall {side}", "L00", [(CULVERT_X, z)], predefined="RETAININGWALL",
               material="Concrete C32/40", qty=q(volume=14.0, area=20.0, length=6.0),

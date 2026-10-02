@@ -1,0 +1,25 @@
+{
+ "schema_version": "1.0",
+ "description": "Aggregation presets: group elements by (storey, cell, kit or class, system) and fold groups larger than max_members into one aggregate element (docs/06 B.5).",
+ "presets": {
+  "default": {
+   "max_members": 25,
+   "group_by": ["storey", "cell", "kit_or_class", "system"]
+  },
+  "industrial_dense": {
+   "max_members": 25,
+   "group_by": ["storey", "cell", "kit_or_class", "system"],
+   "description": "Pipe racks and piping with hundreds of members per cell"
+  },
+  "hospital_dense": {
+   "max_members": 40,
+   "group_by": ["storey", "cell", "kit_or_class", "system"],
+   "description": "Ceiling-void MEP: ducts, pipes, trays, fixtures"
+  },
+  "civil_linear": {
+   "max_members": 60,
+   "group_by": ["storey", "cell", "kit_or_class"],
+   "description": "Pavement layers, kerbs and barriers along chainage"
+  }
+ }
+}

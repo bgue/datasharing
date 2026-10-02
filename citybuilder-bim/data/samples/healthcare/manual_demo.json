@@ -1,0 +1,97 @@
+{
+ "schema_version": "1.0",
+ "project": "Hospital wing with imaging suite",
+ "author": "bimseq build-samples --manual-demo",
+ "zones_in_manual_mode": [
+  "L00-Z3"
+ ],
+ "inherit_logic": true,
+ "tasks": [
+  {
+   "id": "M0001",
+   "step": "GEN-SURVEY-SETOUT",
+   "zone_id": "L00-Z3",
+   "note": "Survey set-out before digging",
+   "virtual": true,
+   "duration_days": 2,
+   "marker": "survey"
+  },
+  {
+   "id": "M0002",
+   "step": "CIV-EARTH-CUT",
+   "zone_id": "L00-Z3",
+   "note": "Excavate to formation",
+   "elements": [
+    "1dlyisgjwYdWTFOeFNORzZ",
+    "1kt8geFcdqfpbGOrmMcp0c",
+    "1n$pVI0DsSMx6VFwHxeusv",
+    "2CObTkMc1GZ56bG_D1ayzu",
+    "2N_RjXhZZ1OAUq_Uy_v2Bb",
+    "3DtkwJtMYzxtYfVBZvVxmh",
+    "3fxuuRyLAagBUdSPI35Vy9",
+    "3vXVZ_UZu9aUYgeAHJTnJR"
+   ],
+   "after": [
+    "M0001"
+   ]
+  },
+  {
+   "id": "M0003",
+   "step": "CIV-PILE-DRIVE",
+   "zone_id": "L00-Z3",
+   "note": "Drive piles",
+   "elements": [
+    "1dlyisgjwYdWTFOeFNORzZ",
+    "1kt8geFcdqfpbGOrmMcp0c",
+    "1n$pVI0DsSMx6VFwHxeusv",
+    "2CObTkMc1GZ56bG_D1ayzu",
+    "2N_RjXhZZ1OAUq_Uy_v2Bb",
+    "3DtkwJtMYzxtYfVBZvVxmh",
+    "3fxuuRyLAagBUdSPI35Vy9",
+    "3vXVZ_UZu9aUYgeAHJTnJR"
+   ],
+   "after": [
+    "M0002"
+   ]
+  },
+  {
+   "id": "M0004",
+   "step": "GEN-SURVEY-ASBUILT",
+   "zone_id": "L00-Z3",
+   "note": "As-built survey of piles",
+   "virtual": true,
+   "duration_days": 1,
+   "marker": "survey",
+   "after": [
+    "M0003"
+   ]
+  },
+  {
+   "id": "M0005",
+   "step": "STR-SLAB-FORM",
+   "zone_id": "L00-Z3",
+   "note": "Form slab",
+   "elements": [
+    "0PN3xQub8q$HcUWJsm9vzp",
+    "3gugtHcfPzeMoeb_VfmZok"
+   ],
+   "after": [
+    "M0004"
+   ]
+  },
+  {
+   "id": "M0006",
+   "step": "STR-SLAB-POUR",
+   "zone_id": "L00-Z3",
+   "note": "Pour slab",
+   "elements": [
+    "0PN3xQub8q$HcUWJsm9vzp",
+    "3gugtHcfPzeMoeb_VfmZok"
+   ],
+   "after": [
+    "M0005"
+   ]
+  }
+ ],
+ "overrides": []
+}

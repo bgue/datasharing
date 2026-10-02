@@ -12,6 +12,7 @@ import sys
 from collections import defaultdict
 from typing import Any, Sequence
 
+from . import grid_detect
 from .visuals import visual_for
 
 try:  # pragma: no cover - exercised only where ifcopenshell is installed
@@ -180,8 +181,22 @@ def guess_system_discipline(name: str, predefined: str | None = None) -> str:
 
 
 # ---------------------------------------------------------------------------- ifcopenshell access
-def _bbox_from_geometry(el: Any, settings: Any) -> tuple[Vec, Vec, Any] | None:
-    """World-space bbox (metres) from tessellated geometry, or None."""
+def plan_axis_deg(xs: Sequence[float], ys: Sequence[float]) -> float | None:
+    """Direction (degrees) of the principal plan axis of a point cloud (PCA of x, y); None if degenerate."""
+    n = len(xs)
+    if n < 3:
+        return None
+    mx, my = sum(xs) / n, sum(ys) / n
+    sxx = sum((x - mx) ** 2 for x in xs)
+    syy = sum((y - my) ** 2 for y in ys)
+    sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    if sxx + syy < 1e-12 or abs(sxx - syy) + abs(sxy) < 1e-9 * (sxx + syy):
+        return None
+    return math.degrees(0.5 * math.atan2(2 * sxy, sxx - syy))
+
+
+def _bbox_from_geometry(el: Any, settings: Any) -> tuple[Vec, Vec, Any, float | None] | None:
+    """World-space bbox (metres), geometry and plan long-axis angle from tessellated geometry, or None."""
     if _ifc_geom is None or getattr(el, "Representation", None) is None:
         return None
     try:
@@ -192,10 +207,11 @@ def _bbox_from_geometry(el: Any, settings: Any) -> tuple[Vec, Vec, Any] | None:
     if not verts:
         return None
     xs, ys, zs = verts[0::3], verts[1::3], verts[2::3]
-    return (min(xs), min(ys), min(zs)), (max(xs), max(ys), max(zs)), shape.geometry
+    axis = plan_axis_deg(xs, ys) if el.is_a() in ("IfcWall", "IfcWallStandardCase", "IfcBeam", "IfcMember") else None
+    return (min(xs), min(ys), min(zs)), (max(xs), max(ys), max(zs)), shape.geometry, axis
 
 
-def _bbox_from_placement(el: Any, unit_scale: float) -> tuple[Vec, Vec, None] | None:
+def _bbox_from_placement(el: Any, unit_scale: float) -> tuple[Vec, Vec, None, None] | None:
     """Degenerate bbox at the object placement origin (metres), or None."""
     placement = getattr(el, "ObjectPlacement", None)
     if placement is None:
@@ -205,7 +221,7 @@ def _bbox_from_placement(el: Any, unit_scale: float) -> tuple[Vec, Vec, None] | 
         p = (float(m[0][3]) * unit_scale, float(m[1][3]) * unit_scale, float(m[2][3]) * unit_scale)
     except Exception:
         return None
-    return p, p, None
+    return p, p, None, None
 
 
 def _geom_settings() -> Any:
@@ -311,15 +327,31 @@ def _properties(el: Any) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     return props, qtos
 
 
-def extract(ifc_path: str, *, sector: str = "industrial", cell_size_m: float = 6.0,
+def load_project_config(path: str | None) -> dict[str, Any]:
+    """Optional project_config.json (``grid`` block only is used here); {} when absent."""
+    if not path:
+        return {}
+    import json
+    with open(path, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+def extract(ifc_path: str, *, sector: str = "industrial", cell_size_m: float | None = None,
             zone_block: Sequence[int] = (3, 3), max_crews: int = 2,
-            project_name: str | None = None, log=sys.stderr) -> dict[str, Any]:
+            project_name: str | None = None, log=sys.stderr,
+            grid_mode: str = "auto", project_config: dict[str, Any] | None = None) -> dict[str, Any]:
     """Convert an IFC file into an ``elements.json`` document.
 
-    Raises ``RuntimeError`` if ifcopenshell is not installed.
+    Grid: ``auto`` (default, also when no project config is given) detects cell size, rotation and
+    origin with :mod:`grid_detect`; ``fixed`` uses ``cell_size_m`` (default 6), no rotation and the
+    model's bbox minimum. ``project_config["grid"]`` (mode, cell_size_m, rotation_deg, origin) wins
+    over arguments. Raises ``RuntimeError`` if ifcopenshell is not installed.
     """
     if not HAVE_IFCOPENSHELL:
         raise RuntimeError("ifcopenshell is not installed")
+    gcfg = (project_config or {}).get("grid", {})
+    grid_mode = gcfg.get("mode", grid_mode)
+    cell_size_m = gcfg.get("cell_size_m") or cell_size_m
     model = ifcopenshell.open(ifc_path)
     try:
         unit_scale = float(_ifc_unit.calculate_unit_scale(model))
@@ -366,7 +398,7 @@ def extract(ifc_path: str, *, sector: str = "industrial", cell_size_m: float = 6
         if box is None:
             skipped += 1
             continue
-        lo, hi, geometry = box
+        lo, hi, geometry, axis = box
         props, qtos = _properties(el)
         quantities = map_quantity_sets(qtos, unit_scale)
         fallback = quantities_from_bbox(el.is_a(), lo, hi) if hi != lo else {"count": 1.0}
@@ -388,12 +420,24 @@ def extract(ifc_path: str, *, sector: str = "industrial", cell_size_m: float = 6
             cover = storeys_overlapping(lo[2], hi[2], bands)
             if len(cover) >= VERTICAL_SPLIT_MIN_STOREYS:
                 parts = cover
-        raw.append({"el": el, "lo": lo, "hi": hi, "props": props, "qty": quantities, "parts": parts})
+        raw.append({"el": el, "lo": lo, "hi": hi, "props": props, "qty": quantities, "parts": parts,
+                    "axis": axis})
     if not raw:
         raise RuntimeError("no IfcElement with usable geometry or placement found")
 
-    origin = (math.floor(min(r["lo"][0] for r in raw) / cell_size_m) * cell_size_m,
-              math.floor(min(r["lo"][1] for r in raw) / cell_size_m) * cell_size_m, 0.0)
+    rotation = 0.0
+    if grid_mode == "auto":
+        det = grid_detect.detect_grid([grid_detect.GridItem(r["el"].is_a(), r["lo"], r["hi"], r["axis"])
+                                       for r in raw])
+        cell_size_m = cell_size_m or det["cell_size_m"]
+        rotation = float(gcfg.get("rotation_deg") if gcfg.get("rotation_deg") is not None else det["rotation_deg"])
+        origin = tuple(gcfg["origin"]) if gcfg.get("origin") else tuple(det["origin"])
+    else:
+        cell_size_m = cell_size_m or grid_detect.DEFAULT_CELL
+        rotation = float(gcfg.get("rotation_deg") or 0.0)
+        origin = tuple(gcfg["origin"]) if gcfg.get("origin") else (
+            math.floor(min(r["lo"][0] for r in raw) / cell_size_m) * cell_size_m,
+            math.floor(min(r["lo"][1] for r in raw) / cell_size_m) * cell_size_m, 0.0)
 
     # --- cells per element part
     parts_out: list[dict[str, Any]] = []
@@ -401,7 +445,10 @@ def extract(ifc_path: str, *, sector: str = "industrial", cell_size_m: float = 6
     systems: dict[str, dict[str, str]] = {}
     for r in raw:
         el = r["el"]
-        cells = cells_for_bbox(r["lo"], r["hi"], origin, cell_size_m)
+        if rotation:
+            cells = grid_detect.cells_for_bbox_rotated(r["lo"], r["hi"], origin, cell_size_m, rotation)
+        else:
+            cells = cells_for_bbox(r["lo"], r["hi"], origin, cell_size_m)
         cells = [c for c in cells if c[0] >= 0 and c[1] >= 0] or [(0, 0)]
         sysinfo = _system_of(el)
         if sysinfo:
@@ -447,6 +494,7 @@ def extract(ifc_path: str, *, sector: str = "industrial", cell_size_m: float = 6
         "project": {"name": pname, "sector": sector, "source": str(ifc_path).replace("\\", "/").split("/")[-1],
                     "grid": {"cell_size_m": cell_size_m, "storey_height_m": storey_height,
                              "origin": [round(origin[0], 3), round(origin[1], 3), 0.0],
+                             "rotation_deg": rotation, "mode": grid_mode,
                              "width_cells": width, "depth_cells": depth}},
         "storeys": [{"id": storey_id[k], "name": getattr(by_key[k], "Name", None) or storey_id[k],
                      "index": index_of[k], "elevation_m": round(elev[k], 3)} for k in ordered],

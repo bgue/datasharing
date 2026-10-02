@@ -24,8 +24,11 @@ def _validator(name: str):
 
 
 def guess_schema(path: str | Path) -> str | None:
-    """Schema name for a file (delegates to validate_schemas.guess_schema)."""
-    return vs.guess_schema(str(path))
+    """Schema name for a file (delegates to validate_schemas.guess_schema; ``manual*.json`` too)."""
+    name = vs.guess_schema(str(path))
+    if name is None and Path(path).name.startswith("manual") and Path(path).suffix == ".json":
+        return "manual_sequence"
+    return name
 
 
 def schema_errors(name: str, data: Any) -> list[str]:
@@ -79,7 +82,7 @@ def cross_checks(name: str, data: dict[str, Any]) -> list[str]:
                 problems.append(f"{t['task_id']}: step {t['step_id']} not in embedded library")
             if t["zone_id"] not in zones:
                 problems.append(f"{t['task_id']}: unknown zone {t['zone_id']}")
-            if t["element_guid"] not in guids:
+            if t["element_guid"] is not None and t["element_guid"] not in guids:
                 problems.append(f"{t['task_id']}: unknown element {t['element_guid']}")
             if t["planned_finish_day"] < t["planned_start_day"]:
                 problems.append(f"{t['task_id']}: finish before start")

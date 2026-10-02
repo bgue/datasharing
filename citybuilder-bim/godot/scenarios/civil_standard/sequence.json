@@ -11212,7 +11212,8 @@
     1.6,
     6.5,
     1.6
-   ]
+   ],
+   "visual_kit": "bridge_pier"
   },
   {
    "guid": "2YObVgVkTweEUuqkAj9kzT",
@@ -11232,7 +11233,8 @@
     1.6,
     6.5,
     1.6
-   ]
+   ],
+   "visual_kit": "bridge_pier"
   },
   {
    "guid": "3rTGVqHXaheFAqrI$PNw1L",
@@ -11252,7 +11254,8 @@
     1.6,
     6.5,
     1.6
-   ]
+   ],
+   "visual_kit": "bridge_pier"
   },
   {
    "guid": "0rXyCG4t3L9GnsjGpUbFhh",
@@ -11272,7 +11275,8 @@
     1.6,
     6.5,
     1.6
-   ]
+   ],
+   "visual_kit": "bridge_pier"
   },
   {
    "guid": "059jvqvtbzHNAJ0lwmfuMZ",
@@ -11316,7 +11320,8 @@
     1.6,
     6.5,
     1.6
-   ]
+   ],
+   "visual_kit": "bridge_pier"
   },
   {
    "guid": "0aZ_uSLaXDTZICQL35O0_3",
@@ -11336,7 +11341,8 @@
     1.6,
     6.5,
     1.6
-   ]
+   ],
+   "visual_kit": "bridge_pier"
   },
   {
    "guid": "2QasuGwbEFut$XBHZEjAS9",
@@ -11356,7 +11362,8 @@
     1.6,
     6.5,
     1.6
-   ]
+   ],
+   "visual_kit": "bridge_pier"
   },
   {
    "guid": "2KgZw9e4tCeO41VHmSPXyJ",
@@ -11376,7 +11383,8 @@
     1.6,
     6.5,
     1.6
-   ]
+   ],
+   "visual_kit": "bridge_pier"
   },
   {
    "guid": "3N$aGPBR0t8_QM4rXmUizN",
@@ -13892,7 +13900,8 @@
     6.0,
     2.5,
     6.0
-   ]
+   ],
+   "visual_kit": "culvert"
   },
   {
    "guid": "3M1EBUwYY2z8JR8om34$tx",
@@ -13912,7 +13921,8 @@
     6.0,
     2.5,
     6.0
-   ]
+   ],
+   "visual_kit": "culvert"
   },
   {
    "guid": "3M158ZazPY3YOUv05t_T6a",
@@ -13932,7 +13942,8 @@
     6.0,
     2.5,
     6.0
-   ]
+   ],
+   "visual_kit": "culvert"
   },
   {
    "guid": "2BlwyKllIfiqMplxibI$qk",
@@ -13952,7 +13963,8 @@
     6.0,
     2.5,
     6.0
-   ]
+   ],
+   "visual_kit": "culvert"
   },
   {
    "guid": "3BWHgjxvL5hIhKHQoArE5D",
@@ -16894,6 +16906,18 @@
      {
       "step": "CIV-TM-STAGE1",
       "scope": "same_cell_below"
+     },
+     {
+      "step": "GEN-SURVEY-SETOUT",
+      "scope": "same_zone"
+     },
+     {
+      "step": "GEN-UTIL-LOCATE",
+      "scope": "same_zone"
+     },
+     {
+      "step": "GEN-DEWATER-INSTALL",
+      "scope": "same_zone"
      }
     ],
     "tags": [
@@ -17052,6 +17076,22 @@
       "scope": "project",
       "type": "SS",
       "lag_days": 5
+     },
+     {
+      "step": "GEN-SURVEY-SETOUT",
+      "scope": "same_zone"
+     },
+     {
+      "step": "GEN-UTIL-LOCATE",
+      "scope": "same_zone"
+     },
+     {
+      "step": "GEN-SHORING-INSTALL",
+      "scope": "same_zone"
+     },
+     {
+      "step": "GEN-DEWATER-INSTALL",
+      "scope": "same_zone"
      }
     ],
     "tags": [
@@ -17192,6 +17232,10 @@
      {
       "step": "CIV-EARTH-FILL",
       "scope": "same_zone"
+     },
+     {
+      "step": "GEN-LIFT-PLAN",
+      "scope": "same_zone"
      }
     ],
     "tags": [
@@ -17287,6 +17331,10 @@
      },
      {
       "step": "CIV-TM-STAGE1",
+      "scope": "same_zone"
+     },
+     {
+      "step": "GEN-SURVEY-SETOUT",
       "scope": "same_zone"
      }
     ],
@@ -17412,6 +17460,10 @@
      {
       "step": "STR-CAP-POUR",
       "scope": "same_cell_below"
+     },
+     {
+      "step": "GEN-LIFT-PLAN",
+      "scope": "same_zone"
      }
     ],
     "tags": [
@@ -17689,6 +17741,14 @@
      {
       "step": "STR-ABUT-POUR",
       "scope": "same_cell"
+     },
+     {
+      "step": "GEN-LIFT-PLAN",
+      "scope": "same_zone"
+     },
+     {
+      "step": "GEN-ANCHOR-SURVEY",
+      "scope": "same_zone"
      }
     ],
     "tags": [
@@ -17739,6 +17799,10 @@
      },
      {
       "step": "CIV-TM-STAGE1",
+      "scope": "same_zone"
+     },
+     {
+      "step": "GEN-LIFT-PLAN",
       "scope": "same_zone"
      }
     ],
@@ -17792,6 +17856,10 @@
      {
       "step": "STR-FOOT-POUR",
       "scope": "same_cell"
+     },
+     {
+      "step": "GEN-LIFT-PLAN",
+      "scope": "same_zone"
      }
     ],
     "tags": [
@@ -17944,6 +18012,10 @@
      {
       "step": "STR-DECK-WATERPROOF",
       "scope": "same_cell"
+     },
+     {
+      "step": "GEN-LIFT-PLAN",
+      "scope": "same_zone"
      }
     ],
     "tags": [
@@ -17981,6 +18053,10 @@
      },
      {
       "step": "CIV-UTIL-TEST",
+      "scope": "same_zone"
+     },
+     {
+      "step": "GEN-LIFT-PLAN",
       "scope": "same_zone"
      }
     ],
@@ -18026,6 +18102,10 @@
      {
       "step": "STR-FOOT-POUR",
       "scope": "same_cell"
+     },
+     {
+      "step": "GEN-LIFT-PLAN",
+      "scope": "same_zone"
      }
     ],
     "tags": [
@@ -18581,6 +18661,10 @@
      {
       "step": "CIV-BASE-LAY",
       "scope": "same_zone"
+     },
+     {
+      "step": "GEN-LIFT-PLAN",
+      "scope": "same_zone"
      }
     ],
     "tags": [
@@ -18816,6 +18900,679 @@
     "tags": [
      "finishing"
     ]
+   },
+   {
+    "id": "GEN-SURVEY-SETOUT",
+    "name": "Survey set-out of the work area",
+    "phase": "mobilise",
+    "trade": "qa",
+    "discipline": "general",
+    "work_face": "any",
+    "quantity_basis": "count",
+    "rate_per_crew_day": 4,
+    "unit_cost": 350,
+    "min_duration_days": 1,
+    "requires_crane": false,
+    "requires_access": true,
+    "laydown_cells": 0,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.05,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "none",
+    "predecessors": [],
+    "tags": [
+     "virtual",
+     "survey",
+     "qa"
+    ]
+   },
+   {
+    "id": "GEN-SURVEY-ASBUILT",
+    "name": "As-built survey and record",
+    "phase": "finishing",
+    "trade": "qa",
+    "discipline": "general",
+    "work_face": "any",
+    "quantity_basis": "count",
+    "rate_per_crew_day": 4,
+    "unit_cost": 300,
+    "min_duration_days": 1,
+    "requires_crane": false,
+    "requires_access": true,
+    "laydown_cells": 0,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.05,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "none",
+    "predecessors": [
+     {
+      "step": "STR-DECK-POUR",
+      "scope": "same_zone"
+     },
+     {
+      "step": "STR-PIER-POUR",
+      "scope": "same_zone"
+     },
+     {
+      "step": "CIV-ASPHALT-WEAR",
+      "scope": "same_zone"
+     },
+     {
+      "step": "CIV-DRAIN-BACKFILL",
+      "scope": "same_zone"
+     }
+    ],
+    "tags": [
+     "virtual",
+     "survey",
+     "qa"
+    ]
+   },
+   {
+    "id": "GEN-UTIL-LOCATE",
+    "name": "Locate and mark buried utilities",
+    "phase": "mobilise",
+    "trade": "utilities",
+    "discipline": "general",
+    "work_face": "any",
+    "quantity_basis": "count",
+    "rate_per_crew_day": 3,
+    "unit_cost": 400,
+    "min_duration_days": 1,
+    "requires_crane": false,
+    "requires_access": true,
+    "laydown_cells": 0,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.1,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "none",
+    "predecessors": [],
+    "tags": [
+     "virtual",
+     "survey",
+     "utility_locate",
+     "utilities"
+    ]
+   },
+   {
+    "id": "GEN-DEWATER-INSTALL",
+    "name": "Install wellpoints or sump pumps",
+    "phase": "earthworks",
+    "trade": "utilities",
+    "discipline": "civil",
+    "work_face": "below_ground",
+    "quantity_basis": "count",
+    "rate_per_crew_day": 2,
+    "unit_cost": 4500,
+    "min_duration_days": 1,
+    "requires_crane": false,
+    "requires_access": true,
+    "laydown_cells": 1,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.3,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "none",
+    "predecessors": [
+     {
+      "step": "GEN-SURVEY-SETOUT",
+      "scope": "same_zone"
+     }
+    ],
+    "tags": [
+     "virtual",
+     "dewatering",
+     "utilities"
+    ]
+   },
+   {
+    "id": "GEN-DEWATER-RUN",
+    "name": "Run dewatering (time driven)",
+    "phase": "earthworks",
+    "trade": "utilities",
+    "discipline": "civil",
+    "work_face": "below_ground",
+    "quantity_basis": "count",
+    "rate_per_crew_day": 1,
+    "unit_cost": 350,
+    "min_duration_days": 3,
+    "requires_crane": false,
+    "requires_access": false,
+    "laydown_cells": 0,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.1,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "none",
+    "predecessors": [
+     {
+      "step": "GEN-DEWATER-INSTALL",
+      "scope": "same_zone"
+     }
+    ],
+    "tags": [
+     "virtual",
+     "dewatering",
+     "utilities"
+    ]
+   },
+   {
+    "id": "GEN-SHORING-INSTALL",
+    "name": "Install trench or pit shoring",
+    "phase": "utilities",
+    "trade": "utilities",
+    "discipline": "civil",
+    "work_face": "below_ground",
+    "quantity_basis": "length_m",
+    "rate_per_crew_day": 40,
+    "unit_cost": 140,
+    "min_duration_days": 1,
+    "requires_crane": false,
+    "requires_access": true,
+    "laydown_cells": 1,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.55,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "none",
+    "predecessors": [
+     {
+      "step": "GEN-SURVEY-SETOUT",
+      "scope": "same_zone"
+     },
+     {
+      "step": "GEN-TW-CHECK",
+      "scope": "same_zone"
+     },
+     {
+      "step": "GEN-UTIL-LOCATE",
+      "scope": "same_zone"
+     }
+    ],
+    "tags": [
+     "virtual",
+     "shoring",
+     "high_risk",
+     "utilities"
+    ]
+   },
+   {
+    "id": "GEN-SHORING-REMOVE",
+    "name": "Remove trench or pit shoring",
+    "phase": "drainage",
+    "trade": "utilities",
+    "discipline": "civil",
+    "work_face": "below_ground",
+    "quantity_basis": "length_m",
+    "rate_per_crew_day": 60,
+    "unit_cost": 20,
+    "min_duration_days": 1,
+    "requires_crane": false,
+    "requires_access": true,
+    "laydown_cells": 0,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.4,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "none",
+    "predecessors": [
+     {
+      "step": "GEN-SHORING-INSTALL",
+      "scope": "same_zone"
+     }
+    ],
+    "tags": [
+     "virtual",
+     "shoring",
+     "utilities"
+    ]
+   },
+   {
+    "id": "GEN-SCAFFOLD-ERECT",
+    "name": "Erect access scaffold",
+    "phase": "structures",
+    "trade": "erection",
+    "discipline": "general",
+    "work_face": "any",
+    "quantity_basis": "area_m2",
+    "rate_per_crew_day": 80,
+    "unit_cost": 22,
+    "min_duration_days": 1,
+    "requires_crane": false,
+    "requires_access": true,
+    "laydown_cells": 1,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.5,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "none",
+    "predecessors": [
+     {
+      "step": "GEN-SURVEY-SETOUT",
+      "scope": "same_zone"
+     },
+     {
+      "step": "GEN-TW-CHECK",
+      "scope": "same_zone"
+     }
+    ],
+    "tags": [
+     "virtual",
+     "scaffold",
+     "high_risk",
+     "erection"
+    ]
+   },
+   {
+    "id": "GEN-SCAFFOLD-DISMANTLE",
+    "name": "Dismantle access scaffold",
+    "phase": "structures",
+    "trade": "erection",
+    "discipline": "general",
+    "work_face": "any",
+    "quantity_basis": "area_m2",
+    "rate_per_crew_day": 120,
+    "unit_cost": 6,
+    "min_duration_days": 1,
+    "requires_crane": false,
+    "requires_access": true,
+    "laydown_cells": 0,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.5,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "none",
+    "predecessors": [
+     {
+      "step": "GEN-SCAFFOLD-ERECT",
+      "scope": "same_zone"
+     }
+    ],
+    "tags": [
+     "virtual",
+     "scaffold",
+     "high_risk",
+     "erection"
+    ]
+   },
+   {
+    "id": "GEN-TW-CHECK",
+    "name": "Temporary works design check and permit to load",
+    "phase": "mobilise",
+    "trade": "qa",
+    "discipline": "structure",
+    "work_face": "any",
+    "quantity_basis": "count",
+    "rate_per_crew_day": 4,
+    "unit_cost": 600,
+    "min_duration_days": 1,
+    "requires_crane": false,
+    "requires_access": false,
+    "laydown_cells": 0,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.0,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "none",
+    "predecessors": [],
+    "tags": [
+     "virtual",
+     "paperwork",
+     "temporary_works",
+     "qa"
+    ]
+   },
+   {
+    "id": "GEN-LIFT-PLAN",
+    "name": "Prepare and approve lift plan",
+    "phase": "mobilise",
+    "trade": "qa",
+    "discipline": "general",
+    "work_face": "any",
+    "quantity_basis": "count",
+    "rate_per_crew_day": 2,
+    "unit_cost": 900,
+    "min_duration_days": 2,
+    "requires_crane": false,
+    "requires_access": false,
+    "laydown_cells": 0,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.0,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "none",
+    "predecessors": [],
+    "tags": [
+     "virtual",
+     "paperwork",
+     "lift_plan",
+     "qa"
+    ]
+   },
+   {
+    "id": "GEN-CRANE-MOBILISE",
+    "name": "Mobilise, assemble and load-test crane",
+    "phase": "mobilise",
+    "trade": "erection",
+    "discipline": "general",
+    "work_face": "any",
+    "quantity_basis": "count",
+    "rate_per_crew_day": 1,
+    "unit_cost": 6000,
+    "min_duration_days": 2,
+    "requires_crane": false,
+    "requires_access": true,
+    "laydown_cells": 3,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.6,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "none",
+    "predecessors": [
+     {
+      "step": "GEN-LIFT-PLAN",
+      "scope": "same_zone"
+     }
+    ],
+    "tags": [
+     "virtual",
+     "crane",
+     "high_risk",
+     "erection"
+    ]
+   },
+   {
+    "id": "GEN-PERMIT-WORK",
+    "name": "Permit to work",
+    "phase": "mobilise",
+    "trade": "qa",
+    "discipline": "general",
+    "work_face": "any",
+    "quantity_basis": "count",
+    "rate_per_crew_day": 8,
+    "unit_cost": 150,
+    "min_duration_days": 1,
+    "requires_crane": false,
+    "requires_access": false,
+    "laydown_cells": 0,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.0,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "none",
+    "predecessors": [],
+    "tags": [
+     "virtual",
+     "paperwork",
+     "permit",
+     "qa"
+    ]
+   },
+   {
+    "id": "GEN-PERMIT-HOT",
+    "name": "Hot work permit and fire watch",
+    "phase": "mobilise",
+    "trade": "qa",
+    "discipline": "general",
+    "work_face": "any",
+    "quantity_basis": "count",
+    "rate_per_crew_day": 8,
+    "unit_cost": 200,
+    "min_duration_days": 1,
+    "requires_crane": false,
+    "requires_access": false,
+    "laydown_cells": 0,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.0,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "none",
+    "predecessors": [],
+    "tags": [
+     "virtual",
+     "paperwork",
+     "permit",
+     "hot_work",
+     "qa"
+    ]
+   },
+   {
+    "id": "GEN-HYDROTEST",
+    "name": "System hydrotest or pressure test",
+    "phase": "drainage",
+    "trade": "utilities",
+    "discipline": "commissioning",
+    "work_face": "any",
+    "quantity_basis": "count",
+    "rate_per_crew_day": 2,
+    "unit_cost": 1200,
+    "min_duration_days": 1,
+    "requires_crane": false,
+    "requires_access": false,
+    "laydown_cells": 0,
+    "lead_time_weeks": 0,
+    "inspection": true,
+    "inspection_type": "pressure_test",
+    "risk": 0.3,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "finished",
+    "predecessors": [
+     {
+      "step": "CIV-DRAIN-INSTALL",
+      "scope": "same_system",
+      "required": true
+     },
+     {
+      "step": "CIV-UTIL-DIVERT",
+      "scope": "same_system"
+     }
+    ],
+    "tags": [
+     "virtual",
+     "test",
+     "hold_point",
+     "utilities"
+    ]
+   },
+   {
+    "id": "GEN-PRECOMM-CHECK",
+    "name": "Pre-commissioning checks",
+    "phase": "finishing",
+    "trade": "qa",
+    "discipline": "commissioning",
+    "work_face": "any",
+    "quantity_basis": "count",
+    "rate_per_crew_day": 6,
+    "unit_cost": 450,
+    "min_duration_days": 1,
+    "requires_crane": false,
+    "requires_access": false,
+    "laydown_cells": 0,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.05,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "finished",
+    "predecessors": [
+     {
+      "step": "CIV-CABLE-PULL",
+      "scope": "same_zone"
+     },
+     {
+      "step": "CIV-LIGHT-INSTALL",
+      "scope": "same_zone"
+     }
+    ],
+    "tags": [
+     "virtual",
+     "test",
+     "qa"
+    ]
+   },
+   {
+    "id": "GEN-CURING-WATCH",
+    "name": "Concrete curing watch (time driven)",
+    "phase": "structures",
+    "trade": "concrete",
+    "discipline": "structure",
+    "work_face": "any",
+    "quantity_basis": "count",
+    "rate_per_crew_day": 1,
+    "unit_cost": 120,
+    "min_duration_days": 3,
+    "requires_crane": false,
+    "requires_access": false,
+    "laydown_cells": 0,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.0,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "none",
+    "predecessors": [
+     {
+      "step": "STR-DECK-POUR",
+      "scope": "same_zone"
+     },
+     {
+      "step": "STR-CAP-POUR",
+      "scope": "same_zone"
+     },
+     {
+      "step": "STR-PIER-POUR",
+      "scope": "same_zone"
+     }
+    ],
+    "tags": [
+     "virtual",
+     "curing",
+     "concrete"
+    ]
+   },
+   {
+    "id": "GEN-ANCHOR-SURVEY",
+    "name": "Anchor bolt and grout survey",
+    "phase": "structures",
+    "trade": "qa",
+    "discipline": "general",
+    "work_face": "any",
+    "quantity_basis": "count",
+    "rate_per_crew_day": 6,
+    "unit_cost": 250,
+    "min_duration_days": 1,
+    "requires_crane": false,
+    "requires_access": true,
+    "laydown_cells": 0,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.05,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "none",
+    "predecessors": [
+     {
+      "step": "STR-PIER-POUR",
+      "scope": "same_zone"
+     },
+     {
+      "step": "STR-ABUT-POUR",
+      "scope": "same_zone"
+     }
+    ],
+    "tags": [
+     "virtual",
+     "survey",
+     "anchor",
+     "qa"
+    ]
+   },
+   {
+    "id": "GEN-VENDOR-REP",
+    "name": "Vendor representative attendance (time driven)",
+    "phase": "structures",
+    "trade": "qa",
+    "discipline": "general",
+    "work_face": "any",
+    "quantity_basis": "count",
+    "rate_per_crew_day": 1,
+    "unit_cost": 1200,
+    "min_duration_days": 1,
+    "requires_crane": false,
+    "requires_access": true,
+    "laydown_cells": 0,
+    "lead_time_weeks": 0,
+    "inspection": false,
+    "inspection_type": null,
+    "risk": 0.0,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false,
+    "progress_visual": "none",
+    "predecessors": [
+     {
+      "step": "GEN-ANCHOR-SURVEY",
+      "scope": "same_zone"
+     }
+    ],
+    "tags": [
+     "virtual",
+     "vendor",
+     "qa"
+    ]
    }
   ],
   "gates": [
@@ -18888,7 +19645,7 @@
     "trade",
     "work_face"
    ],
-   "target_duration_days": 5,
+   "target_duration_days": 10,
    "max_crew_days_per_package": 60,
    "max_over_ideal": 1,
    "over_ideal_factor": 0.6
@@ -18994,6 +19751,15 @@
       "takt_weeks": 1
      },
      {
+      "name": "Anchor survey",
+      "select": {
+       "phase": "structures",
+       "trade": "qa",
+       "work_face": "any"
+      },
+      "takt_weeks": 1
+     },
+     {
       "name": "Bearings and beams",
       "select": {
        "phase": "structures",
@@ -19017,6 +19783,14 @@
        "phase": "structures",
        "work_face": "roof",
        "trade": "erection"
+      },
+      "takt_weeks": 1
+     },
+     {
+      "name": "Curing, scaffold and close-out",
+      "select": {
+       "phase": "structures",
+       "work_face": "any"
       },
       "takt_weeks": 1
      },
@@ -19236,8 +20010,7 @@
     ],
     "auto_staff": "ideal"
    }
-  ],
-  "labour_utilisation": 0.4
+  ]
  },
  "tasks": [
   {
@@ -161003,8 +161776,8 @@
    "total_crew_days": 10.333,
    "crew_profile": {
     "min": 2,
-    "ideal": 3,
-    "max": 4
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 11,
    "planned_finish_day": 23,
@@ -161051,8 +161824,8 @@
    "total_crew_days": 14.263,
    "crew_profile": {
     "min": 2,
-    "ideal": 3,
-    "max": 4
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 47,
    "planned_finish_day": 76,
@@ -161079,8 +161852,8 @@
    "total_crew_days": 10.64,
    "crew_profile": {
     "min": 2,
-    "ideal": 3,
-    "max": 4
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 23,
    "planned_finish_day": 38,
@@ -162787,8 +163560,8 @@
    "total_crew_days": 10.697,
    "crew_profile": {
     "min": 2,
-    "ideal": 3,
-    "max": 4
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 49,
    "planned_finish_day": 76,
@@ -162815,8 +163588,8 @@
    "total_crew_days": 10.64,
    "crew_profile": {
     "min": 2,
-    "ideal": 3,
-    "max": 4
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 26,
    "planned_finish_day": 41,
@@ -163235,8 +164008,8 @@
    "total_crew_days": 14.263,
    "crew_profile": {
     "min": 2,
-    "ideal": 3,
-    "max": 4
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 50,
    "planned_finish_day": 77,
@@ -163263,8 +164036,8 @@
    "total_crew_days": 10.64,
    "crew_profile": {
     "min": 2,
-    "ideal": 3,
-    "max": 4
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 29,
    "planned_finish_day": 44,
@@ -165337,8 +166110,8 @@
    "total_crew_days": 10.333,
    "crew_profile": {
     "min": 2,
-    "ideal": 3,
-    "max": 4
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 11,
    "planned_finish_day": 23,
@@ -165379,8 +166152,8 @@
    "total_crew_days": 10.697,
    "crew_profile": {
     "min": 2,
-    "ideal": 3,
-    "max": 4
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 52,
    "planned_finish_day": 77,
@@ -165407,8 +166180,8 @@
    "total_crew_days": 10.64,
    "crew_profile": {
     "min": 2,
-    "ideal": 3,
-    "max": 4
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 32,
    "planned_finish_day": 47,
@@ -165709,7 +166482,7 @@
   "finish_day": 97,
   "finish_week": 20,
   "total_cost": 1966047.4,
-  "total_labour_cost": 1170771.55,
+  "total_labour_cost": 720474.8,
   "total_crew_days": 243.79,
   "critical_task_ids": [
    "T000319",
@@ -166193,27 +166966,27 @@
    "T001588"
   ],
   "weekly_planned_cost": [
-   320141.8,
-   439077.2,
-   873704.45,
-   939910.94,
-   1008694.65,
-   1152841.5,
-   1364862.43,
-   1591509.28,
-   1735656.13,
-   1991720.05,
-   2072141.8,
-   2141147.05,
-   2214665.05,
-   2309939.05,
-   2472582.48,
-   2876797.85,
-   3013305.95,
-   3065561.45,
-   3117816.95,
-   3136818.95,
-   3136818.95
+   271122.88,
+   371498.05,
+   746469.58,
+   795870.24,
+   847613.66,
+   970128.51,
+   1159682.8,
+   1362197.66,
+   1484712.51,
+   1716905.95,
+   1779896.26,
+   1834684.11,
+   1892872.11,
+   1969848.42,
+   2103452.06,
+   2465223.83,
+   2588014.2,
+   2629690.66,
+   2671367.12,
+   2686522.2,
+   2686522.2
   ]
  },
  "scenario": {
@@ -166225,10 +166998,10 @@
   "difficulty": "standard",
   "contract_weeks": 22,
   "contract_factor": 1.1,
-  "budget": 3787709,
+  "budget": 3243976,
   "budget_factor": 1.15,
-  "start_cash": 1254728,
-  "overdraft_limit": 627364,
+  "start_cash": 1074609,
+  "overdraft_limit": 537304,
   "progress_payment_every_weeks": 4,
   "retention_pct": 5,
   "weather": {
@@ -167114,5 +167887,1225 @@
   "gantt_visible_default": true
  },
  "generated_at": "2026-10-02T00:00:00Z",
- "generator": "bimseq 0.1.0 [fractional crews]"
+ "generator": "bimseq 0.1.0 [fractional crews]",
+ "recipes": [
+  {
+   "schema_version": "1.0",
+   "id": "rec_bridge_deck",
+   "name": "Bridge beams, deck and parapets",
+   "summary": "Close the road for the night lift, plan and mobilise the crane, lift beams, build the deck, cure, waterproof, fit parapets and survey.",
+   "sector": "civil",
+   "tags": [
+    "bridge",
+    "heavy_lift",
+    "night_work",
+    "traffic"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcBeam",
+     "IfcSlab",
+     "IfcRailing"
+    ],
+    "properties": {
+     "BridgePart": "deck"
+    },
+    "keywords": [
+     "bridge deck",
+     "bridge beam",
+     "girder",
+     "parapet"
+    ]
+   },
+   "prerequisites": {
+    "equipment": [
+     "crawler_crane",
+     "concrete_pump"
+    ],
+    "site": [
+     "access_road",
+     "laydown>=3",
+     "crane_reach"
+    ],
+    "permits": [
+     "road_closure",
+     "work_at_height"
+    ],
+    "information": [
+     "lift plan",
+     "traffic management plan",
+     "deck pour plan"
+    ]
+   },
+   "steps": [
+    {
+     "ref": "GEN-PERMIT-WORK",
+     "virtual": true,
+     "marker": "permit",
+     "note": "Night possession and road closure permit"
+    },
+    {
+     "ref": "GEN-LIFT-PLAN",
+     "virtual": true,
+     "marker": "lift_plan",
+     "note": "Beam lift plan with crane positions and exclusion zone"
+    },
+    {
+     "ref": "GEN-CRANE-MOBILISE",
+     "virtual": true,
+     "marker": "crane"
+    },
+    {
+     "ref": "CIV-TM-STAGE1",
+     "note": "Road closure for the lift"
+    },
+    {
+     "ref": "STR-BEAM-LIFT",
+     "hold_point": "structural",
+     "note": "Beams lifted onto bearings at night"
+    },
+    {
+     "ref": "GEN-SCAFFOLD-ERECT",
+     "virtual": true,
+     "marker": "scaffold",
+     "note": "Edge protection and soffit access"
+    },
+    {
+     "ref": "STR-DECK-REBAR"
+    },
+    {
+     "ref": "STR-DECK-POUR",
+     "hold_point": "structural"
+    },
+    {
+     "ref": "GEN-CURING-WATCH",
+     "virtual": true,
+     "marker": "test",
+     "duration_days": 7
+    },
+    {
+     "ref": "STR-DECK-WATERPROOF"
+    },
+    {
+     "ref": "STR-PARAPET-INSTALL"
+    },
+    {
+     "ref": "GEN-SURVEY-ASBUILT",
+     "virtual": true,
+     "marker": "survey",
+     "note": "Deck levels and camber before surfacing"
+    },
+    {
+     "ref": "GEN-SCAFFOLD-DISMANTLE",
+     "virtual": true,
+     "marker": "scaffold"
+    }
+   ],
+   "logic": [
+    {
+     "after": "STR-BEAM-LIFT",
+     "before": "STR-DECK-REBAR",
+     "reason": "Deck forms bear on the beams"
+    },
+    {
+     "after": "STR-DECK-POUR",
+     "before": "STR-DECK-WATERPROOF",
+     "lag_days": 7,
+     "reason": "Cure before waterproofing"
+    }
+   ],
+   "checks": [
+    "Possession confirmed before mobilising the crane",
+    "Lift plan reviewed with the crane supplier",
+    "Cube results before waterproofing",
+    "Level survey before surfacing"
+   ],
+   "references": [
+    "Bridge construction guidance (bearings, precast beams, decks, parapets)",
+    "National lifting operations guidance (lift planning and appointed person duties)",
+    "Temporary traffic management guidance for road works (signs, lighting and guarding)"
+   ],
+   "typical_duration_weeks": [
+    6,
+    14
+   ]
+  },
+  {
+   "schema_version": "1.0",
+   "id": "rec_bridge_pier",
+   "name": "Bridge pier on piled foundation",
+   "summary": "Set out, drive piles, cast cap, build the pier with scaffold and curing watch, survey the bearing seat and set bearings.",
+   "sector": "civil",
+   "tags": [
+    "bridge",
+    "pier",
+    "piling",
+    "long_lead"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcColumn",
+     "IfcPile",
+     "IfcFooting",
+     "IfcDeepFoundation"
+    ],
+    "properties": {
+     "BridgePart": "pier"
+    },
+    "visual_kit": [
+     "bridge_pier"
+    ],
+    "keywords": [
+     "bridge pier",
+     "pier",
+     "pile cap",
+     "abutment"
+    ]
+   },
+   "prerequisites": {
+    "equipment": [
+     "piling_rig",
+     "mobile_crane",
+     "concrete_pump"
+    ],
+    "site": [
+     "access_road",
+     "laydown>=3",
+     "crane_reach"
+    ],
+    "permits": [
+     "work",
+     "work_at_height"
+    ],
+    "information": [
+     "pile schedule",
+     "pier formwork design",
+     "bearing schedule"
+    ]
+   },
+   "steps": [
+    {
+     "ref": "GEN-SURVEY-SETOUT",
+     "virtual": true,
+     "marker": "survey"
+    },
+    {
+     "ref": "GEN-DEWATER-INSTALL",
+     "virtual": true,
+     "marker": "dewatering",
+     "optional": true
+    },
+    {
+     "ref": "CIV-PILE-DRIVE",
+     "hold_point": "geotechnical"
+    },
+    {
+     "ref": "GEN-SURVEY-ASBUILT",
+     "virtual": true,
+     "marker": "survey",
+     "key": "pile_survey"
+    },
+    {
+     "ref": "STR-CAP-REBAR",
+     "from_element": "foundation"
+    },
+    {
+     "ref": "STR-CAP-POUR",
+     "hold_point": "structural",
+     "from_element": "foundation"
+    },
+    {
+     "ref": "GEN-CURING-WATCH",
+     "virtual": true,
+     "marker": "test",
+     "key": "cap_cure",
+     "duration_days": 7
+    },
+    {
+     "ref": "GEN-SCAFFOLD-ERECT",
+     "virtual": true,
+     "marker": "scaffold"
+    },
+    {
+     "ref": "STR-PIER-POUR",
+     "hold_point": "structural"
+    },
+    {
+     "ref": "GEN-CURING-WATCH",
+     "virtual": true,
+     "marker": "test",
+     "key": "pier_cure",
+     "duration_days": 7
+    },
+    {
+     "ref": "GEN-ANCHOR-SURVEY",
+     "virtual": true,
+     "marker": "survey",
+     "note": "Bearing seat levels and plan position"
+    },
+    {
+     "ref": "STR-BEARING-SET",
+     "hold_point": "structural",
+     "note": "10 week lead item"
+    },
+    {
+     "ref": "GEN-SCAFFOLD-DISMANTLE",
+     "virtual": true,
+     "marker": "scaffold"
+    }
+   ],
+   "logic": [
+    {
+     "after": "STR-CAP-POUR",
+     "before": "STR-PIER-POUR",
+     "lag_days": 7,
+     "reason": "Cap strength before pier load"
+    }
+   ],
+   "checks": [
+    "Pile integrity tests before cap reinforcement",
+    "Formwork design check before the pier pour",
+    "Bearing seat survey before bearings arrive",
+    "Concrete cube results before beams land"
+   ],
+   "references": [
+    "Bridge construction guidance (bearings, precast beams, decks, parapets)",
+    "Concrete construction guidance (formwork, placing, curing, hot and cold weather concreting)",
+    "Temporary works procedure guidance (design check, permit to load, permit to dismantle)"
+   ],
+   "typical_duration_weeks": [
+    8,
+    18
+   ]
+  },
+  {
+   "schema_version": "1.0",
+   "id": "rec_culvert",
+   "name": "Precast culvert crossing",
+   "summary": "Set out, dewater, shore and excavate the trench, lift culvert units, build headwalls and backfill, then survey.",
+   "sector": "civil",
+   "tags": [
+    "culvert",
+    "precast",
+    "watercourse"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcBuildingElementProxy",
+     "IfcWall"
+    ],
+    "name_regex": "(?i)(culvert|box.?section|headwall)",
+    "properties": {
+     "Culvert": true
+    },
+    "visual_kit": [
+     "culvert"
+    ],
+    "keywords": [
+     "culvert",
+     "box culvert",
+     "headwall"
+    ]
+   },
+   "prerequisites": {
+    "equipment": [
+     "excavator",
+     "mobile_crane"
+    ],
+    "site": [
+     "access_road",
+     "laydown>=3",
+     "crane_reach"
+    ],
+    "permits": [
+     "work",
+     "watercourse_consent"
+    ],
+    "information": [
+     "culvert unit drawings",
+     "lift plan",
+     "diversion plan for the watercourse"
+    ]
+   },
+   "steps": [
+    {
+     "ref": "GEN-SURVEY-SETOUT",
+     "virtual": true,
+     "marker": "survey"
+    },
+    {
+     "ref": "GEN-UTIL-LOCATE",
+     "virtual": true,
+     "marker": "survey"
+    },
+    {
+     "ref": "GEN-DEWATER-INSTALL",
+     "virtual": true,
+     "marker": "dewatering"
+    },
+    {
+     "ref": "GEN-SHORING-INSTALL",
+     "virtual": true,
+     "marker": "shoring"
+    },
+    {
+     "ref": "CIV-TRENCH-DIG"
+    },
+    {
+     "ref": "GEN-DEWATER-RUN",
+     "virtual": true,
+     "marker": "dewatering",
+     "duration_days": 10,
+     "parallel_with": "CIV-TRENCH-DIG"
+    },
+    {
+     "ref": "GEN-LIFT-PLAN",
+     "virtual": true,
+     "marker": "lift_plan"
+    },
+    {
+     "ref": "CIV-CULVERT-SET",
+     "hold_point": "structural",
+     "note": "Unit joints sealed and checked"
+    },
+    {
+     "ref": "STR-WALL-POUR",
+     "note": "Headwalls and wing walls"
+    },
+    {
+     "ref": "GEN-CURING-WATCH",
+     "virtual": true,
+     "marker": "test",
+     "duration_days": 7
+    },
+    {
+     "ref": "CIV-STRUCT-BACKFILL",
+     "note": "Backfill symmetrically in layers"
+    },
+    {
+     "ref": "GEN-SHORING-REMOVE",
+     "virtual": true,
+     "marker": "shoring"
+    },
+    {
+     "ref": "GEN-SURVEY-ASBUILT",
+     "virtual": true,
+     "marker": "survey"
+    }
+   ],
+   "logic": [
+    {
+     "after": "STR-WALL-POUR",
+     "before": "CIV-STRUCT-BACKFILL",
+     "lag_days": 7,
+     "reason": "Wall strength before backfill loading"
+    }
+   ],
+   "checks": [
+    "Watercourse consent and flow diversion in place",
+    "Joint seals checked before backfill",
+    "Symmetric backfill and compaction"
+   ],
+   "references": [
+    "Highway drainage construction guidance (pipe bedding, testing, backfill)",
+    "Excavation safety guidance (shoring, access, services avoidance, hazard of buried services)",
+    "National lifting operations guidance (lift planning and appointed person duties)"
+   ],
+   "typical_duration_weeks": [
+    3,
+    8
+   ]
+  },
+  {
+   "schema_version": "1.0",
+   "id": "rec_drainage_run",
+   "name": "Drainage run with chambers",
+   "summary": "Set out, locate services, set traffic management, shore and dig the trench, lay pipe and chambers, test and backfill.",
+   "sector": "civil",
+   "tags": [
+    "drainage",
+    "excavation"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcPipeSegment",
+     "IfcDistributionChamberElement"
+    ],
+    "name_regex": "(?i)(storm|drain|sewer|culvert|gully|manhole)",
+    "predefined_type": [
+     "CULVERT"
+    ],
+    "keywords": [
+     "drainage",
+     "storm drain",
+     "manhole"
+    ]
+   },
+   "prerequisites": {
+    "equipment": [
+     "excavator"
+    ],
+    "site": [
+     "access_road",
+     "laydown>=2"
+    ],
+    "permits": [
+     "work"
+    ],
+    "information": [
+     "drainage drawings",
+     "service drawings"
+    ]
+   },
+   "steps": [
+    {
+     "ref": "GEN-SURVEY-SETOUT",
+     "virtual": true,
+     "marker": "survey"
+    },
+    {
+     "ref": "GEN-UTIL-LOCATE",
+     "virtual": true,
+     "marker": "survey"
+    },
+    {
+     "ref": "CIV-TM-STAGE1",
+     "optional": true
+    },
+    {
+     "ref": "GEN-SHORING-INSTALL",
+     "virtual": true,
+     "marker": "shoring"
+    },
+    {
+     "ref": "GEN-DEWATER-INSTALL",
+     "virtual": true,
+     "marker": "dewatering",
+     "optional": true
+    },
+    {
+     "ref": "CIV-TRENCH-DIG",
+     "from_element": "system"
+    },
+    {
+     "ref": "CIV-DRAIN-INSTALL",
+     "from_element": "system",
+     "note": "Bedding and laying to level"
+    },
+    {
+     "ref": "CIV-CHAMBER-SET",
+     "from_element": "system"
+    },
+    {
+     "ref": "CIV-DRAIN-TEST",
+     "hold_point": "plumbing",
+     "from_element": "system",
+     "note": "Air or water test and CCTV"
+    },
+    {
+     "ref": "CIV-DRAIN-BACKFILL",
+     "from_element": "system"
+    },
+    {
+     "ref": "GEN-SHORING-REMOVE",
+     "virtual": true,
+     "marker": "shoring"
+    },
+    {
+     "ref": "GEN-SURVEY-ASBUILT",
+     "virtual": true,
+     "marker": "survey",
+     "note": "Invert levels and chamber positions"
+    }
+   ],
+   "logic": [
+    {
+     "after": "CIV-DRAIN-TEST",
+     "before": "CIV-DRAIN-BACKFILL",
+     "reason": "Backfill only after the test"
+    }
+   ],
+   "checks": [
+    "Pipe bedding and levels checked before backfill",
+    "Test results before backfill",
+    "Chamber covers set to final level later"
+   ],
+   "references": [
+    "Highway drainage construction guidance (pipe bedding, testing, backfill)",
+    "Excavation safety guidance (shoring, access, services avoidance, hazard of buried services)"
+   ],
+   "typical_duration_weeks": [
+    3,
+    12
+   ]
+  },
+  {
+   "schema_version": "1.0",
+   "id": "rec_earthworks_cut_fill",
+   "name": "Earthworks cut and fill",
+   "summary": "Set out, clear, cut and place fill with testing; compaction and formation tests are hold points and the as-built survey closes the zone.",
+   "sector": "civil",
+   "tags": [
+    "earthworks",
+    "balance"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcEarthworksCut",
+     "IfcEarthworksFill"
+    ],
+    "keywords": [
+     "earthworks",
+     "cut",
+     "fill",
+     "embankment"
+    ]
+   },
+   "prerequisites": {
+    "equipment": [
+     "excavator"
+    ],
+    "site": [
+     "access_road",
+     "laydown>=2"
+    ],
+    "permits": [],
+    "information": [
+     "earthworks balance",
+     "geotechnical report"
+    ]
+   },
+   "steps": [
+    {
+     "ref": "GEN-SURVEY-SETOUT",
+     "virtual": true,
+     "marker": "survey"
+    },
+    {
+     "ref": "GEN-UTIL-LOCATE",
+     "virtual": true,
+     "marker": "survey"
+    },
+    {
+     "ref": "GEN-SITE-CLEAR",
+     "note": "Clear and grub"
+    },
+    {
+     "ref": "CIV-EARTH-CUT",
+     "note": "Cut to formation; suitable material hauled to fill"
+    },
+    {
+     "ref": "CIV-EARTH-FILL",
+     "note": "Place in layers; starts once cutting is under way",
+     "parallel_with": "CIV-EARTH-CUT",
+     "lag_days": 5
+    },
+    {
+     "ref": "CIV-COMPACT-TEST",
+     "hold_point": "geotechnical"
+    },
+    {
+     "ref": "GEN-SURVEY-ASBUILT",
+     "virtual": true,
+     "marker": "survey",
+     "note": "Formation levels"
+    }
+   ],
+   "logic": [
+    {
+     "after": "CIV-EARTH-CUT",
+     "before": "CIV-EARTH-FILL",
+     "type": "SS",
+     "lag_days": 5,
+     "reason": "Fill depends on cut material"
+    },
+    {
+     "after": "CIV-EARTH-FILL",
+     "before": "CIV-COMPACT-TEST",
+     "reason": "Test after placement"
+    }
+   ],
+   "checks": [
+    "Material acceptability tested before reuse as fill",
+    "Layer thickness and compaction tests",
+    "Formation inspected before drainage or pavement"
+   ],
+   "references": [
+    "Specification for highway works style earthworks guidance (compaction, acceptability, testing)"
+   ],
+   "typical_duration_weeks": [
+    6,
+    20
+   ]
+  },
+  {
+   "schema_version": "1.0",
+   "id": "rec_kerb_and_signage",
+   "name": "Kerbs, signs and roadside furniture",
+   "summary": "Set out, lay kerbs, install guardrail and signs, light and cable where required, apply markings, then pre-commission and close out defects.",
+   "sector": "civil",
+   "tags": [
+    "finishing",
+    "signs",
+    "kerb"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcKerb",
+     "IfcSign",
+     "IfcRailing"
+    ],
+    "keywords": [
+     "kerb",
+     "sign",
+     "guardrail",
+     "road furniture",
+     "markings"
+    ]
+   },
+   "prerequisites": {
+    "equipment": [
+     "lift"
+    ],
+    "site": [
+     "access_road"
+    ],
+    "permits": [
+     "work"
+    ],
+    "information": [
+     "signing schedule",
+     "marking plan"
+    ]
+   },
+   "steps": [
+    {
+     "ref": "GEN-SURVEY-SETOUT",
+     "virtual": true,
+     "marker": "survey"
+    },
+    {
+     "ref": "GEN-UTIL-LOCATE",
+     "virtual": true,
+     "marker": "survey",
+     "optional": true
+    },
+    {
+     "ref": "CIV-KERB-LAY"
+    },
+    {
+     "ref": "CIV-GUARDRAIL-INSTALL"
+    },
+    {
+     "ref": "CIV-SIGN-INSTALL"
+    },
+    {
+     "ref": "CIV-LIGHT-INSTALL",
+     "optional": true
+    },
+    {
+     "ref": "CIV-CABLE-PULL",
+     "optional": true
+    },
+    {
+     "ref": "CIV-MARKING-APPLY"
+    },
+    {
+     "ref": "GEN-PRECOMM-CHECK",
+     "virtual": true,
+     "marker": "test",
+     "note": "Lighting, sign visibility and marking retro-reflectivity"
+    },
+    {
+     "ref": "GEN-SURVEY-ASBUILT",
+     "virtual": true,
+     "marker": "survey"
+    },
+    {
+     "ref": "GEN-PUNCH-CLEAR",
+     "virtual": true,
+     "marker": "test"
+    }
+   ],
+   "logic": [
+    {
+     "after": "CIV-KERB-LAY",
+     "before": "CIV-MARKING-APPLY",
+     "reason": "Kerbs and channels fixed before lines are painted"
+    }
+   ],
+   "checks": [
+    "Sign positions checked against sight lines",
+    "Marking after final surfacing",
+    "Lighting test and electrical certificate"
+   ],
+   "references": [
+    "Temporary traffic management guidance for road works (signs, lighting and guarding)",
+    "Road signing and marking guidance"
+   ],
+   "typical_duration_weeks": [
+    2,
+    8
+   ]
+  },
+  {
+   "schema_version": "1.0",
+   "id": "rec_pavement_build",
+   "name": "Pavement build-up",
+   "summary": "Prepare and test subgrade, lay subbase and base, kerb, place asphalt layers and mark; surveys and pavement inspections are hold points.",
+   "sector": "civil",
+   "tags": [
+    "pavement",
+    "asphalt",
+    "weather"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcPavement",
+     "IfcCourse"
+    ],
+    "name_regex": "(?i)(pavement|course|sub.?base|asphalt|wear)",
+    "keywords": [
+     "pavement",
+     "asphalt",
+     "road base"
+    ]
+   },
+   "prerequisites": {
+    "equipment": [
+     "paver"
+    ],
+    "site": [
+     "access_road",
+     "laydown>=2"
+    ],
+    "permits": [],
+    "information": [
+     "pavement design",
+     "mix design approvals"
+    ]
+   },
+   "steps": [
+    {
+     "ref": "GEN-SURVEY-SETOUT",
+     "virtual": true,
+     "marker": "survey"
+    },
+    {
+     "ref": "CIV-SUBGRADE-PREP",
+     "hold_point": "geotechnical"
+    },
+    {
+     "ref": "CIV-SUBBASE-LAY"
+    },
+    {
+     "ref": "CIV-BASE-LAY",
+     "hold_point": "pavement"
+    },
+    {
+     "ref": "CIV-KERB-LAY",
+     "optional": true
+    },
+    {
+     "ref": "CIV-ASPHALT-BASE",
+     "note": "Needs a paver and a paving train of three crews"
+    },
+    {
+     "ref": "CIV-ASPHALT-WEAR",
+     "hold_point": "pavement",
+     "note": "Temperature and rain sensitive"
+    },
+    {
+     "ref": "CIV-MARKING-APPLY"
+    },
+    {
+     "ref": "GEN-SURVEY-ASBUILT",
+     "virtual": true,
+     "marker": "survey",
+     "note": "Final levels, thickness cores and ride quality"
+    }
+   ],
+   "logic": [
+    {
+     "after": "CIV-KERB-LAY",
+     "before": "CIV-ASPHALT-BASE",
+     "reason": "Kerbs set before binder layers"
+    }
+   ],
+   "checks": [
+    "Drainage tested and backfilled before subgrade",
+    "Compaction tests on each granular layer",
+    "Asphalt temperature and density records",
+    "Ride and levels survey"
+   ],
+   "references": [
+    "Road pavement construction guidance (layer thickness, compaction, asphalt temperature and rolling)"
+   ],
+   "typical_duration_weeks": [
+    6,
+    20
+   ]
+  },
+  {
+   "schema_version": "1.0",
+   "id": "rec_retaining_wall",
+   "name": "Retaining wall with temporary works",
+   "summary": "Check the temporary works, shore and excavate, pour footing and wall, cure, backfill in layers and recover the shoring.",
+   "sector": "civil",
+   "tags": [
+    "retaining_wall",
+    "temporary_works"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcWall",
+     "IfcWallStandardCase"
+    ],
+    "predefined_type": [
+     "RETAININGWALL"
+    ],
+    "name_regex": "(?i)(retain|noise|wing)",
+    "keywords": [
+     "retaining wall",
+     "noise wall",
+     "wing wall"
+    ]
+   },
+   "prerequisites": {
+    "equipment": [
+     "excavator",
+     "concrete_pump"
+    ],
+    "site": [
+     "access_road",
+     "laydown>=2"
+    ],
+    "permits": [
+     "work"
+    ],
+    "information": [
+     "wall design",
+     "temporary works design"
+    ]
+   },
+   "steps": [
+    {
+     "ref": "GEN-SURVEY-SETOUT",
+     "virtual": true,
+     "marker": "survey"
+    },
+    {
+     "ref": "GEN-UTIL-LOCATE",
+     "virtual": true,
+     "marker": "survey"
+    },
+    {
+     "ref": "GEN-TW-CHECK",
+     "virtual": true,
+     "marker": "permit",
+     "note": "Excavation support and surcharge design"
+    },
+    {
+     "ref": "GEN-SHORING-INSTALL",
+     "virtual": true,
+     "marker": "shoring"
+    },
+    {
+     "ref": "CIV-EARTH-CUT",
+     "from_element": "foundation"
+    },
+    {
+     "ref": "STR-FOOT-REBAR",
+     "from_element": "foundation"
+    },
+    {
+     "ref": "STR-FOOT-POUR",
+     "hold_point": "structural",
+     "from_element": "foundation"
+    },
+    {
+     "ref": "STR-WALL-POUR",
+     "hold_point": "structural"
+    },
+    {
+     "ref": "GEN-CURING-WATCH",
+     "virtual": true,
+     "marker": "test",
+     "duration_days": 7
+    },
+    {
+     "ref": "CIV-STRUCT-BACKFILL",
+     "note": "Free-draining fill in layers with drainage behind the wall"
+    },
+    {
+     "ref": "GEN-SHORING-REMOVE",
+     "virtual": true,
+     "marker": "shoring"
+    },
+    {
+     "ref": "GEN-SURVEY-ASBUILT",
+     "virtual": true,
+     "marker": "survey"
+    }
+   ],
+   "logic": [
+    {
+     "after": "STR-WALL-POUR",
+     "before": "CIV-STRUCT-BACKFILL",
+     "lag_days": 7,
+     "reason": "Wall strength and drainage before backfill"
+    }
+   ],
+   "checks": [
+    "Temporary works design check",
+    "Wall strength before backfill",
+    "Drainage layer and weep holes installed"
+   ],
+   "references": [
+    "Temporary works procedure guidance (design check, permit to load, permit to dismantle)",
+    "Excavation safety guidance (shoring, access, services avoidance, hazard of buried services)",
+    "Concrete construction guidance (formwork, placing, curing, hot and cold weather concreting)"
+   ],
+   "typical_duration_weeks": [
+    4,
+    10
+   ]
+  },
+  {
+   "schema_version": "1.0",
+   "id": "rec_traffic_stage_switch",
+   "name": "Traffic stage switch",
+   "summary": "Agree the permit, survey the new alignment, set up stage 1 and then the switch to stage 2 with signing and checks.",
+   "sector": "civil",
+   "tags": [
+    "traffic",
+    "live_traffic",
+    "permit"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcSign"
+    ],
+    "properties": {
+     "Temporary": true
+    },
+    "zone_tags_any": [
+     "live_traffic"
+    ],
+    "keywords": [
+     "traffic stage",
+     "traffic switch",
+     "lane closure",
+     "road closure"
+    ]
+   },
+   "prerequisites": {
+    "equipment": [],
+    "site": [
+     "access_road"
+    ],
+    "permits": [
+     "road_authority"
+    ],
+    "information": [
+     "traffic management plan",
+     "signing schedule"
+    ]
+   },
+   "steps": [
+    {
+     "ref": "GEN-PERMIT-WORK",
+     "virtual": true,
+     "marker": "permit",
+     "note": "Road authority approval of the traffic management plan"
+    },
+    {
+     "ref": "GEN-SURVEY-SETOUT",
+     "virtual": true,
+     "marker": "survey",
+     "note": "Mark taper, cone and sign positions"
+    },
+    {
+     "ref": "CIV-TM-STAGE1",
+     "note": "Initial closure and works zone"
+    },
+    {
+     "ref": "GEN-PRECOMM-CHECK",
+     "virtual": true,
+     "marker": "test",
+     "key": "stage1_check",
+     "note": "Night-time inspection of signing, lighting and taper"
+    },
+    {
+     "ref": "CIV-TM-STAGE2",
+     "note": "Switch traffic to the completed carriageway"
+    },
+    {
+     "ref": "GEN-PRECOMM-CHECK",
+     "virtual": true,
+     "marker": "test",
+     "key": "stage2_check",
+     "note": "Post-switch drive-through and review with the road authority"
+    },
+    {
+     "ref": "GEN-SURVEY-ASBUILT",
+     "virtual": true,
+     "marker": "survey",
+     "note": "Record as-implemented layout"
+    }
+   ],
+   "logic": [
+    {
+     "after": "stage1_check",
+     "before": "CIV-TM-STAGE2",
+     "reason": "Switch only after stage 1 is stable"
+    },
+    {
+     "after": "CIV-TM-STAGE1",
+     "before": "CIV-TM-STAGE2",
+     "lag_days": 5,
+     "reason": "Allow a week of observation"
+    }
+   ],
+   "checks": [
+    "Drive-through of every stage before opening",
+    "Emergency access maintained",
+    "Public information issued before the switch"
+   ],
+   "references": [
+    "Temporary traffic management guidance for road works (signs, lighting and guarding)"
+   ],
+   "typical_duration_weeks": [
+    1,
+    4
+   ]
+  },
+  {
+   "schema_version": "1.0",
+   "id": "rec_utility_diversion",
+   "name": "Utility diversion ahead of earthworks",
+   "summary": "Locate the service, get the owner permit, set up traffic management, shore the trench, divert the service, prove it and reinstate with as-builts.",
+   "sector": "civil",
+   "tags": [
+    "utilities",
+    "traffic",
+    "permit"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcPipeSegment",
+     "IfcCableCarrierSegment"
+    ],
+    "properties": {
+     "Diverted": true
+    },
+    "name_regex": "(?i)(water|gas|telecom|power|utility|divert|main)",
+    "zone_tags_any": [
+     "live_traffic"
+    ],
+    "keywords": [
+     "utility",
+     "diversion",
+     "service protection"
+    ]
+   },
+   "prerequisites": {
+    "equipment": [
+     "excavator"
+    ],
+    "site": [
+     "access_road"
+    ],
+    "permits": [
+     "utility_owner",
+     "work"
+    ],
+    "information": [
+     "utility drawings",
+     "owner method statement"
+    ]
+   },
+   "steps": [
+    {
+     "ref": "GEN-SURVEY-SETOUT",
+     "virtual": true,
+     "marker": "survey"
+    },
+    {
+     "ref": "GEN-UTIL-LOCATE",
+     "virtual": true,
+     "marker": "survey",
+     "note": "Trial holes at crossings"
+    },
+    {
+     "ref": "GEN-PERMIT-WORK",
+     "virtual": true,
+     "marker": "permit",
+     "note": "Utility owner permit and standby supervision"
+    },
+    {
+     "ref": "CIV-TM-STAGE1",
+     "note": "Lane closure and cones for the diversion trench"
+    },
+    {
+     "ref": "GEN-TW-CHECK",
+     "virtual": true,
+     "marker": "permit",
+     "note": "Trench support design for deep sections"
+    },
+    {
+     "ref": "GEN-SHORING-INSTALL",
+     "virtual": true,
+     "marker": "shoring"
+    },
+    {
+     "ref": "CIV-UTIL-DIVERT",
+     "from_element": "self"
+    },
+    {
+     "ref": "GEN-HYDROTEST",
+     "virtual": true,
+     "marker": "test",
+     "hold_point": "pressure_test",
+     "note": "Pressure or integrity test of the new line"
+    },
+    {
+     "ref": "CIV-UTIL-TEST",
+     "hold_point": "pressure_test"
+    },
+    {
+     "ref": "GEN-SHORING-REMOVE",
+     "virtual": true,
+     "marker": "shoring"
+    },
+    {
+     "ref": "GEN-SURVEY-ASBUILT",
+     "virtual": true,
+     "marker": "survey",
+     "note": "As-built record handed to the utility owner"
+    }
+   ],
+   "logic": [
+    {
+     "after": "CIV-UTIL-TEST",
+     "before": "GEN-SHORING-REMOVE",
+     "reason": "Keep the trench supported until the line is accepted"
+    }
+   ],
+   "checks": [
+    "Services located and exposed before mechanical digging nearby",
+    "Owner witnesses the tie-in",
+    "New line proved before the old line is abandoned",
+    "As-built recorded"
+   ],
+   "references": [
+    "Excavation safety guidance (shoring, access, services avoidance, hazard of buried services)",
+    "Temporary traffic management guidance for road works (signs, lighting and guarding)"
+   ],
+   "typical_duration_weeks": [
+    3,
+    12
+   ]
+  }
+ ]
 }

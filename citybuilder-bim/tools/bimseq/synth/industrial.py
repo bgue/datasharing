@@ -142,7 +142,7 @@ def generate(seed: int = 42) -> dict[str, Any]:
                   bbox=b.centred(cell, "L00", 0.1, 5.0, 0.0, 1.1, dx=-1.8 + 0.4 * k))
     b.add("IfcChimney", "Exhaust stack", "L00", [(10, YARD_Z)], material="Steel", system="P-101",
           qty=q(length=30, weight=14),
-          props={"LeadTimeWeeks": 16}, bbox=b.centred((10, YARD_Z), "L00", 1.6, 1.6, 0, 30))
+          props={"LeadTimeWeeks": 16}, bbox=b.centred((10, YARD_Z), "L00", 1.6, 1.6, 0, 30), kit="stack")
 
     # --- pipe rack along z = 8
     sys_cycle = [f"PR-{i:02d}" for i in range(1, 7)]
@@ -178,7 +178,7 @@ def generate(seed: int = 42) -> dict[str, Any]:
                       predefined="INSULATION", material="Mineral wool with aluminium cladding",
                       system=sysid, qty=q(area=round(6.0 * 0.9, 2), length=6.0),
                       bbox=b.centred((x, RACK_Z), "L00", 6.0, 0.5, 4.7, 5.3, dy=dy))
-    for x in range(BAYS_X):
+    for x in range(4, BAYS_X):          # power trays from bay 4, instrument transmitters from bay 8
         b.add("IfcCableCarrierSegment", f"Rack cable tray {x + 1}", "L00", [(x, RACK_Z)],
               predefined="CABLELADDERSEGMENT", material="Galvanised steel", system="ELEC-LV",
               qty=q(length=6.0, weight=0.18), bbox=b.centred((x, RACK_Z), "L00", 6.0, 0.4, 7.2, 7.4, dy=1.3))
@@ -196,10 +196,10 @@ def generate(seed: int = 42) -> dict[str, Any]:
               qty=q(weight=wt, volume=round(wt * 0.9, 1), area=36.0),
               props={"Module": True, "LongLead": True, "LeadTimeWeeks": rng.choice([14, 18, 22, 26]),
                      "HeavyLift": wt > 60},
-              bbox=b.box(cells, "L00", 0.0, 7.5, inset=1.0), visual="equipment")
+              bbox=b.box(cells, "L00", 0.0, 7.5, inset=1.0), visual="equipment", kit="module")
         b.add("IfcFlowMovingDevice", f"Pump P-{101 + i}A", "L00", [(x, z + 1)], predefined="PUMP",
               material="Cast steel", system=sysid, qty=q(weight=round(rng.uniform(0.8, 2.5), 2)),
-              bbox=b.centred((x, z + 1), "L00", 1.2, 0.8, 0, 1.0))
+              bbox=b.centred((x, z + 1), "L00", 1.2, 0.8, 0, 1.0), kit="pump_plinth")
         for k in range(2):
             b.add("IfcFlowController", f"Isolation valve {sysid}-{k + 1}", "L00", [(x, z + 1 + k)],
                   predefined="VALVE", material="Carbon steel", system=sysid, qty=q(weight=0.15),
@@ -221,7 +221,7 @@ def generate(seed: int = 42) -> dict[str, Any]:
     for i, cell in enumerate([(0, 7), (11, 7), (0, 0), (11, 0)]):
         b.add("IfcElectricDistributionBoard", f"MCC-{i + 1}", "L00", [cell], predefined="MOTORCONTROLCENTRE",
               material="Steel enclosure", system="ELEC-LV", qty=q(weight=1.6),
-              props={"LeadTimeWeeks": 20}, bbox=b.centred(cell, "L00", 3.0, 0.8, 0, 2.2))
+              props={"LeadTimeWeeks": 20}, bbox=b.centred(cell, "L00", 3.0, 0.8, 0, 2.2), kit="switchroom")
     for x in range(BAYS_X):
         for z, tag in ((BAYS_Z - 1, "N"), (0, "S")):
             b.add("IfcCableCarrierSegment", f"Cable tray {tag}-{x + 1}", "L00", [(x, z)],
@@ -233,17 +233,25 @@ def generate(seed: int = 42) -> dict[str, Any]:
               bbox=b.centred((x, BAYS_Z - 1), "L00", 6.0, 0.1, 7.2, 7.3, dy=-2.0))
 
     # --- yard: transformers, heaters, tanks
+    b.add_system("P-110", "Power generation", "process")
     yard: list[tuple[str, str, str, str | None, dict]] = [
-        ("IfcTransformer", "Transformer T-1", "ELEC-HV", None, {"w": 38.0, "lead": 40}),
-        ("IfcTransformer", "Transformer T-2", "ELEC-HV", None, {"w": 38.0, "lead": 40}),
-        ("IfcEnergyConversionDevice", "Fired heater H-1", "P-101", "USERDEFINED", {"w": 55.0, "lead": 30}),
-        ("IfcEnergyConversionDevice", "Heat exchanger E-1", "P-102", "HEATEXCHANGER", {"w": 24.0, "lead": 20}),
-        ("IfcTank", "Storage tank TK-1", "P-103", "STORAGE", {"w": 42.0, "lead": 24}),
-        ("IfcTank", "Storage tank TK-2", "P-104", "STORAGE", {"w": 42.0, "lead": 24}),
-        ("IfcTank", "Day tank TK-3", "P-105", "STORAGE", {"w": 18.0, "lead": 16}),
-        ("IfcTank", "Buffer tank TK-4", "P-106", "STORAGE", {"w": 18.0, "lead": 16}),
+        ("IfcTransformer", "Transformer T-1", "ELEC-HV", None, {"w": 38.0, "lead": 40, "kit": "transformer"}),
+        ("IfcTransformer", "Transformer T-2", "ELEC-HV", None, {"w": 38.0, "lead": 40, "kit": "transformer"}),
+        ("IfcEnergyConversionDevice", "Fired heater H-1", "P-101", "USERDEFINED", {"w": 55.0, "lead": 30, "kit": "exchanger"}),
+        ("IfcEnergyConversionDevice", "Heat exchanger E-1", "P-102", "HEATEXCHANGER", {"w": 24.0, "lead": 20, "kit": "exchanger"}),
+        ("IfcTank", "Storage tank TK-1", "P-103", "STORAGE", {"w": 42.0, "lead": 24, "kit": "tank"}),
+        ("IfcTank", "Storage tank TK-2", "P-104", "STORAGE", {"w": 42.0, "lead": 24, "kit": "tank"}),
+        ("IfcTank", "Day tank TK-3", "P-105", "STORAGE", {"w": 18.0, "lead": 16, "kit": "vessel_v"}),
+        ("IfcTank", "Buffer tank TK-4", "P-106", "STORAGE", {"w": 18.0, "lead": 16, "kit": "vessel_h"}),
+        ("IfcEnergyConversionDevice", "Steam turbine TG-1", "P-110", "USERDEFINED", {"w": 85.0, "lead": 48, "kit": "turbine"}),
+        ("IfcEnergyConversionDevice", "Cooling tower CT-1", "P-110", "USERDEFINED", {"w": 30.0, "lead": 20, "kit": "cooling_tower"}),
+        None,   # x = 10: exhaust stack (added above, in the structural section)
+        ("IfcFlowMovingDevice", "Compressor K-1", "P-110", "COMPRESSOR", {"w": 26.0, "lead": 36, "kit": "compressor"}),
     ]
-    for i, (cls, name, sysid, ptype, info) in enumerate(yard):
+    for i, row in enumerate(yard):
+        if row is None:
+            continue
+        cls, name, sysid, ptype, info = row
         cell = (i, YARD_Z)
         b.add("IfcFooting", f"{name} plinth", "L00", [cell], predefined="PAD_FOOTING", material="Concrete C32/40",
               qty=q(volume=round(info["w"] * 0.25, 1), area=25.0), props={"LoadBearing": True},
@@ -252,13 +260,28 @@ def generate(seed: int = 42) -> dict[str, Any]:
         b.add(cls, name, "L00", [cell], predefined=ptype, material="Carbon steel", system=sysid,
               qty=q(weight=info["w"], volume=round(info["w"] * 1.5, 1)),
               props={"LongLead": True, "LeadTimeWeeks": info["lead"], "Module": False},
-              bbox=b.centred(cell, "L00", 4.5, 4.5, 0, tall))
+              bbox=b.centred(cell, "L00", 4.5, 4.5, 0, tall), kit=info["kit"])
     for k in range(4):   # HV cables from the transformers to the motor control centres
         b.add("IfcCableSegment", f"HV cable run {k + 1}", "L00", [(k, YARD_Z)], predefined="CABLESEGMENT",
               material="Copper XLPE 11 kV", system="ELEC-HV", qty=q(length=6.0, weight=0.12),
               bbox=b.centred((k, YARD_Z), "L00", 6.0, 0.1, 0.2, 0.3, dy=2.4))
+    for x in range(BAYS_X - 4, BAYS_X):   # instrument transmitters on the east rack bays (-> rack_mpei)
+        b.add("IfcSensor", f"Rack transmitter {x + 1}", "L00", [(x, RACK_Z)], predefined="PRESSURESENSOR",
+              material="Stainless steel", system="INSTR-1", qty=q(), props={"Instrument": True, "OnRack": True},
+              bbox=b.centred((x, RACK_Z), "L00", 0.3, 0.3, 5.5, 5.9, dx=1.0), visual="terminal")
     for x in range(0, BAYS_X, 2):
         cells = [(x, YARD_Z), (x + 1, YARD_Z)]
         b.add("IfcSlab", f"Yard slab Y-{x}", "L00", cells, predefined="BASESLAB", material="Concrete C32/40",
               qty=q(volume=21.6, area=72.0), props={"LoadBearing": True}, bbox=b.box(cells, "L00", -0.3, 0))
+    # rack kit variant per rack cell from the disciplines present there: P -> rack, +E -> rack_ei, +I -> rack_mpei
+    disciplines: dict[tuple[int, int], set[str]] = {}
+    for e in b.elements:
+        c = tuple(e["cells"][0])
+        if c[1] == RACK_Z and e["system_id"]:
+            disciplines.setdefault(c, set()).add(b.systems[e["system_id"]]["discipline"])
+    for e in b.elements:
+        c = tuple(e["cells"][0])
+        if c[1] == RACK_Z and e["ifc_class"] == "IfcMember":
+            d = disciplines.get(c, set())
+            e["visual_kit"] = "rack_mpei" if "instrumentation" in d else "rack_ei" if "electrical" in d else "rack"
     return b.document()

@@ -125,6 +125,8 @@ class Element:
     properties: dict[str, Any] = field(default_factory=dict)
     bbox: dict[str, list[float]] | None = None
     visual: str | None = None
+    visual_kit: str | None = None
+    member_guids: list[str] = field(default_factory=list)       # aggregate elements only
 
     @classmethod
     def from_dict(cls, d: Mapping[str, Any]) -> "Element":
@@ -135,7 +137,8 @@ class Element:
             predefined_type=d.get("predefined_type"), system_id=d.get("system_id"),
             host_guid=d.get("host_guid"), material=d.get("material"),
             properties=dict(d.get("properties", {})), bbox=copy.deepcopy(d.get("bbox")),
-            visual=d.get("visual"),
+            visual=d.get("visual"), visual_kit=d.get("visual_kit"),
+            member_guids=list(d.get("member_guids", [])),
         )
 
     def to_dict(self) -> JSON:
@@ -150,6 +153,10 @@ class Element:
             out["bbox"] = self.bbox
         if self.visual is not None:
             out["visual"] = self.visual
+        if self.visual_kit is not None:
+            out["visual_kit"] = self.visual_kit
+        if self.member_guids:
+            out["member_guids"] = list(self.member_guids)
         return out
 
 
@@ -309,10 +316,38 @@ class StepLibrary:
     def to_dict(self) -> JSON:
         return copy.deepcopy(self.raw)
 
+    def register_step(self, step_dict: Mapping[str, Any]) -> Step:
+        """Add an inline step definition (idempotent by id); updates both the typed and raw library."""
+        sid = step_dict["id"]
+        if sid not in self.steps:
+            self.steps[sid] = step_from_dict(step_dict)
+            self.raw.setdefault("steps", []).append(copy.deepcopy(dict(step_dict)))
+        return self.steps[sid]
+
 
 def _crew_profile(d: Mapping[str, Any] | None) -> CrewProfile:
     d = d or {}
     return CrewProfile(int(d.get("min", 1)), d.get("ideal"), d.get("max"))
+
+
+def step_from_dict(s: Mapping[str, Any]) -> Step:
+    """Build a :class:`Step` (schema defaults applied) from a step_library ``steps[]`` entry."""
+    preds = [PredRule(p["step"], p["scope"], p.get("type", "FS"), int(p.get("lag_days", 0)),
+                      bool(p.get("required", False))) for p in s.get("predecessors", [])]
+    return Step(
+        id=s["id"], name=s["name"], phase=s["phase"], trade=s["trade"], discipline=s["discipline"],
+        quantity_basis=s["quantity_basis"], rate_per_crew_day=float(s["rate_per_crew_day"]),
+        unit_cost=float(s["unit_cost"]), min_duration_days=int(s.get("min_duration_days", 1)),
+        requires_crane=bool(s.get("requires_crane", False)),
+        requires_access=bool(s.get("requires_access", True)),
+        laydown_cells=int(s.get("laydown_cells", 0)), lead_time_weeks=int(s.get("lead_time_weeks", 0)),
+        inspection=bool(s.get("inspection", False)), inspection_type=s.get("inspection_type"),
+        risk=float(s.get("risk", 0.1)), weather_sensitive=bool(s.get("weather_sensitive", False)),
+        noisy=bool(s.get("noisy", False)), dusty=bool(s.get("dusty", False)),
+        progress_visual=s.get("progress_visual", "solid"), predecessors=preds,
+        tags=list(s.get("tags", [])), work_face=s.get("work_face", "any"),
+        crew_profile=_crew_profile(s.get("crew_profile")),
+    )
 
 
 def step_library_from_dict(d: Mapping[str, Any]) -> StepLibrary:
@@ -323,23 +358,8 @@ def step_library_from_dict(d: Mapping[str, Any]) -> StepLibrary:
         for t in d["trades"]
     }
     steps: dict[str, Step] = {}
-    for s in d["steps"]:
-        preds = [PredRule(p["step"], p["scope"], p.get("type", "FS"), int(p.get("lag_days", 0)),
-                          bool(p.get("required", False))) for p in s.get("predecessors", [])]
-        steps[s["id"]] = Step(
-            id=s["id"], name=s["name"], phase=s["phase"], trade=s["trade"], discipline=s["discipline"],
-            quantity_basis=s["quantity_basis"], rate_per_crew_day=float(s["rate_per_crew_day"]),
-            unit_cost=float(s["unit_cost"]), min_duration_days=int(s.get("min_duration_days", 1)),
-            requires_crane=bool(s.get("requires_crane", False)),
-            requires_access=bool(s.get("requires_access", True)),
-            laydown_cells=int(s.get("laydown_cells", 0)), lead_time_weeks=int(s.get("lead_time_weeks", 0)),
-            inspection=bool(s.get("inspection", False)), inspection_type=s.get("inspection_type"),
-            risk=float(s.get("risk", 0.1)), weather_sensitive=bool(s.get("weather_sensitive", False)),
-            noisy=bool(s.get("noisy", False)), dusty=bool(s.get("dusty", False)),
-            progress_visual=s.get("progress_visual", "solid"), predecessors=preds,
-            tags=list(s.get("tags", [])), work_face=s.get("work_face", "any"),
-            crew_profile=_crew_profile(s.get("crew_profile")),
-        )
+    for sd in d["steps"]:
+        steps[sd["id"]] = step_from_dict(sd)
     gates = [Gate(g["id"], g["name"], g["after_phase"], g["before_phase"], g["scope"],
                   list(g.get("requires_inspection_types", []))) for g in d.get("gates", [])]
     pk = d.get("packaging", {})
@@ -410,6 +430,8 @@ class Rule:
     visual: str | None = None
     system_prefix: str | None = None
     description: str = ""
+    recipe: str | None = None
+    visual_kit: str | None = None
 
 
 @dataclass
@@ -430,9 +452,10 @@ DEFAULT_RULE_ID = "R-default"
 def mapping_rules_from_dict(d: Mapping[str, Any]) -> MappingRules:
     rules = [
         Rule(id=r["id"], priority=int(r["priority"]), match=Match.from_dict(r["match"]),
-             steps=[Emit.from_dict(e) for e in r["steps"]], continue_=bool(r.get("continue", False)),
+             steps=[Emit.from_dict(e) for e in r.get("steps", [])], continue_=bool(r.get("continue", False)),
              chain=bool(r.get("chain", True)), visual=r.get("visual"),
-             system_prefix=r.get("system_prefix"), description=r.get("description", ""))
+             system_prefix=r.get("system_prefix"), description=r.get("description", ""),
+             recipe=r.get("recipe"), visual_kit=r.get("visual_kit"))
         for r in d["rules"]
     ]
     dflt = d["default"]
@@ -514,7 +537,7 @@ class Predecessor:
 @dataclass
 class Task:
     task_id: str
-    element_guid: str
+    element_guid: str | None
     ifc_class: str
     element_name: str
     storey_id: str
@@ -539,6 +562,12 @@ class Task:
     total_float_days: int | None = None
     package_id: str | None = None
     work_face: str | None = None
+    virtual: bool | None = None
+    origin: str | None = None
+    recipe_id: str | None = None
+    duration_days: int | None = None
+    marker: str | None = None
+    manual_id: str | None = None
 
     @classmethod
     def from_dict(cls, d: Mapping[str, Any]) -> "Task":
@@ -556,6 +585,8 @@ class Task:
             actual_start_day=d.get("actual_start_day"), actual_finish_day=d.get("actual_finish_day"),
             is_critical=d.get("is_critical"), total_float_days=d.get("total_float_days"),
             package_id=d.get("package_id"), work_face=d.get("work_face"),
+            virtual=d.get("virtual"), origin=d.get("origin"), recipe_id=d.get("recipe_id"),
+            duration_days=d.get("duration_days"), marker=d.get("marker"), manual_id=d.get("manual_id"),
         )
 
     def to_dict(self) -> JSON:
@@ -572,6 +603,10 @@ class Task:
         }
         if self.work_face is not None:
             out["work_face"] = self.work_face
+        for key in ("virtual", "origin", "recipe_id", "duration_days", "marker", "manual_id"):
+            val = getattr(self, key)
+            if val is not None:
+                out[key] = val
         if self.package_id is not None:
             out["package_id"] = self.package_id
         if self.is_critical is not None:
@@ -595,6 +630,10 @@ class StepMap:
     unmapped_elements: list[JSON] = field(default_factory=list)
     sequencing_gaps: list[JSON] = field(default_factory=list)
     element_visuals: dict[str, str] = field(default_factory=dict)
+    element_visual_kits: dict[str, str] = field(default_factory=dict)
+    inline_steps: list[JSON] = field(default_factory=list)          # steps defined inline by recipes
+    aggregates: dict[str, list[str]] = field(default_factory=dict)  # aggregate guid -> member guids
+    aggregated_elements: list[JSON] = field(default_factory=list)   # the aggregate element records
 
     def to_dict(self) -> JSON:
         out: JSON = {
@@ -608,9 +647,16 @@ class StepMap:
         out["tasks"] = [t.to_dict() for t in self.tasks]
         out["unmapped_elements"] = list(self.unmapped_elements)
         out["sequencing_gaps"] = list(self.sequencing_gaps)
+        # Extension keys (the schema allows extra properties):
         if self.element_visuals:
-            # Extension key (schema allows extra properties): rule-level visual overrides.
-            out["element_visuals"] = dict(self.element_visuals)
+            out["element_visuals"] = dict(self.element_visuals)       # rule-level visual overrides
+        if self.element_visual_kits:
+            out["element_visual_kits"] = dict(self.element_visual_kits)
+        if self.inline_steps:
+            out["inline_steps"] = copy.deepcopy(self.inline_steps)
+        if self.aggregates:
+            out["aggregates"] = {k: list(v) for k, v in self.aggregates.items()}
+            out["aggregated_elements"] = copy.deepcopy(self.aggregated_elements)
         return out
 
 
@@ -622,6 +668,10 @@ def step_map_from_dict(d: Mapping[str, Any]) -> StepMap:
         unmapped_elements=list(d.get("unmapped_elements", [])),
         sequencing_gaps=list(d.get("sequencing_gaps", [])),
         element_visuals=dict(d.get("element_visuals", {})),
+        element_visual_kits=dict(d.get("element_visual_kits", {})),
+        inline_steps=copy.deepcopy(list(d.get("inline_steps", []))),
+        aggregates={k: list(v) for k, v in d.get("aggregates", {}).items()},
+        aggregated_elements=copy.deepcopy(list(d.get("aggregated_elements", []))),
     )
 
 

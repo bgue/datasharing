@@ -34,7 +34,8 @@
   "electrical": 3,
   "plumbing": 2,
   "equipment": 1,
-  "commissioning": 2
+  "commissioning": 2,
+  "survey": 1
  },
  "equipment": [
   {

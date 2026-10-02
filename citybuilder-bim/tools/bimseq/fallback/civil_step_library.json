@@ -117,6 +117,13 @@
    "weekly_cost": 7000,
    "crew_size": 4,
    "color": "#4caf50"
+  },
+  {
+   "id": "survey",
+   "name": "Survey crew",
+   "weekly_cost": 6500,
+   "crew_size": 2,
+   "color": "#00bcd4"
   }
  ],
  "steps": [
@@ -556,6 +563,36 @@
    "quantity_basis": "count",
    "rate_per_crew_day": 10,
    "unit_cost": 500,
+   "predecessors": []
+  },
+  {
+   "id": "GEN-SURVEY-SETOUT",
+   "name": "Survey set-out",
+   "phase": "traffic_stage_1",
+   "trade": "survey",
+   "discipline": "general",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 2,
+   "unit_cost": 600,
+   "requires_access": false,
+   "tags": [
+    "virtual"
+   ],
+   "predecessors": []
+  },
+  {
+   "id": "GEN-SURVEY-ASBUILT",
+   "name": "As-built survey",
+   "phase": "traffic_stage_1",
+   "trade": "survey",
+   "discipline": "general",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 2,
+   "unit_cost": 600,
+   "requires_access": false,
+   "tags": [
+    "virtual"
+   ],
    "predecessors": []
   }
  ],

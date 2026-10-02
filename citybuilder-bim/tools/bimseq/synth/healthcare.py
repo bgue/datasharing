@@ -245,7 +245,8 @@ def generate(seed: int = 42) -> dict[str, Any]:
                   bbox=b.centred((x, CORRIDOR_Z), sid, 12.0, 0.1, 3.5, 3.6, dy=2.3))
         b.add("IfcFlowMovingDevice", f"Air handling unit AHU-{i}", sid, [(NX - 1, 0)], predefined="FAN",
               material="Steel casing", system=ahu, qty=q(weight=round(rng.uniform(2.5, 4.0), 1)),
-              props={"LongLead": True, "LeadTimeWeeks": 16}, bbox=b.centred((NX - 1, 0), sid, 4.0, 2.0, 0, 2.5))
+              props={"LongLead": True, "LeadTimeWeeks": 16}, bbox=b.centred((NX - 1, 0), sid, 4.0, 2.0, 0, 2.5),
+              kit="ahu")
         b.add("IfcElectricDistributionBoard", f"Distribution board DB-{i}", sid, [(0, CORRIDOR_Z)],
               predefined="DISTRIBUTIONBOARD", material="Steel enclosure", system=elec, qty=q(weight=0.4),
               props={"LeadTimeWeeks": 10}, bbox=b.centred((0, CORRIDOR_Z), sid, 1.0, 0.3, 0, 2.0, dx=-2.5))
@@ -274,7 +275,7 @@ def generate(seed: int = 42) -> dict[str, Any]:
         b.add("IfcEnergyConversionDevice", nm, "L02", [cell], predefined="CHILLER" if k == 0 else "BOILER",
               material="Steel", system="CHW" if k == 0 else "HHW", qty=q(weight=round(rng.uniform(8, 14), 1)),
               props={"LongLead": True, "LeadTimeWeeks": 24, "HeavyLift": True},
-              bbox=b.centred(cell, "L02", 4.0, 2.5, H + 0.4, H + 3.0))
+              bbox=b.centred(cell, "L02", 4.0, 2.5, H + 0.4, H + 3.0), kit="chiller" if k == 0 else "exchanger")
 
     # --- medical devices (long lead, heavy)
     devices = [("MRI scanner", "L00", (0, 0), 6.8, 26, "MRI"), ("CT scanner", "L00", (2, 0), 2.4, 20, "CT"),
@@ -287,5 +288,5 @@ def generate(seed: int = 42) -> dict[str, Any]:
               qty=q(weight=wt), props={"Device": kind, "LongLead": True, "LeadTimeWeeks": lead, "HeavyLift": wt > 2,
                                       "Shielding": kind in ("MRI", "CT", "XRAY")},
               bbox=b.centred(cell, sid, 2.5 if wt > 2 else 1.0, 2.0 if wt > 2 else 1.0, 0.0, 2.3 if wt > 2 else 3.0),
-              visual="equipment")
+              visual="equipment", kit="mri" if kind == "MRI" else None)
     return b.document()

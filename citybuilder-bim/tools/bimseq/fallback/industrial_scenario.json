@@ -18,7 +18,8 @@
   "instrument": 2,
   "equipment": 2,
   "commissioning": 2,
-  "general": 1
+  "general": 1,
+  "survey": 1
  },
  "equipment": [
   {

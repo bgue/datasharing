@@ -20296,7 +20296,8 @@
      30.0
     ]
    },
-   "visual": "column"
+   "visual": "column",
+   "visual_kit": "stack"
   },
   {
    "guid": "2Pwt6xa5F_wk6lWshb3YMb",
@@ -20373,7 +20374,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack"
   },
   {
    "guid": "1w59fl4ICmAhcsp2NWAtEO",
@@ -20412,7 +20414,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack"
   },
   {
    "guid": "2cV6lyRtZNZ5pNaY0qQ2rG",
@@ -20450,7 +20453,8 @@
      5.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack"
   },
   {
    "guid": "2YxeCSS2fS8awrgny1hhei",
@@ -20488,7 +20492,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack"
   },
   {
    "guid": "3Jx$QLnWp4A_iAQlcbevx3",
@@ -20565,7 +20570,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack"
   },
   {
    "guid": "3jRrZekDeoSp$xavKMpa0g",
@@ -20604,7 +20610,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack"
   },
   {
    "guid": "3MCnrrqO3SHAq2fVLyBl2n",
@@ -20642,7 +20649,8 @@
      5.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack"
   },
   {
    "guid": "1KwlUMyPfGb83QxwVuUMxE",
@@ -20680,7 +20688,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack"
   },
   {
    "guid": "2KVx804qyn9rXF3uz7bo5k",
@@ -20757,7 +20766,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack"
   },
   {
    "guid": "1XhbugvXZ4HIa3SlkbdKdy",
@@ -20796,7 +20806,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack"
   },
   {
    "guid": "3bJGIbnWT3RcI1XkpzLiJe",
@@ -20834,7 +20845,8 @@
      5.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack"
   },
   {
    "guid": "2m_LzMzm18hSdQSJZFPj$w",
@@ -20872,7 +20884,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack"
   },
   {
    "guid": "0TPk4pCg8YA7vVVWNVTwM5",
@@ -20949,7 +20962,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack"
   },
   {
    "guid": "3PCR_c1tEuOw0WqY$Mgzac",
@@ -20988,7 +21002,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack"
   },
   {
    "guid": "2VhZduEN_0ey$KM8tcCuhN",
@@ -21026,7 +21041,8 @@
      5.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack"
   },
   {
    "guid": "1DTRddeyDcQJfKOoLKKfyr",
@@ -21064,7 +21080,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack"
   },
   {
    "guid": "2TXyclIdgjevdsor0p7qjH",
@@ -21141,7 +21158,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_ei"
   },
   {
    "guid": "3y5n_VZm7C7hZluaEyH9fq",
@@ -21180,7 +21198,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_ei"
   },
   {
    "guid": "1JcPBuVfXb2H8ekvRNfxTw",
@@ -21218,7 +21237,8 @@
      5.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_ei"
   },
   {
    "guid": "2gPXW2HFqso_67l2t4f_ag",
@@ -21256,7 +21276,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_ei"
   },
   {
    "guid": "09BEKBxO9tZxvJg9Nhwt2p",
@@ -21333,7 +21354,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_ei"
   },
   {
    "guid": "05Gi8feTQPcKsYTRj3HuFm",
@@ -21372,7 +21394,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_ei"
   },
   {
    "guid": "0uQm6vupPQmFBMFKQF_jer",
@@ -21410,7 +21433,8 @@
      5.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_ei"
   },
   {
    "guid": "1QBkzWEw20mrpCjkd8tcTA",
@@ -21448,7 +21472,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_ei"
   },
   {
    "guid": "3y2Zf5IVM1GJHy47QblrKr",
@@ -21525,7 +21550,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_ei"
   },
   {
    "guid": "35mLKC1iSBr8EyxruH0dyy",
@@ -21564,7 +21590,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_ei"
   },
   {
    "guid": "2GfkCz$PGSGISACpaDVSWN",
@@ -21602,7 +21629,8 @@
      5.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_ei"
   },
   {
    "guid": "2gxYGfslI4n6PN1I4UKof1",
@@ -21640,7 +21668,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_ei"
   },
   {
    "guid": "3ziOpvRwXuFZhhNWh_wChX",
@@ -21717,7 +21746,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_ei"
   },
   {
    "guid": "0PjJ6kTLlKCLSJsPZ6pbnr",
@@ -21756,7 +21786,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_ei"
   },
   {
    "guid": "3xfHc09WdQ87qHIzKVoKro",
@@ -21794,7 +21825,8 @@
      5.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_ei"
   },
   {
    "guid": "1Vi9SZHpFJQuIZf1FdDyTu",
@@ -21832,7 +21864,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_ei"
   },
   {
    "guid": "2FwJ9hY5mWExsL_bSDBkU$",
@@ -21909,7 +21942,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_mpei"
   },
   {
    "guid": "3m5DCCFUkro5iuw4pt3RN3",
@@ -21948,7 +21982,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_mpei"
   },
   {
    "guid": "2Cbq3wWjijVZv6fwXKQfpi",
@@ -21986,7 +22021,8 @@
      5.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_mpei"
   },
   {
    "guid": "1$BgjTedCBpe$NmPX_ihuk",
@@ -22024,7 +22060,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_mpei"
   },
   {
    "guid": "1Lf2EOdbMo9PBBpXIhjoHn",
@@ -22101,7 +22138,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_mpei"
   },
   {
    "guid": "0zurOqNpnXkXtlkUej9HfV",
@@ -22140,7 +22178,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_mpei"
   },
   {
    "guid": "1CyeDTiSxY6wu$t8L2v7iz",
@@ -22178,7 +22217,8 @@
      5.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_mpei"
   },
   {
    "guid": "18j8ZW3_tHoRvdcgTqIe06",
@@ -22216,7 +22256,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_mpei"
   },
   {
    "guid": "2F98qKOVMN3$FgBCpnqmyH",
@@ -22293,7 +22334,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_mpei"
   },
   {
    "guid": "07lCL010fnd3l8MO$NRiCJ",
@@ -22332,7 +22374,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_mpei"
   },
   {
    "guid": "2MuMJu34FdbDiNLC$OJhwn",
@@ -22370,7 +22413,8 @@
      5.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_mpei"
   },
   {
    "guid": "3E8hVkIU_Op5j7zCBfoPaf",
@@ -22408,7 +22452,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_mpei"
   },
   {
    "guid": "1vPbsptmA_3_Dfznd$a75O",
@@ -22485,7 +22530,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_mpei"
   },
   {
    "guid": "0Q$Q15mQEb0UgMnTlp5JIV",
@@ -22524,7 +22570,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_mpei"
   },
   {
    "guid": "2sdQYq1rqmZO_W1o5vGS9E",
@@ -22562,7 +22609,8 @@
      5.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_mpei"
   },
   {
    "guid": "0K_8NfLWoaaaXDFoPB$PG4",
@@ -22600,7 +22648,8 @@
      7.0
     ]
    },
-   "visual": "beam"
+   "visual": "beam",
+   "visual_kit": "rack_mpei"
   },
   {
    "guid": "0T4nNA8UtluIu5OQe51JhW",
@@ -26920,150 +26969,6 @@
    "guid": "3miq9R1zsCIOehFWOYpJUd",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLELADDERSEGMENT",
-   "name": "Rack cable tray 1",
-   "storey_id": "L00",
-   "zone_id": "L00-Z13",
-   "system_id": "ELEC-LV",
-   "host_guid": null,
-   "cells": [
-    [
-     0,
-     8
-    ]
-   ],
-   "quantities": {
-    "length_m": 6.0,
-    "count": 1.0,
-    "weight_t": 0.18
-   },
-   "material": "Galvanised steel",
-   "properties": {},
-   "bbox": {
-    "min": [
-     0.0,
-     52.1,
-     7.2
-    ],
-    "max": [
-     6.0,
-     52.5,
-     7.4
-    ]
-   },
-   "visual": "cable_tray"
-  },
-  {
-   "guid": "253LzS00ton87EnP9AOg36",
-   "ifc_class": "IfcCableCarrierSegment",
-   "predefined_type": "CABLELADDERSEGMENT",
-   "name": "Rack cable tray 2",
-   "storey_id": "L00",
-   "zone_id": "L00-Z13",
-   "system_id": "ELEC-LV",
-   "host_guid": null,
-   "cells": [
-    [
-     1,
-     8
-    ]
-   ],
-   "quantities": {
-    "length_m": 6.0,
-    "count": 1.0,
-    "weight_t": 0.18
-   },
-   "material": "Galvanised steel",
-   "properties": {},
-   "bbox": {
-    "min": [
-     6.0,
-     52.1,
-     7.2
-    ],
-    "max": [
-     12.0,
-     52.5,
-     7.4
-    ]
-   },
-   "visual": "cable_tray"
-  },
-  {
-   "guid": "0m7ZAb9f6wqMPuqI6lSZY2",
-   "ifc_class": "IfcCableCarrierSegment",
-   "predefined_type": "CABLELADDERSEGMENT",
-   "name": "Rack cable tray 3",
-   "storey_id": "L00",
-   "zone_id": "L00-Z13",
-   "system_id": "ELEC-LV",
-   "host_guid": null,
-   "cells": [
-    [
-     2,
-     8
-    ]
-   ],
-   "quantities": {
-    "length_m": 6.0,
-    "count": 1.0,
-    "weight_t": 0.18
-   },
-   "material": "Galvanised steel",
-   "properties": {},
-   "bbox": {
-    "min": [
-     12.0,
-     52.1,
-     7.2
-    ],
-    "max": [
-     18.0,
-     52.5,
-     7.4
-    ]
-   },
-   "visual": "cable_tray"
-  },
-  {
-   "guid": "3uuaoK7vHpqGHi2B_yn6K8",
-   "ifc_class": "IfcCableCarrierSegment",
-   "predefined_type": "CABLELADDERSEGMENT",
-   "name": "Rack cable tray 4",
-   "storey_id": "L00",
-   "zone_id": "L00-Z13",
-   "system_id": "ELEC-LV",
-   "host_guid": null,
-   "cells": [
-    [
-     3,
-     8
-    ]
-   ],
-   "quantities": {
-    "length_m": 6.0,
-    "count": 1.0,
-    "weight_t": 0.18
-   },
-   "material": "Galvanised steel",
-   "properties": {},
-   "bbox": {
-    "min": [
-     18.0,
-     52.1,
-     7.2
-    ],
-    "max": [
-     24.0,
-     52.5,
-     7.4
-    ]
-   },
-   "visual": "cable_tray"
-  },
-  {
-   "guid": "22oX8OPPwTBGejLPipDxAx",
-   "ifc_class": "IfcCableCarrierSegment",
-   "predefined_type": "CABLELADDERSEGMENT",
    "name": "Rack cable tray 5",
    "storey_id": "L00",
    "zone_id": "L00-Z14",
@@ -27097,7 +27002,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "0QLDAK0mESsUeGx$imFORv",
+   "guid": "253LzS00ton87EnP9AOg36",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLELADDERSEGMENT",
    "name": "Rack cable tray 6",
@@ -27133,7 +27038,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "0bdX6Lf6Iob5CtZa6UvQWD",
+   "guid": "0m7ZAb9f6wqMPuqI6lSZY2",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLELADDERSEGMENT",
    "name": "Rack cable tray 7",
@@ -27169,7 +27074,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "3yDIx$LN91KB_NDOXrLh_u",
+   "guid": "3uuaoK7vHpqGHi2B_yn6K8",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLELADDERSEGMENT",
    "name": "Rack cable tray 8",
@@ -27205,7 +27110,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "1sTVEMeq3hTv2$spFwz7p$",
+   "guid": "22oX8OPPwTBGejLPipDxAx",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLELADDERSEGMENT",
    "name": "Rack cable tray 9",
@@ -27241,7 +27146,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "1pI1k0mIALNSifKBok1gvD",
+   "guid": "0QLDAK0mESsUeGx$imFORv",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLELADDERSEGMENT",
    "name": "Rack cable tray 10",
@@ -27277,7 +27182,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "2pJ9M9Hfow5YUta2KG4g4T",
+   "guid": "0bdX6Lf6Iob5CtZa6UvQWD",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLELADDERSEGMENT",
    "name": "Rack cable tray 11",
@@ -27313,7 +27218,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "3WbGch8Aaivw4uBjMUpvnz",
+   "guid": "3yDIx$LN91KB_NDOXrLh_u",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLELADDERSEGMENT",
    "name": "Rack cable tray 12",
@@ -27349,7 +27254,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "13vZm98x$$nJt$JGeP$4e0",
+   "guid": "3TVEMeq3hTv2$spFwz7p$U",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Module foundation MF-1",
@@ -27368,7 +27273,7 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 13.9,
+    "volume_m3": 15.2,
     "area_m2": 40.0,
     "count": 1.0
    },
@@ -27391,7 +27296,7 @@
    "visual": "footing"
   },
   {
-   "guid": "1Ul6Y3knmgw43FLZMhlYWN",
+   "guid": "11k0mIALNSifKBok1gvDXp",
    "ifc_class": "IfcBuildingElementProxy",
    "predefined_type": "USERDEFINED",
    "name": "Process module M-01",
@@ -27410,10 +27315,10 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 35.6,
+    "volume_m3": 39.1,
     "area_m2": 36.0,
     "count": 1.0,
-    "weight_t": 39.6
+    "weight_t": 43.4
    },
    "material": "Structural steel skid",
    "properties": {
@@ -27434,10 +27339,11 @@
      7.5
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "module"
   },
   {
-   "guid": "3woPHjbNVHYoSODhpLXAfN",
+   "guid": "0M9Hfow5YUta2KG4g4TtWb",
    "ifc_class": "IfcFlowMovingDevice",
    "predefined_type": "PUMP",
    "name": "Pump P-101A",
@@ -27453,7 +27359,7 @@
    ],
    "quantities": {
     "count": 1.0,
-    "weight_t": 2.39
+    "weight_t": 1.77
    },
    "material": "Cast steel",
    "properties": {},
@@ -27469,10 +27375,11 @@
      1.0
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "pump_plinth"
   },
   {
-   "guid": "2zMhnLLpSShlDSDolk3_Xn",
+   "guid": "1ch8Aaivw4uBjMUpvnzPN3",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-101-1",
@@ -27507,7 +27414,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "22f_aXS0OdF9EzzL6PgUY4",
+   "guid": "3Zm98x$$nJt$JGeP$4e0pN",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-101-2",
@@ -27542,7 +27449,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "1odBfbwDffPDRMkRryCUsv",
+   "guid": "26Y3knmgw43FLZMhlYWNow",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-101 seg 1",
@@ -27559,11 +27466,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.23
+    "weight_t": 0.47
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 100
+    "Diameter_mm": 80
    },
    "bbox": {
     "min": [
@@ -27580,7 +27487,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "0YJDaB4jMwnFy7Gz0YkGUi",
+   "guid": "1jbNVHYoSODhpLXAfNhzMh",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-101 seg 2",
@@ -27597,7 +27504,7 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.54
+    "weight_t": 0.44
    },
    "material": "Stainless steel 316",
    "properties": {
@@ -27618,7 +27525,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "2sr7frvuZcLH$hhZhskeaM",
+   "guid": "1pSShlDSDolk3_Xnf2f_aX",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-101 seg 3",
@@ -27639,7 +27546,7 @@
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 80
+    "Diameter_mm": 150
    },
    "bbox": {
     "min": [
@@ -27656,7 +27563,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "0Asg3H055JdlTT9UGEfe8Q",
+   "guid": "2F9EzzL6PgUY4BkQodBfbw",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-101 seg 4",
@@ -27673,11 +27580,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.4
+    "weight_t": 0.29
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 100
+    "Diameter_mm": 80
    },
    "bbox": {
     "min": [
@@ -27694,7 +27601,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "34QsNCacann_I$SsvubqJ0",
+   "guid": "1DRMkRryCUsve52YJDaB4j",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-101 seg 5",
@@ -27711,7 +27618,7 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.2
+    "weight_t": 0.24
    },
    "material": "Stainless steel 316",
    "properties": {
@@ -27732,7 +27639,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "1laQ8RMDHO8GPI0dB7m1BV",
+   "guid": "0y7Gz0YkGUipKHgsr7frvu",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-101 seg 6",
@@ -27749,11 +27656,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.25
+    "weight_t": 0.27
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 150
+    "Diameter_mm": 100
    },
    "bbox": {
     "min": [
@@ -27770,7 +27677,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "3X_KQxi3LypBwMNizxfXkY",
+   "guid": "2cLH$hhZhskeaMGcFAsg3H",
    "ifc_class": "IfcPipeFitting",
    "predefined_type": "JUNCTION",
    "name": "Process tee P-101",
@@ -27805,7 +27712,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "3HmJ4fIBwmUDo6NuFyM8wR",
+   "guid": "055JdlTT9UGEfe8Q0fhz4Q",
    "ifc_class": "IfcSensor",
    "predefined_type": "PRESSURESENSOR",
    "name": "Pressure transmitter P-101",
@@ -27841,7 +27748,7 @@
    "visual": "terminal"
   },
   {
-   "guid": "1N3fNMJRqLCsf9cUIULfkV",
+   "guid": "3NCacann_I$SsvubqJ0GkL",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Module foundation MF-2",
@@ -27860,7 +27767,7 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 13.9,
+    "volume_m3": 29.2,
     "area_m2": 40.0,
     "count": 1.0
    },
@@ -27883,7 +27790,7 @@
    "visual": "footing"
   },
   {
-   "guid": "2dYrF_x$SKobV2gXW$ENvu",
+   "guid": "2Q8RMDHO8GPI0dB7m1BVrX",
    "ifc_class": "IfcBuildingElementProxy",
    "predefined_type": "USERDEFINED",
    "name": "Process module M-02",
@@ -27902,17 +27809,17 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 35.8,
+    "volume_m3": 75.0,
     "area_m2": 36.0,
     "count": 1.0,
-    "weight_t": 39.8
+    "weight_t": 83.3
    },
    "material": "Structural steel skid",
    "properties": {
     "Module": true,
     "LongLead": true,
-    "LeadTimeWeeks": 18,
-    "HeavyLift": false
+    "LeadTimeWeeks": 22,
+    "HeavyLift": true
    },
    "bbox": {
     "min": [
@@ -27926,10 +27833,11 @@
      7.5
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "module"
   },
   {
-   "guid": "1u8K7gVx$ER_fHVGJ3CHko",
+   "guid": "1xi3LypBwMNizxfXkYzHmJ",
    "ifc_class": "IfcFlowMovingDevice",
    "predefined_type": "PUMP",
    "name": "Pump P-102A",
@@ -27945,7 +27853,7 @@
    ],
    "quantities": {
     "count": 1.0,
-    "weight_t": 0.8
+    "weight_t": 1.63
    },
    "material": "Cast steel",
    "properties": {},
@@ -27961,10 +27869,11 @@
      1.0
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "pump_plinth"
   },
   {
-   "guid": "0OM45X_xuiQljNUo75P2Zc",
+   "guid": "0fIBwmUDo6NuFyM8wRPuRN",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-102-1",
@@ -27999,7 +27908,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "1nAfEw8iKQB2JLi3BcPzZO",
+   "guid": "0fNMJRqLCsf9cUIULfkVQe",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-102-2",
@@ -28034,7 +27943,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "0ryAQ$BEIo6JJEQKFwqxH6",
+   "guid": "2rF_x$SKobV2gXW$ENvu0N",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-102 seg 1",
@@ -28051,11 +27960,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.22
+    "weight_t": 0.42
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 80
+    "Diameter_mm": 100
    },
    "bbox": {
     "min": [
@@ -28072,7 +27981,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "0EEmpDGN5F4vHhuVPR4bOt",
+   "guid": "0K7gVx$ER_fHVGJ3CHko6O",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-102 seg 2",
@@ -28089,11 +27998,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.25
+    "weight_t": 0.43
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 150
+    "Diameter_mm": 100
    },
    "bbox": {
     "min": [
@@ -28110,7 +28019,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "0MwcDJaMCBa2oHh1fHJamG",
+   "guid": "2_xuiQljNUo75P2ZcUnAfE",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-102 seg 3",
@@ -28127,7 +28036,7 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.35
+    "weight_t": 0.27
    },
    "material": "Stainless steel 316",
    "properties": {
@@ -28148,7 +28057,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "1kim80RiG$2CTwFIZOsjfk",
+   "guid": "1QB2JLi3BcPzZO7P0ryAQ$",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-102 seg 4",
@@ -28165,11 +28074,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.21
+    "weight_t": 0.38
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 150
+    "Diameter_mm": 100
    },
    "bbox": {
     "min": [
@@ -28186,7 +28095,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "13X9J3Iz6sFkKzT$Z7L7uA",
+   "guid": "1o6JJEQKFwqxH6EBEEmpDG",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-102 seg 5",
@@ -28203,7 +28112,7 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.35
+    "weight_t": 0.24
    },
    "material": "Stainless steel 316",
    "properties": {
@@ -28224,7 +28133,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "0qTGGaDheXK0Sa4V7F2kp$",
+   "guid": "04vHhuVPR4bOtmhQ1MwcDJ",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-102 seg 6",
@@ -28241,11 +28150,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.37
+    "weight_t": 0.57
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 150
+    "Diameter_mm": 80
    },
    "bbox": {
     "min": [
@@ -28262,7 +28171,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "3lsd8luilasMVWzDHWxt0E",
+   "guid": "2MCBa2oHh1fHJamG2Okim8",
    "ifc_class": "IfcPipeFitting",
    "predefined_type": "JUNCTION",
    "name": "Process tee P-102",
@@ -28297,7 +28206,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "07FF4Q3qTCvpZB_Ks51Ckv",
+   "guid": "0RiG$2CTwFIZOsjfkndGR3",
    "ifc_class": "IfcSensor",
    "predefined_type": "PRESSURESENSOR",
    "name": "Pressure transmitter P-102",
@@ -28333,7 +28242,7 @@
    "visual": "terminal"
   },
   {
-   "guid": "0Dh7xAP5qvDV6xTgA6akZ_",
+   "guid": "0J3Iz6sFkKzT$Z7L7uAts2",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Module foundation MF-3",
@@ -28352,7 +28261,7 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 10.7,
+    "volume_m3": 16.1,
     "area_m2": 40.0,
     "count": 1.0
    },
@@ -28375,7 +28284,7 @@
    "visual": "footing"
   },
   {
-   "guid": "1pMEP32tNijvssW$3QF0gP",
+   "guid": "1GGaDheXK0Sa4V7F2kp$vl",
    "ifc_class": "IfcBuildingElementProxy",
    "predefined_type": "USERDEFINED",
    "name": "Process module M-03",
@@ -28394,16 +28303,16 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 27.6,
+    "volume_m3": 41.3,
     "area_m2": 36.0,
     "count": 1.0,
-    "weight_t": 30.7
+    "weight_t": 45.9
    },
    "material": "Structural steel skid",
    "properties": {
     "Module": true,
     "LongLead": true,
-    "LeadTimeWeeks": 22,
+    "LeadTimeWeeks": 26,
     "HeavyLift": false
    },
    "bbox": {
@@ -28418,10 +28327,11 @@
      7.5
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "module"
   },
   {
-   "guid": "1pKuWtotJAj8UHy247Yprs",
+   "guid": "28luilasMVWzDHWxt0E57F",
    "ifc_class": "IfcFlowMovingDevice",
    "predefined_type": "PUMP",
    "name": "Pump P-103A",
@@ -28437,7 +28347,7 @@
    ],
    "quantities": {
     "count": 1.0,
-    "weight_t": 2.5
+    "weight_t": 1.52
    },
    "material": "Cast steel",
    "properties": {},
@@ -28453,10 +28363,11 @@
      1.0
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "pump_plinth"
   },
   {
-   "guid": "0dg38E6v_xFW42XU8Y0eV8",
+   "guid": "04Q3qTCvpZB_Ks51CkvDI3",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-103-1",
@@ -28491,7 +28402,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "2M5W4c$o$S8PxuFrmbDqmC",
+   "guid": "0h7xAP5qvDV6xTgA6akZ_c",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-103-2",
@@ -28526,7 +28437,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "26_zYVTMftNQbEv18XLtH3",
+   "guid": "1EP32tNijvssW$3QF0gPPp",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-103 seg 1",
@@ -28543,7 +28454,7 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.26
+    "weight_t": 0.28
    },
    "material": "Stainless steel 316",
    "properties": {
@@ -28564,7 +28475,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "3LDBq7K3XCAUlvIEAu2b39",
+   "guid": "2totJAj8UHy247YprsCdg3",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-103 seg 2",
@@ -28581,11 +28492,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.29
+    "weight_t": 0.26
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 80
+    "Diameter_mm": 100
    },
    "bbox": {
     "min": [
@@ -28602,7 +28513,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "2cHKFvjTulu1M73X5ryeyB",
+   "guid": "0v_xFW42XU8Y0eV8eM5W4c",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-103 seg 3",
@@ -28619,11 +28530,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.59
+    "weight_t": 0.5
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 100
+    "Diameter_mm": 80
    },
    "bbox": {
     "min": [
@@ -28640,7 +28551,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "1mAcpBAK$YLsJxoz6Y5jTF",
+   "guid": "3o$S8PxuFrmbDqmCJR_a6_",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-103 seg 4",
@@ -28657,11 +28568,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.53
+    "weight_t": 0.46
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 80
+    "Diameter_mm": 150
    },
    "bbox": {
     "min": [
@@ -28678,7 +28589,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "3Ejs5$VM_aSgmjDwoNb5ra",
+   "guid": "1TMftNQbEv18XLtH3Rx6wL",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-103 seg 5",
@@ -28695,11 +28606,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.3
+    "weight_t": 0.39
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 80
+    "Diameter_mm": 100
    },
    "bbox": {
     "min": [
@@ -28716,7 +28627,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "3VXs3YvdJ8u1JhDnIKjVqZ",
+   "guid": "0K3XCAUlvIEAu2b39pXcHK",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-103 seg 6",
@@ -28733,7 +28644,7 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.53
+    "weight_t": 0.24
    },
    "material": "Stainless steel 316",
    "properties": {
@@ -28754,7 +28665,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "10SYpT5tHXozJu8s28Bc9R",
+   "guid": "0vjTulu1M73X5ryeyBNOmA",
    "ifc_class": "IfcPipeFitting",
    "predefined_type": "JUNCTION",
    "name": "Process tee P-103",
@@ -28789,7 +28700,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "0VjKQqDTRyq0hNV5WfCpg2",
+   "guid": "2pBAK$YLsJxoz6Y5jTFXBs",
    "ifc_class": "IfcSensor",
    "predefined_type": "PRESSURESENSOR",
    "name": "Pressure transmitter P-103",
@@ -28825,7 +28736,7 @@
    "visual": "terminal"
   },
   {
-   "guid": "2Zc$IXFCse4ObZ3rp8yz8G",
+   "guid": "35$VM_aSgmjDwoNb5ramnV",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Module foundation MF-4",
@@ -28844,7 +28755,7 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 38.8,
+    "volume_m3": 10.9,
     "area_m2": 40.0,
     "count": 1.0
    },
@@ -28867,7 +28778,7 @@
    "visual": "footing"
   },
   {
-   "guid": "00pxICYAuYqDSfNomXsVou",
+   "guid": "33YvdJ8u1JhDnIKjVqZG0S",
    "ifc_class": "IfcBuildingElementProxy",
    "predefined_type": "USERDEFINED",
    "name": "Process module M-04",
@@ -28886,17 +28797,17 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 99.9,
+    "volume_m3": 28.1,
     "area_m2": 36.0,
     "count": 1.0,
-    "weight_t": 111.0
+    "weight_t": 31.2
    },
    "material": "Structural steel skid",
    "properties": {
     "Module": true,
     "LongLead": true,
     "LeadTimeWeeks": 22,
-    "HeavyLift": true
+    "HeavyLift": false
    },
    "bbox": {
     "min": [
@@ -28910,10 +28821,11 @@
      7.5
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "module"
   },
   {
-   "guid": "3dBfhXe6EFHN7zkVm5iE9y",
+   "guid": "3T5tHXozJu8s28Bc9REVjK",
    "ifc_class": "IfcFlowMovingDevice",
    "predefined_type": "PUMP",
    "name": "Pump P-104A",
@@ -28929,7 +28841,7 @@
    ],
    "quantities": {
     "count": 1.0,
-    "weight_t": 1.33
+    "weight_t": 1.25
    },
    "material": "Cast steel",
    "properties": {},
@@ -28945,10 +28857,11 @@
      1.0
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "pump_plinth"
   },
   {
-   "guid": "0s7ToQreVqGCXfl7m_063c",
+   "guid": "1qDTRyq0hNV5WfCpg2LkZc",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-104-1",
@@ -28983,7 +28896,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "1cWM6bmmZtt$q6ftXK1des",
+   "guid": "3IXFCse4ObZ3rp8yz8GX50",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-104-2",
@@ -29018,7 +28931,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "3h3vdeSO3sGVlXpmGNrhb6",
+   "guid": "1CYAuYqDSfNomXsVoudmdB",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-104 seg 1",
@@ -29056,7 +28969,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "2iT61sKNFMJbNvszydpHe8",
+   "guid": "2e6EFHN7zkVm5iE9yAs7To",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-104 seg 2",
@@ -29073,7 +28986,7 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.24
+    "weight_t": 0.33
    },
    "material": "Stainless steel 316",
    "properties": {
@@ -29094,7 +29007,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "0MZCBlWn701Dyoz$GPAMju",
+   "guid": "1qGCXfl7m_063cHcWM6bmm",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-104 seg 3",
@@ -29111,11 +29024,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.36
+    "weight_t": 0.28
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 80
+    "Diameter_mm": 100
    },
    "bbox": {
     "min": [
@@ -29132,7 +29045,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "2vHqXLs9IEL6QWTzhTtin6",
+   "guid": "3t$q6ftXK1desk_uh3vdeS",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-104 seg 4",
@@ -29149,11 +29062,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.57
+    "weight_t": 0.47
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 80
+    "Diameter_mm": 100
    },
    "bbox": {
     "min": [
@@ -29170,7 +29083,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "3iLlXMdGFTfWkY64sWdlax",
+   "guid": "13sGVlXpmGNrhb6DogiT61",
    "ifc_class": "IfcPipeFitting",
    "predefined_type": "JUNCTION",
    "name": "Process tee P-104",
@@ -29205,7 +29118,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "2IP9EHOJva_AvuoQVbL_L3",
+   "guid": "3KNFMJbNvszydpHe8n3DAM",
    "ifc_class": "IfcSensor",
    "predefined_type": "PRESSURESENSOR",
    "name": "Pressure transmitter P-104",
@@ -29241,7 +29154,7 @@
    "visual": "terminal"
   },
   {
-   "guid": "3L9yj178nV5WgO4nTfIYTg",
+   "guid": "0BlWn701Dyoz$GPAMju1Yv",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Module foundation MF-5",
@@ -29260,7 +29173,7 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 13.7,
+    "volume_m3": 16.8,
     "area_m2": 40.0,
     "count": 1.0
    },
@@ -29283,7 +29196,7 @@
    "visual": "footing"
   },
   {
-   "guid": "214D8ouya8siMZWWkXXs6Q",
+   "guid": "3XLs9IEL6QWTzhTtin6xiL",
    "ifc_class": "IfcBuildingElementProxy",
    "predefined_type": "USERDEFINED",
    "name": "Process module M-05",
@@ -29302,10 +29215,10 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 35.3,
+    "volume_m3": 43.3,
     "area_m2": 36.0,
     "count": 1.0,
-    "weight_t": 39.2
+    "weight_t": 48.1
    },
    "material": "Structural steel skid",
    "properties": {
@@ -29326,10 +29239,11 @@
      7.5
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "module"
   },
   {
-   "guid": "28yRvD1fUFIwWnsJ7dezHz",
+   "guid": "2MdGFTfWkY64sWdlaxhIP9",
    "ifc_class": "IfcFlowMovingDevice",
    "predefined_type": "PUMP",
    "name": "Pump P-105A",
@@ -29345,7 +29259,7 @@
    ],
    "quantities": {
     "count": 1.0,
-    "weight_t": 2.19
+    "weight_t": 1.43
    },
    "material": "Cast steel",
    "properties": {},
@@ -29361,10 +29275,11 @@
      1.0
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "pump_plinth"
   },
   {
-   "guid": "0ZvHWmT4BmWMYGQSvKUUDJ",
+   "guid": "0HOJva_AvuoQVbL_L3OmL9",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-105-1",
@@ -29399,7 +29314,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "0$3oKQM6RLIF5E1NTM028n",
+   "guid": "3j178nV5WgO4nTfIYTgTd1",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-105-2",
@@ -29434,7 +29349,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "053znF1AbOlnBa7UbeVA6z",
+   "guid": "08ouya8siMZWWkXXs6Qk8y",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-105 seg 1",
@@ -29451,11 +29366,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.38
+    "weight_t": 0.21
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 100
+    "Diameter_mm": 150
    },
    "bbox": {
     "min": [
@@ -29472,7 +29387,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "1OedqeC40P2wpN0lZgmu9g",
+   "guid": "3D1fUFIwWnsJ7dezHzDZvH",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-105 seg 2",
@@ -29489,11 +29404,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.31
+    "weight_t": 0.44
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 150
+    "Diameter_mm": 80
    },
    "bbox": {
     "min": [
@@ -29510,7 +29425,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "0ttnsYB91olcBBSa0vfCpY",
+   "guid": "0BmWMYGQSvKUUDJE$3oKQM",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-105 seg 3",
@@ -29527,11 +29442,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.21
+    "weight_t": 0.3
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 150
+    "Diameter_mm": 80
    },
    "bbox": {
     "min": [
@@ -29548,7 +29463,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "01lOtrPbImpKnw1TtFy_9k",
+   "guid": "0RLIF5E1NTM028nxtmE53z",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-105 seg 4",
@@ -29565,11 +29480,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.51
+    "weight_t": 0.41
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 100
+    "Diameter_mm": 150
    },
    "bbox": {
     "min": [
@@ -29586,7 +29501,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "0lsNkw9wm2UG2BGtjwNm1c",
+   "guid": "3F1AbOlnBa7UbeVA6zZrHO",
    "ifc_class": "IfcPipeFitting",
    "predefined_type": "JUNCTION",
    "name": "Process tee P-105",
@@ -29621,7 +29536,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "00lH9xkgeFw_wbBH_bnN9C",
+   "guid": "2dqeC40P2wpN0lZgmu9g25",
    "ifc_class": "IfcSensor",
    "predefined_type": "PRESSURESENSOR",
    "name": "Pressure transmitter P-105",
@@ -29657,7 +29572,7 @@
    "visual": "terminal"
   },
   {
-   "guid": "1ZBpHtYMKIzg9v6XkYGDib",
+   "guid": "3sYB91olcBBSa0vfCpYy51",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Module foundation MF-6",
@@ -29676,7 +29591,7 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 26.0,
+    "volume_m3": 22.3,
     "area_m2": 40.0,
     "count": 1.0
    },
@@ -29699,7 +29614,7 @@
    "visual": "footing"
   },
   {
-   "guid": "35etG0IGk$0268pShqZ6wL",
+   "guid": "1trPbImpKnw1TtFy_9k3ls",
    "ifc_class": "IfcBuildingElementProxy",
    "predefined_type": "USERDEFINED",
    "name": "Process module M-06",
@@ -29718,10 +29633,10 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 66.8,
+    "volume_m3": 57.2,
     "area_m2": 36.0,
     "count": 1.0,
-    "weight_t": 74.2
+    "weight_t": 63.6
    },
    "material": "Structural steel skid",
    "properties": {
@@ -29742,10 +29657,11 @@
      7.5
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "module"
   },
   {
-   "guid": "1ZyMKfZ07B_NKXvUBHr9nl",
+   "guid": "39wm2UG2BGtjwNm1cA0lH9",
    "ifc_class": "IfcFlowMovingDevice",
    "predefined_type": "PUMP",
    "name": "Pump P-106A",
@@ -29761,7 +29677,7 @@
    ],
    "quantities": {
     "count": 1.0,
-    "weight_t": 1.16
+    "weight_t": 1.11
    },
    "material": "Cast steel",
    "properties": {},
@@ -29777,10 +29693,11 @@
      1.0
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "pump_plinth"
   },
   {
-   "guid": "0z87i7BEl0MxDBeNsA5kTu",
+   "guid": "3kgeFw_wbBH_bnN9CIZBpH",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-106-1",
@@ -29815,7 +29732,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "0HP54x9te10zWBdfbTIxqR",
+   "guid": "3YMKIzg9v6XkYGDibl_5et",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-106-2",
@@ -29850,7 +29767,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "2GWZyEqBIyPdAR94Xg5Jjp",
+   "guid": "0IGk$0268pShqZ6wLRHZyM",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-106 seg 1",
@@ -29867,11 +29784,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.55
+    "weight_t": 0.51
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 100
+    "Diameter_mm": 80
    },
    "bbox": {
     "min": [
@@ -29888,7 +29805,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "0xbRkuWUhJr7pYt4svOSWc",
+   "guid": "2Z07B_NKXvUBHr9nl0z87i",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-106 seg 2",
@@ -29905,11 +29822,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.29
+    "weight_t": 0.4
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 80
+    "Diameter_mm": 150
    },
    "bbox": {
     "min": [
@@ -29926,7 +29843,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "1cMeTmcpH6gg6vuZ6okvgj",
+   "guid": "0BEl0MxDBeNsA5kTu6HP54",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-106 seg 3",
@@ -29943,7 +29860,7 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.57
+    "weight_t": 0.58
    },
    "material": "Stainless steel 316",
    "properties": {
@@ -29964,7 +29881,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "1QN14gfD5$d3DTCACxnC2I",
+   "guid": "210zWBdfbTIxqRqiGWZyEq",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-106 seg 4",
@@ -29981,7 +29898,7 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.23
+    "weight_t": 0.38
    },
    "material": "Stainless steel 316",
    "properties": {
@@ -30002,7 +29919,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "2bun6ML3plTeYAM0AHNuej",
+   "guid": "0IyPdAR94Xg5JjpSN8xbRk",
    "ifc_class": "IfcPipeFitting",
    "predefined_type": "JUNCTION",
    "name": "Process tee P-106",
@@ -30037,7 +29954,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "01Kr6AeEhRNiXuh4ua5$Cu",
+   "guid": "3WUhJr7pYt4svOSWcOcMeT",
    "ifc_class": "IfcSensor",
    "predefined_type": "PRESSURESENSOR",
    "name": "Pressure transmitter P-106",
@@ -30073,7 +29990,7 @@
    "visual": "terminal"
   },
   {
-   "guid": "1x6jk3T861oaRc1QF0ZiG4",
+   "guid": "2pH6gg6vuZ6okvgjAkoKQN",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Module foundation MF-7",
@@ -30092,7 +30009,7 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 31.6,
+    "volume_m3": 20.4,
     "area_m2": 40.0,
     "count": 1.0
    },
@@ -30115,7 +30032,7 @@
    "visual": "footing"
   },
   {
-   "guid": "35a89cCShMjiVlhI5kn947",
+   "guid": "0gfD5$d3DTCACxnC2Igbun",
    "ifc_class": "IfcBuildingElementProxy",
    "predefined_type": "USERDEFINED",
    "name": "Process module M-07",
@@ -30134,17 +30051,17 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 81.4,
+    "volume_m3": 52.5,
     "area_m2": 36.0,
     "count": 1.0,
-    "weight_t": 90.4
+    "weight_t": 58.3
    },
    "material": "Structural steel skid",
    "properties": {
     "Module": true,
     "LongLead": true,
-    "LeadTimeWeeks": 18,
-    "HeavyLift": true
+    "LeadTimeWeeks": 14,
+    "HeavyLift": false
    },
    "bbox": {
     "min": [
@@ -30158,10 +30075,11 @@
      7.5
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "module"
   },
   {
-   "guid": "312os79nuzX5UzYGROadlS",
+   "guid": "1L3plTeYAM0AHNuej71Kr6",
    "ifc_class": "IfcFlowMovingDevice",
    "predefined_type": "PUMP",
    "name": "Pump P-107A",
@@ -30177,7 +30095,7 @@
    ],
    "quantities": {
     "count": 1.0,
-    "weight_t": 1.49
+    "weight_t": 0.89
    },
    "material": "Cast steel",
    "properties": {},
@@ -30193,10 +30111,11 @@
      1.0
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "pump_plinth"
   },
   {
-   "guid": "00o_wmKgf1RKi19$RmeWGo",
+   "guid": "0eEhRNiXuh4ua5$CuOGx6j",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-107-1",
@@ -30231,7 +30150,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "1aDwWN7NJSSdgC8145r5jV",
+   "guid": "23T861oaRc1QF0ZiG4Rs5a",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-107-2",
@@ -30266,7 +30185,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "3WV1JEBnouSH0agwgvfNBL",
+   "guid": "2CShMjiVlhI5kn947q_12o",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-107 seg 1",
@@ -30283,7 +30202,7 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.2
+    "weight_t": 0.23
    },
    "material": "Stainless steel 316",
    "properties": {
@@ -30304,7 +30223,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "3dLo5TUrM1IwljN9Wxx3G0",
+   "guid": "09nuzX5UzYGROadlS20o_w",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-107 seg 2",
@@ -30321,7 +30240,7 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.44
+    "weight_t": 0.43
    },
    "material": "Stainless steel 316",
    "properties": {
@@ -30342,7 +30261,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "0iKS0NOtLCL8jF_0kCtDEt",
+   "guid": "2f1RKi19$RmeWGoNaDwWN7",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-107 seg 3",
@@ -30359,7 +30278,7 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.56
+    "weight_t": 0.35
    },
    "material": "Stainless steel 316",
    "properties": {
@@ -30380,7 +30299,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "2AexyLCm56hUzR8mJzMZgd",
+   "guid": "1SSdgC8145r5jV0qWV1JEB",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-107 seg 4",
@@ -30397,11 +30316,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.28
+    "weight_t": 0.45
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 100
+    "Diameter_mm": 150
    },
    "bbox": {
     "min": [
@@ -30418,7 +30337,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "0CHLzK06MRbGTHJ7WBZZ_Z",
+   "guid": "3ouSH0agwgvfNBLsdLo5TU",
    "ifc_class": "IfcPipeFitting",
    "predefined_type": "JUNCTION",
    "name": "Process tee P-107",
@@ -30453,7 +30372,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "1GE8rkP1G1G4Q6ZJSGGu$j",
+   "guid": "3M1IwljN9Wxx3G0uEBiKS0",
    "ifc_class": "IfcSensor",
    "predefined_type": "PRESSURESENSOR",
    "name": "Pressure transmitter P-107",
@@ -30489,7 +30408,7 @@
    "visual": "terminal"
   },
   {
-   "guid": "1DVlO5GBrg6qWoP07iTuww",
+   "guid": "3LCL8jF_0kCtDEtRlgAexy",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Module foundation MF-8",
@@ -30508,7 +30427,7 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 36.8,
+    "volume_m3": 13.3,
     "area_m2": 40.0,
     "count": 1.0
    },
@@ -30531,7 +30450,7 @@
    "visual": "footing"
   },
   {
-   "guid": "3CSG92KBr9ycm5KRF3XVZ8",
+   "guid": "0m56hUzR8mJzMZgd6CHLzK",
    "ifc_class": "IfcBuildingElementProxy",
    "predefined_type": "USERDEFINED",
    "name": "Process module M-08",
@@ -30550,17 +30469,17 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 94.5,
+    "volume_m3": 34.3,
     "area_m2": 36.0,
     "count": 1.0,
-    "weight_t": 105.0
+    "weight_t": 38.1
    },
    "material": "Structural steel skid",
    "properties": {
     "Module": true,
     "LongLead": true,
-    "LeadTimeWeeks": 22,
-    "HeavyLift": true
+    "LeadTimeWeeks": 18,
+    "HeavyLift": false
    },
    "bbox": {
     "min": [
@@ -30574,10 +30493,11 @@
      7.5
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "module"
   },
   {
-   "guid": "3KJAPFr_17kplrow5nToJA",
+   "guid": "1RbGTHJ7WBZZ_ZRGE8rkP1",
    "ifc_class": "IfcFlowMovingDevice",
    "predefined_type": "PUMP",
    "name": "Pump P-108A",
@@ -30593,7 +30513,7 @@
    ],
    "quantities": {
     "count": 1.0,
-    "weight_t": 1.85
+    "weight_t": 0.8
    },
    "material": "Cast steel",
    "properties": {},
@@ -30609,10 +30529,11 @@
      1.0
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "pump_plinth"
   },
   {
-   "guid": "3kk7caWc4utoPdOSri1cmL",
+   "guid": "11G4Q6ZJSGGu$jGDVlO5GB",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-108-1",
@@ -30647,7 +30568,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "3OGLnHtFBbIWRqHhfYJC5$",
+   "guid": "3g6qWoP07iTuwwjoCSG92K",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-108-2",
@@ -30682,7 +30603,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "0qIUdAmXSPhUHawNk7kUSV",
+   "guid": "39ycm5KRF3XVZ8noKJAPFr",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-108 seg 1",
@@ -30699,11 +30620,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.58
+    "weight_t": 0.6
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 150
+    "Diameter_mm": 80
    },
    "bbox": {
     "min": [
@@ -30720,7 +30641,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "0U9Ak$p3lYlxnY$gwpYgPk",
+   "guid": "0kplrow5nToJAokk7caWc4",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-108 seg 2",
@@ -30737,11 +30658,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.3
+    "weight_t": 0.39
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 80
+    "Diameter_mm": 150
    },
    "bbox": {
     "min": [
@@ -30758,7 +30679,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "1tlyYonm8tQZGAMhal21gd",
+   "guid": "3toPdOSri1cmLwOGLnHtFB",
    "ifc_class": "IfcPipeFitting",
    "predefined_type": "JUNCTION",
    "name": "Process tee P-108",
@@ -30793,7 +30714,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "0hNpIflmocvNEU1wZHUlFY",
+   "guid": "2IWRqHhfYJC5$CqIUdAmXS",
    "ifc_class": "IfcSensor",
    "predefined_type": "PRESSURESENSOR",
    "name": "Pressure transmitter P-108",
@@ -30829,7 +30750,7 @@
    "visual": "terminal"
   },
   {
-   "guid": "0a6XPVKrEcedR7vqSwSD23",
+   "guid": "2UHawNk7kUSVXP4U9Ak$p3",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Module foundation MF-9",
@@ -30848,7 +30769,7 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 13.4,
+    "volume_m3": 14.0,
     "area_m2": 40.0,
     "count": 1.0
    },
@@ -30871,7 +30792,7 @@
    "visual": "footing"
   },
   {
-   "guid": "3jLIFAlvBZeKQkZMtwXY$6",
+   "guid": "2lxnY$gwpYgPkUtlyYonm8",
    "ifc_class": "IfcBuildingElementProxy",
    "predefined_type": "USERDEFINED",
    "name": "Process module M-09",
@@ -30890,16 +30811,16 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 34.4,
+    "volume_m3": 36.1,
     "area_m2": 36.0,
     "count": 1.0,
-    "weight_t": 38.2
+    "weight_t": 40.1
    },
    "material": "Structural steel skid",
    "properties": {
     "Module": true,
     "LongLead": true,
-    "LeadTimeWeeks": 14,
+    "LeadTimeWeeks": 22,
     "HeavyLift": false
    },
    "bbox": {
@@ -30914,10 +30835,11 @@
      7.5
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "module"
   },
   {
-   "guid": "1K3qhISuxvGtpfqOOx0EZ7",
+   "guid": "2GAMhal21gdBhNpIflmocv",
    "ifc_class": "IfcFlowMovingDevice",
    "predefined_type": "PUMP",
    "name": "Pump P-109A",
@@ -30933,7 +30855,7 @@
    ],
    "quantities": {
     "count": 1.0,
-    "weight_t": 0.99
+    "weight_t": 1.53
    },
    "material": "Cast steel",
    "properties": {},
@@ -30949,10 +30871,11 @@
      1.0
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "pump_plinth"
   },
   {
-   "guid": "0jJu83lf543JzMG8dNexOF",
+   "guid": "1EU1wZHUlFYNnFa6XPVKrE",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-109-1",
@@ -30987,7 +30910,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "33cTFRoB$L4PFPmiiJoM3N",
+   "guid": "2edR7vqSwSD23F$jLIFAlv",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-109-2",
@@ -31022,7 +30945,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "3ViGljRUILJuTOM0akySjS",
+   "guid": "2eKQkZMtwXY$6E$OK3qhIS",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-109 seg 1",
@@ -31039,7 +30962,7 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.43
+    "weight_t": 0.24
    },
    "material": "Stainless steel 316",
    "properties": {
@@ -31060,7 +30983,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "3Bi4yoB6w5Nn$FKPm4C1_F",
+   "guid": "3GtpfqOOx0EZ75jJu83lf5",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-109 seg 2",
@@ -31077,7 +31000,7 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.25
+    "weight_t": 0.56
    },
    "material": "Stainless steel 316",
    "properties": {
@@ -31098,7 +31021,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "1oCjSNB$tXXpzPfuXGIQRJ",
+   "guid": "03JzMG8dNexOFs3cTFRoB$",
    "ifc_class": "IfcPipeFitting",
    "predefined_type": "JUNCTION",
    "name": "Process tee P-109",
@@ -31133,7 +31056,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "1K2DbWJiJNMjp7mNhRl6nV",
+   "guid": "14PFPmiiJoM3N_ViGljRUI",
    "ifc_class": "IfcSensor",
    "predefined_type": "PRESSURESENSOR",
    "name": "Pressure transmitter P-109",
@@ -31169,7 +31092,7 @@
    "visual": "terminal"
   },
   {
-   "guid": "3V8E7Yo_ZDU0_eTdFfJ19S",
+   "guid": "3TOM0akySjSGTssBi4yoB6",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Module foundation MF-10",
@@ -31188,7 +31111,7 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 36.2,
+    "volume_m3": 12.9,
     "area_m2": 40.0,
     "count": 1.0
    },
@@ -31211,7 +31134,7 @@
    "visual": "footing"
   },
   {
-   "guid": "1p7apTykn8eZy5keW9M8lB",
+   "guid": "0Nn$FKPm4C1_FJoCjSNB$t",
    "ifc_class": "IfcBuildingElementProxy",
    "predefined_type": "USERDEFINED",
    "name": "Process module M-10",
@@ -31230,17 +31153,17 @@
     ]
    ],
    "quantities": {
-    "volume_m3": 93.0,
+    "volume_m3": 33.2,
     "area_m2": 36.0,
     "count": 1.0,
-    "weight_t": 103.3
+    "weight_t": 36.9
    },
    "material": "Structural steel skid",
    "properties": {
     "Module": true,
     "LongLead": true,
     "LeadTimeWeeks": 26,
-    "HeavyLift": true
+    "HeavyLift": false
    },
    "bbox": {
     "min": [
@@ -31254,10 +31177,11 @@
      7.5
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "module"
   },
   {
-   "guid": "299hgsY2BmRfv$jN7z0H2W",
+   "guid": "2XpzPfuXGIQRJIK2DbWJiJ",
    "ifc_class": "IfcFlowMovingDevice",
    "predefined_type": "PUMP",
    "name": "Pump P-110A",
@@ -31273,7 +31197,7 @@
    ],
    "quantities": {
     "count": 1.0,
-    "weight_t": 1.53
+    "weight_t": 2.37
    },
    "material": "Cast steel",
    "properties": {},
@@ -31289,10 +31213,11 @@
      1.0
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "pump_plinth"
   },
   {
-   "guid": "1tK19$CHBJd9PVtpxwp4yR",
+   "guid": "1Mjp7mNhRl6nVzV8E7Yo_Z",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-110-1",
@@ -31327,7 +31252,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "0Ls_zTANGun3whyrjUQdPE",
+   "guid": "0U0_eTdFfJ19SnMp7apTyk",
    "ifc_class": "IfcFlowController",
    "predefined_type": "VALVE",
    "name": "Isolation valve P-110-2",
@@ -31362,7 +31287,7 @@
    "visual": "equipment"
   },
   {
-   "guid": "3gdO3gNTFI5KF8j3i_mYaw",
+   "guid": "2y5keW9M8lBsY99hgsY2Bm",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-110 seg 1",
@@ -31379,11 +31304,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.44
+    "weight_t": 0.35
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 150
+    "Diameter_mm": 100
    },
    "bbox": {
     "min": [
@@ -31400,7 +31325,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "3060Hrxoddt$pcvvdBrPni",
+   "guid": "2v$jN7z0H2WLtK19$CHBJd",
    "ifc_class": "IfcPipeSegment",
    "predefined_type": "RIGIDSEGMENT",
    "name": "Process pipe P-110 seg 2",
@@ -31417,11 +31342,11 @@
    "quantities": {
     "length_m": 6.0,
     "count": 1.0,
-    "weight_t": 0.52
+    "weight_t": 0.44
    },
    "material": "Stainless steel 316",
    "properties": {
-    "Diameter_mm": 100
+    "Diameter_mm": 80
    },
    "bbox": {
     "min": [
@@ -31438,7 +31363,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "34Wg42qVjeSyP4nYsNxuAE",
+   "guid": "0PVtpxwp4yR9Ls_zTANGun",
    "ifc_class": "IfcPipeFitting",
    "predefined_type": "JUNCTION",
    "name": "Process tee P-110",
@@ -31473,7 +31398,7 @@
    "visual": "pipe"
   },
   {
-   "guid": "2HmSfQ6lx1MliEKKxqQscU",
+   "guid": "0whyrjUQdPEBmgdO3gNTFI",
    "ifc_class": "IfcSensor",
    "predefined_type": "PRESSURESENSOR",
    "name": "Pressure transmitter P-110",
@@ -31509,7 +31434,7 @@
    "visual": "terminal"
   },
   {
-   "guid": "0ebgoiaqtVcgXbSdW9dFoV",
+   "guid": "0KF8j3i_mYawaz060Hrxod",
    "ifc_class": "IfcElectricDistributionBoard",
    "predefined_type": "MOTORCONTROLCENTRE",
    "name": "MCC-1",
@@ -31543,10 +31468,11 @@
      2.2
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "switchroom"
   },
   {
-   "guid": "1XZvaSYqX2LIS6grGzRYCV",
+   "guid": "2t$pcvvdBrPnis4Wg42qVj",
    "ifc_class": "IfcElectricDistributionBoard",
    "predefined_type": "MOTORCONTROLCENTRE",
    "name": "MCC-2",
@@ -31580,10 +31506,11 @@
      2.2
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "switchroom"
   },
   {
-   "guid": "1D1vG7MEz5zfciOaqlhyGG",
+   "guid": "2SyP4nYsNxuAEjHmSfQ6lx",
    "ifc_class": "IfcElectricDistributionBoard",
    "predefined_type": "MOTORCONTROLCENTRE",
    "name": "MCC-3",
@@ -31617,10 +31544,11 @@
      2.2
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "switchroom"
   },
   {
-   "guid": "0V15cZtcm8IS63IjDHEQxg",
+   "guid": "0MliEKKxqQscUAebgoiaqt",
    "ifc_class": "IfcElectricDistributionBoard",
    "predefined_type": "MOTORCONTROLCENTRE",
    "name": "MCC-4",
@@ -31654,10 +31582,11 @@
      2.2
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "switchroom"
   },
   {
-   "guid": "3joOghy0tAR8XkcOXfonSA",
+   "guid": "1cgXbSdW9dFoVVXZvaSYqX",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray N-1",
@@ -31693,7 +31622,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "0Sl6QbNOqKH4VOdwbNXqQD",
+   "guid": "0LIS6grGzRYCVKD1vG7MEz",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray S-1",
@@ -31729,7 +31658,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "0cTvro34eIZm6JB_ua8xXO",
+   "guid": "0zfciOaqlhyGG4V15cZtcm",
    "ifc_class": "IfcCableSegment",
    "predefined_type": "CABLESEGMENT",
    "name": "Power cable run 1",
@@ -31765,7 +31694,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "0cQe7JTk6KKZsohNvhKPPH",
+   "guid": "0IS63IjDHEQxgojoOghy0t",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray N-2",
@@ -31801,7 +31730,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "1T1H2HgpDRQ1T2SPWqxu8F",
+   "guid": "0R8XkcOXfonSA9Sl6QbNOq",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray S-2",
@@ -31837,7 +31766,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "3wk1usIzieV7MZlQ7AMTX_",
+   "guid": "1H4VOdwbNXqQD2cTvro34e",
    "ifc_class": "IfcCableSegment",
    "predefined_type": "CABLESEGMENT",
    "name": "Power cable run 2",
@@ -31873,7 +31802,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "1U3RYG5Gbw82BwKKGb6l7u",
+   "guid": "1Zm6JB_ua8xXO4cQe7JTk6",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray N-3",
@@ -31909,7 +31838,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "3XxDy$fXqDNX6nkTuJyIh8",
+   "guid": "1KZsohNvhKPPHJT1H2HgpD",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray S-3",
@@ -31945,7 +31874,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "1Je5hnoaWIV_VOv9NCGAB6",
+   "guid": "1Q1T2SPWqxu8Fswk1usIzi",
    "ifc_class": "IfcCableSegment",
    "predefined_type": "CABLESEGMENT",
    "name": "Power cable run 3",
@@ -31981,7 +31910,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "0w5Uir69w6_b4SJjDWjMeE",
+   "guid": "2V7MZlQ7AMTX_LU3RYG5Gb",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray N-4",
@@ -32017,7 +31946,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "3DMMI$nWVSwNK2kbJIEmMm",
+   "guid": "382BwKKGb6l7uqXxDy$fXq",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray S-4",
@@ -32053,7 +31982,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "2XmOO0PPbbcu2d$g1Yx2L1",
+   "guid": "0NX6nkTuJyIh8NJe5hnoaW",
    "ifc_class": "IfcCableSegment",
    "predefined_type": "CABLESEGMENT",
    "name": "Power cable run 4",
@@ -32089,7 +32018,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "2mi9eOv$WNosQKerTYNv$y",
+   "guid": "1V_VOv9NCGAB6Fw5Uir69w",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray N-5",
@@ -32125,7 +32054,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "2LKjJ2rApiAIH3lKJaE9fq",
+   "guid": "0_b4SJjDWjMeE$DMMI$nWV",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray S-5",
@@ -32161,7 +32090,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "15JeepTtVxJqMbN5tm9gX3",
+   "guid": "1wNK2kbJIEmMmfXmOO0PPb",
    "ifc_class": "IfcCableSegment",
    "predefined_type": "CABLESEGMENT",
    "name": "Power cable run 5",
@@ -32197,7 +32126,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "2COQDS55YSK8AMJCM9lbEl",
+   "guid": "2cu2d$g1Yx2L1lmi9eOv$W",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray N-6",
@@ -32233,7 +32162,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "1tr$pc1DEfX7nddH05nM$u",
+   "guid": "1osQKerTYNv$yeLKjJ2rAp",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray S-6",
@@ -32269,7 +32198,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "3VefnpapdFtGRbNEItIM9O",
+   "guid": "2AIH3lKJaE9fqR5JeepTtV",
    "ifc_class": "IfcCableSegment",
    "predefined_type": "CABLESEGMENT",
    "name": "Power cable run 6",
@@ -32305,7 +32234,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "12d85aKWREa_EByvJqZCKP",
+   "guid": "3JqMbN5tm9gX3hCOQDS55Y",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray N-7",
@@ -32341,7 +32270,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "027Stsq2L070iPKhOoOC0f",
+   "guid": "1K8AMJCM9lbElJtr$pc1DE",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray S-7",
@@ -32377,7 +32306,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "0fMYVU0jKrL77votKwtVTM",
+   "guid": "2X7nddH05nM$uzVefnpapd",
    "ifc_class": "IfcCableSegment",
    "predefined_type": "CABLESEGMENT",
    "name": "Power cable run 7",
@@ -32413,7 +32342,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "1nQRzqAhEpMowDVtdD09OJ",
+   "guid": "0tGRbNEItIM9ON2d85aKWR",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray N-8",
@@ -32449,7 +32378,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "1PSJCSiNx8zf2pz$nC5slL",
+   "guid": "0a_EByvJqZCKPE27Stsq2L",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray S-8",
@@ -32485,7 +32414,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "0CYV9GxuqEwEjrVci$M2Jo",
+   "guid": "070iPKhOoOC0f5fMYVU0jK",
    "ifc_class": "IfcCableSegment",
    "predefined_type": "CABLESEGMENT",
    "name": "Power cable run 8",
@@ -32521,7 +32450,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "3lpnLjCHfvQdKhfSYt1ucH",
+   "guid": "3L77votKwtVTMQnQRzqAhE",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray N-9",
@@ -32557,7 +32486,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "0uYyIqsc8uo_20wd$WjapZ",
+   "guid": "3MowDVtdD09OJKPSJCSiNx",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray S-9",
@@ -32593,7 +32522,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "0OcEqxVawhQpDmb3Xbe1Lo",
+   "guid": "0zf2pz$nC5slL0CYV9Gxuq",
    "ifc_class": "IfcCableSegment",
    "predefined_type": "CABLESEGMENT",
    "name": "Power cable run 9",
@@ -32629,7 +32558,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "0fLF4KpHw5opb72MYWjDS0",
+   "guid": "0wEjrVci$M2JomlpnLjCHf",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray N-10",
@@ -32665,7 +32594,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "15gzdUyXDirU1Jvl160R5i",
+   "guid": "3QdKhfSYt1ucH2uYyIqsc8",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray S-10",
@@ -32701,7 +32630,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "3pDjQ2jnbCXOubtv6z2FyK",
+   "guid": "3o_20wd$WjapZ9OcEqxVaw",
    "ifc_class": "IfcCableSegment",
    "predefined_type": "CABLESEGMENT",
    "name": "Power cable run 10",
@@ -32737,7 +32666,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "343EQslF6TYbcWG5ozZhsp",
+   "guid": "2QpDmb3Xbe1Lo1fLF4KpHw",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray N-11",
@@ -32773,7 +32702,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "2Lc4mIGEfitzHesMNNF1gU",
+   "guid": "0opb72MYWjDS0O5gzdUyXD",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray S-11",
@@ -32809,7 +32738,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "1bu3X$dzncaflStfLCTSe0",
+   "guid": "2rU1Jvl160R5inpDjQ2jnb",
    "ifc_class": "IfcCableSegment",
    "predefined_type": "CABLESEGMENT",
    "name": "Power cable run 11",
@@ -32845,7 +32774,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "3AHagiRDL70VoGNB8yUIx$",
+   "guid": "0XOubtv6z2FyKr43EQslF6",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray N-12",
@@ -32881,7 +32810,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "1sYVifffLNdLiHeCpEf_lA",
+   "guid": "1YbcWG5ozZhsplLc4mIGEf",
    "ifc_class": "IfcCableCarrierSegment",
    "predefined_type": "CABLETRAYSEGMENT",
    "name": "Cable tray S-12",
@@ -32917,7 +32846,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "387h66kdBXvwdYyTkRjIcu",
+   "guid": "2tzHesMNNF1gURbu3X$dzn",
    "ifc_class": "IfcCableSegment",
    "predefined_type": "CABLESEGMENT",
    "name": "Power cable run 12",
@@ -32953,7 +32882,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "2ExFjcwPXbQ4gT_3SOFRrA",
+   "guid": "2aflStfLCTSe0_AHagiRDL",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Transformer T-1 plinth",
@@ -32991,7 +32920,7 @@
    "visual": "footing"
   },
   {
-   "guid": "0PUNs4yM8jMzyP1atNe8eN",
+   "guid": "00VoGNB8yUIx$KsYVifffL",
    "ifc_class": "IfcTransformer",
    "predefined_type": null,
    "name": "Transformer T-1",
@@ -33028,10 +32957,11 @@
      4.0
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "transformer"
   },
   {
-   "guid": "0udqfRfSz6CDjszObZm$Bz",
+   "guid": "1dLiHeCpEf_lAv87h66kdB",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Transformer T-2 plinth",
@@ -33069,7 +32999,7 @@
    "visual": "footing"
   },
   {
-   "guid": "3mKo8dSQoHWmtXh634E6hz",
+   "guid": "2vwdYyTkRjIcubExFjcwPX",
    "ifc_class": "IfcTransformer",
    "predefined_type": null,
    "name": "Transformer T-2",
@@ -33106,10 +33036,11 @@
      4.0
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "transformer"
   },
   {
-   "guid": "12ThKCAqbaLbnZcwluLl_g",
+   "guid": "2Q4gT_3SOFRrA8PUNs4yM8",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Fired heater H-1 plinth",
@@ -33147,7 +33078,7 @@
    "visual": "footing"
   },
   {
-   "guid": "2GE6MI9ux9HcOvAx1gcXgC",
+   "guid": "2MzyP1atNe8eNFudqfRfSz",
    "ifc_class": "IfcEnergyConversionDevice",
    "predefined_type": "USERDEFINED",
    "name": "Fired heater H-1",
@@ -33184,10 +33115,11 @@
      4.0
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "exchanger"
   },
   {
-   "guid": "2Qs$KoDANR3QhtEAV_AZh1",
+   "guid": "0CDjszObZm$BzumKo8dSQo",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Heat exchanger E-1 plinth",
@@ -33225,7 +33157,7 @@
    "visual": "footing"
   },
   {
-   "guid": "0LDux6leIssQSlBe2x1eOG",
+   "guid": "1WmtXh634E6hzT2ThKCAqb",
    "ifc_class": "IfcEnergyConversionDevice",
    "predefined_type": "HEATEXCHANGER",
    "name": "Heat exchanger E-1",
@@ -33262,10 +33194,11 @@
      4.0
     ]
    },
-   "visual": "equipment"
+   "visual": "equipment",
+   "visual_kit": "exchanger"
   },
   {
-   "guid": "32FFUA1VGydHeiFVs57fCF",
+   "guid": "2LbnZcwluLl_giGE6MI9ux",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Storage tank TK-1 plinth",
@@ -33303,7 +33236,7 @@
    "visual": "footing"
   },
   {
-   "guid": "0af7HcRxQp8h$QmpHuARip",
+   "guid": "0HcOvAx1gcXgCYQs$KoDAN",
    "ifc_class": "IfcTank",
    "predefined_type": "STORAGE",
    "name": "Storage tank TK-1",
@@ -33340,10 +33273,11 @@
      14.0
     ]
    },
-   "visual": "tank"
+   "visual": "tank",
+   "visual_kit": "tank"
   },
   {
-   "guid": "1QjU70gftBkbvVBgnmU_Nj",
+   "guid": "13QhtEAV_AZh12LDux6leI",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Storage tank TK-2 plinth",
@@ -33381,7 +33315,7 @@
    "visual": "footing"
   },
   {
-   "guid": "2ECmbVo5HUy_Nw3Krmq0hV",
+   "guid": "3sQSlBe2x1eOGo2FFUA1VG",
    "ifc_class": "IfcTank",
    "predefined_type": "STORAGE",
    "name": "Storage tank TK-2",
@@ -33418,10 +33352,11 @@
      14.0
     ]
    },
-   "visual": "tank"
+   "visual": "tank",
+   "visual_kit": "tank"
   },
   {
-   "guid": "2MAmWW8q94DxfQgcqX5lF4",
+   "guid": "3dHeiFVs57fCF5af7HcRxQ",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Day tank TK-3 plinth",
@@ -33459,7 +33394,7 @@
    "visual": "footing"
   },
   {
-   "guid": "10H_R1XI_rQsHDXXYwETeR",
+   "guid": "38h$QmpHuARipVQjU70gft",
    "ifc_class": "IfcTank",
    "predefined_type": "STORAGE",
    "name": "Day tank TK-3",
@@ -33496,10 +33431,11 @@
      14.0
     ]
    },
-   "visual": "tank"
+   "visual": "tank",
+   "visual_kit": "vessel_v"
   },
   {
-   "guid": "0q5r$pX0MMZwYeiEUgwH_F",
+   "guid": "0kbvVBgnmU_NjiECmbVo5H",
    "ifc_class": "IfcFooting",
    "predefined_type": "PAD_FOOTING",
    "name": "Buffer tank TK-4 plinth",
@@ -33537,7 +33473,7 @@
    "visual": "footing"
   },
   {
-   "guid": "3YP2sFDnY4PdQ8$QyujSTR",
+   "guid": "1y_Nw3Krmq0hVbMAmWW8q9",
    "ifc_class": "IfcTank",
    "predefined_type": "STORAGE",
    "name": "Buffer tank TK-4",
@@ -33574,10 +33510,248 @@
      14.0
     ]
    },
-   "visual": "tank"
+   "visual": "tank",
+   "visual_kit": "vessel_h"
   },
   {
-   "guid": "3ayv1WCT11EiOr2NGoHiXL",
+   "guid": "0DxfQgcqX5lF4O0H_R1XI_",
+   "ifc_class": "IfcFooting",
+   "predefined_type": "PAD_FOOTING",
+   "name": "Steam turbine TG-1 plinth",
+   "storey_id": "L00",
+   "zone_id": "L00-Z15",
+   "system_id": null,
+   "host_guid": null,
+   "cells": [
+    [
+     8,
+     9
+    ]
+   ],
+   "quantities": {
+    "volume_m3": 21.2,
+    "area_m2": 25.0,
+    "count": 1.0
+   },
+   "material": "Concrete C32/40",
+   "properties": {
+    "LoadBearing": true
+   },
+   "bbox": {
+    "min": [
+     48.5,
+     54.5,
+     -0.8
+    ],
+    "max": [
+     53.5,
+     59.5,
+     0.0
+    ]
+   },
+   "visual": "footing"
+  },
+  {
+   "guid": "3QsHDXXYwETeR2q5r$pX0M",
+   "ifc_class": "IfcEnergyConversionDevice",
+   "predefined_type": "USERDEFINED",
+   "name": "Steam turbine TG-1",
+   "storey_id": "L00",
+   "zone_id": "L00-Z15",
+   "system_id": "P-110",
+   "host_guid": null,
+   "cells": [
+    [
+     8,
+     9
+    ]
+   ],
+   "quantities": {
+    "volume_m3": 127.5,
+    "count": 1.0,
+    "weight_t": 85.0
+   },
+   "material": "Carbon steel",
+   "properties": {
+    "LongLead": true,
+    "LeadTimeWeeks": 48,
+    "Module": false
+   },
+   "bbox": {
+    "min": [
+     48.75,
+     54.75,
+     0.0
+    ],
+    "max": [
+     53.25,
+     59.25,
+     4.0
+    ]
+   },
+   "visual": "equipment",
+   "visual_kit": "turbine"
+  },
+  {
+   "guid": "1ZwYeiEUgwH_FwYP2sFDnY",
+   "ifc_class": "IfcFooting",
+   "predefined_type": "PAD_FOOTING",
+   "name": "Cooling tower CT-1 plinth",
+   "storey_id": "L00",
+   "zone_id": "L00-Z15",
+   "system_id": null,
+   "host_guid": null,
+   "cells": [
+    [
+     9,
+     9
+    ]
+   ],
+   "quantities": {
+    "volume_m3": 7.5,
+    "area_m2": 25.0,
+    "count": 1.0
+   },
+   "material": "Concrete C32/40",
+   "properties": {
+    "LoadBearing": true
+   },
+   "bbox": {
+    "min": [
+     54.5,
+     54.5,
+     -0.8
+    ],
+    "max": [
+     59.5,
+     59.5,
+     0.0
+    ]
+   },
+   "visual": "footing"
+  },
+  {
+   "guid": "0PdQ8$QyujSTRpayv1WCT1",
+   "ifc_class": "IfcEnergyConversionDevice",
+   "predefined_type": "USERDEFINED",
+   "name": "Cooling tower CT-1",
+   "storey_id": "L00",
+   "zone_id": "L00-Z15",
+   "system_id": "P-110",
+   "host_guid": null,
+   "cells": [
+    [
+     9,
+     9
+    ]
+   ],
+   "quantities": {
+    "volume_m3": 45.0,
+    "count": 1.0,
+    "weight_t": 30.0
+   },
+   "material": "Carbon steel",
+   "properties": {
+    "LongLead": true,
+    "LeadTimeWeeks": 20,
+    "Module": false
+   },
+   "bbox": {
+    "min": [
+     54.75,
+     54.75,
+     0.0
+    ],
+    "max": [
+     59.25,
+     59.25,
+     4.0
+    ]
+   },
+   "visual": "equipment",
+   "visual_kit": "cooling_tower"
+  },
+  {
+   "guid": "0EiOr2NGoHiXL5X8LTA4jv",
+   "ifc_class": "IfcFooting",
+   "predefined_type": "PAD_FOOTING",
+   "name": "Compressor K-1 plinth",
+   "storey_id": "L00",
+   "zone_id": "L00-Z15",
+   "system_id": null,
+   "host_guid": null,
+   "cells": [
+    [
+     11,
+     9
+    ]
+   ],
+   "quantities": {
+    "volume_m3": 6.5,
+    "area_m2": 25.0,
+    "count": 1.0
+   },
+   "material": "Concrete C32/40",
+   "properties": {
+    "LoadBearing": true
+   },
+   "bbox": {
+    "min": [
+     66.5,
+     54.5,
+     -0.8
+    ],
+    "max": [
+     71.5,
+     59.5,
+     0.0
+    ]
+   },
+   "visual": "footing"
+  },
+  {
+   "guid": "3H0YZ827$YCRKYlU97zdCI",
+   "ifc_class": "IfcFlowMovingDevice",
+   "predefined_type": "COMPRESSOR",
+   "name": "Compressor K-1",
+   "storey_id": "L00",
+   "zone_id": "L00-Z15",
+   "system_id": "P-110",
+   "host_guid": null,
+   "cells": [
+    [
+     11,
+     9
+    ]
+   ],
+   "quantities": {
+    "volume_m3": 39.0,
+    "count": 1.0,
+    "weight_t": 26.0
+   },
+   "material": "Carbon steel",
+   "properties": {
+    "LongLead": true,
+    "LeadTimeWeeks": 36,
+    "Module": false
+   },
+   "bbox": {
+    "min": [
+     66.75,
+     54.75,
+     0.0
+    ],
+    "max": [
+     71.25,
+     59.25,
+     4.0
+    ]
+   },
+   "visual": "equipment",
+   "visual_kit": "compressor"
+  },
+  {
+   "guid": "1Zx3yJnWqQNMlA$cINb1XR",
    "ifc_class": "IfcCableSegment",
    "predefined_type": "CABLESEGMENT",
    "name": "HV cable run 1",
@@ -33613,7 +33787,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "0X8LTA4jvxH0YZ827$YCRK",
+   "guid": "1rCD64OdmtCmR6y1JpvL7J",
    "ifc_class": "IfcCableSegment",
    "predefined_type": "CABLESEGMENT",
    "name": "HV cable run 2",
@@ -33649,7 +33823,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "2lU97zdCIIZx3yJnWqQNMl",
+   "guid": "04gUorH8kPq31hxye37C$V",
    "ifc_class": "IfcCableSegment",
    "predefined_type": "CABLESEGMENT",
    "name": "HV cable run 3",
@@ -33685,7 +33859,7 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "0$cINb1XRMrCD64OdmtCmR",
+   "guid": "1g13xRxBO4vLKBDQm5y9n$",
    "ifc_class": "IfcCableSegment",
    "predefined_type": "CABLESEGMENT",
    "name": "HV cable run 4",
@@ -33721,7 +33895,155 @@
    "visual": "cable_tray"
   },
   {
-   "guid": "0y1JpvL7J44gUorH8kPq31",
+   "guid": "1NF3WeZqE$EL8y0wWdVq6I",
+   "ifc_class": "IfcSensor",
+   "predefined_type": "PRESSURESENSOR",
+   "name": "Rack transmitter 9",
+   "storey_id": "L00",
+   "zone_id": "L00-Z15",
+   "system_id": "INSTR-1",
+   "host_guid": null,
+   "cells": [
+    [
+     8,
+     8
+    ]
+   ],
+   "quantities": {
+    "count": 1.0
+   },
+   "material": "Stainless steel",
+   "properties": {
+    "Instrument": true,
+    "OnRack": true
+   },
+   "bbox": {
+    "min": [
+     51.85,
+     50.85,
+     5.5
+    ],
+    "max": [
+     52.15,
+     51.15,
+     5.9
+    ]
+   },
+   "visual": "terminal"
+  },
+  {
+   "guid": "1cbGNkIBo1IhNRYAI2Ydvy",
+   "ifc_class": "IfcSensor",
+   "predefined_type": "PRESSURESENSOR",
+   "name": "Rack transmitter 10",
+   "storey_id": "L00",
+   "zone_id": "L00-Z15",
+   "system_id": "INSTR-1",
+   "host_guid": null,
+   "cells": [
+    [
+     9,
+     8
+    ]
+   ],
+   "quantities": {
+    "count": 1.0
+   },
+   "material": "Stainless steel",
+   "properties": {
+    "Instrument": true,
+    "OnRack": true
+   },
+   "bbox": {
+    "min": [
+     57.85,
+     50.85,
+     5.5
+    ],
+    "max": [
+     58.15,
+     51.15,
+     5.9
+    ]
+   },
+   "visual": "terminal"
+  },
+  {
+   "guid": "1m2QNrjeCSGyqAxc3HYiji",
+   "ifc_class": "IfcSensor",
+   "predefined_type": "PRESSURESENSOR",
+   "name": "Rack transmitter 11",
+   "storey_id": "L00",
+   "zone_id": "L00-Z15",
+   "system_id": "INSTR-1",
+   "host_guid": null,
+   "cells": [
+    [
+     10,
+     8
+    ]
+   ],
+   "quantities": {
+    "count": 1.0
+   },
+   "material": "Stainless steel",
+   "properties": {
+    "Instrument": true,
+    "OnRack": true
+   },
+   "bbox": {
+    "min": [
+     63.85,
+     50.85,
+     5.5
+    ],
+    "max": [
+     64.15,
+     51.15,
+     5.9
+    ]
+   },
+   "visual": "terminal"
+  },
+  {
+   "guid": "0m4GDDEeBLtpaqWzsrGRxm",
+   "ifc_class": "IfcSensor",
+   "predefined_type": "PRESSURESENSOR",
+   "name": "Rack transmitter 12",
+   "storey_id": "L00",
+   "zone_id": "L00-Z15",
+   "system_id": "INSTR-1",
+   "host_guid": null,
+   "cells": [
+    [
+     11,
+     8
+    ]
+   ],
+   "quantities": {
+    "count": 1.0
+   },
+   "material": "Stainless steel",
+   "properties": {
+    "Instrument": true,
+    "OnRack": true
+   },
+   "bbox": {
+    "min": [
+     69.85,
+     50.85,
+     5.5
+    ],
+    "max": [
+     70.15,
+     51.15,
+     5.9
+    ]
+   },
+   "visual": "terminal"
+  },
+  {
+   "guid": "01YdwX3TuBE4_bGAtc56pP",
    "ifc_class": "IfcSlab",
    "predefined_type": "BASESLAB",
    "name": "Yard slab Y-0",
@@ -33763,7 +34085,7 @@
    "visual": "slab"
   },
   {
-   "guid": "2xye37C$VHg13xRxBO4vLK",
+   "guid": "3GPfTZYtYv5KFSqeZtNI1L",
    "ifc_class": "IfcSlab",
    "predefined_type": "BASESLAB",
    "name": "Yard slab Y-2",
@@ -33805,7 +34127,7 @@
    "visual": "slab"
   },
   {
-   "guid": "0DQm5y9n$INF3WeZqE$EL8",
+   "guid": "0LP_I1jg0QR0722mVbpwUE",
    "ifc_class": "IfcSlab",
    "predefined_type": "BASESLAB",
    "name": "Yard slab Y-4",
@@ -33847,7 +34169,7 @@
    "visual": "slab"
   },
   {
-   "guid": "30wWdVq6IScbGNkIBo1IhN",
+   "guid": "00BFWFp02BnJUH$Pww5n1h",
    "ifc_class": "IfcSlab",
    "predefined_type": "BASESLAB",
    "name": "Yard slab Y-6",
@@ -33889,7 +34211,7 @@
    "visual": "slab"
   },
   {
-   "guid": "1YAI2YdvyNm2QNrjeCSGyq",
+   "guid": "2AszXnV562ZSVtFCVvACAe",
    "ifc_class": "IfcSlab",
    "predefined_type": "BASESLAB",
    "name": "Yard slab Y-8",
@@ -33931,7 +34253,7 @@
    "visual": "slab"
   },
   {
-   "guid": "0xc3HYijiEm4GDDEeBLtpa",
+   "guid": "0lXgIdJ2OX18kQfUZqq3vf",
    "ifc_class": "IfcSlab",
    "predefined_type": "BASESLAB",
    "name": "Yard slab Y-10",
