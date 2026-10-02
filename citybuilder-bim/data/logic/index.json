@@ -1,0 +1,1743 @@
+{
+ "schema_version": "1.0",
+ "recipe_count": 36,
+ "recipes": [
+  {
+   "id": "rec_bridge_deck",
+   "name": "Bridge beams, deck and parapets",
+   "sector": "civil",
+   "tags": [
+    "bridge",
+    "heavy_lift",
+    "night_work",
+    "traffic"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcBeam",
+     "IfcSlab",
+     "IfcRailing"
+    ],
+    "properties": {
+     "BridgePart": "deck"
+    },
+    "keywords": [
+     "bridge deck",
+     "bridge beam",
+     "girder",
+     "parapet"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcBeam', 'IfcSlab', 'IfcRailing'], keywords=['bridge deck', 'bridge beam', 'girder', 'parapet'], properties=BridgePart=deck",
+   "steps": [
+    "GEN-PERMIT-WORK",
+    "GEN-LIFT-PLAN",
+    "GEN-CRANE-MOBILISE",
+    "CIV-TM-STAGE1",
+    "STR-BEAM-LIFT",
+    "GEN-SCAFFOLD-ERECT",
+    "STR-DECK-REBAR",
+    "STR-DECK-POUR",
+    "GEN-CURING-WATCH",
+    "STR-DECK-WATERPROOF",
+    "STR-PARAPET-INSTALL",
+    "GEN-SURVEY-ASBUILT",
+    "GEN-SCAFFOLD-DISMANTLE"
+   ],
+   "nested_recipes": [],
+   "step_count": 13,
+   "virtual_count": 7,
+   "summary": "Close the road for the night lift, plan and mobilise the crane, lift beams, build the deck, cure, waterproof, fit parapets and survey.",
+   "typical_duration_weeks": [
+    6,
+    14
+   ]
+  },
+  {
+   "id": "rec_bridge_pier",
+   "name": "Bridge pier on piled foundation",
+   "sector": "civil",
+   "tags": [
+    "bridge",
+    "pier",
+    "piling",
+    "long_lead"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcColumn",
+     "IfcPile",
+     "IfcFooting",
+     "IfcDeepFoundation"
+    ],
+    "properties": {
+     "BridgePart": "pier"
+    },
+    "visual_kit": [
+     "bridge_pier"
+    ],
+    "keywords": [
+     "bridge pier",
+     "pier",
+     "pile cap",
+     "abutment"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcColumn', 'IfcPile', 'IfcFooting', 'IfcDeepFoundation'], visual_kit=['bridge_pier'], keywords=['bridge pier', 'pier', 'pile cap', 'abutment'], properties=BridgePart=pier",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "GEN-DEWATER-INSTALL",
+    "CIV-PILE-DRIVE",
+    "GEN-SURVEY-ASBUILT",
+    "STR-CAP-REBAR",
+    "STR-CAP-POUR",
+    "GEN-CURING-WATCH",
+    "GEN-SCAFFOLD-ERECT",
+    "STR-PIER-POUR",
+    "GEN-CURING-WATCH",
+    "GEN-ANCHOR-SURVEY",
+    "STR-BEARING-SET",
+    "GEN-SCAFFOLD-DISMANTLE"
+   ],
+   "nested_recipes": [],
+   "step_count": 13,
+   "virtual_count": 8,
+   "summary": "Set out, drive piles, cast cap, build the pier with scaffold and curing watch, survey the bearing seat and set bearings.",
+   "typical_duration_weeks": [
+    8,
+    18
+   ]
+  },
+  {
+   "id": "rec_cable_tray_and_cabling",
+   "name": "Cable tray and cabling run",
+   "sector": "industrial",
+   "tags": [
+    "electrical",
+    "cabling"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcCableCarrierSegment",
+     "IfcCableSegment"
+    ],
+    "keywords": [
+     "cable tray",
+     "cabling",
+     "ladder",
+     "cable pull"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcCableCarrierSegment', 'IfcCableSegment'], keywords=['cable tray', 'cabling', 'ladder', 'cable pull']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "GEN-SCAFFOLD-ERECT",
+    "ELE-TRAY-INSTALL",
+    "ELE-CABLE-PULL",
+    "ELE-CABLE-TEST",
+    "ELE-PANEL-INSTALL",
+    "GEN-SCAFFOLD-DISMANTLE",
+    "GEN-PRECOMM-CHECK"
+   ],
+   "nested_recipes": [],
+   "step_count": 8,
+   "virtual_count": 4,
+   "summary": "Erect access, install tray, pull cable, megger test and terminate; dismantle access when finished.",
+   "typical_duration_weeks": [
+    2,
+    8
+   ]
+  },
+  {
+   "id": "rec_crane_lift_heavy",
+   "name": "Heavy crane lift",
+   "sector": "all",
+   "tags": [
+    "heavy_lift",
+    "crane",
+    "lift_plan"
+   ],
+   "applies_to": {
+    "keywords": [
+     "heavy lift",
+     "crane lift",
+     "tandem lift",
+     "critical lift",
+     "lift plan"
+    ]
+   },
+   "applies_to_summary": "keywords=['heavy lift', 'crane lift', 'tandem lift', 'critical lift', 'lift plan']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "GEN-PERMIT-WORK",
+    "GEN-LIFT-PLAN",
+    "GEN-TW-CHECK",
+    "GEN-CRANE-MOBILISE",
+    "GEN-PRECOMM-CHECK",
+    "GEN-SURVEY-ASBUILT",
+    "GEN-PUNCH-CLEAR"
+   ],
+   "nested_recipes": [],
+   "step_count": 8,
+   "virtual_count": 8,
+   "summary": "Permit, survey, lift plan, crane mobilisation and load test, the lift itself (bound to a BIM step), as-built survey and demobilisation attendance.",
+   "typical_duration_weeks": [
+    1,
+    4
+   ]
+  },
+  {
+   "id": "rec_culvert",
+   "name": "Precast culvert crossing",
+   "sector": "civil",
+   "tags": [
+    "culvert",
+    "precast",
+    "watercourse"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcBuildingElementProxy",
+     "IfcWall"
+    ],
+    "name_regex": "(?i)(culvert|box.?section|headwall)",
+    "properties": {
+     "Culvert": true
+    },
+    "visual_kit": [
+     "culvert"
+    ],
+    "keywords": [
+     "culvert",
+     "box culvert",
+     "headwall"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcBuildingElementProxy', 'IfcWall'], name_regex=(?i)(culvert|box.?section|headwall), visual_kit=['culvert'], keywords=['culvert', 'box culvert', 'headwall'], properties=Culvert=True",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "GEN-UTIL-LOCATE",
+    "GEN-DEWATER-INSTALL",
+    "GEN-SHORING-INSTALL",
+    "CIV-TRENCH-DIG",
+    "GEN-DEWATER-RUN",
+    "GEN-LIFT-PLAN",
+    "CIV-CULVERT-SET",
+    "STR-WALL-POUR",
+    "GEN-CURING-WATCH",
+    "CIV-STRUCT-BACKFILL",
+    "GEN-SHORING-REMOVE",
+    "GEN-SURVEY-ASBUILT"
+   ],
+   "nested_recipes": [],
+   "step_count": 13,
+   "virtual_count": 9,
+   "summary": "Set out, dewater, shore and excavate the trench, lift culvert units, build headwalls and backfill, then survey.",
+   "typical_duration_weeks": [
+    3,
+    8
+   ]
+  },
+  {
+   "id": "rec_deep_excavation",
+   "name": "Deep excavation or pit with shoring and dewatering",
+   "sector": "industrial",
+   "tags": [
+    "excavation",
+    "temporary_works",
+    "groundwater"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcEarthworksCut"
+    ],
+    "name_regex": "(?i)(sump|pit|deep|basement|cellar)",
+    "keywords": [
+     "deep excavation",
+     "sump",
+     "pit",
+     "shoring",
+     "dewatering"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcEarthworksCut'], name_regex=(?i)(sump|pit|deep|basement|cellar), keywords=['deep excavation', 'sump', 'pit', 'shoring', 'dewatering']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "GEN-UTIL-LOCATE",
+    "GEN-PERMIT-WORK",
+    "GEN-TW-CHECK",
+    "GEN-DEWATER-INSTALL",
+    "GEN-SHORING-INSTALL",
+    "CIV-EARTH-CUT",
+    "GEN-DEWATER-RUN",
+    "GEN-SURVEY-ASBUILT",
+    "STR-FOOT-REBAR",
+    "CIV-BACKFILL-COMPACT",
+    "GEN-SHORING-REMOVE"
+   ],
+   "nested_recipes": [],
+   "step_count": 12,
+   "virtual_count": 9,
+   "summary": "Excavate a deep pit or sump for a basement, pump pit or tank base: survey, locate services, approve the shoring design, install dewatering and shoring, dig, survey the formation, backfill and recover the shoring.",
+   "typical_duration_weeks": [
+    3,
+    8
+   ]
+  },
+  {
+   "id": "rec_drainage_run",
+   "name": "Drainage run with chambers",
+   "sector": "civil",
+   "tags": [
+    "drainage",
+    "excavation"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcPipeSegment",
+     "IfcDistributionChamberElement"
+    ],
+    "name_regex": "(?i)(storm|drain|sewer|culvert|gully|manhole)",
+    "predefined_type": [
+     "CULVERT"
+    ],
+    "keywords": [
+     "drainage",
+     "storm drain",
+     "manhole"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcPipeSegment', 'IfcDistributionChamberElement'], name_regex=(?i)(storm|drain|sewer|culvert|gully|manhole), predefined_type=['CULVERT'], keywords=['drainage', 'storm drain', 'manhole']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "GEN-UTIL-LOCATE",
+    "CIV-TM-STAGE1",
+    "GEN-SHORING-INSTALL",
+    "GEN-DEWATER-INSTALL",
+    "CIV-TRENCH-DIG",
+    "CIV-DRAIN-INSTALL",
+    "CIV-CHAMBER-SET",
+    "CIV-DRAIN-TEST",
+    "CIV-DRAIN-BACKFILL",
+    "GEN-SHORING-REMOVE",
+    "GEN-SURVEY-ASBUILT"
+   ],
+   "nested_recipes": [],
+   "step_count": 12,
+   "virtual_count": 6,
+   "summary": "Set out, locate services, set traffic management, shore and dig the trench, lay pipe and chambers, test and backfill.",
+   "typical_duration_weeks": [
+    3,
+    12
+   ]
+  },
+  {
+   "id": "rec_earthworks_cut_fill",
+   "name": "Earthworks cut and fill",
+   "sector": "civil",
+   "tags": [
+    "earthworks",
+    "balance"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcEarthworksCut",
+     "IfcEarthworksFill"
+    ],
+    "keywords": [
+     "earthworks",
+     "cut",
+     "fill",
+     "embankment"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcEarthworksCut', 'IfcEarthworksFill'], keywords=['earthworks', 'cut', 'fill', 'embankment']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "GEN-UTIL-LOCATE",
+    "GEN-SITE-CLEAR",
+    "CIV-EARTH-CUT",
+    "CIV-EARTH-FILL",
+    "CIV-COMPACT-TEST",
+    "GEN-SURVEY-ASBUILT"
+   ],
+   "nested_recipes": [],
+   "step_count": 7,
+   "virtual_count": 3,
+   "summary": "Set out, clear, cut and place fill with testing; compaction and formation tests are hold points and the as-built survey closes the zone.",
+   "typical_duration_weeks": [
+    6,
+    20
+   ]
+  },
+  {
+   "id": "rec_heat_exchanger",
+   "name": "Shell-and-tube heat exchanger set",
+   "sector": "industrial",
+   "tags": [
+    "exchanger",
+    "heavy_lift"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcEnergyConversionDevice"
+    ],
+    "visual_kit": [
+     "exchanger"
+    ],
+    "name_regex": "(?i)(exchanger|heater|cooler|condenser|reboiler|furnace)",
+    "keywords": [
+     "heat exchanger",
+     "shell and tube",
+     "heater"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcEnergyConversionDevice'], visual_kit=['exchanger'], name_regex=(?i)(exchanger|heater|cooler|condenser|reboiler|furnace), keywords=['heat exchanger', 'shell and tube', 'heater']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "STR-EQPAD-POUR",
+    "GEN-CURING-WATCH",
+    "GEN-ANCHOR-SURVEY",
+    "GEN-LIFT-PLAN",
+    "PRC-EQUIP-SET",
+    "PIP-FITTING-INSTALL",
+    "GEN-HYDROTEST",
+    "INS-COATING-APPLY",
+    "IC-INSTR-INSTALL",
+    "GEN-PRECOMM-CHECK",
+    "CX-PROCESS-STARTUP"
+   ],
+   "nested_recipes": [],
+   "step_count": 12,
+   "virtual_count": 6,
+   "summary": "Pour supports, survey, lift the exchanger, set sliding and fixed saddles, tie in, hydrotest shell and tube sides, insulate and pre-commission.",
+   "typical_duration_weeks": [
+    4,
+    8
+   ]
+  },
+  {
+   "id": "rec_horizontal_vessel",
+   "name": "Horizontal vessel on saddles",
+   "sector": "industrial",
+   "tags": [
+    "vessel",
+    "heavy_lift"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcFlowStorageDevice",
+     "IfcEnergyConversionDevice"
+    ],
+    "visual_kit": [
+     "vessel_h"
+    ],
+    "name_regex": "(?i)(horizontal|drum|separator|bullet|receiver)",
+    "keywords": [
+     "horizontal vessel",
+     "drum",
+     "separator"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcFlowStorageDevice', 'IfcEnergyConversionDevice'], visual_kit=['vessel_h'], name_regex=(?i)(horizontal|drum|separator|bullet|receiver), keywords=['horizontal vessel', 'drum', 'separator']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "STR-FOOT-REBAR",
+    "STR-FOOT-POUR",
+    "GEN-CURING-WATCH",
+    "GEN-ANCHOR-SURVEY",
+    "GEN-LIFT-PLAN",
+    "PRC-EQUIP-SET",
+    "GEN-SURVEY-ASBUILT",
+    "PIP-FITTING-INSTALL",
+    "IC-INSTR-INSTALL",
+    "GEN-HYDROTEST",
+    "INS-COATING-APPLY",
+    "GEN-PRECOMM-CHECK"
+   ],
+   "nested_recipes": [],
+   "step_count": 13,
+   "virtual_count": 7,
+   "summary": "Pour saddle footings, survey the anchors, lift the vessel onto saddles, align, tie in, test and insulate.",
+   "typical_duration_weeks": [
+    4,
+    8
+   ]
+  },
+  {
+   "id": "rec_icra_containment",
+   "name": "ICRA containment lifecycle",
+   "sector": "healthcare",
+   "tags": [
+    "icra",
+    "live_hospital",
+    "permit"
+   ],
+   "applies_to": {
+    "zone_tags_any": [
+     "occupied_adjacent"
+    ],
+    "keywords": [
+     "icra",
+     "infection control",
+     "containment",
+     "barrier",
+     "negative air"
+    ]
+   },
+   "applies_to_summary": "zone_tags_any=['occupied_adjacent'], keywords=['icra', 'infection control', 'containment', 'barrier', 'negative air']",
+   "steps": [
+    "GEN-PERMIT-WORK",
+    "GEN-ICRA-SETUP",
+    "GEN-PRECOMM-CHECK",
+    "GEN-HEPA-CLEAN",
+    "GEN-ICRA-CLOSEOUT",
+    "GEN-PUNCH-CLEAR"
+   ],
+   "nested_recipes": [],
+   "step_count": 6,
+   "virtual_count": 3,
+   "summary": "Permit, erect the barrier with negative air, verify it, work behind it, HEPA clean, clear and remove it.",
+   "typical_duration_weeks": [
+    1,
+    4
+   ]
+  },
+  {
+   "id": "rec_imaging_suite_ct",
+   "name": "CT suite",
+   "sector": "healthcare",
+   "tags": [
+    "imaging",
+    "ct",
+    "long_lead",
+    "shielding"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcMedicalDevice"
+    ],
+    "name_regex": "(?i)(\\bCT\\b|computed|scanner|x.?ray|radiograph)",
+    "zone_tags_any": [
+     "imaging"
+    ],
+    "keywords": [
+     "ct scanner",
+     "x-ray",
+     "imaging suite"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcMedicalDevice'], name_regex=(?i)(\\bCT\\b|computed|scanner|x.?ray|radiograph), zone_tags_any=['imaging'], keywords=['ct scanner', 'x-ray', 'imaging suite']",
+   "steps": [
+    "GEN-ICRA-SETUP",
+    "ARC-WALL-FRAME",
+    "ARC-SHIELD-WALL",
+    "MEP-DUCT-INSTALL",
+    "ELE-CABLE-PULL",
+    "FIR-STOP-INSTALL",
+    "ARC-FLOOR-FINISH",
+    "GEN-LIFT-PLAN",
+    "MED-CT-INSTALL",
+    "GEN-VENDOR-REP",
+    "CX-POWER-ENERGISE",
+    "CX-AIR-BALANCE",
+    "GEN-PRECOMM-CHECK",
+    "GEN-HEPA-CLEAN",
+    "GEN-ICRA-CLOSEOUT"
+   ],
+   "nested_recipes": [],
+   "step_count": 15,
+   "virtual_count": 3,
+   "summary": "Lead-lined room, services, floor, crane or trolley delivery, vendor installation and calibration, radiation checks, clean and handover. CT has a 20 week lead.",
+   "typical_duration_weeks": [
+    10,
+    22
+   ]
+  },
+  {
+   "id": "rec_imaging_suite_mri",
+   "name": "MRI suite",
+   "sector": "healthcare",
+   "tags": [
+    "imaging",
+    "mri",
+    "long_lead",
+    "shielding"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcMedicalDevice"
+    ],
+    "visual_kit": [
+     "mri"
+    ],
+    "name_regex": "(?i)(\\bMRI\\b|magnet)",
+    "zone_tags_any": [
+     "imaging"
+    ],
+    "keywords": [
+     "mri",
+     "magnet",
+     "imaging suite"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcMedicalDevice'], visual_kit=['mri'], name_regex=(?i)(\\bMRI\\b|magnet), zone_tags_any=['imaging'], keywords=['mri', 'magnet', 'imaging suite']",
+   "steps": [
+    "GEN-ICRA-SETUP",
+    "ARC-WALL-FRAME",
+    "ARC-SHIELD-WALL",
+    "MEP-DUCT-INSTALL",
+    "ELE-CABLE-PULL",
+    "FIR-STOP-INSTALL",
+    "ARC-FLOOR-FINISH",
+    "GEN-ANCHOR-SURVEY",
+    "GEN-PERMIT-WORK",
+    "GEN-LIFT-PLAN",
+    "GEN-CRANE-MOBILISE",
+    "MED-MRI-INSTALL",
+    "GEN-VENDOR-REP",
+    "CX-POWER-ENERGISE",
+    "CX-AIR-BALANCE",
+    "GEN-HEPA-CLEAN",
+    "GEN-ICRA-CLOSEOUT",
+    "GEN-HANDOVER-DOC"
+   ],
+   "nested_recipes": [],
+   "step_count": 18,
+   "virtual_count": 5,
+   "summary": "Shielded room first, services and RF cage, floor, crane lift of the magnet, vendor shimming, power and air checks, clean and hand over. The MRI has a 26 week lead.",
+   "typical_duration_weeks": [
+    16,
+    32
+   ]
+  },
+  {
+   "id": "rec_kerb_and_signage",
+   "name": "Kerbs, signs and roadside furniture",
+   "sector": "civil",
+   "tags": [
+    "finishing",
+    "signs",
+    "kerb"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcKerb",
+     "IfcSign",
+     "IfcRailing"
+    ],
+    "keywords": [
+     "kerb",
+     "sign",
+     "guardrail",
+     "road furniture",
+     "markings"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcKerb', 'IfcSign', 'IfcRailing'], keywords=['kerb', 'sign', 'guardrail', 'road furniture', 'markings']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "GEN-UTIL-LOCATE",
+    "CIV-KERB-LAY",
+    "CIV-GUARDRAIL-INSTALL",
+    "CIV-SIGN-INSTALL",
+    "CIV-LIGHT-INSTALL",
+    "CIV-CABLE-PULL",
+    "CIV-MARKING-APPLY",
+    "GEN-PRECOMM-CHECK",
+    "GEN-SURVEY-ASBUILT",
+    "GEN-PUNCH-CLEAR"
+   ],
+   "nested_recipes": [],
+   "step_count": 11,
+   "virtual_count": 5,
+   "summary": "Set out, lay kerbs, install guardrail and signs, light and cable where required, apply markings, then pre-commission and close out defects.",
+   "typical_duration_weeks": [
+    2,
+    8
+   ]
+  },
+  {
+   "id": "rec_live_hospital_tie_in",
+   "name": "Live hospital tie-in during a shutdown window",
+   "sector": "healthcare",
+   "tags": [
+    "live_hospital",
+    "shutdown",
+    "tie-in"
+   ],
+   "applies_to": {
+    "zone_tags_any": [
+     "occupied_adjacent"
+    ],
+    "ifc_class": [
+     "IfcPipeSegment",
+     "IfcPipeFitting",
+     "IfcCableSegment",
+     "IfcDuctSegment"
+    ],
+    "keywords": [
+     "tie-in",
+     "shutdown",
+     "isolation",
+     "live hospital",
+     "occupied"
+    ]
+   },
+   "applies_to_summary": "zone_tags_any=['occupied_adjacent'], ifc_class=['IfcPipeSegment', 'IfcPipeFitting', 'IfcCableSegment', 'IfcDuctSegment'], keywords=['tie-in', 'shutdown', 'isolation', 'live hospital', 'occupied']",
+   "steps": [
+    "GEN-PERMIT-WORK",
+    "GEN-UTIL-LOCATE",
+    "GEN-ICRA-SETUP",
+    "GEN-PERMIT-HOT",
+    "PLB-PIPE-INSTALL",
+    "MEP-FITTING-INSTALL",
+    "GEN-HYDROTEST",
+    "ELE-CABLE-PULL",
+    "CX-POWER-ENERGISE",
+    "CX-AIR-BALANCE",
+    "GEN-ICRA-CLOSEOUT"
+   ],
+   "nested_recipes": [],
+   "step_count": 11,
+   "virtual_count": 4,
+   "summary": "Permit and locate, set ICRA, plan the isolation, hot work permit, make the tie-in with test, restore and verify before handback.",
+   "typical_duration_weeks": [
+    1,
+    6
+   ]
+  },
+  {
+   "id": "rec_medical_gas_system",
+   "name": "Medical gas pipeline system",
+   "sector": "healthcare",
+   "tags": [
+    "medical_gas",
+    "pipework",
+    "certification"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ],
+    "name_regex": "(?i)(medical gas|oxygen|\\bO2\\b|medical air|vacuum|nitrous)",
+    "properties": {
+     "Medical": true
+    },
+    "keywords": [
+     "medical gas",
+     "oxygen",
+     "vacuum",
+     "mgps"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcPipeSegment'], name_regex=(?i)(medical gas|oxygen|\\bO2\\b|medical air|vacuum|nitrous), keywords=['medical gas', 'oxygen', 'vacuum', 'mgps'], properties=Medical=True",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "GEN-PERMIT-HOT",
+    "MED-GAS-PIPE-INSTALL",
+    "MED-GAS-TEST",
+    "FIR-STOP-INSTALL",
+    "ARC-WALL-BOARD",
+    "MED-EQUIP-INSTALL",
+    "MED-GAS-CERT",
+    "GEN-PRECOMM-CHECK",
+    "GEN-HANDOVER-DOC"
+   ],
+   "nested_recipes": [],
+   "step_count": 10,
+   "virtual_count": 3,
+   "summary": "Hot work permit, install pipework, pressure test and purge, fire-stop and close walls, install outlets, third-party certification and handover.",
+   "typical_duration_weeks": [
+    6,
+    16
+   ]
+  },
+  {
+   "id": "rec_or_room",
+   "name": "Operating room fit-out",
+   "sector": "healthcare",
+   "tags": [
+    "clinical",
+    "ventilation",
+    "icra",
+    "medical_gas"
+   ],
+   "applies_to": {
+    "zone_tags_any": [
+     "or_room"
+    ],
+    "name_regex": "(?i)(theatre|operating|\\bOR\\b)",
+    "keywords": [
+     "operating room",
+     "theatre",
+     "or room"
+    ]
+   },
+   "applies_to_summary": "zone_tags_any=['or_room'], name_regex=(?i)(theatre|operating|\\bOR\\b), keywords=['operating room', 'theatre', 'or room']",
+   "steps": [
+    "GEN-ICRA-SETUP",
+    "ARC-WALL-FRAME",
+    "MEP-DUCT-INSTALL",
+    "PLB-PIPE-INSTALL",
+    "MED-GAS-PIPE-INSTALL",
+    "GEN-PERMIT-HOT",
+    "MED-GAS-TEST",
+    "FIR-STOP-INSTALL",
+    "ELE-CABLE-PULL",
+    "ARC-WALL-BOARD",
+    "ARC-CEILING-CLOSE",
+    "ARC-FLOOR-FINISH",
+    "ARC-DOOR-INSTALL",
+    "ELE-LIGHT-INSTALL",
+    "MEP-DIFFUSER-SET",
+    "MED-EQUIP-INSTALL",
+    "CX-AIR-BALANCE",
+    "CX-PRESSURE-TEST",
+    "GEN-HEPA-CLEAN",
+    "GEN-ICRA-CLOSEOUT"
+   ],
+   "nested_recipes": [],
+   "step_count": 20,
+   "virtual_count": 1,
+   "summary": "Build an operating room as a repeating recipe: ICRA, framing, services, gas test, fire-stopping, sealed boarding and ceilings, hygienic floor, theatre fixtures, air balance, pressure test, clean and handover.",
+   "typical_duration_weeks": [
+    10,
+    20
+   ]
+  },
+  {
+   "id": "rec_pavement_build",
+   "name": "Pavement build-up",
+   "sector": "civil",
+   "tags": [
+    "pavement",
+    "asphalt",
+    "weather"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcPavement",
+     "IfcCourse"
+    ],
+    "name_regex": "(?i)(pavement|course|sub.?base|asphalt|wear)",
+    "keywords": [
+     "pavement",
+     "asphalt",
+     "road base"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcPavement', 'IfcCourse'], name_regex=(?i)(pavement|course|sub.?base|asphalt|wear), keywords=['pavement', 'asphalt', 'road base']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "CIV-SUBGRADE-PREP",
+    "CIV-SUBBASE-LAY",
+    "CIV-BASE-LAY",
+    "CIV-KERB-LAY",
+    "CIV-ASPHALT-BASE",
+    "CIV-ASPHALT-WEAR",
+    "CIV-MARKING-APPLY",
+    "GEN-SURVEY-ASBUILT"
+   ],
+   "nested_recipes": [],
+   "step_count": 9,
+   "virtual_count": 2,
+   "summary": "Prepare and test subgrade, lay subbase and base, kerb, place asphalt layers and mark; surveys and pavement inspections are hold points.",
+   "typical_duration_weeks": [
+    6,
+    20
+   ]
+  },
+  {
+   "id": "rec_piled_foundation",
+   "name": "Piled foundation with pile caps",
+   "sector": "industrial",
+   "tags": [
+    "piling",
+    "foundation",
+    "geotechnical"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcPile",
+     "IfcDeepFoundation"
+    ],
+    "name_regex": "(?i)(pile|pile.?cap)",
+    "keywords": [
+     "piling",
+     "pile cap",
+     "piled foundation"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcPile', 'IfcDeepFoundation'], name_regex=(?i)(pile|pile.?cap), keywords=['piling', 'pile cap', 'piled foundation']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "GEN-UTIL-LOCATE",
+    "GEN-PERMIT-WORK",
+    "CIV-PILE-DRIVE",
+    "GEN-SURVEY-ASBUILT",
+    "CIV-EARTH-CUT",
+    "STR-FOOT-REBAR",
+    "STR-PILECAP-POUR",
+    "GEN-CURING-WATCH",
+    "CIV-BACKFILL-COMPACT"
+   ],
+   "nested_recipes": [],
+   "step_count": 10,
+   "virtual_count": 5,
+   "summary": "Set out and drive piles, test their integrity, survey as-built positions, excavate and pour pile caps with a cure watch.",
+   "typical_duration_weeks": [
+    4,
+    10
+   ]
+  },
+  {
+   "id": "rec_pipe_rack_module",
+   "name": "Pipe rack by prefabricated modules",
+   "sector": "industrial",
+   "tags": [
+    "pipe_rack",
+    "modular",
+    "heavy_lift"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcMember",
+     "IfcColumn",
+     "IfcBeam"
+    ],
+    "name_regex": "(?i)(rack|pipe.?bridge)",
+    "visual_kit": [
+     "rack",
+     "rack_ei",
+     "rack_mpei"
+    ],
+    "zone_tags_any": [
+     "pipe_rack"
+    ],
+    "keywords": [
+     "pipe rack",
+     "rack module",
+     "module rack"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcMember', 'IfcColumn', 'IfcBeam'], name_regex=(?i)(rack|pipe.?bridge), visual_kit=['rack', 'rack_ei', 'rack_mpei'], zone_tags_any=['pipe_rack'], keywords=['pipe rack', 'rack module', 'module rack']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "STR-FOOT-REBAR",
+    "STR-FOOT-POUR",
+    "GEN-CURING-WATCH",
+    "GEN-ANCHOR-SURVEY",
+    "GEN-LIFT-PLAN",
+    "GEN-CRANE-MOBILISE",
+    "STR-RACK-ERECT",
+    "STR-RACK-CONN",
+    "PIP-SPOOL-LAY",
+    "ELE-TRAY-INSTALL",
+    "ELE-CABLE-PULL",
+    "GEN-HYDROTEST",
+    "INS-PIPE-INSULATE",
+    "CX-PIPE-FLUSH"
+   ],
+   "nested_recipes": [],
+   "step_count": 15,
+   "virtual_count": 6,
+   "summary": "Install a pipe rack as large prefabricated modules: footings, anchor survey, lift plan and crane, module lifts and connections, spool tie-in, tray, hydrotest and insulation.",
+   "typical_duration_weeks": [
+    8,
+    16
+   ]
+  },
+  {
+   "id": "rec_pipe_rack_stickbuilt",
+   "name": "Pipe rack stick-built from steel members",
+   "sector": "industrial",
+   "tags": [
+    "pipe_rack",
+    "stick_built",
+    "scaffold"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcMember",
+     "IfcColumn",
+     "IfcBeam"
+    ],
+    "name_regex": "(?i)(rack|pipe.?bridge|sleeper)",
+    "visual_kit": [
+     "rack"
+    ],
+    "zone_tags_any": [
+     "pipe_rack"
+    ],
+    "keywords": [
+     "stick built rack",
+     "pipe rack"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcMember', 'IfcColumn', 'IfcBeam'], name_regex=(?i)(rack|pipe.?bridge|sleeper), visual_kit=['rack'], zone_tags_any=['pipe_rack'], keywords=['stick built rack', 'pipe rack']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "STR-FOOT-REBAR",
+    "STR-FOOT-POUR",
+    "GEN-ANCHOR-SURVEY",
+    "GEN-PERMIT-HOT",
+    "GEN-SCAFFOLD-ERECT",
+    "GEN-LIFT-PLAN",
+    "STR-RACK-ERECT",
+    "STR-RACK-CONN",
+    "PIP-SPOOL-LAY",
+    "PIP-FITTING-INSTALL",
+    "GEN-HYDROTEST",
+    "ELE-TRAY-INSTALL",
+    "ELE-CABLE-PULL",
+    "INS-PIPE-INSULATE",
+    "GEN-SCAFFOLD-DISMANTLE",
+    "CX-PIPE-FLUSH"
+   ],
+   "nested_recipes": [],
+   "step_count": 17,
+   "virtual_count": 7,
+   "summary": "Build the rack on site: footings, scaffold, steel erection and connections, spool laydown, fittings, hydrotest, tray and cable, insulation and flush.",
+   "typical_duration_weeks": [
+    12,
+    24
+   ]
+  },
+  {
+   "id": "rec_plant_room_ahu",
+   "name": "Plant room: AHU replacement or installation in a live hospital",
+   "sector": "healthcare",
+   "tags": [
+    "plant",
+    "ahu",
+    "live_hospital",
+    "long_lead"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcFlowMovingDevice",
+     "IfcEnergyConversionDevice",
+     "IfcFlowStorageDevice"
+    ],
+    "visual_kit": [
+     "ahu",
+     "chiller"
+    ],
+    "zone_tags_any": [
+     "plant_room"
+    ],
+    "keywords": [
+     "ahu",
+     "air handling unit",
+     "plant room",
+     "chiller"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcFlowMovingDevice', 'IfcEnergyConversionDevice', 'IfcFlowStorageDevice'], visual_kit=['ahu', 'chiller'], zone_tags_any=['plant_room'], keywords=['ahu', 'air handling unit', 'plant room', 'chiller']",
+   "steps": [
+    "GEN-ICRA-SETUP",
+    "GEN-PERMIT-WORK",
+    "GEN-SURVEY-SETOUT",
+    "GEN-ANCHOR-SURVEY",
+    "GEN-LIFT-PLAN",
+    "GEN-CRANE-MOBILISE",
+    "MEP-AHU-SET",
+    "MEP-CHILLER-SET",
+    "MEP-DUCT-INSTALL",
+    "MEP-FITTING-INSTALL",
+    "ELE-CABLE-PULL",
+    "GEN-VENDOR-REP",
+    "CX-POWER-ENERGISE",
+    "CX-AIR-BALANCE",
+    "GEN-PRECOMM-CHECK",
+    "GEN-ICRA-CLOSEOUT"
+   ],
+   "nested_recipes": [],
+   "step_count": 16,
+   "virtual_count": 7,
+   "summary": "Isolate and permit, plan the lift, set the AHU on its pad, connect ducts and cables, vendor commissioning, air balance and power energisation, with ICRA around the work.",
+   "typical_duration_weeks": [
+    6,
+    20
+   ]
+  },
+  {
+   "id": "rec_pressure_room",
+   "name": "Pressure-controlled room (isolation or protective environment)",
+   "sector": "healthcare",
+   "tags": [
+    "pressure_room",
+    "ventilation",
+    "icra"
+   ],
+   "applies_to": {
+    "zone_tags_any": [
+     "pressure_room"
+    ],
+    "ifc_class": [
+     "IfcAirTerminal"
+    ],
+    "keywords": [
+     "pressure room",
+     "isolation room",
+     "protective environment",
+     "negative pressure",
+     "positive pressure"
+    ]
+   },
+   "applies_to_summary": "zone_tags_any=['pressure_room'], ifc_class=['IfcAirTerminal'], keywords=['pressure room', 'isolation room', 'protective environment', 'negative pressure', 'positive pressure']",
+   "steps": [
+    "GEN-ICRA-SETUP",
+    "ARC-WALL-FRAME",
+    "MEP-DUCT-INSTALL",
+    "FIR-STOP-INSTALL",
+    "ARC-WALL-BOARD",
+    "ARC-CEILING-CLOSE",
+    "ARC-FLOOR-FINISH",
+    "ARC-DOOR-INSTALL",
+    "MEP-DIFFUSER-SET",
+    "CX-AIR-BALANCE",
+    "CX-PRESSURE-TEST",
+    "GEN-PRECOMM-CHECK",
+    "GEN-HEPA-CLEAN",
+    "GEN-ICRA-CLOSEOUT"
+   ],
+   "nested_recipes": [],
+   "step_count": 14,
+   "virtual_count": 1,
+   "summary": "Seal the envelope, install ducts and HEPA terminals, floors and doors, balance, test the pressure differential and hand over after ICRA clearance.",
+   "typical_duration_weeks": [
+    8,
+    16
+   ]
+  },
+  {
+   "id": "rec_process_module_set",
+   "name": "Process module or skid set on pad",
+   "sector": "industrial",
+   "tags": [
+    "module",
+    "heavy_lift",
+    "long_lead"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcBuildingElementProxy",
+     "IfcDistributionElement"
+    ],
+    "properties": {
+     "Module": true
+    },
+    "visual_kit": [
+     "module"
+    ],
+    "keywords": [
+     "module",
+     "skid",
+     "package unit"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcBuildingElementProxy', 'IfcDistributionElement'], visual_kit=['module'], keywords=['module', 'skid', 'package unit'], properties=Module=True",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "STR-GSLAB-POUR",
+    "GEN-CURING-WATCH",
+    "GEN-ANCHOR-SURVEY",
+    "GEN-LIFT-PLAN",
+    "GEN-CRANE-MOBILISE",
+    "PRC-MOD-SET",
+    "PRC-MOD-CONNECT",
+    "PIP-FITTING-INSTALL",
+    "ELE-CABLE-PULL",
+    "IC-INSTR-INSTALL",
+    "GEN-VENDOR-REP",
+    "GEN-HYDROTEST",
+    "GEN-PRECOMM-CHECK",
+    "CX-PROCESS-STARTUP"
+   ],
+   "nested_recipes": [],
+   "step_count": 15,
+   "virtual_count": 8,
+   "summary": "Prepare the pad and anchor survey, plan and mobilise the crane, set the module, make the connections, attend with the vendor, hydrotest and start up.",
+   "typical_duration_weeks": [
+    6,
+    16
+   ]
+  },
+  {
+   "id": "rec_pump_on_plinth",
+   "name": "Pump set on grouted plinth",
+   "sector": "industrial",
+   "tags": [
+    "rotating",
+    "pump",
+    "grout"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcFlowMovingDevice"
+    ],
+    "visual_kit": [
+     "pump_plinth"
+    ],
+    "keywords": [
+     "pump",
+     "plinth",
+     "baseplate"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcFlowMovingDevice'], visual_kit=['pump_plinth'], keywords=['pump', 'plinth', 'baseplate']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "STR-EQPAD-POUR",
+    "GEN-CURING-WATCH",
+    "GEN-ANCHOR-SURVEY",
+    "PRC-PUMP-SET",
+    "GEN-VENDOR-REP",
+    "PIP-FITTING-INSTALL",
+    "ELE-CABLE-PULL",
+    "IC-INSTR-INSTALL",
+    "CX-PIPE-FLUSH",
+    "IC-LOOP-CHECK",
+    "GEN-PRECOMM-CHECK",
+    "CX-PROCESS-STARTUP"
+   ],
+   "nested_recipes": [],
+   "step_count": 13,
+   "virtual_count": 5,
+   "summary": "Pour the plinth, cure, survey anchors, set the pump with vendor attendance, grout, connect piping and power, test and run.",
+   "typical_duration_weeks": [
+    3,
+    6
+   ]
+  },
+  {
+   "id": "rec_retaining_wall",
+   "name": "Retaining wall with temporary works",
+   "sector": "civil",
+   "tags": [
+    "retaining_wall",
+    "temporary_works"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcWall",
+     "IfcWallStandardCase"
+    ],
+    "predefined_type": [
+     "RETAININGWALL"
+    ],
+    "name_regex": "(?i)(retain|noise|wing)",
+    "keywords": [
+     "retaining wall",
+     "noise wall",
+     "wing wall"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcWall', 'IfcWallStandardCase'], predefined_type=['RETAININGWALL'], name_regex=(?i)(retain|noise|wing), keywords=['retaining wall', 'noise wall', 'wing wall']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "GEN-UTIL-LOCATE",
+    "GEN-TW-CHECK",
+    "GEN-SHORING-INSTALL",
+    "CIV-EARTH-CUT",
+    "STR-FOOT-REBAR",
+    "STR-FOOT-POUR",
+    "STR-WALL-POUR",
+    "GEN-CURING-WATCH",
+    "CIV-STRUCT-BACKFILL",
+    "GEN-SHORING-REMOVE",
+    "GEN-SURVEY-ASBUILT"
+   ],
+   "nested_recipes": [],
+   "step_count": 12,
+   "virtual_count": 7,
+   "summary": "Check the temporary works, shore and excavate, pour footing and wall, cure, backfill in layers and recover the shoring.",
+   "typical_duration_weeks": [
+    4,
+    10
+   ]
+  },
+  {
+   "id": "rec_scaffold_access",
+   "name": "Scaffold access for any installation",
+   "sector": "all",
+   "tags": [
+    "scaffold",
+    "temporary_works",
+    "access"
+   ],
+   "applies_to": {
+    "keywords": [
+     "scaffold",
+     "access",
+     "working at height",
+     "edge protection"
+    ]
+   },
+   "applies_to_summary": "keywords=['scaffold', 'access', 'working at height', 'edge protection']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "GEN-TW-CHECK",
+    "GEN-PERMIT-WORK",
+    "GEN-SCAFFOLD-ERECT",
+    "GEN-PRECOMM-CHECK",
+    "GEN-SCAFFOLD-DISMANTLE"
+   ],
+   "nested_recipes": [],
+   "step_count": 6,
+   "virtual_count": 6,
+   "summary": "Design check, erect, inspect and tag the scaffold, keep it through the work, dismantle after the last trade has finished.",
+   "typical_duration_weeks": [
+    1,
+    6
+   ]
+  },
+  {
+   "id": "rec_slab_on_grade",
+   "name": "Slab on grade",
+   "sector": "industrial",
+   "tags": [
+    "slab",
+    "concrete"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcSlab"
+    ],
+    "predefined_type": [
+     "BASESLAB"
+    ],
+    "keywords": [
+     "slab on grade",
+     "ground slab",
+     "floor slab"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcSlab'], predefined_type=['BASESLAB'], keywords=['slab on grade', 'ground slab', 'floor slab']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "GEN-SITE-PREP",
+    "CIV-EARTH-FILL",
+    "CIV-DRAIN-INSTALL",
+    "STR-GSLAB-POUR",
+    "GEN-CURING-WATCH",
+    "GEN-SURVEY-ASBUILT",
+    "ARC-FLOOR-FINISH"
+   ],
+   "nested_recipes": [],
+   "step_count": 8,
+   "virtual_count": 3,
+   "summary": "Prepare and compact the platform, place under-slab drainage, pour the ground slab, keep it cured and survey the finished levels.",
+   "typical_duration_weeks": [
+    2,
+    6
+   ]
+  },
+  {
+   "id": "rec_sterile_services",
+   "name": "Sterile services department (CSSD)",
+   "sector": "healthcare",
+   "tags": [
+    "cssd",
+    "steriliser",
+    "long_lead"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcMedicalDevice"
+    ],
+    "name_regex": "(?i)(steril|autoclave|washer|cssd|disinfect)",
+    "keywords": [
+     "sterile services",
+     "cssd",
+     "steriliser",
+     "autoclave",
+     "washer disinfector"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcMedicalDevice'], name_regex=(?i)(steril|autoclave|washer|cssd|disinfect), keywords=['sterile services', 'cssd', 'steriliser', 'autoclave', 'washer disinfector']",
+   "steps": [
+    "GEN-ICRA-SETUP",
+    "ARC-WALL-FRAME",
+    "PLB-PIPE-INSTALL",
+    "ELE-CABLE-PULL",
+    "FIR-STOP-INSTALL",
+    "ARC-WALL-BOARD",
+    "ARC-FLOOR-FINISH",
+    "GEN-LIFT-PLAN",
+    "GEN-CRANE-MOBILISE",
+    "MED-STERIL-INSTALL",
+    "GEN-HYDROTEST",
+    "GEN-VENDOR-REP",
+    "CX-PRESSURE-TEST",
+    "GEN-PRECOMM-CHECK",
+    "GEN-HEPA-CLEAN",
+    "GEN-ICRA-CLOSEOUT"
+   ],
+   "nested_recipes": [],
+   "step_count": 16,
+   "virtual_count": 5,
+   "summary": "Utilities, floors and walls, steriliser lifts and installation, steam and water tie-in, vendor validation, pressure tests and clearance. Sterilisers have a 12 week lead.",
+   "typical_duration_weeks": [
+    10,
+    20
+   ]
+  },
+  {
+   "id": "rec_tank_ring_foundation",
+   "name": "Storage tank on ring-beam foundation",
+   "sector": "industrial",
+   "tags": [
+    "tank",
+    "foundation",
+    "hydrotest"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcTank"
+    ],
+    "visual_kit": [
+     "tank"
+    ],
+    "properties": {
+     "Foundation": "ring"
+    },
+    "keywords": [
+     "tank",
+     "ring beam",
+     "storage tank"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcTank'], visual_kit=['tank'], keywords=['tank', 'ring beam', 'storage tank'], properties=Foundation=ring",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "CIV-EARTH-CUT",
+    "GEN-DEWATER-RUN",
+    "STR-FOOT-REBAR",
+    "STR-FOOT-POUR",
+    "GEN-CURING-WATCH",
+    "GEN-SURVEY-ASBUILT",
+    "GEN-LIFT-PLAN",
+    "GEN-PERMIT-HOT",
+    "PRC-TANK-SET",
+    "PRC-TANK-HYDRO",
+    "PIP-FITTING-INSTALL",
+    "INS-COATING-APPLY",
+    "GEN-PRECOMM-CHECK"
+   ],
+   "nested_recipes": [],
+   "step_count": 14,
+   "virtual_count": 7,
+   "summary": "Excavate and dewater, build the ring beam and pad, cure and survey, set the tank, water-fill test, tie in the nozzles and apply insulation.",
+   "typical_duration_weeks": [
+    8,
+    14
+   ]
+  },
+  {
+   "id": "rec_traffic_stage_switch",
+   "name": "Traffic stage switch",
+   "sector": "civil",
+   "tags": [
+    "traffic",
+    "live_traffic",
+    "permit"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcSign"
+    ],
+    "properties": {
+     "Temporary": true
+    },
+    "zone_tags_any": [
+     "live_traffic"
+    ],
+    "keywords": [
+     "traffic stage",
+     "traffic switch",
+     "lane closure",
+     "road closure"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcSign'], zone_tags_any=['live_traffic'], keywords=['traffic stage', 'traffic switch', 'lane closure', 'road closure'], properties=Temporary=True",
+   "steps": [
+    "GEN-PERMIT-WORK",
+    "GEN-SURVEY-SETOUT",
+    "CIV-TM-STAGE1",
+    "GEN-PRECOMM-CHECK",
+    "CIV-TM-STAGE2",
+    "GEN-PRECOMM-CHECK",
+    "GEN-SURVEY-ASBUILT"
+   ],
+   "nested_recipes": [],
+   "step_count": 7,
+   "virtual_count": 5,
+   "summary": "Agree the permit, survey the new alignment, set up stage 1 and then the switch to stage 2 with signing and checks.",
+   "typical_duration_weeks": [
+    1,
+    4
+   ]
+  },
+  {
+   "id": "rec_transformer_and_switchgear",
+   "name": "Transformer and switchgear room",
+   "sector": "industrial",
+   "tags": [
+    "electrical",
+    "long_lead",
+    "heavy_lift"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcTransformer",
+     "IfcElectricDistributionBoard"
+    ],
+    "visual_kit": [
+     "transformer",
+     "switchroom"
+    ],
+    "keywords": [
+     "transformer",
+     "switchgear",
+     "mcc",
+     "substation"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcTransformer', 'IfcElectricDistributionBoard'], visual_kit=['transformer', 'switchroom'], keywords=['transformer', 'switchgear', 'mcc', 'substation']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "STR-EQPAD-POUR",
+    "GEN-CURING-WATCH",
+    "GEN-LIFT-PLAN",
+    "GEN-CRANE-MOBILISE",
+    "ELE-XFMR-SET",
+    "ELE-SWGR-SET",
+    "ELE-TRAY-INSTALL",
+    "ELE-CABLE-PULL",
+    "ELE-CABLE-TEST",
+    "GEN-PERMIT-WORK",
+    "GEN-PRECOMM-CHECK",
+    "CX-POWER-ENERGISE"
+   ],
+   "nested_recipes": [],
+   "step_count": 13,
+   "virtual_count": 6,
+   "summary": "Pour the plinth, set the transformer by crane, install switchgear and containment, pull and test cables, obtain permits and energise.",
+   "typical_duration_weeks": [
+    10,
+    30
+   ]
+  },
+  {
+   "id": "rec_turbine_on_pedestal",
+   "name": "Turbine or compressor train on pedestal",
+   "sector": "industrial",
+   "tags": [
+    "rotating",
+    "turbine",
+    "heavy_lift",
+    "long_lead"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcFlowMovingDevice",
+     "IfcEnergyConversionDevice"
+    ],
+    "visual_kit": [
+     "turbine",
+     "compressor"
+    ],
+    "keywords": [
+     "turbine",
+     "compressor",
+     "generator set",
+     "pedestal"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcFlowMovingDevice', 'IfcEnergyConversionDevice'], visual_kit=['turbine', 'compressor'], keywords=['turbine', 'compressor', 'generator set', 'pedestal']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "STR-FOOT-REBAR",
+    "STR-EQPAD-POUR",
+    "GEN-CURING-WATCH",
+    "GEN-ANCHOR-SURVEY",
+    "GEN-PERMIT-WORK",
+    "PRC-EQUIP-SET",
+    "GEN-VENDOR-REP",
+    "PIP-PIPE-INSTALL",
+    "ELE-CABLE-PULL",
+    "IC-INSTR-INSTALL",
+    "IC-LOOP-CHECK",
+    "GEN-PRECOMM-CHECK",
+    "CX-PROCESS-STARTUP"
+   ],
+   "nested_recipes": [
+    "rec_crane_lift_heavy"
+   ],
+   "step_count": 15,
+   "virtual_count": 6,
+   "summary": "Cast a massive pedestal, cure it long, survey anchors, lift the machine, align with vendor supervision, connect and commission the train.",
+   "typical_duration_weeks": [
+    12,
+    26
+   ]
+  },
+  {
+   "id": "rec_utility_diversion",
+   "name": "Utility diversion ahead of earthworks",
+   "sector": "civil",
+   "tags": [
+    "utilities",
+    "traffic",
+    "permit"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcPipeSegment",
+     "IfcCableCarrierSegment"
+    ],
+    "properties": {
+     "Diverted": true
+    },
+    "name_regex": "(?i)(water|gas|telecom|power|utility|divert|main)",
+    "zone_tags_any": [
+     "live_traffic"
+    ],
+    "keywords": [
+     "utility",
+     "diversion",
+     "service protection"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcPipeSegment', 'IfcCableCarrierSegment'], name_regex=(?i)(water|gas|telecom|power|utility|divert|main), zone_tags_any=['live_traffic'], keywords=['utility', 'diversion', 'service protection'], properties=Diverted=True",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "GEN-UTIL-LOCATE",
+    "GEN-PERMIT-WORK",
+    "CIV-TM-STAGE1",
+    "GEN-TW-CHECK",
+    "GEN-SHORING-INSTALL",
+    "CIV-UTIL-DIVERT",
+    "GEN-HYDROTEST",
+    "CIV-UTIL-TEST",
+    "GEN-SHORING-REMOVE",
+    "GEN-SURVEY-ASBUILT"
+   ],
+   "nested_recipes": [],
+   "step_count": 11,
+   "virtual_count": 8,
+   "summary": "Locate the service, get the owner permit, set up traffic management, shore the trench, divert the service, prove it and reinstate with as-builts.",
+   "typical_duration_weeks": [
+    3,
+    12
+   ]
+  },
+  {
+   "id": "rec_vertical_vessel",
+   "name": "Vertical vessel or column on pad",
+   "sector": "industrial",
+   "tags": [
+    "vessel",
+    "heavy_lift"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcFlowStorageDevice",
+     "IfcEnergyConversionDevice"
+    ],
+    "visual_kit": [
+     "vessel_v"
+    ],
+    "name_regex": "(?i)(column|tower|reactor|drum|scrubber|vessel)",
+    "keywords": [
+     "vertical vessel",
+     "column",
+     "tower",
+     "reactor"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcFlowStorageDevice', 'IfcEnergyConversionDevice'], visual_kit=['vessel_v'], name_regex=(?i)(column|tower|reactor|drum|scrubber|vessel), keywords=['vertical vessel', 'column', 'tower', 'reactor']",
+   "steps": [
+    "GEN-SURVEY-SETOUT",
+    "STR-EQPAD-POUR",
+    "GEN-CURING-WATCH",
+    "GEN-ANCHOR-SURVEY",
+    "PRC-EQUIP-SET",
+    "ARC-STAIR-INSTALL",
+    "PIP-FITTING-INSTALL",
+    "IC-INSTR-INSTALL",
+    "GEN-HYDROTEST",
+    "INS-COATING-APPLY",
+    "GEN-PRECOMM-CHECK",
+    "CX-PROCESS-STARTUP"
+   ],
+   "nested_recipes": [
+    "rec_crane_lift_heavy"
+   ],
+   "step_count": 13,
+   "virtual_count": 5,
+   "summary": "Pour the pad with anchor bolts, survey them, lift the vessel with a crane, set platforms, tie in piping and instruments, hydrotest, insulate and pre-commission.",
+   "typical_duration_weeks": [
+    6,
+    12
+   ]
+  },
+  {
+   "id": "rec_ward_fitout",
+   "name": "Generic ward or clinic fit-out",
+   "sector": "healthcare",
+   "tags": [
+    "ward",
+    "fit-out",
+    "repeating"
+   ],
+   "applies_to": {
+    "ifc_class": [
+     "IfcSlab",
+     "IfcWall"
+    ],
+    "keywords": [
+     "ward",
+     "clinic",
+     "corridor",
+     "bedroom",
+     "patient room"
+    ]
+   },
+   "applies_to_summary": "ifc_class=['IfcSlab', 'IfcWall'], keywords=['ward', 'clinic', 'corridor', 'bedroom', 'patient room']",
+   "steps": [
+    "GEN-ICRA-SETUP",
+    "ARC-WALL-FRAME",
+    "MEP-DUCT-INSTALL",
+    "PLB-PIPE-INSTALL",
+    "ELE-CABLE-PULL",
+    "FIR-SPRINK-INSTALL",
+    "FIR-STOP-INSTALL",
+    "ARC-WALL-BOARD",
+    "ARC-CEILING-CLOSE",
+    "ARC-FLOOR-FINISH",
+    "ARC-DOOR-INSTALL",
+    "ELE-LIGHT-INSTALL",
+    "MEP-DIFFUSER-SET",
+    "PLB-FIXTURE-SET",
+    "MED-EQUIP-INSTALL",
+    "CX-AIR-BALANCE",
+    "CX-FIRE-TEST",
+    "GEN-HEPA-CLEAN",
+    "GEN-ICRA-CLOSEOUT",
+    "GEN-PUNCH-CLEAR"
+   ],
+   "nested_recipes": [],
+   "step_count": 20,
+   "virtual_count": 1,
+   "summary": "The repeating recipe for wards, corridors and clinics: ICRA, framing, MEP, fire-stopping, boarding, ceilings, floors, doors, fixtures, equipment, balance and handover.",
+   "typical_duration_weeks": [
+    8,
+    16
+   ]
+  }
+ ]
+}

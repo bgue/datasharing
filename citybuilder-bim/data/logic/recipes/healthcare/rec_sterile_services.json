@@ -1,0 +1,152 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_sterile_services",
+ "name": "Sterile services department (CSSD)",
+ "summary": "Utilities, floors and walls, steriliser lifts and installation, steam and water tie-in, vendor validation, pressure tests and clearance. Sterilisers have a 12 week lead.",
+ "sector": "healthcare",
+ "tags": [
+  "cssd",
+  "steriliser",
+  "long_lead"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcMedicalDevice"
+  ],
+  "name_regex": "(?i)(steril|autoclave|washer|cssd|disinfect)",
+  "keywords": [
+   "sterile services",
+   "cssd",
+   "steriliser",
+   "autoclave",
+   "washer disinfector"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "mobile_crane"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=2"
+  ],
+  "permits": [
+   "work",
+   "icra"
+  ],
+  "information": [
+   "vendor drawings",
+   "steam and water quality specification"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-ICRA-SETUP",
+   "hold_point": "icra",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-WALL-FRAME",
+   "from_element": "zone"
+  },
+  {
+   "ref": "PLB-PIPE-INSTALL",
+   "from_element": "system",
+   "note": "Steam, condensate, RO water and drains"
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "from_element": "system"
+  },
+  {
+   "ref": "FIR-STOP-INSTALL",
+   "hold_point": "fire",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-WALL-BOARD",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-FLOOR-FINISH",
+   "from_element": "zone",
+   "note": "Chemical-resistant floor with falls"
+  },
+  {
+   "ref": "GEN-LIFT-PLAN",
+   "virtual": true,
+   "marker": "lift_plan",
+   "note": "Door and route widths for the machines"
+  },
+  {
+   "ref": "GEN-CRANE-MOBILISE",
+   "virtual": true,
+   "marker": "crane",
+   "optional": true
+  },
+  {
+   "ref": "MED-STERIL-INSTALL",
+   "hold_point": "mechanical"
+  },
+  {
+   "ref": "GEN-HYDROTEST",
+   "virtual": true,
+   "marker": "test",
+   "hold_point": "pressure_test",
+   "note": "Steam line pressure test"
+  },
+  {
+   "ref": "GEN-VENDOR-REP",
+   "virtual": true,
+   "marker": "permit",
+   "duration_days": 7,
+   "note": "Commissioning and validation cycles"
+  },
+  {
+   "ref": "CX-PRESSURE-TEST",
+   "hold_point": "mechanical",
+   "from_element": "zone"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test"
+  },
+  {
+   "ref": "GEN-HEPA-CLEAN",
+   "from_element": "zone"
+  },
+  {
+   "ref": "GEN-ICRA-CLOSEOUT",
+   "hold_point": "icra",
+   "from_element": "zone"
+  }
+ ],
+ "logic": [
+  {
+   "after": "ARC-FLOOR-FINISH",
+   "before": "MED-STERIL-INSTALL",
+   "reason": "Floor finished before machine delivery"
+  },
+  {
+   "after": "GEN-HYDROTEST",
+   "before": "GEN-VENDOR-REP",
+   "reason": "Services proven before validation cycles"
+  }
+ ],
+ "checks": [
+  "Steam, water and drain quality checked before validation",
+  "Door and route widths verified before delivery",
+  "Validation cycles recorded",
+  "Pressure regime between dirty and clean sides"
+ ],
+ "references": [
+  "Manufacturer installation and site planning manuals for the equipment",
+  "Decontamination of reusable medical devices guidance",
+  "Infection prevention and control guidance for construction and renovation in healthcare facilities (ICRA)"
+ ],
+ "typical_duration_weeks": [
+  10,
+  20
+ ]
+}

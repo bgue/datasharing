@@ -31,16 +31,16 @@
   ]
  },
  "crews_available": {
-  "concrete": 5,
-  "envelope": 4,
-  "mechanical": 4,
-  "plumbing": 3,
-  "electrical": 4,
+  "concrete": 3,
+  "envelope": 2,
+  "mechanical": 2,
+  "plumbing": 2,
+  "electrical": 3,
   "interiors": 4,
   "finishes": 2,
   "medical": 1,
-  "commissioning": 3,
-  "icra": 2
+  "commissioning": 2,
+  "icra": 1
  },
  "equipment": [
   {

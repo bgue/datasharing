@@ -1,0 +1,125 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_retaining_wall",
+ "name": "Retaining wall with temporary works",
+ "summary": "Check the temporary works, shore and excavate, pour footing and wall, cure, backfill in layers and recover the shoring.",
+ "sector": "civil",
+ "tags": [
+  "retaining_wall",
+  "temporary_works"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcWall",
+   "IfcWallStandardCase"
+  ],
+  "predefined_type": [
+   "RETAININGWALL"
+  ],
+  "name_regex": "(?i)(retain|noise|wing)",
+  "keywords": [
+   "retaining wall",
+   "noise wall",
+   "wing wall"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "excavator",
+   "concrete_pump"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=2"
+  ],
+  "permits": [
+   "work"
+  ],
+  "information": [
+   "wall design",
+   "temporary works design"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-UTIL-LOCATE",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-TW-CHECK",
+   "virtual": true,
+   "marker": "permit",
+   "note": "Excavation support and surcharge design"
+  },
+  {
+   "ref": "GEN-SHORING-INSTALL",
+   "virtual": true,
+   "marker": "shoring"
+  },
+  {
+   "ref": "CIV-EARTH-CUT",
+   "from_element": "foundation"
+  },
+  {
+   "ref": "STR-FOOT-REBAR",
+   "from_element": "foundation"
+  },
+  {
+   "ref": "STR-FOOT-POUR",
+   "hold_point": "structural",
+   "from_element": "foundation"
+  },
+  {
+   "ref": "STR-WALL-POUR",
+   "hold_point": "structural"
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 7
+  },
+  {
+   "ref": "CIV-STRUCT-BACKFILL",
+   "note": "Free-draining fill in layers with drainage behind the wall"
+  },
+  {
+   "ref": "GEN-SHORING-REMOVE",
+   "virtual": true,
+   "marker": "shoring"
+  },
+  {
+   "ref": "GEN-SURVEY-ASBUILT",
+   "virtual": true,
+   "marker": "survey"
+  }
+ ],
+ "logic": [
+  {
+   "after": "STR-WALL-POUR",
+   "before": "CIV-STRUCT-BACKFILL",
+   "lag_days": 7,
+   "reason": "Wall strength and drainage before backfill"
+  }
+ ],
+ "checks": [
+  "Temporary works design check",
+  "Wall strength before backfill",
+  "Drainage layer and weep holes installed"
+ ],
+ "references": [
+  "Temporary works procedure guidance (design check, permit to load, permit to dismantle)",
+  "Excavation safety guidance (shoring, access, services avoidance, hazard of buried services)",
+  "Concrete construction guidance (formwork, placing, curing, hot and cold weather concreting)"
+ ],
+ "typical_duration_weeks": [
+  4,
+  10
+ ]
+}

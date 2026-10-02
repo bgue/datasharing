@@ -1,0 +1,97 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_scaffold_access",
+ "name": "Scaffold access for any installation",
+ "summary": "Design check, erect, inspect and tag the scaffold, keep it through the work, dismantle after the last trade has finished.",
+ "sector": "all",
+ "tags": [
+  "scaffold",
+  "temporary_works",
+  "access"
+ ],
+ "applies_to": {
+  "keywords": [
+   "scaffold",
+   "access",
+   "working at height",
+   "edge protection"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "lift"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=1"
+  ],
+  "permits": [
+   "work_at_height"
+  ],
+  "information": [
+   "scaffold design",
+   "trade programme"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Mark the scaffold footprint and ground check"
+  },
+  {
+   "ref": "GEN-TW-CHECK",
+   "virtual": true,
+   "marker": "permit",
+   "note": "Design check for loads and ties"
+  },
+  {
+   "ref": "GEN-PERMIT-WORK",
+   "virtual": true,
+   "marker": "permit",
+   "note": "Permit to erect near live areas",
+   "optional": true
+  },
+  {
+   "ref": "GEN-SCAFFOLD-ERECT",
+   "virtual": true,
+   "marker": "scaffold",
+   "note": "Erect in lifts with handover inspection"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test",
+   "key": "scaffold_inspection",
+   "note": "Inspection and tag before first use, then at the agreed interval"
+  },
+  {
+   "ref": "GEN-SCAFFOLD-DISMANTLE",
+   "virtual": true,
+   "marker": "scaffold",
+   "note": "Only after the last trade confirms they are finished"
+  }
+ ],
+ "logic": [
+  {
+   "after": "scaffold_inspection",
+   "before": "GEN-SCAFFOLD-DISMANTLE",
+   "reason": "Dismantle only after the last handover"
+  }
+ ],
+ "checks": [
+  "Competent person design check",
+  "Handover inspection and tag",
+  "Weekly inspection and after weather events",
+  "Ties and loading limits respected"
+ ],
+ "references": [
+  "Scaffolding and access guidance (design, erection, inspection and tagging)",
+  "Temporary works procedure guidance (design check, permit to load, permit to dismantle)"
+ ],
+ "typical_duration_weeks": [
+  1,
+  6
+ ]
+}

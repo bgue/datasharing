@@ -1,0 +1,138 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_transformer_and_switchgear",
+ "name": "Transformer and switchgear room",
+ "summary": "Pour the plinth, set the transformer by crane, install switchgear and containment, pull and test cables, obtain permits and energise.",
+ "sector": "industrial",
+ "tags": [
+  "electrical",
+  "long_lead",
+  "heavy_lift"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcTransformer",
+   "IfcElectricDistributionBoard"
+  ],
+  "visual_kit": [
+   "transformer",
+   "switchroom"
+  ],
+  "keywords": [
+   "transformer",
+   "switchgear",
+   "mcc",
+   "substation"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "crawler_crane"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=3",
+   "crane_reach"
+  ],
+  "permits": [
+   "energisation"
+  ],
+  "information": [
+   "single line diagram",
+   "protection settings",
+   "lift plan"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "STR-EQPAD-POUR",
+   "hold_point": "structural",
+   "from_element": "foundation",
+   "note": "Transformer plinth with oil bund"
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 7
+  },
+  {
+   "ref": "GEN-LIFT-PLAN",
+   "virtual": true,
+   "marker": "lift_plan"
+  },
+  {
+   "ref": "GEN-CRANE-MOBILISE",
+   "virtual": true,
+   "marker": "crane"
+  },
+  {
+   "ref": "ELE-XFMR-SET",
+   "hold_point": "electrical"
+  },
+  {
+   "ref": "ELE-SWGR-SET",
+   "hold_point": "electrical",
+   "note": "Switchgear lineup inside the finished switchroom"
+  },
+  {
+   "ref": "ELE-TRAY-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "from_element": "system"
+  },
+  {
+   "ref": "ELE-CABLE-TEST",
+   "hold_point": "electrical",
+   "from_element": "system"
+  },
+  {
+   "ref": "GEN-PERMIT-WORK",
+   "virtual": true,
+   "marker": "permit",
+   "key": "energisation_permit",
+   "note": "Energisation permit and lock-out plan"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test",
+   "note": "Protection relay settings, interlocks, phasing"
+  },
+  {
+   "ref": "CX-POWER-ENERGISE",
+   "hold_point": "electrical",
+   "from_element": "system"
+  }
+ ],
+ "logic": [
+  {
+   "after": "STR-EQPAD-POUR",
+   "before": "ELE-XFMR-SET",
+   "lag_days": 7,
+   "reason": "Plinth cure"
+  }
+ ],
+ "checks": [
+  "Switchroom weathertight before gear delivery",
+  "Cable megger tests before energisation",
+  "Protection settings issued and checked",
+  "Energisation permit and lock-out plan"
+ ],
+ "references": [
+  "Electrical installation guidance for industrial plant (switchgear, transformers, protection)",
+  "National lifting operations guidance (lift planning and appointed person duties)",
+  "Pre-commissioning and commissioning guidance for process plants (system completion and handover)"
+ ],
+ "typical_duration_weeks": [
+  10,
+  30
+ ]
+}

@@ -1,0 +1,94 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_icra_containment",
+ "name": "ICRA containment lifecycle",
+ "summary": "Permit, erect the barrier with negative air, verify it, work behind it, HEPA clean, clear and remove it.",
+ "sector": "healthcare",
+ "tags": [
+  "icra",
+  "live_hospital",
+  "permit"
+ ],
+ "applies_to": {
+  "zone_tags_any": [
+   "occupied_adjacent"
+  ],
+  "keywords": [
+   "icra",
+   "infection control",
+   "containment",
+   "barrier",
+   "negative air"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [],
+  "site": [
+   "access_road"
+  ],
+  "permits": [
+   "icra"
+  ],
+  "information": [
+   "ICRA risk matrix",
+   "method statement"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-PERMIT-WORK",
+   "virtual": true,
+   "marker": "permit",
+   "note": "ICRA permit with risk class and mitigation"
+  },
+  {
+   "ref": "GEN-ICRA-SETUP",
+   "hold_point": "icra",
+   "from_element": "zone",
+   "note": "Barrier, negative air, sticky mat, signage"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test",
+   "key": "barrier_check",
+   "note": "Smoke test and pressure differential check"
+  },
+  {
+   "ref": "GEN-HEPA-CLEAN",
+   "from_element": "zone",
+   "note": "After the dusty work"
+  },
+  {
+   "ref": "GEN-ICRA-CLOSEOUT",
+   "hold_point": "icra",
+   "from_element": "zone",
+   "note": "Clearance, then barrier removal"
+  },
+  {
+   "ref": "GEN-PUNCH-CLEAR",
+   "virtual": true,
+   "marker": "test",
+   "optional": true
+  }
+ ],
+ "logic": [
+  {
+   "after": "barrier_check",
+   "before": "GEN-HEPA-CLEAN",
+   "reason": "Dusty work happens between these two steps and is not part of the recipe"
+  }
+ ],
+ "checks": [
+  "Daily barrier and pressure checks while dusty work runs",
+  "Terminal clean before clearance",
+  "Infection control sign-off before removal"
+ ],
+ "references": [
+  "Infection prevention and control guidance for construction and renovation in healthcare facilities (ICRA)"
+ ],
+ "typical_duration_weeks": [
+  1,
+  4
+ ]
+}

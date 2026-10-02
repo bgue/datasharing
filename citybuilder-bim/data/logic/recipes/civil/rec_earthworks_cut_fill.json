@@ -1,0 +1,99 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_earthworks_cut_fill",
+ "name": "Earthworks cut and fill",
+ "summary": "Set out, clear, cut and place fill with testing; compaction and formation tests are hold points and the as-built survey closes the zone.",
+ "sector": "civil",
+ "tags": [
+  "earthworks",
+  "balance"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcEarthworksCut",
+   "IfcEarthworksFill"
+  ],
+  "keywords": [
+   "earthworks",
+   "cut",
+   "fill",
+   "embankment"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "excavator"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=2"
+  ],
+  "permits": [],
+  "information": [
+   "earthworks balance",
+   "geotechnical report"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-UTIL-LOCATE",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-SITE-CLEAR",
+   "note": "Clear and grub"
+  },
+  {
+   "ref": "CIV-EARTH-CUT",
+   "note": "Cut to formation; suitable material hauled to fill"
+  },
+  {
+   "ref": "CIV-EARTH-FILL",
+   "note": "Place in layers; starts once cutting is under way",
+   "parallel_with": "CIV-EARTH-CUT",
+   "lag_days": 5
+  },
+  {
+   "ref": "CIV-COMPACT-TEST",
+   "hold_point": "geotechnical"
+  },
+  {
+   "ref": "GEN-SURVEY-ASBUILT",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Formation levels"
+  }
+ ],
+ "logic": [
+  {
+   "after": "CIV-EARTH-CUT",
+   "before": "CIV-EARTH-FILL",
+   "type": "SS",
+   "lag_days": 5,
+   "reason": "Fill depends on cut material"
+  },
+  {
+   "after": "CIV-EARTH-FILL",
+   "before": "CIV-COMPACT-TEST",
+   "reason": "Test after placement"
+  }
+ ],
+ "checks": [
+  "Material acceptability tested before reuse as fill",
+  "Layer thickness and compaction tests",
+  "Formation inspected before drainage or pavement"
+ ],
+ "references": [
+  "Specification for highway works style earthworks guidance (compaction, acceptability, testing)"
+ ],
+ "typical_duration_weeks": [
+  6,
+  20
+ ]
+}

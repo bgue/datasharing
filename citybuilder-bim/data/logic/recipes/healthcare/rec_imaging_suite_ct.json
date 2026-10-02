@@ -1,0 +1,145 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_imaging_suite_ct",
+ "name": "CT suite",
+ "summary": "Lead-lined room, services, floor, crane or trolley delivery, vendor installation and calibration, radiation checks, clean and handover. CT has a 20 week lead.",
+ "sector": "healthcare",
+ "tags": [
+  "imaging",
+  "ct",
+  "long_lead",
+  "shielding"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcMedicalDevice"
+  ],
+  "name_regex": "(?i)(\\bCT\\b|computed|scanner|x.?ray|radiograph)",
+  "zone_tags_any": [
+   "imaging"
+  ],
+  "keywords": [
+   "ct scanner",
+   "x-ray",
+   "imaging suite"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "mobile_crane"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=2"
+  ],
+  "permits": [
+   "work",
+   "icra"
+  ],
+  "information": [
+   "vendor site planning guide",
+   "radiation shielding report"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-ICRA-SETUP",
+   "hold_point": "icra",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-WALL-FRAME",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-SHIELD-WALL",
+   "from_element": "zone",
+   "note": "Lead lining to the radiation physicist specification"
+  },
+  {
+   "ref": "MEP-DUCT-INSTALL",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "hold_point": "electrical",
+   "from_element": "zone"
+  },
+  {
+   "ref": "FIR-STOP-INSTALL",
+   "hold_point": "fire",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-FLOOR-FINISH",
+   "from_element": "zone"
+  },
+  {
+   "ref": "GEN-LIFT-PLAN",
+   "virtual": true,
+   "marker": "lift_plan",
+   "note": "Route and weight check for the gantry"
+  },
+  {
+   "ref": "MED-CT-INSTALL",
+   "hold_point": "electrical"
+  },
+  {
+   "ref": "GEN-VENDOR-REP",
+   "virtual": true,
+   "marker": "permit",
+   "duration_days": 7,
+   "note": "Calibration and acceptance tests"
+  },
+  {
+   "ref": "CX-POWER-ENERGISE",
+   "hold_point": "electrical",
+   "from_element": "system"
+  },
+  {
+   "ref": "CX-AIR-BALANCE",
+   "from_element": "system"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test",
+   "note": "Radiation survey and interlock test"
+  },
+  {
+   "ref": "GEN-HEPA-CLEAN",
+   "from_element": "zone"
+  },
+  {
+   "ref": "GEN-ICRA-CLOSEOUT",
+   "hold_point": "icra",
+   "from_element": "zone"
+  }
+ ],
+ "logic": [
+  {
+   "after": "ARC-SHIELD-WALL",
+   "before": "MED-CT-INSTALL",
+   "reason": "Shielding before the scanner"
+  },
+  {
+   "after": "ARC-FLOOR-FINISH",
+   "before": "MED-CT-INSTALL",
+   "reason": "Floor finished before the gantry"
+  }
+ ],
+ "checks": [
+  "Shielding verified by a radiation survey",
+  "Interlocks and warning lights tested",
+  "Floor level and loading checked"
+ ],
+ "references": [
+  "Manufacturer installation and site planning manuals for the equipment",
+  "Infection prevention and control guidance for construction and renovation in healthcare facilities (ICRA)",
+  "Radiation protection guidance for diagnostic imaging rooms"
+ ],
+ "typical_duration_weeks": [
+  10,
+  22
+ ]
+}

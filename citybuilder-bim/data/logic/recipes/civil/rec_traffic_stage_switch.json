@@ -1,0 +1,109 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_traffic_stage_switch",
+ "name": "Traffic stage switch",
+ "summary": "Agree the permit, survey the new alignment, set up stage 1 and then the switch to stage 2 with signing and checks.",
+ "sector": "civil",
+ "tags": [
+  "traffic",
+  "live_traffic",
+  "permit"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcSign"
+  ],
+  "properties": {
+   "Temporary": true
+  },
+  "zone_tags_any": [
+   "live_traffic"
+  ],
+  "keywords": [
+   "traffic stage",
+   "traffic switch",
+   "lane closure",
+   "road closure"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [],
+  "site": [
+   "access_road"
+  ],
+  "permits": [
+   "road_authority"
+  ],
+  "information": [
+   "traffic management plan",
+   "signing schedule"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-PERMIT-WORK",
+   "virtual": true,
+   "marker": "permit",
+   "note": "Road authority approval of the traffic management plan"
+  },
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Mark taper, cone and sign positions"
+  },
+  {
+   "ref": "CIV-TM-STAGE1",
+   "note": "Initial closure and works zone"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test",
+   "key": "stage1_check",
+   "note": "Night-time inspection of signing, lighting and taper"
+  },
+  {
+   "ref": "CIV-TM-STAGE2",
+   "note": "Switch traffic to the completed carriageway"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test",
+   "key": "stage2_check",
+   "note": "Post-switch drive-through and review with the road authority"
+  },
+  {
+   "ref": "GEN-SURVEY-ASBUILT",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Record as-implemented layout"
+  }
+ ],
+ "logic": [
+  {
+   "after": "stage1_check",
+   "before": "CIV-TM-STAGE2",
+   "reason": "Switch only after stage 1 is stable"
+  },
+  {
+   "after": "CIV-TM-STAGE1",
+   "before": "CIV-TM-STAGE2",
+   "lag_days": 5,
+   "reason": "Allow a week of observation"
+  }
+ ],
+ "checks": [
+  "Drive-through of every stage before opening",
+  "Emergency access maintained",
+  "Public information issued before the switch"
+ ],
+ "references": [
+  "Temporary traffic management guidance for road works (signs, lighting and guarding)"
+ ],
+ "typical_duration_weeks": [
+  1,
+  4
+ ]
+}

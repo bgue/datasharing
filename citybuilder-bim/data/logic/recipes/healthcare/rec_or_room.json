@@ -1,0 +1,170 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_or_room",
+ "name": "Operating room fit-out",
+ "summary": "Build an operating room as a repeating recipe: ICRA, framing, services, gas test, fire-stopping, sealed boarding and ceilings, hygienic floor, theatre fixtures, air balance, pressure test, clean and handover.",
+ "sector": "healthcare",
+ "tags": [
+  "clinical",
+  "ventilation",
+  "icra",
+  "medical_gas"
+ ],
+ "applies_to": {
+  "zone_tags_any": [
+   "or_room"
+  ],
+  "name_regex": "(?i)(theatre|operating|\\bOR\\b)",
+  "keywords": [
+   "operating room",
+   "theatre",
+   "or room"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "lift"
+  ],
+  "site": [
+   "access_road"
+  ],
+  "permits": [
+   "hot_work",
+   "icra"
+  ],
+  "information": [
+   "room data sheet",
+   "ventilation design",
+   "medical gas layout"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-ICRA-SETUP",
+   "hold_point": "icra",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-WALL-FRAME",
+   "from_element": "zone"
+  },
+  {
+   "ref": "MEP-DUCT-INSTALL",
+   "from_element": "zone"
+  },
+  {
+   "ref": "PLB-PIPE-INSTALL",
+   "from_element": "zone"
+  },
+  {
+   "ref": "MED-GAS-PIPE-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "GEN-PERMIT-HOT",
+   "virtual": true,
+   "marker": "permit",
+   "note": "Brazing of medical gas pipework"
+  },
+  {
+   "ref": "MED-GAS-TEST",
+   "hold_point": "medical_gas",
+   "from_element": "system"
+  },
+  {
+   "ref": "FIR-STOP-INSTALL",
+   "hold_point": "fire",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "hold_point": "electrical",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-WALL-BOARD",
+   "from_element": "zone",
+   "note": "Sealed, smooth walls"
+  },
+  {
+   "ref": "ARC-CEILING-CLOSE",
+   "from_element": "zone",
+   "note": "Sealed hygienic ceiling"
+  },
+  {
+   "ref": "ARC-FLOOR-FINISH",
+   "from_element": "zone",
+   "note": "Welded, coved flooring"
+  },
+  {
+   "ref": "ARC-DOOR-INSTALL",
+   "from_element": "host"
+  },
+  {
+   "ref": "ELE-LIGHT-INSTALL",
+   "from_element": "zone"
+  },
+  {
+   "ref": "MEP-DIFFUSER-SET",
+   "from_element": "zone",
+   "note": "HEPA terminals"
+  },
+  {
+   "ref": "MED-EQUIP-INSTALL",
+   "from_element": "zone",
+   "note": "Pendants and theatre lights"
+  },
+  {
+   "ref": "CX-AIR-BALANCE",
+   "from_element": "system"
+  },
+  {
+   "ref": "CX-PRESSURE-TEST",
+   "hold_point": "mechanical",
+   "from_element": "zone"
+  },
+  {
+   "ref": "GEN-HEPA-CLEAN",
+   "from_element": "zone"
+  },
+  {
+   "ref": "GEN-ICRA-CLOSEOUT",
+   "hold_point": "icra",
+   "from_element": "zone"
+  }
+ ],
+ "logic": [
+  {
+   "after": "MED-GAS-TEST",
+   "before": "ARC-WALL-BOARD",
+   "reason": "Walls cannot close over untested gas pipe"
+  },
+  {
+   "after": "FIR-STOP-INSTALL",
+   "before": "ARC-WALL-BOARD",
+   "reason": "Fire-stopping inspected before boarding"
+  },
+  {
+   "after": "ARC-CEILING-CLOSE",
+   "before": "ARC-FLOOR-FINISH",
+   "reason": "Ceilings before floors"
+  }
+ ],
+ "checks": [
+  "ICRA barrier verified before dusty work",
+  "Medical gas pressure test before wall closure",
+  "Fire-stopping inspected before boarding",
+  "Air balance and pressure regime test before clean",
+  "ICRA clearance before barrier removal"
+ ],
+ "references": [
+  "Infection prevention and control guidance for construction and renovation in healthcare facilities (ICRA)",
+  "Medical gas pipeline system guidance (design, installation, testing and verification)",
+  "Healthcare ventilation guidance (air change rates, pressure regimes, validation)",
+  "Fire safety guidance for healthcare buildings (compartmentation and fire-stopping)"
+ ],
+ "typical_duration_weeks": [
+  10,
+  20
+ ]
+}

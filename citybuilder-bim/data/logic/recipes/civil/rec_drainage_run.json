@@ -1,0 +1,123 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_drainage_run",
+ "name": "Drainage run with chambers",
+ "summary": "Set out, locate services, set traffic management, shore and dig the trench, lay pipe and chambers, test and backfill.",
+ "sector": "civil",
+ "tags": [
+  "drainage",
+  "excavation"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcPipeSegment",
+   "IfcDistributionChamberElement"
+  ],
+  "name_regex": "(?i)(storm|drain|sewer|culvert|gully|manhole)",
+  "predefined_type": [
+   "CULVERT"
+  ],
+  "keywords": [
+   "drainage",
+   "storm drain",
+   "manhole"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "excavator"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=2"
+  ],
+  "permits": [
+   "work"
+  ],
+  "information": [
+   "drainage drawings",
+   "service drawings"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-UTIL-LOCATE",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "CIV-TM-STAGE1",
+   "optional": true
+  },
+  {
+   "ref": "GEN-SHORING-INSTALL",
+   "virtual": true,
+   "marker": "shoring"
+  },
+  {
+   "ref": "GEN-DEWATER-INSTALL",
+   "virtual": true,
+   "marker": "dewatering",
+   "optional": true
+  },
+  {
+   "ref": "CIV-TRENCH-DIG",
+   "from_element": "system"
+  },
+  {
+   "ref": "CIV-DRAIN-INSTALL",
+   "from_element": "system",
+   "note": "Bedding and laying to level"
+  },
+  {
+   "ref": "CIV-CHAMBER-SET",
+   "from_element": "system"
+  },
+  {
+   "ref": "CIV-DRAIN-TEST",
+   "hold_point": "plumbing",
+   "from_element": "system",
+   "note": "Air or water test and CCTV"
+  },
+  {
+   "ref": "CIV-DRAIN-BACKFILL",
+   "from_element": "system"
+  },
+  {
+   "ref": "GEN-SHORING-REMOVE",
+   "virtual": true,
+   "marker": "shoring"
+  },
+  {
+   "ref": "GEN-SURVEY-ASBUILT",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Invert levels and chamber positions"
+  }
+ ],
+ "logic": [
+  {
+   "after": "CIV-DRAIN-TEST",
+   "before": "CIV-DRAIN-BACKFILL",
+   "reason": "Backfill only after the test"
+  }
+ ],
+ "checks": [
+  "Pipe bedding and levels checked before backfill",
+  "Test results before backfill",
+  "Chamber covers set to final level later"
+ ],
+ "references": [
+  "Highway drainage construction guidance (pipe bedding, testing, backfill)",
+  "Excavation safety guidance (shoring, access, services avoidance, hazard of buried services)"
+ ],
+ "typical_duration_weeks": [
+  3,
+  12
+ ]
+}

@@ -1,0 +1,157 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_pipe_rack_module",
+ "name": "Pipe rack by prefabricated modules",
+ "summary": "Install a pipe rack as large prefabricated modules: footings, anchor survey, lift plan and crane, module lifts and connections, spool tie-in, tray, hydrotest and insulation.",
+ "sector": "industrial",
+ "tags": [
+  "pipe_rack",
+  "modular",
+  "heavy_lift"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcMember",
+   "IfcColumn",
+   "IfcBeam"
+  ],
+  "name_regex": "(?i)(rack|pipe.?bridge)",
+  "visual_kit": [
+   "rack",
+   "rack_ei",
+   "rack_mpei"
+  ],
+  "zone_tags_any": [
+   "pipe_rack"
+  ],
+  "keywords": [
+   "pipe rack",
+   "rack module",
+   "module rack"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "crawler_crane"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=3",
+   "crane_reach"
+  ],
+  "permits": [
+   "hot_work"
+  ],
+  "information": [
+   "module drawings",
+   "lift plan",
+   "weld procedure"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "STR-FOOT-REBAR",
+   "from_element": "foundation"
+  },
+  {
+   "ref": "STR-FOOT-POUR",
+   "hold_point": "structural",
+   "from_element": "foundation"
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 7
+  },
+  {
+   "ref": "GEN-ANCHOR-SURVEY",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Anchor bolt positions and levels against the module drawing"
+  },
+  {
+   "ref": "GEN-LIFT-PLAN",
+   "virtual": true,
+   "marker": "lift_plan"
+  },
+  {
+   "ref": "GEN-CRANE-MOBILISE",
+   "virtual": true,
+   "marker": "crane"
+  },
+  {
+   "ref": "STR-RACK-ERECT",
+   "note": "Modules lifted bay by bay, tier by tier"
+  },
+  {
+   "ref": "STR-RACK-CONN",
+   "hold_point": "welding"
+  },
+  {
+   "ref": "PIP-SPOOL-LAY",
+   "from_element": "system",
+   "note": "Spool connections between modules and tie-ins"
+  },
+  {
+   "ref": "ELE-TRAY-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "from_element": "system"
+  },
+  {
+   "ref": "GEN-HYDROTEST",
+   "virtual": true,
+   "marker": "test",
+   "hold_point": "pressure_test"
+  },
+  {
+   "ref": "INS-PIPE-INSULATE",
+   "from_element": "system"
+  },
+  {
+   "ref": "CX-PIPE-FLUSH",
+   "from_element": "system"
+  }
+ ],
+ "logic": [
+  {
+   "after": "STR-FOOT-POUR",
+   "before": "STR-RACK-ERECT",
+   "lag_days": 7,
+   "reason": "Footing strength before module load"
+  },
+  {
+   "after": "GEN-LIFT-PLAN",
+   "before": "STR-RACK-ERECT",
+   "reason": "No lift without an approved plan"
+  },
+  {
+   "after": "GEN-HYDROTEST",
+   "before": "INS-PIPE-INSULATE",
+   "reason": "Insulation after the test"
+  }
+ ],
+ "checks": [
+  "Anchor survey signed off before the first module",
+  "Lift plan for every module over the crane threshold",
+  "Weld NDT results before spool loading",
+  "Hydrotest before insulation"
+ ],
+ "references": [
+  "National lifting operations guidance (lift planning and appointed person duties)",
+  "Welding and non-destructive testing guidance for structural steelwork and piping",
+  "Process piping guidance (installation, pressure testing, flushing and reinstatement)"
+ ],
+ "typical_duration_weeks": [
+  8,
+  16
+ ]
+}

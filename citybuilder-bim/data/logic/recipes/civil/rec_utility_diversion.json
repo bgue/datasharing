@@ -1,0 +1,127 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_utility_diversion",
+ "name": "Utility diversion ahead of earthworks",
+ "summary": "Locate the service, get the owner permit, set up traffic management, shore the trench, divert the service, prove it and reinstate with as-builts.",
+ "sector": "civil",
+ "tags": [
+  "utilities",
+  "traffic",
+  "permit"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcPipeSegment",
+   "IfcCableCarrierSegment"
+  ],
+  "properties": {
+   "Diverted": true
+  },
+  "name_regex": "(?i)(water|gas|telecom|power|utility|divert|main)",
+  "zone_tags_any": [
+   "live_traffic"
+  ],
+  "keywords": [
+   "utility",
+   "diversion",
+   "service protection"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "excavator"
+  ],
+  "site": [
+   "access_road"
+  ],
+  "permits": [
+   "utility_owner",
+   "work"
+  ],
+  "information": [
+   "utility drawings",
+   "owner method statement"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-UTIL-LOCATE",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Trial holes at crossings"
+  },
+  {
+   "ref": "GEN-PERMIT-WORK",
+   "virtual": true,
+   "marker": "permit",
+   "note": "Utility owner permit and standby supervision"
+  },
+  {
+   "ref": "CIV-TM-STAGE1",
+   "note": "Lane closure and cones for the diversion trench"
+  },
+  {
+   "ref": "GEN-TW-CHECK",
+   "virtual": true,
+   "marker": "permit",
+   "note": "Trench support design for deep sections"
+  },
+  {
+   "ref": "GEN-SHORING-INSTALL",
+   "virtual": true,
+   "marker": "shoring"
+  },
+  {
+   "ref": "CIV-UTIL-DIVERT",
+   "from_element": "self"
+  },
+  {
+   "ref": "GEN-HYDROTEST",
+   "virtual": true,
+   "marker": "test",
+   "hold_point": "pressure_test",
+   "note": "Pressure or integrity test of the new line"
+  },
+  {
+   "ref": "CIV-UTIL-TEST",
+   "hold_point": "pressure_test"
+  },
+  {
+   "ref": "GEN-SHORING-REMOVE",
+   "virtual": true,
+   "marker": "shoring"
+  },
+  {
+   "ref": "GEN-SURVEY-ASBUILT",
+   "virtual": true,
+   "marker": "survey",
+   "note": "As-built record handed to the utility owner"
+  }
+ ],
+ "logic": [
+  {
+   "after": "CIV-UTIL-TEST",
+   "before": "GEN-SHORING-REMOVE",
+   "reason": "Keep the trench supported until the line is accepted"
+  }
+ ],
+ "checks": [
+  "Services located and exposed before mechanical digging nearby",
+  "Owner witnesses the tie-in",
+  "New line proved before the old line is abandoned",
+  "As-built recorded"
+ ],
+ "references": [
+  "Excavation safety guidance (shoring, access, services avoidance, hazard of buried services)",
+  "Temporary traffic management guidance for road works (signs, lighting and guarding)"
+ ],
+ "typical_duration_weeks": [
+  3,
+  12
+ ]
+}

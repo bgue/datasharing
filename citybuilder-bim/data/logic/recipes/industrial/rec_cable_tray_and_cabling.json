@@ -1,0 +1,100 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_cable_tray_and_cabling",
+ "name": "Cable tray and cabling run",
+ "summary": "Erect access, install tray, pull cable, megger test and terminate; dismantle access when finished.",
+ "sector": "industrial",
+ "tags": [
+  "electrical",
+  "cabling"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcCableCarrierSegment",
+   "IfcCableSegment"
+  ],
+  "keywords": [
+   "cable tray",
+   "cabling",
+   "ladder",
+   "cable pull"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "lift"
+  ],
+  "site": [
+   "access_road"
+  ],
+  "permits": [
+   "work_at_height"
+  ],
+  "information": [
+   "cable schedule",
+   "tray layout"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Route marking and clash check"
+  },
+  {
+   "ref": "GEN-SCAFFOLD-ERECT",
+   "virtual": true,
+   "marker": "scaffold",
+   "optional": true
+  },
+  {
+   "ref": "ELE-TRAY-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "from_element": "system"
+  },
+  {
+   "ref": "ELE-CABLE-TEST",
+   "hold_point": "electrical",
+   "from_element": "system"
+  },
+  {
+   "ref": "ELE-PANEL-INSTALL",
+   "optional": true
+  },
+  {
+   "ref": "GEN-SCAFFOLD-DISMANTLE",
+   "virtual": true,
+   "marker": "scaffold",
+   "optional": true
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test",
+   "note": "Insulation resistance records and cable schedule check"
+  }
+ ],
+ "logic": [
+  {
+   "after": "ELE-CABLE-TEST",
+   "before": "GEN-SCAFFOLD-DISMANTLE",
+   "reason": "Keep access until test results are accepted"
+  }
+ ],
+ "checks": [
+  "Segregation of power and instrument cables",
+  "Bend radius and pulling tension limits",
+  "Megger results on every cable before termination"
+ ],
+ "references": [
+  "Electrical installation guidance for industrial plant (containment, cabling, testing)"
+ ],
+ "typical_duration_weeks": [
+  2,
+  8
+ ]
+}

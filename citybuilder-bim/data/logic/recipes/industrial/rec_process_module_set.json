@@ -1,0 +1,150 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_process_module_set",
+ "name": "Process module or skid set on pad",
+ "summary": "Prepare the pad and anchor survey, plan and mobilise the crane, set the module, make the connections, attend with the vendor, hydrotest and start up.",
+ "sector": "industrial",
+ "tags": [
+  "module",
+  "heavy_lift",
+  "long_lead"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcBuildingElementProxy",
+   "IfcDistributionElement"
+  ],
+  "properties": {
+   "Module": true
+  },
+  "visual_kit": [
+   "module"
+  ],
+  "keywords": [
+   "module",
+   "skid",
+   "package unit"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "crawler_crane"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=3",
+   "crane_reach"
+  ],
+  "permits": [
+   "work"
+  ],
+  "information": [
+   "module drawings",
+   "lift plan",
+   "delivery schedule"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "STR-GSLAB-POUR",
+   "from_element": "foundation",
+   "note": "Pad or ground slab area under the module",
+   "optional": true
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 7
+  },
+  {
+   "ref": "GEN-ANCHOR-SURVEY",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-LIFT-PLAN",
+   "virtual": true,
+   "marker": "lift_plan",
+   "note": "Lift plan with road access and swept path checked"
+  },
+  {
+   "ref": "GEN-CRANE-MOBILISE",
+   "virtual": true,
+   "marker": "crane"
+  },
+  {
+   "ref": "PRC-MOD-SET",
+   "hold_point": "mechanical",
+   "note": "Needs a cured pad, crane reach and road access in the same week"
+  },
+  {
+   "ref": "PRC-MOD-CONNECT",
+   "note": "Piping and utilities hook-up"
+  },
+  {
+   "ref": "PIP-FITTING-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "from_element": "system"
+  },
+  {
+   "ref": "IC-INSTR-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "GEN-VENDOR-REP",
+   "virtual": true,
+   "marker": "permit",
+   "duration_days": 5
+  },
+  {
+   "ref": "GEN-HYDROTEST",
+   "virtual": true,
+   "marker": "test",
+   "hold_point": "pressure_test"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test"
+  },
+  {
+   "ref": "CX-PROCESS-STARTUP",
+   "from_element": "system"
+  }
+ ],
+ "logic": [
+  {
+   "after": "GEN-LIFT-PLAN",
+   "before": "PRC-MOD-SET",
+   "reason": "Lift plan before the lift"
+  },
+  {
+   "after": "GEN-ANCHOR-SURVEY",
+   "before": "PRC-MOD-SET",
+   "reason": "Pad accepted before delivery"
+  }
+ ],
+ "checks": [
+  "Delivery slot, road access and crane booked for the same week",
+  "Pad survey signed before delivery",
+  "Hydrotest before insulation and start-up"
+ ],
+ "references": [
+  "Manufacturer installation manuals and vendor drawings",
+  "National lifting operations guidance (lift planning and appointed person duties)",
+  "Pre-commissioning and commissioning guidance for process plants (system completion and handover)"
+ ],
+ "typical_duration_weeks": [
+  6,
+  16
+ ]
+}

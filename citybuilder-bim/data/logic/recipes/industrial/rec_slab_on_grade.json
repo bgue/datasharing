@@ -1,0 +1,101 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_slab_on_grade",
+ "name": "Slab on grade",
+ "summary": "Prepare and compact the platform, place under-slab drainage, pour the ground slab, keep it cured and survey the finished levels.",
+ "sector": "industrial",
+ "tags": [
+  "slab",
+  "concrete"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcSlab"
+  ],
+  "predefined_type": [
+   "BASESLAB"
+  ],
+  "keywords": [
+   "slab on grade",
+   "ground slab",
+   "floor slab"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "concrete_pump"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=2"
+  ],
+  "information": [
+   "slab joint layout",
+   "underslab services drawing"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-SITE-PREP",
+   "note": "Strip and proof-roll"
+  },
+  {
+   "ref": "CIV-EARTH-FILL",
+   "note": "Engineered fill in layers with compaction tests"
+  },
+  {
+   "ref": "CIV-DRAIN-INSTALL",
+   "from_element": "system",
+   "optional": true,
+   "note": "Under-slab drainage and sleeves"
+  },
+  {
+   "ref": "STR-GSLAB-POUR",
+   "hold_point": "structural"
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 7,
+   "note": "Wet cure or membrane, protect from traffic"
+  },
+  {
+   "ref": "GEN-SURVEY-ASBUILT",
+   "virtual": true,
+   "marker": "survey",
+   "key": "flatness_survey",
+   "note": "Level and flatness survey for equipment and racking"
+  },
+  {
+   "ref": "ARC-FLOOR-FINISH",
+   "optional": true
+  }
+ ],
+ "logic": [
+  {
+   "after": "STR-GSLAB-POUR",
+   "before": "ARC-FLOOR-FINISH",
+   "lag_days": 14,
+   "reason": "Moisture and shrinkage before finishes"
+  }
+ ],
+ "checks": [
+  "Compaction test results before blinding",
+  "Services inspected before the pour",
+  "Joint saw-cutting window respected",
+  "Survey flatness against the specification"
+ ],
+ "references": [
+  "Concrete construction guidance (formwork, placing, curing, hot and cold weather concreting)"
+ ],
+ "typical_duration_weeks": [
+  2,
+  6
+ ]
+}

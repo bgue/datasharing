@@ -1,0 +1,125 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_heat_exchanger",
+ "name": "Shell-and-tube heat exchanger set",
+ "summary": "Pour supports, survey, lift the exchanger, set sliding and fixed saddles, tie in, hydrotest shell and tube sides, insulate and pre-commission.",
+ "sector": "industrial",
+ "tags": [
+  "exchanger",
+  "heavy_lift"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcEnergyConversionDevice"
+  ],
+  "visual_kit": [
+   "exchanger"
+  ],
+  "name_regex": "(?i)(exchanger|heater|cooler|condenser|reboiler|furnace)",
+  "keywords": [
+   "heat exchanger",
+   "shell and tube",
+   "heater"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "mobile_crane"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=2",
+   "crane_reach"
+  ],
+  "information": [
+   "vendor drawings",
+   "lift plan"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "STR-EQPAD-POUR",
+   "hold_point": "structural",
+   "from_element": "foundation"
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 7
+  },
+  {
+   "ref": "GEN-ANCHOR-SURVEY",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-LIFT-PLAN",
+   "virtual": true,
+   "marker": "lift_plan"
+  },
+  {
+   "ref": "PRC-EQUIP-SET",
+   "hold_point": "mechanical",
+   "note": "Fixed saddle first; allow tube bundle pull space"
+  },
+  {
+   "ref": "PIP-FITTING-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "GEN-HYDROTEST",
+   "virtual": true,
+   "marker": "test",
+   "hold_point": "pressure_test",
+   "note": "Shell side and tube side tested separately"
+  },
+  {
+   "ref": "INS-COATING-APPLY"
+  },
+  {
+   "ref": "IC-INSTR-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test"
+  },
+  {
+   "ref": "CX-PROCESS-STARTUP",
+   "from_element": "system"
+  }
+ ],
+ "logic": [
+  {
+   "after": "STR-EQPAD-POUR",
+   "before": "PRC-EQUIP-SET",
+   "lag_days": 7,
+   "reason": "Cure"
+  },
+  {
+   "after": "GEN-HYDROTEST",
+   "before": "INS-COATING-APPLY",
+   "reason": "Insulation after tests"
+  }
+ ],
+ "checks": [
+  "Bundle pull space kept clear",
+  "Fixed and sliding saddles correct",
+  "Both sides tested before insulation"
+ ],
+ "references": [
+  "Manufacturer installation manuals and vendor drawings",
+  "Process piping guidance (installation, pressure testing, flushing and reinstatement)"
+ ],
+ "typical_duration_weeks": [
+  4,
+  8
+ ]
+}

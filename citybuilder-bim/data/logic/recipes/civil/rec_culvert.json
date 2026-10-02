@@ -1,0 +1,138 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_culvert",
+ "name": "Precast culvert crossing",
+ "summary": "Set out, dewater, shore and excavate the trench, lift culvert units, build headwalls and backfill, then survey.",
+ "sector": "civil",
+ "tags": [
+  "culvert",
+  "precast",
+  "watercourse"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcBuildingElementProxy",
+   "IfcWall"
+  ],
+  "name_regex": "(?i)(culvert|box.?section|headwall)",
+  "properties": {
+   "Culvert": true
+  },
+  "visual_kit": [
+   "culvert"
+  ],
+  "keywords": [
+   "culvert",
+   "box culvert",
+   "headwall"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "excavator",
+   "mobile_crane"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=3",
+   "crane_reach"
+  ],
+  "permits": [
+   "work",
+   "watercourse_consent"
+  ],
+  "information": [
+   "culvert unit drawings",
+   "lift plan",
+   "diversion plan for the watercourse"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-UTIL-LOCATE",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-DEWATER-INSTALL",
+   "virtual": true,
+   "marker": "dewatering"
+  },
+  {
+   "ref": "GEN-SHORING-INSTALL",
+   "virtual": true,
+   "marker": "shoring"
+  },
+  {
+   "ref": "CIV-TRENCH-DIG"
+  },
+  {
+   "ref": "GEN-DEWATER-RUN",
+   "virtual": true,
+   "marker": "dewatering",
+   "duration_days": 10,
+   "parallel_with": "CIV-TRENCH-DIG"
+  },
+  {
+   "ref": "GEN-LIFT-PLAN",
+   "virtual": true,
+   "marker": "lift_plan"
+  },
+  {
+   "ref": "CIV-CULVERT-SET",
+   "hold_point": "structural",
+   "note": "Unit joints sealed and checked"
+  },
+  {
+   "ref": "STR-WALL-POUR",
+   "note": "Headwalls and wing walls"
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 7
+  },
+  {
+   "ref": "CIV-STRUCT-BACKFILL",
+   "note": "Backfill symmetrically in layers"
+  },
+  {
+   "ref": "GEN-SHORING-REMOVE",
+   "virtual": true,
+   "marker": "shoring"
+  },
+  {
+   "ref": "GEN-SURVEY-ASBUILT",
+   "virtual": true,
+   "marker": "survey"
+  }
+ ],
+ "logic": [
+  {
+   "after": "STR-WALL-POUR",
+   "before": "CIV-STRUCT-BACKFILL",
+   "lag_days": 7,
+   "reason": "Wall strength before backfill loading"
+  }
+ ],
+ "checks": [
+  "Watercourse consent and flow diversion in place",
+  "Joint seals checked before backfill",
+  "Symmetric backfill and compaction"
+ ],
+ "references": [
+  "Highway drainage construction guidance (pipe bedding, testing, backfill)",
+  "Excavation safety guidance (shoring, access, services avoidance, hazard of buried services)",
+  "National lifting operations guidance (lift planning and appointed person duties)"
+ ],
+ "typical_duration_weeks": [
+  3,
+  8
+ ]
+}

@@ -1,0 +1,151 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_turbine_on_pedestal",
+ "name": "Turbine or compressor train on pedestal",
+ "summary": "Cast a massive pedestal, cure it long, survey anchors, lift the machine, align with vendor supervision, connect and commission the train.",
+ "sector": "industrial",
+ "tags": [
+  "rotating",
+  "turbine",
+  "heavy_lift",
+  "long_lead"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcFlowMovingDevice",
+   "IfcEnergyConversionDevice"
+  ],
+  "visual_kit": [
+   "turbine",
+   "compressor"
+  ],
+  "keywords": [
+   "turbine",
+   "compressor",
+   "generator set",
+   "pedestal"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "crawler_crane"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=3",
+   "crane_reach"
+  ],
+  "permits": [
+   "work"
+  ],
+  "information": [
+   "vendor drawings",
+   "engineered lift plan",
+   "pedestal design",
+   "alignment procedure"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "STR-FOOT-REBAR",
+   "from_element": "foundation"
+  },
+  {
+   "ref": "STR-EQPAD-POUR",
+   "hold_point": "structural",
+   "from_element": "foundation",
+   "note": "Mass pour with temperature control"
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 14,
+   "note": "Thermal monitoring and cure"
+  },
+  {
+   "ref": "GEN-ANCHOR-SURVEY",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-PERMIT-WORK",
+   "virtual": true,
+   "marker": "permit"
+  },
+  {
+   "recipe": "rec_crane_lift_heavy",
+   "key": "lift",
+   "note": "Heaviest lift on site: engineered lift"
+  },
+  {
+   "ref": "PRC-EQUIP-SET",
+   "hold_point": "mechanical"
+  },
+  {
+   "ref": "GEN-VENDOR-REP",
+   "virtual": true,
+   "marker": "permit",
+   "duration_days": 10,
+   "note": "Vendor supervises alignment, coupling and grouting"
+  },
+  {
+   "ref": "PIP-PIPE-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "from_element": "system"
+  },
+  {
+   "ref": "IC-INSTR-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "IC-LOOP-CHECK",
+   "from_element": "system"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test"
+  },
+  {
+   "ref": "CX-PROCESS-STARTUP",
+   "from_element": "system"
+  }
+ ],
+ "logic": [
+  {
+   "after": "STR-EQPAD-POUR",
+   "before": "PRC-EQUIP-SET",
+   "lag_days": 21,
+   "reason": "Large pedestal cure before machine load"
+  },
+  {
+   "after": "GEN-VENDOR-REP",
+   "before": "PIP-PIPE-INSTALL",
+   "reason": "Pipe fit-up after alignment acceptance"
+  }
+ ],
+ "checks": [
+  "Mass pour thermal control plan",
+  "Engineered lift plan with ground bearing and weather limits",
+  "Vendor alignment records signed",
+  "Pipe strain checks before coupling"
+ ],
+ "references": [
+  "Manufacturer installation manuals and vendor drawings",
+  "National lifting operations guidance (lift planning and appointed person duties)",
+  "Concrete construction guidance (formwork, placing, curing, hot and cold weather concreting)"
+ ],
+ "typical_duration_weeks": [
+  12,
+  26
+ ]
+}

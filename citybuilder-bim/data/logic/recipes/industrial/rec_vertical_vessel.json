@@ -1,0 +1,137 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_vertical_vessel",
+ "name": "Vertical vessel or column on pad",
+ "summary": "Pour the pad with anchor bolts, survey them, lift the vessel with a crane, set platforms, tie in piping and instruments, hydrotest, insulate and pre-commission.",
+ "sector": "industrial",
+ "tags": [
+  "vessel",
+  "heavy_lift"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcFlowStorageDevice",
+   "IfcEnergyConversionDevice"
+  ],
+  "visual_kit": [
+   "vessel_v"
+  ],
+  "name_regex": "(?i)(column|tower|reactor|drum|scrubber|vessel)",
+  "keywords": [
+   "vertical vessel",
+   "column",
+   "tower",
+   "reactor"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "crawler_crane"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=3",
+   "crane_reach"
+  ],
+  "permits": [
+   "work"
+  ],
+  "information": [
+   "vendor drawings",
+   "lift plan",
+   "foundation design"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "STR-EQPAD-POUR",
+   "hold_point": "structural",
+   "from_element": "foundation"
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 7
+  },
+  {
+   "ref": "GEN-ANCHOR-SURVEY",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "recipe": "rec_crane_lift_heavy",
+   "key": "lift",
+   "note": "Tailing and upending usually needs two cranes; nest the heavy lift recipe"
+  },
+  {
+   "ref": "PRC-EQUIP-SET",
+   "hold_point": "mechanical",
+   "note": "Upend and set on anchors"
+  },
+  {
+   "ref": "ARC-STAIR-INSTALL",
+   "note": "Ladders and platforms",
+   "optional": true
+  },
+  {
+   "ref": "PIP-FITTING-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "IC-INSTR-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "GEN-HYDROTEST",
+   "virtual": true,
+   "marker": "test",
+   "hold_point": "pressure_test"
+  },
+  {
+   "ref": "INS-COATING-APPLY"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test"
+  },
+  {
+   "ref": "CX-PROCESS-STARTUP",
+   "from_element": "system"
+  }
+ ],
+ "logic": [
+  {
+   "after": "STR-EQPAD-POUR",
+   "before": "PRC-EQUIP-SET",
+   "lag_days": 7,
+   "reason": "Pad cure"
+  },
+  {
+   "after": "GEN-ANCHOR-SURVEY",
+   "before": "PRC-EQUIP-SET",
+   "reason": "Vessel cannot be set on unchecked anchors"
+  }
+ ],
+ "checks": [
+  "Anchor survey signed off before the lift",
+  "Lift plan including tailing crane and ground bearing",
+  "Nozzle orientation verified before welding",
+  "Hydrotest before insulation"
+ ],
+ "references": [
+  "Manufacturer installation manuals and vendor drawings",
+  "National lifting operations guidance (lift planning and appointed person duties)",
+  "Process piping guidance (installation, pressure testing, flushing and reinstatement)"
+ ],
+ "typical_duration_weeks": [
+  6,
+  12
+ ]
+}

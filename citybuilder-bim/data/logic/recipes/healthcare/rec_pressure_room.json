@@ -1,0 +1,136 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_pressure_room",
+ "name": "Pressure-controlled room (isolation or protective environment)",
+ "summary": "Seal the envelope, install ducts and HEPA terminals, floors and doors, balance, test the pressure differential and hand over after ICRA clearance.",
+ "sector": "healthcare",
+ "tags": [
+  "pressure_room",
+  "ventilation",
+  "icra"
+ ],
+ "applies_to": {
+  "zone_tags_any": [
+   "pressure_room"
+  ],
+  "ifc_class": [
+   "IfcAirTerminal"
+  ],
+  "keywords": [
+   "pressure room",
+   "isolation room",
+   "protective environment",
+   "negative pressure",
+   "positive pressure"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "lift"
+  ],
+  "site": [
+   "access_road"
+  ],
+  "permits": [
+   "icra"
+  ],
+  "information": [
+   "ventilation design",
+   "pressure regime schedule"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-ICRA-SETUP",
+   "hold_point": "icra",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-WALL-FRAME",
+   "from_element": "zone"
+  },
+  {
+   "ref": "MEP-DUCT-INSTALL",
+   "from_element": "zone"
+  },
+  {
+   "ref": "FIR-STOP-INSTALL",
+   "hold_point": "fire",
+   "from_element": "zone",
+   "note": "Seal every penetration for air tightness"
+  },
+  {
+   "ref": "ARC-WALL-BOARD",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-CEILING-CLOSE",
+   "from_element": "zone",
+   "note": "Sealed ceiling"
+  },
+  {
+   "ref": "ARC-FLOOR-FINISH",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-DOOR-INSTALL",
+   "from_element": "host",
+   "note": "Sealed doors with closers"
+  },
+  {
+   "ref": "MEP-DIFFUSER-SET",
+   "from_element": "zone",
+   "note": "HEPA terminals"
+  },
+  {
+   "ref": "CX-AIR-BALANCE",
+   "from_element": "system"
+  },
+  {
+   "ref": "CX-PRESSURE-TEST",
+   "hold_point": "mechanical",
+   "from_element": "zone",
+   "note": "Pressure differential with doors closed and open"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test",
+   "note": "Monitor and alarm check"
+  },
+  {
+   "ref": "GEN-HEPA-CLEAN",
+   "from_element": "zone"
+  },
+  {
+   "ref": "GEN-ICRA-CLOSEOUT",
+   "hold_point": "icra",
+   "from_element": "zone"
+  }
+ ],
+ "logic": [
+  {
+   "after": "FIR-STOP-INSTALL",
+   "before": "ARC-WALL-BOARD",
+   "reason": "Seal before closing"
+  },
+  {
+   "after": "CX-AIR-BALANCE",
+   "before": "CX-PRESSURE-TEST",
+   "reason": "Balance first, then verify differential"
+  }
+ ],
+ "checks": [
+  "Smoke test for envelope leakage",
+  "Pressure differential at design airflow",
+  "Alarm and monitor function test"
+ ],
+ "references": [
+  "Healthcare ventilation guidance (air change rates, pressure regimes, validation)",
+  "Infection prevention and control guidance for construction and renovation in healthcare facilities (ICRA)"
+ ],
+ "typical_duration_weeks": [
+  8,
+  16
+ ]
+}

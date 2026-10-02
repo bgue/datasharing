@@ -1,0 +1,128 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_live_hospital_tie_in",
+ "name": "Live hospital tie-in during a shutdown window",
+ "summary": "Permit and locate, set ICRA, plan the isolation, hot work permit, make the tie-in with test, restore and verify before handback.",
+ "sector": "healthcare",
+ "tags": [
+  "live_hospital",
+  "shutdown",
+  "tie-in"
+ ],
+ "applies_to": {
+  "zone_tags_any": [
+   "occupied_adjacent"
+  ],
+  "ifc_class": [
+   "IfcPipeSegment",
+   "IfcPipeFitting",
+   "IfcCableSegment",
+   "IfcDuctSegment"
+  ],
+  "keywords": [
+   "tie-in",
+   "shutdown",
+   "isolation",
+   "live hospital",
+   "occupied"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [],
+  "site": [
+   "access_road"
+  ],
+  "permits": [
+   "work",
+   "hot_work",
+   "isolation",
+   "icra"
+  ],
+  "information": [
+   "isolation plan",
+   "clinical risk assessment",
+   "contingency plan"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-PERMIT-WORK",
+   "virtual": true,
+   "marker": "permit",
+   "note": "Clinical risk assessment and isolation plan"
+  },
+  {
+   "ref": "GEN-UTIL-LOCATE",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-ICRA-SETUP",
+   "hold_point": "icra",
+   "from_element": "zone"
+  },
+  {
+   "ref": "GEN-PERMIT-HOT",
+   "virtual": true,
+   "marker": "permit"
+  },
+  {
+   "ref": "PLB-PIPE-INSTALL",
+   "from_element": "system",
+   "note": "Prefabricate before the window; connect during the window"
+  },
+  {
+   "ref": "MEP-FITTING-INSTALL",
+   "from_element": "system",
+   "note": "Valves and tie-in fittings"
+  },
+  {
+   "ref": "GEN-HYDROTEST",
+   "virtual": true,
+   "marker": "test",
+   "hold_point": "pressure_test",
+   "note": "Pressure test of the new connection before reinstatement"
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "from_element": "system",
+   "optional": true
+  },
+  {
+   "ref": "CX-POWER-ENERGISE",
+   "hold_point": "electrical",
+   "from_element": "system",
+   "optional": true
+  },
+  {
+   "ref": "CX-AIR-BALANCE",
+   "from_element": "system",
+   "optional": true
+  },
+  {
+   "ref": "GEN-ICRA-CLOSEOUT",
+   "hold_point": "icra",
+   "from_element": "zone"
+  }
+ ],
+ "logic": [
+  {
+   "after": "GEN-PERMIT-WORK",
+   "before": "PLB-PIPE-INSTALL",
+   "reason": "No tie-in without an approved window"
+  }
+ ],
+ "checks": [
+  "Prefabrication complete before the window opens",
+  "Contingency for failed tie-in documented",
+  "Restoration verified with the clinical team"
+ ],
+ "references": [
+  "Infection prevention and control guidance for construction and renovation in healthcare facilities (ICRA)",
+  "Healthcare estates guidance for planned shutdowns and tie-ins"
+ ],
+ "typical_duration_weeks": [
+  1,
+  6
+ ]
+}

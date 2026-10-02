@@ -1,0 +1,118 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_piled_foundation",
+ "name": "Piled foundation with pile caps",
+ "summary": "Set out and drive piles, test their integrity, survey as-built positions, excavate and pour pile caps with a cure watch.",
+ "sector": "industrial",
+ "tags": [
+  "piling",
+  "foundation",
+  "geotechnical"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcPile",
+   "IfcDeepFoundation"
+  ],
+  "name_regex": "(?i)(pile|pile.?cap)",
+  "keywords": [
+   "piling",
+   "pile cap",
+   "piled foundation"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "piling_rig",
+   "excavator"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=2"
+  ],
+  "permits": [
+   "work"
+  ],
+  "information": [
+   "pile schedule",
+   "ground investigation",
+   "working platform design"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-UTIL-LOCATE",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-PERMIT-WORK",
+   "virtual": true,
+   "marker": "permit",
+   "note": "Piling near live services or plant needs a permit"
+  },
+  {
+   "ref": "CIV-PILE-DRIVE",
+   "hold_point": "geotechnical",
+   "note": "Integrity testing of a sample of piles"
+  },
+  {
+   "ref": "GEN-SURVEY-ASBUILT",
+   "virtual": true,
+   "marker": "survey",
+   "key": "pile_survey",
+   "note": "As-built pile positions and levels, check against the pile cap design"
+  },
+  {
+   "ref": "CIV-EARTH-CUT",
+   "from_element": "foundation",
+   "note": "Excavate to cap level and trim pile heads"
+  },
+  {
+   "ref": "STR-FOOT-REBAR",
+   "from_element": "foundation"
+  },
+  {
+   "ref": "STR-PILECAP-POUR",
+   "hold_point": "structural",
+   "from_element": "foundation"
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 7
+  },
+  {
+   "ref": "CIV-BACKFILL-COMPACT",
+   "from_element": "foundation"
+  }
+ ],
+ "logic": [
+  {
+   "after": "CIV-PILE-DRIVE",
+   "before": "STR-PILECAP-POUR",
+   "lag_days": 3,
+   "reason": "Allow heave and testing before the cap is cast"
+  }
+ ],
+ "checks": [
+  "Working platform designed for the rig",
+  "Pile set-out checked by a second person",
+  "Integrity test results before cap reinforcement",
+  "Pile head tolerances recorded"
+ ],
+ "references": [
+  "Piling construction guidance (bored and driven piles, working platforms)",
+  "Concrete construction guidance (formwork, placing, curing, hot and cold weather concreting)"
+ ],
+ "typical_duration_weeks": [
+  4,
+  10
+ ]
+}

@@ -1,0 +1,141 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_bridge_deck",
+ "name": "Bridge beams, deck and parapets",
+ "summary": "Close the road for the night lift, plan and mobilise the crane, lift beams, build the deck, cure, waterproof, fit parapets and survey.",
+ "sector": "civil",
+ "tags": [
+  "bridge",
+  "heavy_lift",
+  "night_work",
+  "traffic"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcBeam",
+   "IfcSlab",
+   "IfcRailing"
+  ],
+  "properties": {
+   "BridgePart": "deck"
+  },
+  "keywords": [
+   "bridge deck",
+   "bridge beam",
+   "girder",
+   "parapet"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "crawler_crane",
+   "concrete_pump"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=3",
+   "crane_reach"
+  ],
+  "permits": [
+   "road_closure",
+   "work_at_height"
+  ],
+  "information": [
+   "lift plan",
+   "traffic management plan",
+   "deck pour plan"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-PERMIT-WORK",
+   "virtual": true,
+   "marker": "permit",
+   "note": "Night possession and road closure permit"
+  },
+  {
+   "ref": "GEN-LIFT-PLAN",
+   "virtual": true,
+   "marker": "lift_plan",
+   "note": "Beam lift plan with crane positions and exclusion zone"
+  },
+  {
+   "ref": "GEN-CRANE-MOBILISE",
+   "virtual": true,
+   "marker": "crane"
+  },
+  {
+   "ref": "CIV-TM-STAGE1",
+   "note": "Road closure for the lift"
+  },
+  {
+   "ref": "STR-BEAM-LIFT",
+   "hold_point": "structural",
+   "note": "Beams lifted onto bearings at night"
+  },
+  {
+   "ref": "GEN-SCAFFOLD-ERECT",
+   "virtual": true,
+   "marker": "scaffold",
+   "note": "Edge protection and soffit access"
+  },
+  {
+   "ref": "STR-DECK-REBAR"
+  },
+  {
+   "ref": "STR-DECK-POUR",
+   "hold_point": "structural"
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 7
+  },
+  {
+   "ref": "STR-DECK-WATERPROOF"
+  },
+  {
+   "ref": "STR-PARAPET-INSTALL"
+  },
+  {
+   "ref": "GEN-SURVEY-ASBUILT",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Deck levels and camber before surfacing"
+  },
+  {
+   "ref": "GEN-SCAFFOLD-DISMANTLE",
+   "virtual": true,
+   "marker": "scaffold"
+  }
+ ],
+ "logic": [
+  {
+   "after": "STR-BEAM-LIFT",
+   "before": "STR-DECK-REBAR",
+   "reason": "Deck forms bear on the beams"
+  },
+  {
+   "after": "STR-DECK-POUR",
+   "before": "STR-DECK-WATERPROOF",
+   "lag_days": 7,
+   "reason": "Cure before waterproofing"
+  }
+ ],
+ "checks": [
+  "Possession confirmed before mobilising the crane",
+  "Lift plan reviewed with the crane supplier",
+  "Cube results before waterproofing",
+  "Level survey before surfacing"
+ ],
+ "references": [
+  "Bridge construction guidance (bearings, precast beams, decks, parapets)",
+  "National lifting operations guidance (lift planning and appointed person duties)",
+  "Temporary traffic management guidance for road works (signs, lighting and guarding)"
+ ],
+ "typical_duration_weeks": [
+  6,
+  14
+ ]
+}

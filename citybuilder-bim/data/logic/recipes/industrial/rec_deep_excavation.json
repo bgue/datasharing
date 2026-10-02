@@ -1,0 +1,140 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_deep_excavation",
+ "name": "Deep excavation or pit with shoring and dewatering",
+ "summary": "Excavate a deep pit or sump for a basement, pump pit or tank base: survey, locate services, approve the shoring design, install dewatering and shoring, dig, survey the formation, backfill and recover the shoring.",
+ "sector": "industrial",
+ "tags": [
+  "excavation",
+  "temporary_works",
+  "groundwater"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcEarthworksCut"
+  ],
+  "name_regex": "(?i)(sump|pit|deep|basement|cellar)",
+  "keywords": [
+   "deep excavation",
+   "sump",
+   "pit",
+   "shoring",
+   "dewatering"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "excavator"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=2"
+  ],
+  "permits": [
+   "excavation"
+  ],
+  "information": [
+   "service drawings",
+   "shoring design",
+   "geotechnical report"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-UTIL-LOCATE",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-PERMIT-WORK",
+   "virtual": true,
+   "marker": "permit",
+   "note": "Excavation permit with service drawings attached"
+  },
+  {
+   "ref": "GEN-TW-CHECK",
+   "virtual": true,
+   "marker": "permit",
+   "note": "Shoring design check before any digging"
+  },
+  {
+   "ref": "GEN-DEWATER-INSTALL",
+   "virtual": true,
+   "marker": "dewatering"
+  },
+  {
+   "ref": "GEN-SHORING-INSTALL",
+   "virtual": true,
+   "marker": "shoring",
+   "hold_point": "structural",
+   "note": "Shoring inspected before each lift of excavation"
+  },
+  {
+   "ref": "CIV-EARTH-CUT",
+   "quantity": {
+    "basis": "volume_m3"
+   },
+   "note": "Dig in stages, shoring follows the excavation"
+  },
+  {
+   "ref": "GEN-DEWATER-RUN",
+   "virtual": true,
+   "marker": "dewatering",
+   "duration_days": 15,
+   "parallel_with": "CIV-EARTH-CUT",
+   "note": "Run until the base slab has enough weight against uplift"
+  },
+  {
+   "ref": "GEN-SURVEY-ASBUILT",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Formation level and clearance check",
+   "key": "formation_survey"
+  },
+  {
+   "ref": "STR-FOOT-REBAR",
+   "note": "Blinding then base reinforcement",
+   "optional": true
+  },
+  {
+   "ref": "CIV-BACKFILL-COMPACT"
+  },
+  {
+   "ref": "GEN-SHORING-REMOVE",
+   "virtual": true,
+   "marker": "shoring"
+  }
+ ],
+ "logic": [
+  {
+   "after": "GEN-DEWATER-INSTALL",
+   "before": "CIV-EARTH-CUT",
+   "reason": "Groundwater must be controlled before the cut goes below the water table"
+  },
+  {
+   "after": "CIV-BACKFILL-COMPACT",
+   "before": "GEN-DEWATER-RUN",
+   "type": "FF",
+   "reason": "Dewatering stays on until backfill passes groundwater level"
+  }
+ ],
+ "checks": [
+  "Buried services located and marked before the first dig",
+  "Shoring design checked and permit to load issued",
+  "Daily inspection of the excavation face and shoring",
+  "Formation level surveyed before any concrete"
+ ],
+ "references": [
+  "Excavation safety guidance (shoring, access, services avoidance, hazard of buried services)",
+  "Temporary works procedure guidance (design check, permit to load, permit to dismantle)"
+ ],
+ "typical_duration_weeks": [
+  3,
+  8
+ ]
+}

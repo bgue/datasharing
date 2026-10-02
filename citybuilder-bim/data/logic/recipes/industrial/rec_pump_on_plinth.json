@@ -1,0 +1,126 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_pump_on_plinth",
+ "name": "Pump set on grouted plinth",
+ "summary": "Pour the plinth, cure, survey anchors, set the pump with vendor attendance, grout, connect piping and power, test and run.",
+ "sector": "industrial",
+ "tags": [
+  "rotating",
+  "pump",
+  "grout"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcFlowMovingDevice"
+  ],
+  "visual_kit": [
+   "pump_plinth"
+  ],
+  "keywords": [
+   "pump",
+   "plinth",
+   "baseplate"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "mobile_crane"
+  ],
+  "site": [
+   "access_road",
+   "crane_reach"
+  ],
+  "information": [
+   "vendor drawings",
+   "alignment procedure"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "STR-EQPAD-POUR",
+   "hold_point": "structural",
+   "from_element": "foundation"
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 7
+  },
+  {
+   "ref": "GEN-ANCHOR-SURVEY",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Anchor bolts and grout space"
+  },
+  {
+   "ref": "PRC-PUMP-SET",
+   "note": "Set and level on shims"
+  },
+  {
+   "ref": "GEN-VENDOR-REP",
+   "virtual": true,
+   "marker": "permit",
+   "duration_days": 2,
+   "note": "Alignment check and grouting witnessed by the vendor"
+  },
+  {
+   "ref": "PIP-FITTING-INSTALL",
+   "from_element": "system",
+   "note": "Strain-free pipe connections"
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "from_element": "system"
+  },
+  {
+   "ref": "IC-INSTR-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "CX-PIPE-FLUSH",
+   "from_element": "system"
+  },
+  {
+   "ref": "IC-LOOP-CHECK",
+   "from_element": "system"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test",
+   "note": "Rotation check, seal flush plan, lube"
+  },
+  {
+   "ref": "CX-PROCESS-STARTUP",
+   "from_element": "system"
+  }
+ ],
+ "logic": [
+  {
+   "after": "STR-EQPAD-POUR",
+   "before": "PRC-PUMP-SET",
+   "lag_days": 7,
+   "reason": "Plinth cure"
+  }
+ ],
+ "checks": [
+  "Pipe strain check with dial indicators before final bolting",
+  "Rotation check uncoupled before coupling",
+  "Seal and lubrication systems commissioned before run"
+ ],
+ "references": [
+  "Manufacturer installation manuals and vendor drawings",
+  "Process piping guidance (installation, pressure testing, flushing and reinstatement)",
+  "Pre-commissioning and commissioning guidance for process plants (system completion and handover)"
+ ],
+ "typical_duration_weeks": [
+  3,
+  6
+ ]
+}

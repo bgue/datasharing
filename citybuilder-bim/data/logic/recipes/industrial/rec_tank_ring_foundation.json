@@ -1,0 +1,150 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_tank_ring_foundation",
+ "name": "Storage tank on ring-beam foundation",
+ "summary": "Excavate and dewater, build the ring beam and pad, cure and survey, set the tank, water-fill test, tie in the nozzles and apply insulation.",
+ "sector": "industrial",
+ "tags": [
+  "tank",
+  "foundation",
+  "hydrotest"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcTank"
+  ],
+  "visual_kit": [
+   "tank"
+  ],
+  "properties": {
+   "Foundation": "ring"
+  },
+  "keywords": [
+   "tank",
+   "ring beam",
+   "storage tank"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "crawler_crane",
+   "excavator"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=3",
+   "crane_reach"
+  ],
+  "permits": [
+   "hot_work"
+  ],
+  "information": [
+   "tank vendor drawings",
+   "foundation design",
+   "lift plan"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "CIV-EARTH-CUT",
+   "from_element": "foundation",
+   "note": "To formation level"
+  },
+  {
+   "ref": "GEN-DEWATER-RUN",
+   "virtual": true,
+   "marker": "dewatering",
+   "duration_days": 10,
+   "parallel_with": "CIV-EARTH-CUT"
+  },
+  {
+   "ref": "STR-FOOT-REBAR",
+   "from_element": "foundation",
+   "note": "Ring beam reinforcement"
+  },
+  {
+   "ref": "STR-FOOT-POUR",
+   "hold_point": "structural",
+   "from_element": "foundation",
+   "note": "Ring beam and compacted pad"
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 14
+  },
+  {
+   "ref": "GEN-SURVEY-ASBUILT",
+   "virtual": true,
+   "marker": "survey",
+   "key": "settlement_baseline",
+   "note": "Level survey of the ring and pad as the settlement baseline"
+  },
+  {
+   "ref": "GEN-LIFT-PLAN",
+   "virtual": true,
+   "marker": "lift_plan"
+  },
+  {
+   "ref": "GEN-PERMIT-HOT",
+   "virtual": true,
+   "marker": "permit"
+  },
+  {
+   "ref": "PRC-TANK-SET",
+   "note": "Erect shell, roof and fittings or set a shop-built tank"
+  },
+  {
+   "ref": "PRC-TANK-HYDRO",
+   "hold_point": "pressure_test",
+   "note": "Water-fill test with settlement monitoring"
+  },
+  {
+   "ref": "PIP-FITTING-INSTALL",
+   "from_element": "system",
+   "note": "Nozzle tie-ins"
+  },
+  {
+   "ref": "INS-COATING-APPLY"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test"
+  }
+ ],
+ "logic": [
+  {
+   "after": "STR-FOOT-POUR",
+   "before": "PRC-TANK-SET",
+   "lag_days": 14,
+   "reason": "Ring beam cure"
+  },
+  {
+   "after": "GEN-SURVEY-ASBUILT",
+   "before": "PRC-TANK-HYDRO",
+   "reason": "Settlement survey before and during the fill"
+  }
+ ],
+ "checks": [
+  "Settlement survey before and during the water-fill test",
+  "Crane lift plan above 20 tonnes",
+  "Weld inspection records for the shell",
+  "Water disposal permit for the fill water"
+ ],
+ "references": [
+  "API storage tank standards (welded tanks for oil storage)",
+  "National lifting operations guidance (lift planning and appointed person duties)",
+  "Concrete construction guidance (formwork, placing, curing, hot and cold weather concreting)"
+ ],
+ "typical_duration_weeks": [
+  8,
+  14
+ ]
+}

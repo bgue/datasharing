@@ -1,0 +1,153 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_pipe_rack_stickbuilt",
+ "name": "Pipe rack stick-built from steel members",
+ "summary": "Build the rack on site: footings, scaffold, steel erection and connections, spool laydown, fittings, hydrotest, tray and cable, insulation and flush.",
+ "sector": "industrial",
+ "tags": [
+  "pipe_rack",
+  "stick_built",
+  "scaffold"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcMember",
+   "IfcColumn",
+   "IfcBeam"
+  ],
+  "name_regex": "(?i)(rack|pipe.?bridge|sleeper)",
+  "visual_kit": [
+   "rack"
+  ],
+  "zone_tags_any": [
+   "pipe_rack"
+  ],
+  "keywords": [
+   "stick built rack",
+   "pipe rack"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "mobile_crane"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=3"
+  ],
+  "permits": [
+   "hot_work",
+   "work_at_height"
+  ],
+  "information": [
+   "rack drawings",
+   "weld procedure"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "STR-FOOT-REBAR",
+   "from_element": "foundation"
+  },
+  {
+   "ref": "STR-FOOT-POUR",
+   "hold_point": "structural",
+   "from_element": "foundation"
+  },
+  {
+   "ref": "GEN-ANCHOR-SURVEY",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-PERMIT-HOT",
+   "virtual": true,
+   "marker": "permit"
+  },
+  {
+   "ref": "GEN-SCAFFOLD-ERECT",
+   "virtual": true,
+   "marker": "scaffold"
+  },
+  {
+   "ref": "GEN-LIFT-PLAN",
+   "virtual": true,
+   "marker": "lift_plan"
+  },
+  {
+   "ref": "STR-RACK-ERECT"
+  },
+  {
+   "ref": "STR-RACK-CONN",
+   "hold_point": "welding"
+  },
+  {
+   "ref": "PIP-SPOOL-LAY",
+   "from_element": "system"
+  },
+  {
+   "ref": "PIP-FITTING-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "GEN-HYDROTEST",
+   "virtual": true,
+   "marker": "test",
+   "hold_point": "pressure_test"
+  },
+  {
+   "ref": "ELE-TRAY-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "from_element": "system"
+  },
+  {
+   "ref": "INS-PIPE-INSULATE",
+   "from_element": "system"
+  },
+  {
+   "ref": "GEN-SCAFFOLD-DISMANTLE",
+   "virtual": true,
+   "marker": "scaffold"
+  },
+  {
+   "ref": "CX-PIPE-FLUSH",
+   "from_element": "system"
+  }
+ ],
+ "logic": [
+  {
+   "after": "STR-FOOT-POUR",
+   "before": "STR-RACK-ERECT",
+   "lag_days": 7,
+   "reason": "Footing strength"
+  },
+  {
+   "after": "INS-PIPE-INSULATE",
+   "before": "GEN-SCAFFOLD-DISMANTLE",
+   "reason": "Scaffold stays until insulation is done"
+  }
+ ],
+ "checks": [
+  "Hot work permits for every welding shift",
+  "Scaffold inspected before each shift (tag system)",
+  "Weld NDT before spool loading",
+  "Hydrotest before insulation"
+ ],
+ "references": [
+  "National lifting operations guidance (lift planning and appointed person duties)",
+  "Welding and non-destructive testing guidance for structural steelwork and piping",
+  "Process piping guidance (installation, pressure testing, flushing and reinstatement)"
+ ],
+ "typical_duration_weeks": [
+  12,
+  24
+ ]
+}

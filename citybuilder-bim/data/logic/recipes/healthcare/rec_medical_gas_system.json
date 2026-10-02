@@ -1,0 +1,122 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_medical_gas_system",
+ "name": "Medical gas pipeline system",
+ "summary": "Hot work permit, install pipework, pressure test and purge, fire-stop and close walls, install outlets, third-party certification and handover.",
+ "sector": "healthcare",
+ "tags": [
+  "medical_gas",
+  "pipework",
+  "certification"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcPipeSegment"
+  ],
+  "name_regex": "(?i)(medical gas|oxygen|\\bO2\\b|medical air|vacuum|nitrous)",
+  "properties": {
+   "Medical": true
+  },
+  "keywords": [
+   "medical gas",
+   "oxygen",
+   "vacuum",
+   "mgps"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "lift"
+  ],
+  "site": [
+   "access_road"
+  ],
+  "permits": [
+   "hot_work"
+  ],
+  "information": [
+   "gas layout",
+   "alarm schedule"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-PERMIT-HOT",
+   "virtual": true,
+   "marker": "permit",
+   "note": "Brazing with oxygen-free nitrogen purge"
+  },
+  {
+   "ref": "MED-GAS-PIPE-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "MED-GAS-TEST",
+   "hold_point": "medical_gas",
+   "from_element": "system",
+   "note": "Standing pressure, leak and cross-connection tests"
+  },
+  {
+   "ref": "FIR-STOP-INSTALL",
+   "hold_point": "fire",
+   "from_element": "system"
+  },
+  {
+   "ref": "ARC-WALL-BOARD",
+   "from_element": "system",
+   "note": "Walls closed only after the test"
+  },
+  {
+   "ref": "MED-EQUIP-INSTALL",
+   "from_element": "system",
+   "note": "Terminal units, alarms and pendants"
+  },
+  {
+   "ref": "MED-GAS-CERT",
+   "hold_point": "medical_gas",
+   "from_element": "system",
+   "note": "Independent verification of identity, flow and purity"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test",
+   "note": "Alarm panel and area valve checks"
+  },
+  {
+   "ref": "GEN-HANDOVER-DOC",
+   "from_element": "system"
+  }
+ ],
+ "logic": [
+  {
+   "after": "MED-GAS-TEST",
+   "before": "ARC-WALL-BOARD",
+   "reason": "No wall closure before the pressure test"
+  },
+  {
+   "after": "MED-GAS-TEST",
+   "before": "MED-EQUIP-INSTALL",
+   "reason": "Equipment connects to a tested system only"
+  }
+ ],
+ "checks": [
+  "Brazers qualified and records kept",
+  "Pressure, leak and cross-connection tests witnessed",
+  "Third-party verification before first use",
+  "Area valves labelled"
+ ],
+ "references": [
+  "Medical gas pipeline system guidance (design, installation, testing and verification)",
+  "Fire safety guidance for healthcare buildings (compartmentation and fire-stopping)"
+ ],
+ "typical_duration_weeks": [
+  6,
+  16
+ ]
+}

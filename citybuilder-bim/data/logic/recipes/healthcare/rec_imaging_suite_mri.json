@@ -1,0 +1,168 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_imaging_suite_mri",
+ "name": "MRI suite",
+ "summary": "Shielded room first, services and RF cage, floor, crane lift of the magnet, vendor shimming, power and air checks, clean and hand over. The MRI has a 26 week lead.",
+ "sector": "healthcare",
+ "tags": [
+  "imaging",
+  "mri",
+  "long_lead",
+  "shielding"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcMedicalDevice"
+  ],
+  "visual_kit": [
+   "mri"
+  ],
+  "name_regex": "(?i)(\\bMRI\\b|magnet)",
+  "zone_tags_any": [
+   "imaging"
+  ],
+  "keywords": [
+   "mri",
+   "magnet",
+   "imaging suite"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "mobile_crane"
+  ],
+  "site": [
+   "access_road",
+   "crane_reach",
+   "laydown>=2"
+  ],
+  "permits": [
+   "work",
+   "icra"
+  ],
+  "information": [
+   "vendor site planning guide",
+   "lift plan",
+   "magnetic field plot"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-ICRA-SETUP",
+   "hold_point": "icra",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-WALL-FRAME",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-SHIELD-WALL",
+   "from_element": "zone",
+   "note": "RF and magnetic shielding as the vendor specifies"
+  },
+  {
+   "ref": "MEP-DUCT-INSTALL",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "hold_point": "electrical",
+   "from_element": "zone"
+  },
+  {
+   "ref": "FIR-STOP-INSTALL",
+   "hold_point": "fire",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-FLOOR-FINISH",
+   "from_element": "zone",
+   "note": "Non-magnetic materials only"
+  },
+  {
+   "ref": "GEN-ANCHOR-SURVEY",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Magnet plinth and floor loading check"
+  },
+  {
+   "ref": "GEN-PERMIT-WORK",
+   "virtual": true,
+   "marker": "permit",
+   "note": "Quench pipe route and magnet delivery permit"
+  },
+  {
+   "ref": "GEN-LIFT-PLAN",
+   "virtual": true,
+   "marker": "lift_plan",
+   "note": "Route, door opening and rigging plan"
+  },
+  {
+   "ref": "GEN-CRANE-MOBILISE",
+   "virtual": true,
+   "marker": "crane"
+  },
+  {
+   "ref": "MED-MRI-INSTALL",
+   "hold_point": "electrical",
+   "note": "Wall opening left until the magnet is in"
+  },
+  {
+   "ref": "GEN-VENDOR-REP",
+   "virtual": true,
+   "marker": "permit",
+   "duration_days": 15,
+   "note": "Ramp-up, shimming, image quality tests"
+  },
+  {
+   "ref": "CX-POWER-ENERGISE",
+   "hold_point": "electrical",
+   "from_element": "system"
+  },
+  {
+   "ref": "CX-AIR-BALANCE",
+   "from_element": "system"
+  },
+  {
+   "ref": "GEN-HEPA-CLEAN",
+   "from_element": "zone"
+  },
+  {
+   "ref": "GEN-ICRA-CLOSEOUT",
+   "hold_point": "icra",
+   "from_element": "zone"
+  },
+  {
+   "ref": "GEN-HANDOVER-DOC",
+   "from_element": "zone"
+  }
+ ],
+ "logic": [
+  {
+   "after": "ARC-SHIELD-WALL",
+   "before": "MED-MRI-INSTALL",
+   "reason": "Shielded room before magnet"
+  },
+  {
+   "after": "GEN-LIFT-PLAN",
+   "before": "MED-MRI-INSTALL",
+   "reason": "Route and rigging plan before delivery"
+  }
+ ],
+ "checks": [
+  "Vendor shielding design approved",
+  "Floor loading and plinth survey",
+  "No ferrous materials near the magnet area",
+  "Quench pipe discharge route inspected"
+ ],
+ "references": [
+  "Manufacturer installation and site planning manuals for the equipment",
+  "National lifting operations guidance (lift planning and appointed person duties)",
+  "Infection prevention and control guidance for construction and renovation in healthcare facilities (ICRA)"
+ ],
+ "typical_duration_weeks": [
+  16,
+  32
+ ]
+}

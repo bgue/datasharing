@@ -1,0 +1,160 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_ward_fitout",
+ "name": "Generic ward or clinic fit-out",
+ "summary": "The repeating recipe for wards, corridors and clinics: ICRA, framing, MEP, fire-stopping, boarding, ceilings, floors, doors, fixtures, equipment, balance and handover.",
+ "sector": "healthcare",
+ "tags": [
+  "ward",
+  "fit-out",
+  "repeating"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcSlab",
+   "IfcWall"
+  ],
+  "keywords": [
+   "ward",
+   "clinic",
+   "corridor",
+   "bedroom",
+   "patient room"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "lift"
+  ],
+  "site": [
+   "access_road"
+  ],
+  "permits": [
+   "icra"
+  ],
+  "information": [
+   "room data sheets",
+   "fire strategy"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-ICRA-SETUP",
+   "hold_point": "icra",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-WALL-FRAME",
+   "from_element": "zone"
+  },
+  {
+   "ref": "MEP-DUCT-INSTALL",
+   "from_element": "zone"
+  },
+  {
+   "ref": "PLB-PIPE-INSTALL",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "hold_point": "electrical",
+   "from_element": "zone"
+  },
+  {
+   "ref": "FIR-SPRINK-INSTALL",
+   "hold_point": "fire",
+   "from_element": "zone"
+  },
+  {
+   "ref": "FIR-STOP-INSTALL",
+   "hold_point": "fire",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-WALL-BOARD",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-CEILING-CLOSE",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-FLOOR-FINISH",
+   "from_element": "zone"
+  },
+  {
+   "ref": "ARC-DOOR-INSTALL",
+   "from_element": "host"
+  },
+  {
+   "ref": "ELE-LIGHT-INSTALL",
+   "from_element": "zone"
+  },
+  {
+   "ref": "MEP-DIFFUSER-SET",
+   "from_element": "zone"
+  },
+  {
+   "ref": "PLB-FIXTURE-SET",
+   "from_element": "zone"
+  },
+  {
+   "ref": "MED-EQUIP-INSTALL",
+   "from_element": "zone",
+   "note": "Bed-heads and nurse call"
+  },
+  {
+   "ref": "CX-AIR-BALANCE",
+   "from_element": "system"
+  },
+  {
+   "ref": "CX-FIRE-TEST",
+   "hold_point": "fire",
+   "from_element": "zone"
+  },
+  {
+   "ref": "GEN-HEPA-CLEAN",
+   "from_element": "zone"
+  },
+  {
+   "ref": "GEN-ICRA-CLOSEOUT",
+   "hold_point": "icra",
+   "from_element": "zone"
+  },
+  {
+   "ref": "GEN-PUNCH-CLEAR",
+   "virtual": true,
+   "marker": "test"
+  }
+ ],
+ "logic": [
+  {
+   "after": "FIR-STOP-INSTALL",
+   "before": "ARC-WALL-BOARD",
+   "reason": "Inspect before closing"
+  },
+  {
+   "after": "ARC-CEILING-CLOSE",
+   "before": "ARC-FLOOR-FINISH",
+   "reason": "Ceilings before floors"
+  },
+  {
+   "after": "CX-AIR-BALANCE",
+   "before": "GEN-ICRA-CLOSEOUT",
+   "reason": "Balance before clearance"
+  }
+ ],
+ "checks": [
+  "Above-ceiling inspection before close-out",
+  "ICRA clearance before barrier removal",
+  "Punch list closed before handover"
+ ],
+ "references": [
+  "Infection prevention and control guidance for construction and renovation in healthcare facilities (ICRA)",
+  "Fire safety guidance for healthcare buildings (compartmentation and fire-stopping)"
+ ],
+ "typical_duration_weeks": [
+  8,
+  16
+ ]
+}

@@ -1,0 +1,110 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_kerb_and_signage",
+ "name": "Kerbs, signs and roadside furniture",
+ "summary": "Set out, lay kerbs, install guardrail and signs, light and cable where required, apply markings, then pre-commission and close out defects.",
+ "sector": "civil",
+ "tags": [
+  "finishing",
+  "signs",
+  "kerb"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcKerb",
+   "IfcSign",
+   "IfcRailing"
+  ],
+  "keywords": [
+   "kerb",
+   "sign",
+   "guardrail",
+   "road furniture",
+   "markings"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "lift"
+  ],
+  "site": [
+   "access_road"
+  ],
+  "permits": [
+   "work"
+  ],
+  "information": [
+   "signing schedule",
+   "marking plan"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-UTIL-LOCATE",
+   "virtual": true,
+   "marker": "survey",
+   "optional": true
+  },
+  {
+   "ref": "CIV-KERB-LAY"
+  },
+  {
+   "ref": "CIV-GUARDRAIL-INSTALL"
+  },
+  {
+   "ref": "CIV-SIGN-INSTALL"
+  },
+  {
+   "ref": "CIV-LIGHT-INSTALL",
+   "optional": true
+  },
+  {
+   "ref": "CIV-CABLE-PULL",
+   "optional": true
+  },
+  {
+   "ref": "CIV-MARKING-APPLY"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test",
+   "note": "Lighting, sign visibility and marking retro-reflectivity"
+  },
+  {
+   "ref": "GEN-SURVEY-ASBUILT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-PUNCH-CLEAR",
+   "virtual": true,
+   "marker": "test"
+  }
+ ],
+ "logic": [
+  {
+   "after": "CIV-KERB-LAY",
+   "before": "CIV-MARKING-APPLY",
+   "reason": "Kerbs and channels fixed before lines are painted"
+  }
+ ],
+ "checks": [
+  "Sign positions checked against sight lines",
+  "Marking after final surfacing",
+  "Lighting test and electrical certificate"
+ ],
+ "references": [
+  "Temporary traffic management guidance for road works (signs, lighting and guarding)",
+  "Road signing and marking guidance"
+ ],
+ "typical_duration_weeks": [
+  2,
+  8
+ ]
+}

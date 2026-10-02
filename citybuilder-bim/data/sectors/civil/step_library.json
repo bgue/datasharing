@@ -357,6 +357,18 @@
     {
      "step": "CIV-TM-STAGE1",
      "scope": "same_cell_below"
+    },
+    {
+     "step": "GEN-SURVEY-SETOUT",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-UTIL-LOCATE",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-DEWATER-INSTALL",
+     "scope": "same_zone"
     }
    ],
    "tags": [
@@ -515,6 +527,22 @@
      "scope": "project",
      "type": "SS",
      "lag_days": 5
+    },
+    {
+     "step": "GEN-SURVEY-SETOUT",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-UTIL-LOCATE",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-SHORING-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-DEWATER-INSTALL",
+     "scope": "same_zone"
     }
    ],
    "tags": [
@@ -655,6 +683,10 @@
     {
      "step": "CIV-EARTH-FILL",
      "scope": "same_zone"
+    },
+    {
+     "step": "GEN-LIFT-PLAN",
+     "scope": "same_zone"
     }
    ],
    "tags": [
@@ -750,6 +782,10 @@
     },
     {
      "step": "CIV-TM-STAGE1",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-SURVEY-SETOUT",
      "scope": "same_zone"
     }
    ],
@@ -875,6 +911,10 @@
     {
      "step": "STR-CAP-POUR",
      "scope": "same_cell_below"
+    },
+    {
+     "step": "GEN-LIFT-PLAN",
+     "scope": "same_zone"
     }
    ],
    "tags": [
@@ -1152,6 +1192,14 @@
     {
      "step": "STR-ABUT-POUR",
      "scope": "same_cell"
+    },
+    {
+     "step": "GEN-LIFT-PLAN",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-ANCHOR-SURVEY",
+     "scope": "same_zone"
     }
    ],
    "tags": [
@@ -1202,6 +1250,10 @@
     },
     {
      "step": "CIV-TM-STAGE1",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-LIFT-PLAN",
      "scope": "same_zone"
     }
    ],
@@ -1255,6 +1307,10 @@
     {
      "step": "STR-FOOT-POUR",
      "scope": "same_cell"
+    },
+    {
+     "step": "GEN-LIFT-PLAN",
+     "scope": "same_zone"
     }
    ],
    "tags": [
@@ -1407,6 +1463,10 @@
     {
      "step": "STR-DECK-WATERPROOF",
      "scope": "same_cell"
+    },
+    {
+     "step": "GEN-LIFT-PLAN",
+     "scope": "same_zone"
     }
    ],
    "tags": [
@@ -1444,6 +1504,10 @@
     },
     {
      "step": "CIV-UTIL-TEST",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-LIFT-PLAN",
      "scope": "same_zone"
     }
    ],
@@ -1489,6 +1553,10 @@
     {
      "step": "STR-FOOT-POUR",
      "scope": "same_cell"
+    },
+    {
+     "step": "GEN-LIFT-PLAN",
+     "scope": "same_zone"
     }
    ],
    "tags": [
@@ -2044,6 +2112,10 @@
     {
      "step": "CIV-BASE-LAY",
      "scope": "same_zone"
+    },
+    {
+     "step": "GEN-LIFT-PLAN",
+     "scope": "same_zone"
     }
    ],
    "tags": [
@@ -2279,6 +2351,679 @@
    "tags": [
     "finishing"
    ]
+  },
+  {
+   "id": "GEN-SURVEY-SETOUT",
+   "name": "Survey set-out of the work area",
+   "phase": "mobilise",
+   "trade": "qa",
+   "discipline": "general",
+   "work_face": "any",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 4,
+   "unit_cost": 350,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.05,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [],
+   "tags": [
+    "virtual",
+    "survey",
+    "qa"
+   ]
+  },
+  {
+   "id": "GEN-SURVEY-ASBUILT",
+   "name": "As-built survey and record",
+   "phase": "finishing",
+   "trade": "qa",
+   "discipline": "general",
+   "work_face": "any",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 4,
+   "unit_cost": 300,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.05,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [
+    {
+     "step": "STR-DECK-POUR",
+     "scope": "same_zone"
+    },
+    {
+     "step": "STR-PIER-POUR",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-ASPHALT-WEAR",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-DRAIN-BACKFILL",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "virtual",
+    "survey",
+    "qa"
+   ]
+  },
+  {
+   "id": "GEN-UTIL-LOCATE",
+   "name": "Locate and mark buried utilities",
+   "phase": "mobilise",
+   "trade": "utilities",
+   "discipline": "general",
+   "work_face": "any",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 3,
+   "unit_cost": 400,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.1,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [],
+   "tags": [
+    "virtual",
+    "survey",
+    "utility_locate",
+    "utilities"
+   ]
+  },
+  {
+   "id": "GEN-DEWATER-INSTALL",
+   "name": "Install wellpoints or sump pumps",
+   "phase": "earthworks",
+   "trade": "utilities",
+   "discipline": "civil",
+   "work_face": "below_ground",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 2,
+   "unit_cost": 4500,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [
+    {
+     "step": "GEN-SURVEY-SETOUT",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "virtual",
+    "dewatering",
+    "utilities"
+   ]
+  },
+  {
+   "id": "GEN-DEWATER-RUN",
+   "name": "Run dewatering (time driven)",
+   "phase": "earthworks",
+   "trade": "utilities",
+   "discipline": "civil",
+   "work_face": "below_ground",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 1,
+   "unit_cost": 350,
+   "min_duration_days": 3,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.1,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [
+    {
+     "step": "GEN-DEWATER-INSTALL",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "virtual",
+    "dewatering",
+    "utilities"
+   ]
+  },
+  {
+   "id": "GEN-SHORING-INSTALL",
+   "name": "Install trench or pit shoring",
+   "phase": "utilities",
+   "trade": "utilities",
+   "discipline": "civil",
+   "work_face": "below_ground",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 40,
+   "unit_cost": 140,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.55,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [
+    {
+     "step": "GEN-SURVEY-SETOUT",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-TW-CHECK",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-UTIL-LOCATE",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "virtual",
+    "shoring",
+    "high_risk",
+    "utilities"
+   ]
+  },
+  {
+   "id": "GEN-SHORING-REMOVE",
+   "name": "Remove trench or pit shoring",
+   "phase": "drainage",
+   "trade": "utilities",
+   "discipline": "civil",
+   "work_face": "below_ground",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 60,
+   "unit_cost": 20,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.4,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [
+    {
+     "step": "GEN-SHORING-INSTALL",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "virtual",
+    "shoring",
+    "utilities"
+   ]
+  },
+  {
+   "id": "GEN-SCAFFOLD-ERECT",
+   "name": "Erect access scaffold",
+   "phase": "structures",
+   "trade": "erection",
+   "discipline": "general",
+   "work_face": "any",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 80,
+   "unit_cost": 22,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 1,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.5,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [
+    {
+     "step": "GEN-SURVEY-SETOUT",
+     "scope": "same_zone"
+    },
+    {
+     "step": "GEN-TW-CHECK",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "virtual",
+    "scaffold",
+    "high_risk",
+    "erection"
+   ]
+  },
+  {
+   "id": "GEN-SCAFFOLD-DISMANTLE",
+   "name": "Dismantle access scaffold",
+   "phase": "structures",
+   "trade": "erection",
+   "discipline": "general",
+   "work_face": "any",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 120,
+   "unit_cost": 6,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.5,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [
+    {
+     "step": "GEN-SCAFFOLD-ERECT",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "virtual",
+    "scaffold",
+    "high_risk",
+    "erection"
+   ]
+  },
+  {
+   "id": "GEN-TW-CHECK",
+   "name": "Temporary works design check and permit to load",
+   "phase": "mobilise",
+   "trade": "qa",
+   "discipline": "structure",
+   "work_face": "any",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 4,
+   "unit_cost": 600,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.0,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [],
+   "tags": [
+    "virtual",
+    "paperwork",
+    "temporary_works",
+    "qa"
+   ]
+  },
+  {
+   "id": "GEN-LIFT-PLAN",
+   "name": "Prepare and approve lift plan",
+   "phase": "mobilise",
+   "trade": "qa",
+   "discipline": "general",
+   "work_face": "any",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 2,
+   "unit_cost": 900,
+   "min_duration_days": 2,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.0,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [],
+   "tags": [
+    "virtual",
+    "paperwork",
+    "lift_plan",
+    "qa"
+   ]
+  },
+  {
+   "id": "GEN-CRANE-MOBILISE",
+   "name": "Mobilise, assemble and load-test crane",
+   "phase": "mobilise",
+   "trade": "erection",
+   "discipline": "general",
+   "work_face": "any",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 1,
+   "unit_cost": 6000,
+   "min_duration_days": 2,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 3,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.6,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [
+    {
+     "step": "GEN-LIFT-PLAN",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "virtual",
+    "crane",
+    "high_risk",
+    "erection"
+   ]
+  },
+  {
+   "id": "GEN-PERMIT-WORK",
+   "name": "Permit to work",
+   "phase": "mobilise",
+   "trade": "qa",
+   "discipline": "general",
+   "work_face": "any",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 8,
+   "unit_cost": 150,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.0,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [],
+   "tags": [
+    "virtual",
+    "paperwork",
+    "permit",
+    "qa"
+   ]
+  },
+  {
+   "id": "GEN-PERMIT-HOT",
+   "name": "Hot work permit and fire watch",
+   "phase": "mobilise",
+   "trade": "qa",
+   "discipline": "general",
+   "work_face": "any",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 8,
+   "unit_cost": 200,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.0,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [],
+   "tags": [
+    "virtual",
+    "paperwork",
+    "permit",
+    "hot_work",
+    "qa"
+   ]
+  },
+  {
+   "id": "GEN-HYDROTEST",
+   "name": "System hydrotest or pressure test",
+   "phase": "drainage",
+   "trade": "utilities",
+   "discipline": "commissioning",
+   "work_face": "any",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 2,
+   "unit_cost": 1200,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": true,
+   "inspection_type": "pressure_test",
+   "risk": 0.3,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "CIV-DRAIN-INSTALL",
+     "scope": "same_system",
+     "required": true
+    },
+    {
+     "step": "CIV-UTIL-DIVERT",
+     "scope": "same_system"
+    }
+   ],
+   "tags": [
+    "virtual",
+    "test",
+    "hold_point",
+    "utilities"
+   ]
+  },
+  {
+   "id": "GEN-PRECOMM-CHECK",
+   "name": "Pre-commissioning checks",
+   "phase": "finishing",
+   "trade": "qa",
+   "discipline": "commissioning",
+   "work_face": "any",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 6,
+   "unit_cost": 450,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.05,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "CIV-CABLE-PULL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-LIGHT-INSTALL",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "virtual",
+    "test",
+    "qa"
+   ]
+  },
+  {
+   "id": "GEN-CURING-WATCH",
+   "name": "Concrete curing watch (time driven)",
+   "phase": "structures",
+   "trade": "concrete",
+   "discipline": "structure",
+   "work_face": "any",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 1,
+   "unit_cost": 120,
+   "min_duration_days": 3,
+   "requires_crane": false,
+   "requires_access": false,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.0,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [
+    {
+     "step": "STR-DECK-POUR",
+     "scope": "same_zone"
+    },
+    {
+     "step": "STR-CAP-POUR",
+     "scope": "same_zone"
+    },
+    {
+     "step": "STR-PIER-POUR",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "virtual",
+    "curing",
+    "concrete"
+   ]
+  },
+  {
+   "id": "GEN-ANCHOR-SURVEY",
+   "name": "Anchor bolt and grout survey",
+   "phase": "structures",
+   "trade": "qa",
+   "discipline": "general",
+   "work_face": "any",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 6,
+   "unit_cost": 250,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.05,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [
+    {
+     "step": "STR-PIER-POUR",
+     "scope": "same_zone"
+    },
+    {
+     "step": "STR-ABUT-POUR",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "virtual",
+    "survey",
+    "anchor",
+    "qa"
+   ]
+  },
+  {
+   "id": "GEN-VENDOR-REP",
+   "name": "Vendor representative attendance (time driven)",
+   "phase": "structures",
+   "trade": "qa",
+   "discipline": "general",
+   "work_face": "any",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 1,
+   "unit_cost": 1200,
+   "min_duration_days": 1,
+   "requires_crane": false,
+   "requires_access": true,
+   "laydown_cells": 0,
+   "lead_time_weeks": 0,
+   "inspection": false,
+   "inspection_type": null,
+   "risk": 0.0,
+   "weather_sensitive": false,
+   "noisy": false,
+   "dusty": false,
+   "progress_visual": "none",
+   "predecessors": [
+    {
+     "step": "GEN-ANCHOR-SURVEY",
+     "scope": "same_zone"
+    }
+   ],
+   "tags": [
+    "virtual",
+    "vendor",
+    "qa"
+   ]
   }
  ],
  "gates": [
@@ -2351,7 +3096,7 @@
    "trade",
    "work_face"
   ],
-  "target_duration_days": 5,
+  "target_duration_days": 10,
   "max_crew_days_per_package": 60,
   "max_over_ideal": 1,
   "over_ideal_factor": 0.6
@@ -2457,6 +3202,15 @@
      "takt_weeks": 1
     },
     {
+     "name": "Anchor survey",
+     "select": {
+      "phase": "structures",
+      "trade": "qa",
+      "work_face": "any"
+     },
+     "takt_weeks": 1
+    },
+    {
      "name": "Bearings and beams",
      "select": {
       "phase": "structures",
@@ -2480,6 +3234,14 @@
       "phase": "structures",
       "work_face": "roof",
       "trade": "erection"
+     },
+     "takt_weeks": 1
+    },
+    {
+     "name": "Curing, scaffold and close-out",
+     "select": {
+      "phase": "structures",
+      "work_face": "any"
      },
      "takt_weeks": 1
     },
@@ -2699,6 +3461,5 @@
    ],
    "auto_staff": "ideal"
   }
- ],
- "labour_utilisation": 0.4
+ ]
 }

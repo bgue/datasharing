@@ -1,0 +1,131 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_horizontal_vessel",
+ "name": "Horizontal vessel on saddles",
+ "summary": "Pour saddle footings, survey the anchors, lift the vessel onto saddles, align, tie in, test and insulate.",
+ "sector": "industrial",
+ "tags": [
+  "vessel",
+  "heavy_lift"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcFlowStorageDevice",
+   "IfcEnergyConversionDevice"
+  ],
+  "visual_kit": [
+   "vessel_h"
+  ],
+  "name_regex": "(?i)(horizontal|drum|separator|bullet|receiver)",
+  "keywords": [
+   "horizontal vessel",
+   "drum",
+   "separator"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "mobile_crane"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=2",
+   "crane_reach"
+  ],
+  "information": [
+   "vendor drawings",
+   "lift plan"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "STR-FOOT-REBAR",
+   "from_element": "foundation"
+  },
+  {
+   "ref": "STR-FOOT-POUR",
+   "hold_point": "structural",
+   "from_element": "foundation",
+   "note": "Saddle footings"
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "duration_days": 7
+  },
+  {
+   "ref": "GEN-ANCHOR-SURVEY",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Saddle spacing and level, sliding saddle slots"
+  },
+  {
+   "ref": "GEN-LIFT-PLAN",
+   "virtual": true,
+   "marker": "lift_plan"
+  },
+  {
+   "ref": "PRC-EQUIP-SET",
+   "hold_point": "mechanical",
+   "note": "Fixed saddle first, sliding saddle with PTFE pads"
+  },
+  {
+   "ref": "GEN-SURVEY-ASBUILT",
+   "virtual": true,
+   "marker": "survey",
+   "key": "alignment_survey",
+   "note": "Alignment and slope as installed"
+  },
+  {
+   "ref": "PIP-FITTING-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "IC-INSTR-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "GEN-HYDROTEST",
+   "virtual": true,
+   "marker": "test",
+   "hold_point": "pressure_test"
+  },
+  {
+   "ref": "INS-COATING-APPLY"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test"
+  }
+ ],
+ "logic": [
+  {
+   "after": "STR-FOOT-POUR",
+   "before": "PRC-EQUIP-SET",
+   "lag_days": 7,
+   "reason": "Cure"
+  }
+ ],
+ "checks": [
+  "Fixed and sliding saddle correctly assigned",
+  "Slope to drain checked after setting",
+  "Lift plan for the loaded rigging",
+  "Hydrotest before insulation"
+ ],
+ "references": [
+  "Manufacturer installation manuals and vendor drawings",
+  "National lifting operations guidance (lift planning and appointed person duties)",
+  "Process piping guidance (installation, pressure testing, flushing and reinstatement)"
+ ],
+ "typical_duration_weeks": [
+  4,
+  8
+ ]
+}

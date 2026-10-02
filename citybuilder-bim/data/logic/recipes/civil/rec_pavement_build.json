@@ -1,0 +1,98 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_pavement_build",
+ "name": "Pavement build-up",
+ "summary": "Prepare and test subgrade, lay subbase and base, kerb, place asphalt layers and mark; surveys and pavement inspections are hold points.",
+ "sector": "civil",
+ "tags": [
+  "pavement",
+  "asphalt",
+  "weather"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcPavement",
+   "IfcCourse"
+  ],
+  "name_regex": "(?i)(pavement|course|sub.?base|asphalt|wear)",
+  "keywords": [
+   "pavement",
+   "asphalt",
+   "road base"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "paver"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=2"
+  ],
+  "permits": [],
+  "information": [
+   "pavement design",
+   "mix design approvals"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "CIV-SUBGRADE-PREP",
+   "hold_point": "geotechnical"
+  },
+  {
+   "ref": "CIV-SUBBASE-LAY"
+  },
+  {
+   "ref": "CIV-BASE-LAY",
+   "hold_point": "pavement"
+  },
+  {
+   "ref": "CIV-KERB-LAY",
+   "optional": true
+  },
+  {
+   "ref": "CIV-ASPHALT-BASE",
+   "note": "Needs a paver and a paving train of three crews"
+  },
+  {
+   "ref": "CIV-ASPHALT-WEAR",
+   "hold_point": "pavement",
+   "note": "Temperature and rain sensitive"
+  },
+  {
+   "ref": "CIV-MARKING-APPLY"
+  },
+  {
+   "ref": "GEN-SURVEY-ASBUILT",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Final levels, thickness cores and ride quality"
+  }
+ ],
+ "logic": [
+  {
+   "after": "CIV-KERB-LAY",
+   "before": "CIV-ASPHALT-BASE",
+   "reason": "Kerbs set before binder layers"
+  }
+ ],
+ "checks": [
+  "Drainage tested and backfilled before subgrade",
+  "Compaction tests on each granular layer",
+  "Asphalt temperature and density records",
+  "Ride and levels survey"
+ ],
+ "references": [
+  "Road pavement construction guidance (layer thickness, compaction, asphalt temperature and rolling)"
+ ],
+ "typical_duration_weeks": [
+  6,
+  20
+ ]
+}

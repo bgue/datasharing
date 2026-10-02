@@ -1,0 +1,148 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_bridge_pier",
+ "name": "Bridge pier on piled foundation",
+ "summary": "Set out, drive piles, cast cap, build the pier with scaffold and curing watch, survey the bearing seat and set bearings.",
+ "sector": "civil",
+ "tags": [
+  "bridge",
+  "pier",
+  "piling",
+  "long_lead"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcColumn",
+   "IfcPile",
+   "IfcFooting",
+   "IfcDeepFoundation"
+  ],
+  "properties": {
+   "BridgePart": "pier"
+  },
+  "visual_kit": [
+   "bridge_pier"
+  ],
+  "keywords": [
+   "bridge pier",
+   "pier",
+   "pile cap",
+   "abutment"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "piling_rig",
+   "mobile_crane",
+   "concrete_pump"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=3",
+   "crane_reach"
+  ],
+  "permits": [
+   "work",
+   "work_at_height"
+  ],
+  "information": [
+   "pile schedule",
+   "pier formwork design",
+   "bearing schedule"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-DEWATER-INSTALL",
+   "virtual": true,
+   "marker": "dewatering",
+   "optional": true
+  },
+  {
+   "ref": "CIV-PILE-DRIVE",
+   "hold_point": "geotechnical"
+  },
+  {
+   "ref": "GEN-SURVEY-ASBUILT",
+   "virtual": true,
+   "marker": "survey",
+   "key": "pile_survey"
+  },
+  {
+   "ref": "STR-CAP-REBAR",
+   "from_element": "foundation"
+  },
+  {
+   "ref": "STR-CAP-POUR",
+   "hold_point": "structural",
+   "from_element": "foundation"
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "key": "cap_cure",
+   "duration_days": 7
+  },
+  {
+   "ref": "GEN-SCAFFOLD-ERECT",
+   "virtual": true,
+   "marker": "scaffold"
+  },
+  {
+   "ref": "STR-PIER-POUR",
+   "hold_point": "structural"
+  },
+  {
+   "ref": "GEN-CURING-WATCH",
+   "virtual": true,
+   "marker": "test",
+   "key": "pier_cure",
+   "duration_days": 7
+  },
+  {
+   "ref": "GEN-ANCHOR-SURVEY",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Bearing seat levels and plan position"
+  },
+  {
+   "ref": "STR-BEARING-SET",
+   "hold_point": "structural",
+   "note": "10 week lead item"
+  },
+  {
+   "ref": "GEN-SCAFFOLD-DISMANTLE",
+   "virtual": true,
+   "marker": "scaffold"
+  }
+ ],
+ "logic": [
+  {
+   "after": "STR-CAP-POUR",
+   "before": "STR-PIER-POUR",
+   "lag_days": 7,
+   "reason": "Cap strength before pier load"
+  }
+ ],
+ "checks": [
+  "Pile integrity tests before cap reinforcement",
+  "Formwork design check before the pier pour",
+  "Bearing seat survey before bearings arrive",
+  "Concrete cube results before beams land"
+ ],
+ "references": [
+  "Bridge construction guidance (bearings, precast beams, decks, parapets)",
+  "Concrete construction guidance (formwork, placing, curing, hot and cold weather concreting)",
+  "Temporary works procedure guidance (design check, permit to load, permit to dismantle)"
+ ],
+ "typical_duration_weeks": [
+  8,
+  18
+ ]
+}

@@ -1,0 +1,118 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_crane_lift_heavy",
+ "name": "Heavy crane lift",
+ "summary": "Permit, survey, lift plan, crane mobilisation and load test, the lift itself (bound to a BIM step), as-built survey and demobilisation attendance.",
+ "sector": "all",
+ "tags": [
+  "heavy_lift",
+  "crane",
+  "lift_plan"
+ ],
+ "applies_to": {
+  "keywords": [
+   "heavy lift",
+   "crane lift",
+   "tandem lift",
+   "critical lift",
+   "lift plan"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "crawler_crane"
+  ],
+  "site": [
+   "access_road",
+   "laydown>=3",
+   "crane_reach"
+  ],
+  "permits": [
+   "lifting"
+  ],
+  "information": [
+   "lift plan",
+   "ground bearing assessment",
+   "weight and centre of gravity data"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Crane position, ground bearing check and exclusion zone"
+  },
+  {
+   "ref": "GEN-PERMIT-WORK",
+   "virtual": true,
+   "marker": "permit",
+   "note": "Lifting permit and exclusion zone approval"
+  },
+  {
+   "ref": "GEN-LIFT-PLAN",
+   "virtual": true,
+   "marker": "lift_plan",
+   "note": "Plan by an appointed person: weights, radii, rigging, weather limits"
+  },
+  {
+   "ref": "GEN-TW-CHECK",
+   "virtual": true,
+   "marker": "permit",
+   "note": "Crane base and mat design check",
+   "optional": true
+  },
+  {
+   "ref": "GEN-CRANE-MOBILISE",
+   "virtual": true,
+   "marker": "crane",
+   "note": "Assemble, inspect and load-test"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test",
+   "key": "pre_lift_check",
+   "note": "Toolbox talk, rigging inspection, weather check on the day"
+  },
+  {
+   "ref": "GEN-SURVEY-ASBUILT",
+   "virtual": true,
+   "marker": "survey",
+   "note": "Positions of the set item against the design"
+  },
+  {
+   "ref": "GEN-PUNCH-CLEAR",
+   "virtual": true,
+   "marker": "test",
+   "note": "Demobilise and close the permit",
+   "optional": true
+  }
+ ],
+ "logic": [
+  {
+   "after": "GEN-LIFT-PLAN",
+   "before": "GEN-CRANE-MOBILISE",
+   "reason": "The crane is selected from the plan"
+  },
+  {
+   "after": "pre_lift_check",
+   "before": "GEN-SURVEY-ASBUILT",
+   "reason": "The lifted step runs between these two; bind it from the sector library"
+  }
+ ],
+ "checks": [
+  "Appointed person signs the plan",
+  "Ground bearing confirmed under the crane and the load path",
+  "Weather limits stated and checked on the day",
+  "Exclusion zone established"
+ ],
+ "references": [
+  "National lifting operations guidance (lift planning and appointed person duties)",
+  "Temporary works procedure guidance (design check, permit to load, permit to dismantle)"
+ ],
+ "typical_duration_weeks": [
+  1,
+  4
+ ]
+}

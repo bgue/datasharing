@@ -1,0 +1,161 @@
+{
+ "schema_version": "1.0",
+ "id": "rec_plant_room_ahu",
+ "name": "Plant room: AHU replacement or installation in a live hospital",
+ "summary": "Isolate and permit, plan the lift, set the AHU on its pad, connect ducts and cables, vendor commissioning, air balance and power energisation, with ICRA around the work.",
+ "sector": "healthcare",
+ "tags": [
+  "plant",
+  "ahu",
+  "live_hospital",
+  "long_lead"
+ ],
+ "applies_to": {
+  "ifc_class": [
+   "IfcFlowMovingDevice",
+   "IfcEnergyConversionDevice",
+   "IfcFlowStorageDevice"
+  ],
+  "visual_kit": [
+   "ahu",
+   "chiller"
+  ],
+  "zone_tags_any": [
+   "plant_room"
+  ],
+  "keywords": [
+   "ahu",
+   "air handling unit",
+   "plant room",
+   "chiller"
+  ]
+ },
+ "prerequisites": {
+  "equipment": [
+   "mobile_crane"
+  ],
+  "site": [
+   "access_road",
+   "crane_reach",
+   "laydown>=2"
+  ],
+  "permits": [
+   "work",
+   "isolation",
+   "icra"
+  ],
+  "information": [
+   "vendor drawings",
+   "shutdown plan",
+   "lift plan"
+  ]
+ },
+ "steps": [
+  {
+   "ref": "GEN-ICRA-SETUP",
+   "hold_point": "icra",
+   "from_element": "zone"
+  },
+  {
+   "ref": "GEN-PERMIT-WORK",
+   "virtual": true,
+   "marker": "permit",
+   "note": "Isolation, shutdown window and clinical risk assessment"
+  },
+  {
+   "ref": "GEN-SURVEY-SETOUT",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-ANCHOR-SURVEY",
+   "virtual": true,
+   "marker": "survey"
+  },
+  {
+   "ref": "GEN-LIFT-PLAN",
+   "virtual": true,
+   "marker": "lift_plan",
+   "note": "Route, crane position and quiet-hours window"
+  },
+  {
+   "ref": "GEN-CRANE-MOBILISE",
+   "virtual": true,
+   "marker": "crane"
+  },
+  {
+   "ref": "MEP-AHU-SET",
+   "hold_point": "mechanical"
+  },
+  {
+   "ref": "MEP-CHILLER-SET",
+   "hold_point": "mechanical",
+   "optional": true
+  },
+  {
+   "ref": "MEP-DUCT-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "MEP-FITTING-INSTALL",
+   "from_element": "system"
+  },
+  {
+   "ref": "ELE-CABLE-PULL",
+   "from_element": "system"
+  },
+  {
+   "ref": "GEN-VENDOR-REP",
+   "virtual": true,
+   "marker": "permit",
+   "duration_days": 5
+  },
+  {
+   "ref": "CX-POWER-ENERGISE",
+   "hold_point": "electrical",
+   "from_element": "system"
+  },
+  {
+   "ref": "CX-AIR-BALANCE",
+   "from_element": "system"
+  },
+  {
+   "ref": "GEN-PRECOMM-CHECK",
+   "virtual": true,
+   "marker": "test"
+  },
+  {
+   "ref": "GEN-ICRA-CLOSEOUT",
+   "hold_point": "icra",
+   "from_element": "zone"
+  }
+ ],
+ "logic": [
+  {
+   "after": "GEN-LIFT-PLAN",
+   "before": "MEP-AHU-SET",
+   "reason": "Lift plan approved before the unit moves"
+  },
+  {
+   "after": "GEN-PERMIT-WORK",
+   "before": "MEP-DUCT-INSTALL",
+   "reason": "No tie-in without the shutdown window"
+  }
+ ],
+ "checks": [
+  "Clinical sign-off of the shutdown window",
+  "Lift in a quiet-hours window",
+  "Air balance and pressure regime restored before handback",
+  "ICRA clearance"
+ ],
+ "references": [
+  "Manufacturer installation and site planning manuals for the equipment",
+  "National lifting operations guidance (lift planning and appointed person duties)",
+  "Healthcare ventilation guidance (air change rates, pressure regimes, validation)",
+  "Infection prevention and control guidance for construction and renovation in healthcare facilities (ICRA)"
+ ],
+ "typical_duration_weeks": [
+  6,
+  20
+ ]
+}
