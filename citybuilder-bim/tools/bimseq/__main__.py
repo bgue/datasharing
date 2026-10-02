@@ -74,6 +74,25 @@ def _cmd_build(args: argparse.Namespace) -> int:
     return rc
 
 
+def _cmd_packages(args: argparse.Namespace) -> int:
+    from .model import read_json
+    data = read_json(args.seq)
+    pkgs = [p for p in data.get("packages", []) if not args.zone or p["zone_id"] == args.zone]
+    if not pkgs:
+        print("no packages", file=sys.stderr)
+        return 1
+    print(f"{'package':8s} {'zone':9s} {'phase':18s} {'trade':14s} {'face':13s} {'tasks':>5s} {'crew-d':>7s} "
+          f"{'min/id/max':>10s} {'start':>5s} {'end':>5s}")
+    for p in pkgs[:args.limit] if args.limit else pkgs:
+        cp = p["crew_profile"]
+        print(f"{p['package_id']:8s} {p['zone_id']:9s} {p['phase'][:18]:18s} {p['trade'][:14]:14s} "
+              f"{p['work_face']:13s} {len(p['task_ids']):5d} {p['total_crew_days']:7.1f} "
+              f"{str(cp['min']) + '/' + str(cp['ideal']) + '/' + str(cp['max']):>10s} {p.get('planned_start_day', 0):5d} {p.get('planned_finish_day', 0):5d}")
+    total = len(data.get("packages", []))
+    print(f"{len(pkgs)} packages shown ({total} total, {len(data['tasks'])} tasks)")
+    return 0
+
+
 def _cmd_validate(args: argparse.Namespace) -> int:
     return 0 if validate_tree(args.path) else 1
 
@@ -135,6 +154,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--crew-model", choices=CREW_MODELS, default="fractional",
                    help=CREW_HELP + " (default: fractional, matching the game's crew-day progress model)")
     p.set_defaults(fn=_cmd_build)
+
+    p = sub.add_parser("packages", help="print the package table of a sequence.json")
+    p.add_argument("seq", type=Path)
+    p.add_argument("--zone", default=None)
+    p.add_argument("--limit", type=int, default=0)
+    p.set_defaults(fn=_cmd_packages)
 
     p = sub.add_parser("validate", help="validate every recognised *.json under a directory")
     p.add_argument("path", type=Path)

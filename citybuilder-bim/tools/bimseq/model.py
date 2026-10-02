@@ -76,15 +76,23 @@ class Zone:
     cells: list[Cell]
     max_crews: int = 2
     tags: list[str] = field(default_factory=list)
+    faces: dict[str, int] = field(default_factory=dict)      # per work-face crew cap; missing = no cap
+    shift_allowed: bool = True
 
     @classmethod
     def from_dict(cls, d: Mapping[str, Any]) -> "Zone":
         return cls(d["id"], d["name"], d["storey_id"], _cells(d["cells"]), int(d["max_crews"]),
-                   list(d.get("tags", [])))
+                   list(d.get("tags", [])), {k: int(v) for k, v in d.get("faces", {}).items()},
+                   bool(d.get("shift_allowed", True)))
 
     def to_dict(self) -> JSON:
-        return {"id": self.id, "name": self.name, "storey_id": self.storey_id,
-                "cells": _cells_json(self.cells), "max_crews": self.max_crews, "tags": list(self.tags)}
+        out: JSON = {"id": self.id, "name": self.name, "storey_id": self.storey_id,
+                     "cells": _cells_json(self.cells), "max_crews": self.max_crews, "tags": list(self.tags)}
+        if self.faces:
+            out["faces"] = dict(self.faces)
+        if not self.shift_allowed:
+            out["shift_allowed"] = False
+        return out
 
 
 @dataclass
@@ -214,6 +222,26 @@ class PredRule:
 
 
 @dataclass
+class CrewProfile:
+    """Per-step crew demand; ``ideal``/``max`` are None unless the step states them."""
+
+    min: int = 1
+    ideal: int | None = None
+    max: int | None = None
+
+
+@dataclass
+class Packaging:
+    """step_library.packaging with schema defaults."""
+
+    group_by: list[str] = field(default_factory=lambda: ["zone_id", "phase", "trade", "work_face"])
+    target_duration_days: int = 10
+    max_crew_days_per_package: float = 60.0
+    max_over_ideal: int = 1
+    over_ideal_factor: float = 0.6
+
+
+@dataclass
 class Step:
     id: str
     name: str
@@ -237,6 +265,8 @@ class Step:
     progress_visual: str = "solid"
     predecessors: list[PredRule] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
+    work_face: str = "any"
+    crew_profile: CrewProfile = field(default_factory=CrewProfile)
 
     @property
     def default_unit(self) -> str:
@@ -271,9 +301,17 @@ class StepLibrary:
     steps: dict[str, Step]
     gates: list[Gate]
     raw: JSON = field(default_factory=dict, repr=False)
+    packaging: Packaging = field(default_factory=Packaging)
+    exclusive_faces: list[str] = field(default_factory=lambda: ["floor"])
+    sequence_cards: list[JSON] = field(default_factory=list)
 
     def to_dict(self) -> JSON:
         return copy.deepcopy(self.raw)
+
+
+def _crew_profile(d: Mapping[str, Any] | None) -> CrewProfile:
+    d = d or {}
+    return CrewProfile(int(d.get("min", 1)), d.get("ideal"), d.get("max"))
 
 
 def step_library_from_dict(d: Mapping[str, Any]) -> StepLibrary:
@@ -298,11 +336,20 @@ def step_library_from_dict(d: Mapping[str, Any]) -> StepLibrary:
             risk=float(s.get("risk", 0.1)), weather_sensitive=bool(s.get("weather_sensitive", False)),
             noisy=bool(s.get("noisy", False)), dusty=bool(s.get("dusty", False)),
             progress_visual=s.get("progress_visual", "solid"), predecessors=preds,
-            tags=list(s.get("tags", [])),
+            tags=list(s.get("tags", [])), work_face=s.get("work_face", "any"),
+            crew_profile=_crew_profile(s.get("crew_profile")),
         )
     gates = [Gate(g["id"], g["name"], g["after_phase"], g["before_phase"], g["scope"],
                   list(g.get("requires_inspection_types", []))) for g in d.get("gates", [])]
-    return StepLibrary(d["sector"], phases, trades, steps, gates, copy.deepcopy(dict(d)))
+    pk = d.get("packaging", {})
+    packaging = Packaging(
+        group_by=list(pk.get("group_by", ["zone_id", "phase", "trade", "work_face"])),
+        target_duration_days=int(pk.get("target_duration_days", 10)),
+        max_crew_days_per_package=float(pk.get("max_crew_days_per_package", 60)),
+        max_over_ideal=int(pk.get("max_over_ideal", 1)),
+        over_ideal_factor=float(pk.get("over_ideal_factor", 0.6)))
+    return StepLibrary(d["sector"], phases, trades, steps, gates, copy.deepcopy(dict(d)), packaging,
+                       list(d.get("exclusive_faces", ["floor"])), copy.deepcopy(list(d.get("sequence_cards", []))))
 
 
 def load_step_library(path: str | Path) -> StepLibrary:
@@ -424,6 +471,10 @@ class Scenario:
         return float(self.raw.get("contract_factor", 1.1))
 
     @property
+    def sequence_cards(self) -> list[JSON]:
+        return copy.deepcopy(list(self.raw.get("sequence_cards", [])))
+
+    @property
     def budget(self) -> float:
         return float(self.raw.get("budget", 0))
 
@@ -484,6 +535,8 @@ class Task:
     actual_finish_day: int | None = None
     is_critical: bool | None = None
     total_float_days: int | None = None
+    package_id: str | None = None
+    work_face: str | None = None
 
     @classmethod
     def from_dict(cls, d: Mapping[str, Any]) -> "Task":
@@ -500,6 +553,7 @@ class Task:
             planned_finish_day=d.get("planned_finish_day"),
             actual_start_day=d.get("actual_start_day"), actual_finish_day=d.get("actual_finish_day"),
             is_critical=d.get("is_critical"), total_float_days=d.get("total_float_days"),
+            package_id=d.get("package_id"), work_face=d.get("work_face"),
         )
 
     def to_dict(self) -> JSON:
@@ -514,6 +568,10 @@ class Task:
             "planned_start_day": self.planned_start_day, "planned_finish_day": self.planned_finish_day,
             "actual_start_day": self.actual_start_day, "actual_finish_day": self.actual_finish_day,
         }
+        if self.work_face is not None:
+            out["work_face"] = self.work_face
+        if self.package_id is not None:
+            out["package_id"] = self.package_id
         if self.is_critical is not None:
             out["is_critical"] = self.is_critical
         if self.total_float_days is not None or self.is_critical is not None:

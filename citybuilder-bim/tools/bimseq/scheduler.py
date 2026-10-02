@@ -15,6 +15,7 @@ from typing import Mapping, Sequence as Seq
 from . import GENERATOR
 from .graph import cyclic_components, topological_order
 from .mapper import utc_now
+from .packaging import build_packages, check_cards
 from .model import (
     ElementsDoc, Gate, JSON, Scenario, StepLibrary, StepMap, Task,
 )
@@ -392,7 +393,9 @@ def build_sequence(step_map: StepMap, library: StepLibrary, scenario: Scenario,
     """Schedule ``step_map`` and assemble the sequence.json bundle; returns (bundle, warnings).
 
     Gate instances disabled because they conflict with task links are also appended to
-    ``step_map.sequencing_gaps`` with note ``gate_cycle`` (the map is the only mutated input).
+    ``step_map.sequencing_gaps`` with note ``gate_cycle`` (the map is the only mutated input). Its tasks also receive ``package_id``,
+    and ``card_ref`` gaps are recorded for sequence-card stations that select an unknown phase, trade
+    or discipline.
     """
     tasks = [Task.from_dict(t.to_dict()) for t in step_map.tasks]   # do not mutate the input map
     if not tasks:
@@ -408,6 +411,16 @@ def build_sequence(step_map: StepMap, library: StepLibrary, scenario: Scenario,
         t.is_critical = fl == 0
         if fl == 0:
             critical.append(t.task_id)
+
+    packages = build_packages(tasks, library, elements)
+    pkg_of = {t.task_id: t.package_id for t in tasks}
+    for t in step_map.tasks:
+        t.package_id = pkg_of[t.task_id]
+    card_gaps = check_cards(library, scenario.sequence_cards)
+    for gap in card_gaps:
+        if gap not in step_map.sequencing_gaps:
+            step_map.sequencing_gaps.append(gap)
+    notes_cards = [f"card {g['step']} {g['scope']}: unknown reference (card_ref)" for g in card_gaps]
 
     finish_day = max(t.planned_finish_day for t in tasks)          # type: ignore[type-var]
     finish_week = _round_up(finish_day / DAYS_PER_WEEK)
@@ -444,9 +457,10 @@ def build_sequence(step_map: StepMap, library: StepLibrary, scenario: Scenario,
         "elements": _light_elements(elements, step_map.element_visuals),
         "step_library": library.to_dict(),
         "tasks": [t.to_dict() for t in tasks],
+        "packages": packages,
         "baseline": baseline,
         "scenario": scn,
         "generated_at": generated_at or utc_now(),
         "generator": generator or GENERATOR,
     }
-    return bundle, res.warnings + notes
+    return bundle, res.warnings + notes_cards + notes

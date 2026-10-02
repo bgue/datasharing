@@ -9,6 +9,7 @@ from ..visuals import visual_for
 Cell = tuple[int, int]
 GUID_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$"
 TagFn = Callable[[int, int, int, int], list[str]]
+FaceFn = Callable[[int, int, int, int], dict[str, int]]
 
 
 def q(volume: float | None = None, area: float | None = None, length: float | None = None,
@@ -55,8 +56,11 @@ class SynthBuilder:
         self.storeys.append({"id": sid, "name": name, "index": index, "elevation_m": elev})
 
     def tile_zones(self, storey_id: str, x0: int, z0: int, w: int, d: int, bw: int, bd: int,
-                   tags: TagFn | None = None, max_crews: int = 2) -> None:
-        """Tile the rectangle with ``bw x bd`` blocks (edge blocks may be smaller) as zones."""
+                   tags: TagFn | None = None, max_crews: int = 2, faces: FaceFn | None = None) -> None:
+        """Tile the rectangle with ``bw x bd`` blocks (edge blocks may be smaller) as zones.
+
+        ``tags`` and ``faces`` are callables ``(x0, z0, x1, z1) -> tags / per-face crew caps``.
+        """
         n = len([z for z in self.zones if z["storey_id"] == storey_id])
         for bz in range(z0, z0 + d, bd):
             for bx in range(x0, x0 + w, bw):
@@ -64,8 +68,12 @@ class SynthBuilder:
                 n += 1
                 zid = f"{storey_id}-Z{n}"
                 ztags = tags(bx, bz, min(bx + bw, x0 + w) - 1, min(bz + bd, z0 + d) - 1) if tags else []
-                self.zones.append({"id": zid, "name": f"{storey_id} zone {n}", "storey_id": storey_id,
-                                   "cells": cells, "max_crews": max_crews, "tags": ztags})
+                zone = {"id": zid, "name": f"{storey_id} zone {n}", "storey_id": storey_id,
+                        "cells": cells, "max_crews": max_crews, "tags": ztags}
+                zfaces = faces(bx, bz, min(bx + bw, x0 + w) - 1, min(bz + bd, z0 + d) - 1) if faces else {}
+                if zfaces:
+                    zone["faces"] = zfaces
+                self.zones.append(zone)
                 for c in cells:
                     self._zone_at[(storey_id, (c[0], c[1]))] = zid
 

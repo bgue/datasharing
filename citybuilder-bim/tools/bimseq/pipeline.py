@@ -72,12 +72,13 @@ class BuildSummary:
     gaps: int
     warnings: list[str]
     notes: list[str]
+    packages: int = 0
 
     def line(self) -> str:
         src = "FALLBACK data" if self.fallback else "sector data"
         return (f"{self.sector:10s} [{src}] elements={self.elements} tasks={self.tasks} links={self.links} "
                 f"finish=day {self.finish_day} (week {self.finish_week}) contract={self.contract_weeks}w "
-                f"cost={self.total_cost:,.0f} unmapped={self.unmapped} gaps={self.gaps}")
+                f"cost={self.total_cost:,.0f} packages={self.packages} unmapped={self.unmapped} gaps={self.gaps}")
 
 
 def run_map(elements_path: Path, rules_path: Path, library_path: Path, out_path: Path,
@@ -135,6 +136,7 @@ def build_sector(sector: str, out_dir: Path, sectors_dir: Path = DEFAULT_SECTORS
         finish_day=bundle["baseline"]["finish_day"], finish_week=bundle["baseline"]["finish_week"],
         contract_weeks=bundle["scenario"]["contract_weeks"], total_cost=bundle["baseline"]["total_cost"],
         unmapped=len(step_map.unmapped_elements), gaps=len(step_map.sequencing_gaps),
+        packages=len(bundle["packages"]),
         warnings=warnings, notes=inputs.notes)
 
 

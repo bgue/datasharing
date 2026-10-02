@@ -29,11 +29,18 @@ def generate(seed: int = 42) -> dict[str, Any]:
         out = []
         if z0 in LIVE_ROWS:
             out.append("live_traffic")
-        if x1 >= BRIDGE_X.start and x0 <= BRIDGE_X.stop - 1 and z0 not in LIVE_ROWS:
+        bridge = x1 >= BRIDGE_X.start and x0 <= BRIDGE_X.stop - 1
+        if bridge and z0 not in LIVE_ROWS:
             out.append("heavy_lift_area")
+        out.append("bridge" if bridge else "segment")
+        if x0 <= CULVERT_X <= x1 and z0 not in LIVE_ROWS:
+            out.append("culvert")                       # zones holding the culvert segments and headwalls
         return out
 
-    b.tile_zones("L00", 0, 0, LEN, WID, 5, 2, tags)
+    def faces(x0: int, z0: int, x1: int, z1: int) -> dict[str, int]:
+        return {"below_ground": 2, "structure": 2, "floor": 2}      # floor = pavement surface
+
+    b.tile_zones("L00", 0, 0, LEN, WID, 5, 2, tags, faces=faces)
     b.tile_zones("UG1", 0, 0, LEN, WID, 5, 2, lambda x0, z0, x1, z1: ["live_traffic"] if z0 in LIVE_ROWS else [])
 
     b.add_system("DR-01", "Storm drainage", "civil")

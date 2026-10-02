@@ -33,11 +33,29 @@ def generate(seed: int = 42) -> dict[str, Any]:
                 out.append("pressure_room")
             if sid == "L02" and x0 == 0 and z0 == 0:
                 out.append("pressure_room")
+            if sid in ("L01", "L02") and x0 == 0 and z0 in (0, 2):
+                out.append("or_room")                    # two operating theatres per upper storey
+            if sid == "L00" and x0 == 0 and z0 == 0:
+                out.append("imaging")
+            if sid == "L02" and x0 == 4 and z0 == 4:
+                out.append("plant_room")                 # roof plant (chiller, boiler)
             return out
         return tags
 
+    def make_faces(sid: str):
+        tags = make_tags(sid)
+
+        def faces(x0: int, z0: int, x1: int, z1: int) -> dict[str, int]:
+            t = set(tags(x0, z0, x1, z1))
+            if "plant_room" in t:
+                return {"plant_pad": 2, "ceiling_void": 1}
+            if t & {"or_room", "imaging"}:
+                return {"ceiling_void": 2, "walls": 2, "floor": 1}
+            return {}
+        return faces
+
     for sid, _, _ in STOREYS:
-        b.tile_zones(sid, 0, 0, NX, NZ, 4, 2, make_tags(sid))
+        b.tile_zones(sid, 0, 0, NX, NZ, 4, 2, make_tags(sid), faces=make_faces(sid))
 
     for i, sid in enumerate(("L00", "L01", "L02"), start=1):
         b.add_system(f"AHU-{i}", f"Air handling unit {i}", "mechanical")

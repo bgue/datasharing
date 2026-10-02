@@ -24,11 +24,18 @@ def generate(seed: int = 42) -> dict[str, Any]:
         out = []
         if any(x0 <= x <= x1 and z0 <= z <= z1 for (x, z) in module_cells):
             out.append("heavy_lift_area")
+        if any(x0 <= x <= x1 and z0 <= z <= z1 for (x, z) in module_cells):
+            out.append("process_unit")
         if z0 == RACK_Z:
             out.append("pipe_rack")
         return out
 
-    b.tile_zones("L00", 0, 0, BAYS_X, BAYS_Z + 2, 4, 2, tags)
+    def faces(x0: int, z0: int, x1: int, z1: int) -> dict[str, int]:
+        if set(tags(x0, z0, x1, z1)) & {"pipe_rack", "process_unit"}:
+            return {"structure": 2, "plant_pad": 2, "ceiling_void": 1}
+        return {}
+
+    b.tile_zones("L00", 0, 0, BAYS_X, BAYS_Z + 2, 4, 2, tags, faces=faces)
 
     for i in range(1, 7):
         b.add_system(f"PR-{i:02d}", f"Pipe rack line {i}", "process")

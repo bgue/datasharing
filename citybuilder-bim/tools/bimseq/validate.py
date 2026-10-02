@@ -56,6 +56,20 @@ def cross_checks(name: str, data: dict[str, Any]) -> list[str]:
                 problems.append(f"{t['task_id']}: unknown predecessor {p['task_id']}")
             elif p["task_id"] == t["task_id"]:
                 problems.append(f"{t['task_id']}: self predecessor")
+    if name == "sequence" and data.get("packages"):
+        pkgs = data["packages"]
+        pids = [p["package_id"] for p in pkgs]
+        if len(set(pids)) != len(pids):
+            problems.append("duplicate package_id values")
+        by_task = {}
+        for p in pkgs:
+            for tid in p["task_ids"]:
+                if tid not in idset:
+                    problems.append(f"{p['package_id']}: unknown task {tid}")
+                by_task[tid] = p["package_id"]
+        for t in tasks:
+            if by_task.get(t["task_id"]) != t.get("package_id"):
+                problems.append(f"{t['task_id']}: package_id {t.get('package_id')} disagrees with packages[]")
     if name == "sequence":
         steps = {s["id"] for s in data["step_library"]["steps"]}
         zones = {z["id"] for z in data["zones"]}

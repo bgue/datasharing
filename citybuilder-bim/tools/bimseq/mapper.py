@@ -212,6 +212,7 @@ def map_elements(doc: ElementsDoc, library: StepLibrary, rules: MappingRules, *,
             quantity=round(q, 4), unit=_unit(emit.unit_override, emit.quantity),
             estimated_crew_days=round(crew_days, 4), cost=round(q * step.unit_cost, 2),
             cells=list(el.cells), flags=step.flags(), predecessors=[], rule_id=rule.id,
+            work_face=step.work_face,
         ))
         task_el.append(el)
         task_si.append(si)

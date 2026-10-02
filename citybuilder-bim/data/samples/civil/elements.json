@@ -80,8 +80,14 @@
    ],
    "max_crews": 2,
    "tags": [
-    "live_traffic"
-   ]
+    "live_traffic",
+    "segment"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "L00-Z2",
@@ -131,8 +137,14 @@
    ],
    "max_crews": 2,
    "tags": [
-    "live_traffic"
-   ]
+    "live_traffic",
+    "segment"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "L00-Z3",
@@ -182,8 +194,14 @@
    ],
    "max_crews": 2,
    "tags": [
-    "live_traffic"
-   ]
+    "live_traffic",
+    "bridge"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "L00-Z4",
@@ -233,8 +251,14 @@
    ],
    "max_crews": 2,
    "tags": [
-    "live_traffic"
-   ]
+    "live_traffic",
+    "bridge"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "L00-Z5",
@@ -284,8 +308,14 @@
    ],
    "max_crews": 2,
    "tags": [
-    "live_traffic"
-   ]
+    "live_traffic",
+    "segment"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "L00-Z6",
@@ -335,8 +365,14 @@
    ],
    "max_crews": 2,
    "tags": [
-    "live_traffic"
-   ]
+    "live_traffic",
+    "segment"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "L00-Z7",
@@ -385,7 +421,14 @@
     ]
    ],
    "max_crews": 2,
-   "tags": []
+   "tags": [
+    "segment"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "L00-Z8",
@@ -434,7 +477,14 @@
     ]
    ],
    "max_crews": 2,
-   "tags": []
+   "tags": [
+    "segment"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "L00-Z9",
@@ -484,8 +534,14 @@
    ],
    "max_crews": 2,
    "tags": [
-    "heavy_lift_area"
-   ]
+    "heavy_lift_area",
+    "bridge"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "L00-Z10",
@@ -535,8 +591,14 @@
    ],
    "max_crews": 2,
    "tags": [
-    "heavy_lift_area"
-   ]
+    "heavy_lift_area",
+    "bridge"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "L00-Z11",
@@ -585,7 +647,15 @@
     ]
    ],
    "max_crews": 2,
-   "tags": []
+   "tags": [
+    "segment",
+    "culvert"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "L00-Z12",
@@ -634,7 +704,14 @@
     ]
    ],
    "max_crews": 2,
-   "tags": []
+   "tags": [
+    "segment"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "L00-Z13",
@@ -683,7 +760,14 @@
     ]
    ],
    "max_crews": 2,
-   "tags": []
+   "tags": [
+    "segment"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "L00-Z14",
@@ -732,7 +816,14 @@
     ]
    ],
    "max_crews": 2,
-   "tags": []
+   "tags": [
+    "segment"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "L00-Z15",
@@ -782,8 +873,14 @@
    ],
    "max_crews": 2,
    "tags": [
-    "heavy_lift_area"
-   ]
+    "heavy_lift_area",
+    "bridge"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "L00-Z16",
@@ -833,8 +930,14 @@
    ],
    "max_crews": 2,
    "tags": [
-    "heavy_lift_area"
-   ]
+    "heavy_lift_area",
+    "bridge"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "L00-Z17",
@@ -883,7 +986,15 @@
     ]
    ],
    "max_crews": 2,
-   "tags": []
+   "tags": [
+    "segment",
+    "culvert"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "L00-Z18",
@@ -932,7 +1043,14 @@
     ]
    ],
    "max_crews": 2,
-   "tags": []
+   "tags": [
+    "segment"
+   ],
+   "faces": {
+    "below_ground": 2,
+    "structure": 2,
+    "floor": 2
+   }
   },
   {
    "id": "UG1-Z1",

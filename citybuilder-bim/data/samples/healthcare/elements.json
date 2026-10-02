@@ -78,8 +78,14 @@
    ],
    "max_crews": 2,
    "tags": [
-    "heavy_lift_area"
-   ]
+    "heavy_lift_area",
+    "imaging"
+   ],
+   "faces": {
+    "ceiling_void": 2,
+    "walls": 2,
+    "floor": 1
+   }
   },
   {
    "id": "L00-Z2",
@@ -332,8 +338,14 @@
    ],
    "max_crews": 2,
    "tags": [
-    "pressure_room"
-   ]
+    "pressure_room",
+    "or_room"
+   ],
+   "faces": {
+    "ceiling_void": 2,
+    "walls": 2,
+    "floor": 1
+   }
   },
   {
    "id": "L01-Z2",
@@ -418,8 +430,14 @@
    ],
    "max_crews": 2,
    "tags": [
-    "pressure_room"
-   ]
+    "pressure_room",
+    "or_room"
+   ],
+   "faces": {
+    "ceiling_void": 2,
+    "walls": 2,
+    "floor": 1
+   }
   },
   {
    "id": "L01-Z4",
@@ -588,8 +606,14 @@
    ],
    "max_crews": 2,
    "tags": [
-    "pressure_room"
-   ]
+    "pressure_room",
+    "or_room"
+   ],
+   "faces": {
+    "ceiling_void": 2,
+    "walls": 2,
+    "floor": 1
+   }
   },
   {
    "id": "L02-Z2",
@@ -673,7 +697,14 @@
     ]
    ],
    "max_crews": 2,
-   "tags": []
+   "tags": [
+    "or_room"
+   ],
+   "faces": {
+    "ceiling_void": 2,
+    "walls": 2,
+    "floor": 1
+   }
   },
   {
    "id": "L02-Z4",
@@ -799,8 +830,13 @@
    ],
    "max_crews": 2,
    "tags": [
-    "occupied_adjacent"
-   ]
+    "occupied_adjacent",
+    "plant_room"
+   ],
+   "faces": {
+    "plant_pad": 2,
+    "ceiling_void": 1
+   }
   }
  ],
  "systems": [
