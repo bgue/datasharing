@@ -155,27 +155,72 @@ static func manage_cranes(gs: SimState) -> Array[int]:
                 break
         if not used and gs.remove_equipment(i):
             removed += 1
-    for t in soon:
-        if Logistics.crane_covers(gs, t.cells):
-            continue
-        var done: bool = false
-        for c in gs.tiles:
-            if done or Logistics.tile_at(gs.tiles, c) != SiteTiles.CRANE_PAD:
-                continue
-            var in_use: bool = false
-            for e in gs.equipment_placed:
-                if e["cell"] == c:
-                    in_use = true
-            if in_use:
-                continue
-            for def in gs.scenario.equipment:
-                if def.is_crane() and gs.equipment_count(def.id) < def.max_count \
-                        and Logistics.cranes_cover([{"cell": c, "reach": float(def.reach_cells)}], t.cells):
-                    if gs.place_equipment(def.id, c):
-                        placed += 1
-                        done = true
-                        break
+    for _round in 4:  # each move strictly reduces the uncovered crane tasks, a few moves settle it
+        var uncovered: bool = false
+        for t in soon:
+            if not Logistics.crane_covers(gs, t.cells):
+                uncovered = true
+                break
+        if not uncovered:
+            break
+        var move: Dictionary = _best_crane_move(gs, soon)
+        if move.is_empty():
+            break
+        if int(move["occupant"]) >= 0 and gs.remove_equipment(int(move["occupant"])):
+            removed += 1
+        if gs.place_equipment(str(move["def"]), move["pad"]):
+            placed += 1
+        else:
+            break
     return [removed, placed]
+
+
+## The crane placement that leaves the fewest `soon` crane tasks uncovered: a free crane pad with any crane type
+## that still has stock, or a pad whose crane is swapped for another type (a pad holding a crane that does not
+## reach the work blocks it: the crawler may sit on the wrong pad while the cheaper mobile crane occupies the right
+## one). Ties go to the cheaper crane. Returns {pad, def, occupant (equipment index or -1)} or {} when nothing helps.
+static func _best_crane_move(gs: SimState, soon: Array[TaskData]) -> Dictionary:
+    var cranes: Array[Dictionary] = []
+    for e in gs.equipment_placed:
+        var d0: EquipmentDef = gs.equipment_def(str(e["id"]))
+        if d0 != null and d0.is_crane():
+            cranes.append({"cell": e["cell"], "reach": float(d0.reach_cells), "pad": e["cell"]})
+    var base_unc: int = _uncovered_count(soon, cranes)
+    var best: Dictionary = {}
+    var best_unc: int = base_unc
+    var best_cost: float = INF
+    for pad in gs.tiles:
+        if Logistics.tile_at(gs.tiles, pad) != SiteTiles.CRANE_PAD:
+            continue
+        var occ: int = -1
+        for i in gs.equipment_placed.size():
+            if gs.equipment_placed[i]["cell"] == pad:
+                occ = i
+        var occ_id: String = str(gs.equipment_placed[occ]["id"]) if occ >= 0 else ""
+        for def in gs.scenario.equipment:
+            if not def.is_crane() or def.id == occ_id:
+                continue
+            if gs.equipment_count(def.id) >= def.max_count:
+                continue
+            var trial: Array[Dictionary] = []
+            for c in cranes:
+                if c["pad"] != pad:
+                    trial.append(c)
+            trial.append({"cell": pad, "reach": float(def.reach_cells), "pad": pad})
+            var unc: int = _uncovered_count(soon, trial)
+            if unc < best_unc or (unc == best_unc and unc < base_unc and def.weekly_cost < best_cost):
+                best_unc = unc
+                best_cost = def.weekly_cost
+                best = {"pad": pad, "def": def.id, "occupant": occ}
+    return best
+
+
+static func _uncovered_count(tasks: Array[TaskData], cranes: Array[Dictionary]) -> int:
+    var n: int = 0
+    for t in tasks:
+        if not Logistics.cranes_cover(cranes, t.cells):
+            n += 1
+    return n
 
 
 # ----------------------------------------------------------------- procurement
