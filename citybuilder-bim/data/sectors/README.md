@@ -31,7 +31,8 @@ Counts at a glance:
 * **Predecessors** use the scope vocabulary of the model doc. Conventions used throughout:
   * Floor convention: slab on storey N is the floor of N. Columns need the footing (`same_cell_below` and `same_cell`) and the slab below; slabs need columns and beams below. Services on storey N need the slab above (`same_cell_above`), so ceilings and rough-in sit under a poured, struck deck.
   * Rules that may match nothing (a cell with no footing, a zone with no ICRA task) are silently skipped by the mapper, so they are deliberately not `required`. `required: true` is reserved for the logic that must exist: commissioning after the system installs (`same_system`), pile caps after piles, beams after bearings, insulation chains after tests.
-  * No step depends on a step in a later phase (checked by the build scripts), otherwise gates would deadlock. Chains in `mapping_rules.json` never go back in phase either.
+  * Every step in phase order 2 or later has at least one predecessor rule, and the cell-scope rules have `same_zone`, `same_system` or other fallbacks so synthetic and IFC-derived models (where storeys, zones and systems differ) still resolve; the mapped synthetic projects have no later-phase task without a predecessor.
+* No step depends on a step in a later phase (checked by the build scripts), otherwise gates would deadlock. Chains in `mapping_rules.json` never go back in phase either.
 * **Tags** are derived from the flags (`weather_sensitive`, `noisy`, `dusty`, `heavy_lift`, `long_lead`, `hold_point`, `high_risk`, trade id) plus a few hand tags used by events: `steel_connection`, `hot_work`, `module`, `transformer`, `mri`, `bearing`, `road_closure`, `asphalt`, `excavation`, `piling`, `live_traffic`, `medical_gas`, `shielding`, `icra`.
 * **Inspections** only use the types `structural, mechanical, electrical, plumbing, fire, medical_gas, icra, pavement, geotechnical, welding, pressure_test`; gates reference the same strings.
 * **Default rule**: every library has `GEN-ELEM-INSTALL` (count) so unmatched elements are still buildable; the mapper lists them in `unmapped_elements`.
@@ -76,9 +77,9 @@ Notes:
 
 | Sector | Tutorial | Standard | Hard |
 | --- | --- | --- | --- |
-| industrial | 52 weeks | 75 | 104 |
-| civil | 38 weeks | 53 | 72 |
-| healthcare | 58 weeks | 73 | 101 |
+| industrial | 57 weeks | 80 | 116 |
+| civil | 53 weeks | 74 | 96 |
+| healthcare | 63 weeks | 79 | 112 |
 
 The contract is `baseline x contract_factor` (1.3 tutorial, 1.1 standard, 1.0 hard); budget is `tasks x budget_factor` (1.25, 1.15, 1.05). Hard crews are fewer, so the hard baseline itself is longer; the factor 1.0 removes the slack.
 
@@ -116,9 +117,9 @@ Phases: mobilise, traffic_stage_1, utilities, earthworks, drainage, structures, 
 | Gate | Scope | Holds | Requires |
 | --- | --- | --- | --- |
 | G-ts1 | zone | utilities until traffic management stage 1 is up | none |
-| G-ground | zone | drainage until cut and fill are tested | geotechnical |
-| G-structures-ts2 | zone | traffic switch until structures are inspected | structural |
-| G-ts2-pavement | zone | pavement until traffic stage 2 is in place | none |
+| G-ground | storey | drainage until cut and fill are tested; storey scope because drains are on the underground storey (which also holds utilities and traffic stage 1) while earthworks are at ground level, the cell-above predecessors on `CIV-TRENCH-DIG` tie drains to the cut above | geotechnical |
+| G-structures-ts2 | zone | later work in a zone until its structures are inspected; the stage 2 switch itself waits for the bridge deck project-wide through predecessor rules | structural |
+| G-ts2-pavement | zone | pavement until traffic stage 2 is in place; `CIV-SUBGRADE-PREP` also waits for stage 2 project-wide | none |
 | G-pavement | zone | finishing until base and wearing course pass | pavement |
 | G-handover | project | handover until lighting cables and pavement are signed off | electrical, pavement |
 
@@ -150,3 +151,7 @@ Events use only fields the schema defines. Triggers refer to real phase ids, ste
 * Equipment needs (piling rig, paver, concrete pump, scissor lift) cannot be tied to a step; only `requires_crane` exists. Steps carry tags such as `piling` and `asphalt` for events and for the game to interpret.
 * Zone tags are static per project; a live-traffic cell cannot change to free at the stage 2 switch.
 * Event effects cannot target a single step id or a gate; only tag, trade and zone tag.
+
+## Gate scope notes (cumulative gates)
+
+The scheduler treats gates cumulatively: every task of the `after_phase` or earlier in the scope instance must finish before any task of the `before_phase` or later starts, and an instance with no prerequisite tasks is vacuous. Zone and storey scopes therefore only bite where both sides live in the same zone or storey. The synthetic civil project splits storeys (utilities and drainage on UG1, earthworks, structures and pavement on L00) and puts the stage 2 tasks in the live-traffic zones, so cross-storey and cross-zone ordering is also carried by predecessor rules with `same_cell_above`, `same_cell_below`, `same_storey` and `project` scopes. A scan of the mapped synthetic projects finds no task in phase order 2 or later that starts on day 0.

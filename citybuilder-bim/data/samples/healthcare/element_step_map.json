@@ -2832,7 +2832,104 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000153",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000155",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000167",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000180",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000221",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000235",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000236",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000259",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000289",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000303",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000315",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000320",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000327",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000339",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000375",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000376",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    }
+   ],
    "rule_id": "R-air-terminal",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -3316,7 +3413,104 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000153",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000155",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000167",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000180",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000221",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000235",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000236",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000259",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000289",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000303",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000315",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000320",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000327",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000339",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000375",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000376",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    }
+   ],
    "rule_id": "R-air-terminal",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -3513,7 +3707,14 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000253",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    }
+   ],
    "rule_id": "R-light",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -4657,7 +4858,14 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000253",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    }
+   ],
    "rule_id": "R-light",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -4760,6 +4968,102 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T000153",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000155",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000167",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000180",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000221",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000235",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000236",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000259",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000289",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000303",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000315",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000320",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000327",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000339",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000375",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000376",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     }
    ],
    "rule_id": "R-air-terminal",
@@ -5164,6 +5468,12 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T000253",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
     }
    ],
    "rule_id": "R-light",
@@ -6050,6 +6360,12 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T000253",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
     }
    ],
    "rule_id": "R-light",
@@ -6416,7 +6732,20 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000139",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-GSLAB-POUR"
+    },
+    {
+     "task_id": "T000149",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:STR-GSLAB-POUR"
+    }
+   ],
    "rule_id": "R-plant",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -8315,6 +8644,102 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T000153",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000155",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000167",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000180",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000221",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000235",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000236",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000259",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000289",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000303",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000315",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000320",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000327",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000339",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000375",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000376",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     }
    ],
    "rule_id": "R-air-terminal",
@@ -9778,6 +10203,18 @@
    },
    "predecessors": [
     {
+     "task_id": "T000153",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000155",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T000167",
      "type": "FS",
      "lag_days": 0,
@@ -9796,6 +10233,12 @@
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
     },
     {
+     "task_id": "T000221",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T000235",
      "type": "FS",
      "lag_days": 0,
@@ -9806,6 +10249,60 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000259",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000289",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000303",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000315",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000320",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000327",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000339",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000375",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000376",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     }
    ],
    "rule_id": "R-air-terminal",
@@ -11346,6 +11843,18 @@
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
     },
     {
+     "task_id": "T000167",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000180",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T000217",
      "type": "FS",
      "lag_days": 0,
@@ -11358,10 +11867,70 @@
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
     },
     {
+     "task_id": "T000235",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000236",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T000259",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000289",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000303",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000315",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000320",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000327",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000339",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000375",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000376",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     }
    ],
    "rule_id": "R-air-terminal",
@@ -15223,10 +15792,40 @@
      "reason": "rule:same_cell:ELE-CABLE-PULL"
     },
     {
+     "task_id": "T000171",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000194",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000206",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
      "task_id": "T000217",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T000240",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000253",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
     }
    ],
    "rule_id": "R-light",
@@ -15333,10 +15932,40 @@
      "reason": "rule:same_cell:ELE-CABLE-PULL"
     },
     {
+     "task_id": "T000171",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000194",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000206",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
      "task_id": "T000217",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T000240",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000253",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
     }
    ],
    "rule_id": "R-light",
@@ -19593,6 +20222,18 @@
    },
    "predecessors": [
     {
+     "task_id": "T000314",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:STR-GSLAB-POUR"
+    },
+    {
+     "task_id": "T000354",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:STR-GSLAB-POUR"
+    },
+    {
      "task_id": "T000824",
      "type": "FS",
      "lag_days": 0,
@@ -20483,6 +21124,60 @@
    },
    "predecessors": [
     {
+     "task_id": "T000153",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000155",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000167",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000180",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000221",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000235",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000236",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000259",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000289",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T000303",
      "type": "FS",
      "lag_days": 0,
@@ -20501,10 +21196,28 @@
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
     },
     {
+     "task_id": "T000327",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T000328",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T000339",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000375",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     },
     {
      "task_id": "T000376",
@@ -21439,10 +22152,76 @@
    },
    "predecessors": [
     {
+     "task_id": "T000153",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000155",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000167",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000180",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000221",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000235",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000236",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000259",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T000289",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000303",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000315",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000320",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     },
     {
      "task_id": "T000327",
@@ -21467,6 +22246,12 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000376",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     }
    ],
    "rule_id": "R-air-terminal",
@@ -21667,6 +22452,24 @@
    },
    "predecessors": [
     {
+     "task_id": "T000253",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
+    {
+     "task_id": "T000291",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000319",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
      "task_id": "T000324",
      "type": "FS",
      "lag_days": 0,
@@ -21677,6 +22480,18 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T000335",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000362",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
     }
    ],
    "rule_id": "R-light",
@@ -23717,16 +24532,46 @@
    },
    "predecessors": [
     {
+     "task_id": "T000253",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
+    {
      "task_id": "T000280",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ELE-CABLE-PULL"
     },
     {
+     "task_id": "T000291",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000319",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
      "task_id": "T000328",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T000335",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000362",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
     }
    ],
    "rule_id": "R-light",
@@ -24622,6 +25467,12 @@
    },
    "predecessors": [
     {
+     "task_id": "T000253",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
+    {
      "task_id": "T000408",
      "type": "FS",
      "lag_days": 0,
@@ -25318,6 +26169,12 @@
    },
    "predecessors": [
     {
+     "task_id": "T000253",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
+    {
      "task_id": "T000408",
      "type": "FS",
      "lag_days": 0,
@@ -25837,6 +26694,102 @@
    },
    "predecessors": [
     {
+     "task_id": "T000153",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000155",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000167",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000180",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000221",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000235",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000236",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000259",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000289",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000303",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000315",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000320",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000327",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000339",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000375",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000376",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T000408",
      "type": "FS",
      "lag_days": 0,
@@ -26327,6 +27280,102 @@
     "dusty": false
    },
    "predecessors": [
+    {
+     "task_id": "T000153",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000155",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000167",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000180",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000221",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000235",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000236",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000259",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000289",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000303",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000315",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000320",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000327",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000339",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000375",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000376",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
     {
      "task_id": "T000408",
      "type": "FS",
@@ -28309,6 +29358,102 @@
    },
    "predecessors": [
     {
+     "task_id": "T000153",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000155",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000167",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000180",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000221",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000235",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000236",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000259",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000289",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000303",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000315",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000320",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000327",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000339",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000375",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000376",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T000502",
      "type": "FS",
      "lag_days": 0,
@@ -29404,6 +30549,102 @@
    },
    "predecessors": [
     {
+     "task_id": "T000153",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000155",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000167",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000180",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000221",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000235",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000236",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000259",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000289",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000303",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000315",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000320",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000327",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000339",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000375",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000376",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T000502",
      "type": "FS",
      "lag_days": 0,
@@ -29607,6 +30848,12 @@
     "dusty": false
    },
    "predecessors": [
+    {
+     "task_id": "T000253",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
     {
      "task_id": "T000502",
      "type": "FS",
@@ -32850,6 +34097,12 @@
    },
    "predecessors": [
     {
+     "task_id": "T000253",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
+    {
      "task_id": "T000502",
      "type": "FS",
      "lag_days": 0,
@@ -33046,7 +34299,14 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000718",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    }
+   ],
    "rule_id": "R-light",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -33620,7 +34880,14 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000718",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    }
+   ],
    "rule_id": "R-light",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -34301,7 +35568,104 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000638",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000647",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000669",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000672",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000680",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000686",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000695",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000703",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000756",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000767",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000772",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000779",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000784",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000787",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000791",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000811",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    }
+   ],
    "rule_id": "R-air-terminal-pressure",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -35505,7 +36869,104 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000638",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000647",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000669",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000672",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000680",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000686",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000695",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000703",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000756",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000767",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000772",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000779",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000784",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000787",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000791",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000811",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    }
+   ],
    "rule_id": "R-air-terminal-pressure",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -36293,6 +37754,18 @@
    },
    "predecessors": [
     {
+     "task_id": "T000114",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell_below:STR-COL-POUR"
+    },
+    {
+     "task_id": "T000615",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:STR-SLAB-POUR"
+    },
+    {
      "task_id": "T000631",
      "type": "FS",
      "lag_days": 0,
@@ -36572,6 +38045,12 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T000718",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
     }
    ],
    "rule_id": "R-light",
@@ -37237,6 +38716,102 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T000638",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000647",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000669",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000672",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000680",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000686",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000695",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000703",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000756",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000767",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000772",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000779",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000784",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000787",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000791",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000811",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     }
    ],
    "rule_id": "R-air-terminal",
@@ -38181,6 +39756,102 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T000638",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000647",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000669",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000672",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000680",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000686",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000695",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000703",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000756",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000767",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000772",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000779",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000784",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000787",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000791",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000811",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     }
    ],
    "rule_id": "R-air-terminal",
@@ -39069,6 +40740,12 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T000718",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
     }
    ],
    "rule_id": "R-light",
@@ -40808,6 +42485,24 @@
    },
    "predecessors": [
     {
+     "task_id": "T000638",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000647",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000669",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T000672",
      "type": "FS",
      "lag_days": 0,
@@ -40830,6 +42525,60 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000703",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000756",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000767",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000772",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000779",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000784",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000787",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000791",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000811",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     }
    ],
    "rule_id": "R-air-terminal-pressure",
@@ -41947,6 +43696,36 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ELE-CABLE-PULL"
+    },
+    {
+     "task_id": "T000660",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000671",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000692",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000716",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000718",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
     }
    ],
    "rule_id": "R-light",
@@ -43373,6 +45152,36 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ELE-CABLE-PULL"
+    },
+    {
+     "task_id": "T000660",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000671",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000692",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000716",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000718",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
     }
    ],
    "rule_id": "R-light",
@@ -44999,10 +46808,82 @@
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
     },
     {
+     "task_id": "T000672",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000680",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000686",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000695",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T000703",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000756",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000767",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000772",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000779",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000784",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000787",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000791",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000811",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     }
    ],
    "rule_id": "R-air-terminal-pressure",
@@ -47452,10 +49333,64 @@
    },
    "predecessors": [
     {
+     "task_id": "T000638",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000647",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000669",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000672",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000680",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000686",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000695",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000703",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T000746",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T000756",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     },
     {
      "task_id": "T000767",
@@ -47476,10 +49411,28 @@
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
     },
     {
+     "task_id": "T000784",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T000787",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000791",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000811",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     }
    ],
    "rule_id": "R-air-terminal",
@@ -50102,10 +52055,40 @@
    },
    "predecessors": [
     {
+     "task_id": "T000718",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
+    {
      "task_id": "T000746",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T000758",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000768",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000816",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000830",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
     },
     {
      "task_id": "T000831",
@@ -50485,6 +52468,18 @@
     "dusty": false
    },
    "predecessors": [
+    {
+     "task_id": "T000802",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:STR-SLAB-POUR"
+    },
+    {
+     "task_id": "T000824",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-SLAB-POUR"
+    },
     {
      "task_id": "T001170",
      "type": "FS",
@@ -51104,16 +53099,46 @@
    },
    "predecessors": [
     {
+     "task_id": "T000718",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
+    {
      "task_id": "T000746",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
     },
     {
+     "task_id": "T000758",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000768",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
      "task_id": "T000773",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ELE-CABLE-PULL"
+    },
+    {
+     "task_id": "T000816",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000830",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
     }
    ],
    "rule_id": "R-light",
@@ -53038,6 +55063,54 @@
    },
    "predecessors": [
     {
+     "task_id": "T000638",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000647",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000669",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000672",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000680",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000686",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000695",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000703",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T000746",
      "type": "FS",
      "lag_days": 0,
@@ -53050,10 +55123,34 @@
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
     },
     {
+     "task_id": "T000767",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000772",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000779",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T000784",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000787",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     },
     {
      "task_id": "T000791",
@@ -54328,7 +56425,104 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000638",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000647",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000669",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000672",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000680",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000686",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000695",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000703",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000756",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000767",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000772",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000779",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000784",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000787",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000791",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000811",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    }
+   ],
    "rule_id": "R-air-terminal",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -54525,7 +56719,14 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000718",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    }
+   ],
    "rule_id": "R-light",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -55176,7 +57377,104 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000638",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000647",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000669",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000672",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000680",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000686",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000695",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000703",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000756",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000767",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000772",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000779",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000784",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000787",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000791",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000811",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    }
+   ],
    "rule_id": "R-air-terminal",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -55859,7 +58157,14 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000718",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    }
+   ],
    "rule_id": "R-light",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -57288,6 +59593,12 @@
    },
    "predecessors": [
     {
+     "task_id": "T000718",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
+    {
      "task_id": "T000910",
      "type": "FS",
      "lag_days": 0,
@@ -57479,6 +59790,102 @@
     "dusty": false
    },
    "predecessors": [
+    {
+     "task_id": "T000638",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000647",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000669",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000672",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000680",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000686",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000695",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000703",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000756",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000767",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000772",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000779",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000784",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000787",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000791",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000811",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
     {
      "task_id": "T000910",
      "type": "FS",
@@ -58319,6 +60726,12 @@
    },
    "predecessors": [
     {
+     "task_id": "T000718",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
+    {
      "task_id": "T000910",
      "type": "FS",
      "lag_days": 0,
@@ -58931,6 +61344,102 @@
     "dusty": false
    },
    "predecessors": [
+    {
+     "task_id": "T000638",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000647",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000669",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000672",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000680",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000686",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000695",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000703",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000756",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000767",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000772",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000779",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000784",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000787",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000791",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T000811",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
     {
      "task_id": "T000910",
      "type": "FS",
@@ -61691,7 +64200,104 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T001053",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001067",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001073",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001078",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001087",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001106",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001130",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001134",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001173",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001174",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001189",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001205",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001207",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001223",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001230",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001249",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    }
+   ],
    "rule_id": "R-air-terminal-pressure",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -62624,7 +65230,14 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T001100",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    }
+   ],
    "rule_id": "R-light",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -63336,7 +65949,104 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T001053",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001067",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001073",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001078",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001087",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001106",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001130",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001134",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001173",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001174",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001189",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001205",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001207",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001223",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001230",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001249",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    }
+   ],
    "rule_id": "R-air-terminal-pressure",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -63935,7 +66645,14 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T001100",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    }
+   ],
    "rule_id": "R-light",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -64529,6 +67246,102 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T001053",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001067",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001073",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001078",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001087",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001106",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001130",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001134",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001173",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001174",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001189",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001205",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001207",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001223",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001230",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001249",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     }
    ],
    "rule_id": "R-air-terminal",
@@ -65058,6 +67871,12 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T001100",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
     }
    ],
    "rule_id": "R-light",
@@ -66187,6 +69006,12 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T001100",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
     }
    ],
    "rule_id": "R-light",
@@ -66946,6 +69771,102 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T001053",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001067",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001073",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001078",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001087",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001106",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001130",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001134",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001173",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001174",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001189",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001205",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001207",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001223",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001230",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001249",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     }
    ],
    "rule_id": "R-air-terminal",
@@ -68273,6 +71194,24 @@
    },
    "predecessors": [
     {
+     "task_id": "T000580",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell_below:STR-COL-POUR"
+    },
+    {
+     "task_id": "T000631",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell_below:STR-SLAB-POUR"
+    },
+    {
+     "task_id": "T001012",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:STR-SLAB-POUR"
+    },
+    {
      "task_id": "T001049",
      "type": "FS",
      "lag_days": 0,
@@ -68466,10 +71405,28 @@
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
     },
     {
+     "task_id": "T001073",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001078",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T001087",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001106",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     },
     {
      "task_id": "T001130",
@@ -68478,10 +71435,64 @@
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
     },
     {
+     "task_id": "T001134",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T001136",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T001173",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001174",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001189",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001205",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001207",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001223",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001230",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001249",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     }
    ],
    "rule_id": "R-air-terminal",
@@ -71193,16 +74204,46 @@
    },
    "predecessors": [
     {
+     "task_id": "T001100",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
+    {
+     "task_id": "T001120",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
      "task_id": "T001121",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ELE-CABLE-PULL"
     },
     {
+     "task_id": "T001132",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
      "task_id": "T001136",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T001142",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T001151",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
     }
    ],
    "rule_id": "R-light",
@@ -72279,6 +75320,18 @@
    },
    "predecessors": [
     {
+     "task_id": "T001053",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001067",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T001073",
      "type": "FS",
      "lag_days": 0,
@@ -72291,10 +75344,22 @@
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
     },
     {
+     "task_id": "T001087",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T001106",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001130",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     },
     {
      "task_id": "T001134",
@@ -72307,6 +75372,54 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T001173",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001174",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001189",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001205",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001207",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001223",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001230",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001249",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     }
    ],
    "rule_id": "R-air-terminal",
@@ -72507,16 +75620,46 @@
    },
    "predecessors": [
     {
+     "task_id": "T001100",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
+    {
+     "task_id": "T001120",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T001132",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
      "task_id": "T001136",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
     },
     {
+     "task_id": "T001142",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
      "task_id": "T001143",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ELE-CABLE-PULL"
+    },
+    {
+     "task_id": "T001151",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
     }
    ],
    "rule_id": "R-light",
@@ -77393,7 +80536,20 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T001170",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-SLAB-POUR"
+    },
+    {
+     "task_id": "T001180",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:STR-SLAB-POUR"
+    }
+   ],
    "rule_id": "R-pipe-fire",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -77439,6 +80595,66 @@
    },
    "predecessors": [
     {
+     "task_id": "T001053",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001067",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001073",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001078",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001087",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001106",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001130",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001134",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001173",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001174",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T001189",
      "type": "FS",
      "lag_days": 0,
@@ -77463,10 +80679,22 @@
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
     },
     {
+     "task_id": "T001223",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T001230",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001249",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     }
    ],
    "rule_id": "R-air-terminal",
@@ -79872,6 +83100,18 @@
    },
    "predecessors": [
     {
+     "task_id": "T001100",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
+    {
+     "task_id": "T001172",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
      "task_id": "T001182",
      "type": "FS",
      "lag_days": 0,
@@ -79882,6 +83122,24 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
+    },
+    {
+     "task_id": "T001206",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T001208",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T001227",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
     }
    ],
    "rule_id": "R-light",
@@ -79929,6 +83187,18 @@
    },
    "predecessors": [
     {
+     "task_id": "T001100",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
+    {
+     "task_id": "T001172",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
+    },
+    {
      "task_id": "T001194",
      "type": "FS",
      "lag_days": 0,
@@ -79939,6 +83209,24 @@
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ELE-CABLE-PULL"
+    },
+    {
+     "task_id": "T001206",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T001208",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:MEP-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T001227",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:MEP-TRAY-INSTALL"
     }
    ],
    "rule_id": "R-light",
@@ -81669,6 +84957,54 @@
    },
    "predecessors": [
     {
+     "task_id": "T001053",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001067",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001073",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001078",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001087",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001106",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001130",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001134",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T001173",
      "type": "FS",
      "lag_days": 0,
@@ -81681,16 +85017,40 @@
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
     },
     {
+     "task_id": "T001189",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T001194",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:ARC-CEILING-CLOSE"
     },
     {
+     "task_id": "T001205",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001207",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T001223",
      "type": "FS",
      "lag_days": 0,
      "reason": "rule:same_cell:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001230",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
     },
     {
      "task_id": "T001249",
@@ -82617,6 +85977,12 @@
     "dusty": false
    },
    "predecessors": [
+    {
+     "task_id": "T001100",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
     {
      "task_id": "T001283",
      "type": "FS",
@@ -83687,6 +87053,12 @@
    },
    "predecessors": [
     {
+     "task_id": "T001100",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
+    {
      "task_id": "T001283",
      "type": "FS",
      "lag_days": 0,
@@ -84420,6 +87792,102 @@
     "dusty": false
    },
    "predecessors": [
+    {
+     "task_id": "T001053",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001067",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001073",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001078",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001087",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001106",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001130",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001134",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001173",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001174",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001189",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001205",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001207",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001223",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001230",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001249",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
     {
      "task_id": "T001283",
      "type": "FS",
@@ -85231,6 +88699,102 @@
    },
    "predecessors": [
     {
+     "task_id": "T001053",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001067",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001073",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001078",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001087",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001106",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001130",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001134",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001173",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001174",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001189",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001205",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001207",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001223",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001230",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001249",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T001283",
      "type": "FS",
      "lag_days": 0,
@@ -85528,6 +89092,102 @@
     "dusty": false
    },
    "predecessors": [
+    {
+     "task_id": "T001053",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001067",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001073",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001078",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001087",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001106",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001130",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001134",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001173",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001174",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001189",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001205",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001207",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001223",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001230",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001249",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
     {
      "task_id": "T001311",
      "type": "FS",
@@ -87921,6 +91581,102 @@
    },
    "predecessors": [
     {
+     "task_id": "T001053",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001067",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001073",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001078",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001087",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001106",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001130",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001134",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001173",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001174",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001189",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001205",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001207",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001223",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001230",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
+     "task_id": "T001249",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    },
+    {
      "task_id": "T001311",
      "type": "FS",
      "lag_days": 0,
@@ -88729,6 +92485,12 @@
     "dusty": false
    },
    "predecessors": [
+    {
+     "task_id": "T001100",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
     {
      "task_id": "T001311",
      "type": "FS",
@@ -89902,6 +93664,12 @@
     "dusty": false
    },
    "predecessors": [
+    {
+     "task_id": "T001100",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:ELE-PANEL-INSTALL"
+    },
     {
      "task_id": "T001311",
      "type": "FS",

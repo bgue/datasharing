@@ -144,7 +144,7 @@
   },
   {
    "id": "R-earth-cut",
-   "description": "Small cut, no separate test.",
+   "description": "Shallow cut: clear then excavate, no separate test.",
    "priority": 375,
    "match": {
     "ifc_class": [
@@ -152,6 +152,11 @@
     ]
    },
    "steps": [
+    {
+     "step": "GEN-SITE-CLEAR",
+     "quantity": "area_m2",
+     "min_quantity": 100
+    },
     {
      "step": "CIV-EARTH-CUT",
      "quantity": "volume_m3"

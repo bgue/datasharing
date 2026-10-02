@@ -1040,6 +1040,26 @@
     {
      "step": "STR-STEEL-ERECT",
      "scope": "same_cell"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_below"
+    },
+    {
+     "step": "STR-COL-POUR",
+     "scope": "same_cell_below"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_zone"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_zone"
     }
    ],
    "tags": [
@@ -1252,6 +1272,18 @@
      "scope": "same_cell",
      "type": "SS",
      "lag_days": 3
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_zone"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_zone"
     }
    ],
    "tags": [
@@ -1836,6 +1868,22 @@
     {
      "step": "ELE-CABLE-PULL",
      "scope": "same_cell"
+    },
+    {
+     "step": "MEP-TRAY-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "MEP-TRAY-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "ARC-CEILING-CLOSE",
+     "scope": "same_zone"
+    },
+    {
+     "step": "ELE-PANEL-INSTALL",
+     "scope": "same_system"
     }
    ],
    "tags": [
@@ -1871,6 +1919,18 @@
     {
      "step": "MEP-DUCT-INSTALL",
      "scope": "same_cell"
+    },
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "scope": "same_system"
+    },
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "ARC-CEILING-CLOSE",
+     "scope": "same_zone"
     }
    ],
    "tags": [
@@ -2469,7 +2529,20 @@
    "noisy": false,
    "dusty": false,
    "progress_visual": "solid",
-   "predecessors": [],
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ARC-WALL-BOARD",
+     "scope": "same_cell"
+    }
+   ],
    "tags": [
     "finishes"
    ]

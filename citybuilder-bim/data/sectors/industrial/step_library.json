@@ -1465,7 +1465,16 @@
    "noisy": false,
    "dusty": false,
    "progress_visual": "solid",
-   "predecessors": [],
+   "predecessors": [
+    {
+     "step": "STR-GSLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-STEEL-CONN",
+     "scope": "same_cell"
+    }
+   ],
    "tags": [
     "mechanical"
    ]
@@ -1548,6 +1557,24 @@
      "scope": "same_system",
      "type": "SS",
      "lag_days": 1
+    },
+    {
+     "step": "PIP-SPOOL-LAY",
+     "scope": "same_system"
+    },
+    {
+     "step": "PIP-SPOOL-LAY",
+     "scope": "same_cell"
+    },
+    {
+     "step": "PIP-PIPE-INSTALL",
+     "scope": "same_cell",
+     "type": "SS",
+     "lag_days": 1
+    },
+    {
+     "step": "STR-RACK-CONN",
+     "scope": "same_cell"
     }
    ],
    "tags": [
@@ -1920,6 +1947,30 @@
     {
      "step": "PRC-TANK-SET",
      "scope": "same_system"
+    },
+    {
+     "step": "PIP-SPOOL-LAY",
+     "scope": "same_cell"
+    },
+    {
+     "step": "PIP-PIPE-INSTALL",
+     "scope": "same_system"
+    },
+    {
+     "step": "PIP-PIPE-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "PRC-PUMP-SET",
+     "scope": "same_system"
+    },
+    {
+     "step": "ELE-TRAY-INSTALL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "ELE-TRAY-INSTALL",
+     "scope": "same_zone"
     }
    ],
    "tags": [

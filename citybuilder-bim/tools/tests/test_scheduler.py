@@ -237,6 +237,54 @@ class Gates(unittest.TestCase):
         self.assertGreaterEqual(t["one-g:TST-P1-DO"]["planned_start_day"], t["two-g:TST-P2-DO"]["planned_finish_day"])
 
 
+class CumulativeGates(unittest.TestCase):
+    """Gate build -> fit also holds the later phase 'late' and covers every earlier phase."""
+
+    def run_it(self, elements, gates, phases=("early", "build", "fit", "late"), steps=None):
+        steps = steps or [step("TST-E-DO", phase="early", min_duration_days=2), step("TST-B-DO", phase="build", min_duration_days=3),
+                          step("TST-F-DO", phase="fit"), step("TST-L-DO", phase="late"), step("TST-DEFAULT-DO", phase="early")]
+        rl = [rule(f"R-{k}", 50 - i, {"name_regex": f"^{k}"}, [f"TST-{k.upper()}-DO"]) for i, k in enumerate("ebfl")]
+        lib = library(steps, gates=gates, phases=phases)
+        sm = map_elements(doc(elements), lib, rules(rl), generated_at="t")
+        seq, warnings = build_sequence(sm, lib, scenario({"crew": 20}), doc(elements), generated_at="t")
+        return sm, seq, warnings, {t["element_guid"]: t for t in seq["tasks"]}
+
+    GATE = [{"id": "G-t", "name": "t", "after_phase": "build", "before_phase": "fit", "scope": "storey"}]
+
+    def test_unnamed_later_phase_is_held_and_earlier_phases_are_prerequisites(self):
+        els = [elem("e1", "e1", "G", "G-Z1", [(0, 0)]), elem("b1", "b1", "G", "G-Z1", [(1, 0)]),
+               elem("f1", "f1", "G", "G-Z2", [(2, 0)]), elem("l1", "l1", "G", "G-Z2", [(3, 0)])]
+        _, _, _, t = self.run_it(els, self.GATE)
+        self.assertEqual(t["e1"]["planned_start_day"], 0)
+        self.assertEqual(t["b1"]["planned_start_day"], 0)
+        self.assertEqual(t["f1"]["planned_start_day"], 3)       # waits for build (3d) in the storey
+        self.assertEqual(t["l1"]["planned_start_day"], 3)       # 'late' is named by no gate but still held
+
+    def test_early_phase_is_prerequisite_even_without_build_tasks(self):
+        els = [elem("e1", "e1", "G", "G-Z1", [(0, 0)]), elem("l1", "l1", "G", "G-Z2", [(2, 0)])]
+        _, _, _, t = self.run_it(els, self.GATE)
+        self.assertEqual(t["l1"]["planned_start_day"], 2)       # held by the 'early' task (2d)
+
+    def test_vacuous_scope_instance_passes_immediately(self):
+        gate = [dict(self.GATE[0], scope="zone")]
+        els = [elem("b1", "b1", "G", "G-Z1", [(0, 0)]), elem("f1", "f1", "G", "G-Z1", [(1, 0)]),
+               elem("l2", "l2", "G", "G-Z2", [(2, 0)])]
+        _, _, _, t = self.run_it(els, gate)
+        self.assertEqual(t["f1"]["planned_start_day"], 3)
+        self.assertEqual(t["l2"]["planned_start_day"], 0)       # G-Z2 has nothing at or below 'build'
+
+    def test_gate_cycle_recorded_in_sequencing_gaps(self):
+        steps = [step("TST-E-DO", phase="early"), step("TST-B-DO", phase="build"), step("TST-DEFAULT-DO", phase="early"),
+                 step("TST-F-DO", phase="fit"), step("TST-L-DO", phase="late"),
+                 ]
+        steps[1] = step("TST-B-DO", phase="build", preds=[("TST-F-DO", "same_zone")])
+        els = [elem("b1", "b1", "G", "G-Z1", [(0, 0)]), elem("f1", "f1", "G", "G-Z1", [(1, 0)])]
+        sm, _, warnings, t = self.run_it(els, [dict(self.GATE[0], scope="zone")], steps=steps)
+        self.assertTrue(any("G-t" in w for w in warnings))
+        self.assertEqual([g["note"] for g in sm.sequencing_gaps], ["gate_cycle"])
+        self.assertEqual(sm.sequencing_gaps[0]["scope"], "zone")
+
+
 class WeeklyCost(unittest.TestCase):
     def test_linear_accrual(self):
         from bimseq.model import Task

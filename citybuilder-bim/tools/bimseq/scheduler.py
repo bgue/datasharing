@@ -202,21 +202,30 @@ class _GateInstance:
     enabled: bool = True
 
 
-def _gate_instances(gates: Seq[Gate], tasks: Seq[Task]) -> list[_GateInstance]:
-    """One instance per (gate, scope-instance) that has tasks on both sides."""
+def _gate_instances(gates: Seq[Gate], tasks: Seq[Task], phase_order: Mapping[str, int]) -> list[_GateInstance]:
+    """One instance per (gate, scope instance) with tasks on both sides (cumulative phase gates).
+
+    ``prereq`` holds every task whose phase order is <= order(after_phase), ``held`` every task
+    whose phase order is >= order(before_phase), both within the scope instance. An instance
+    with no prerequisite tasks is vacuous and omitted.
+    """
     out: list[_GateInstance] = []
     for g in gates:
-        if g.after_phase == g.before_phase:
+        if g.after_phase not in phase_order or g.before_phase not in phase_order:
             continue
+        lo, hi = phase_order[g.after_phase], phase_order[g.before_phase]
+        if lo >= hi:
+            continue
+        if g.scope not in ("zone", "storey", "project"):
+            raise SchedulingError(f"gate {g.id}: unknown scope {g.scope!r}")
         groups: dict[str, _GateInstance] = {}
         for i, t in enumerate(tasks):
-            if t.phase not in (g.after_phase, g.before_phase):
+            order = phase_order.get(t.phase)
+            if order is None or lo < order < hi:
                 continue
-            key = {"zone": t.zone_id, "storey": t.storey_id, "project": "*"}.get(g.scope)
-            if key is None:
-                raise SchedulingError(f"gate {g.id}: unknown scope {g.scope!r}")
+            key = {"zone": t.zone_id, "storey": t.storey_id, "project": "*"}[g.scope]
             inst = groups.setdefault(key, _GateInstance(g, key))
-            (inst.prereq if t.phase == g.after_phase else inst.held).append(i)
+            (inst.prereq if order <= lo else inst.held).append(i)
         out.extend(inst for inst in groups.values() if inst.prereq and inst.held)
     return out
 
@@ -266,7 +275,7 @@ def _resolve_gate_cycles(tasks: Seq[Task], instances: list[_GateInstance]) -> tu
                     inst.enabled = False
                     disabled += 1
                     warnings.append(
-                        f"gate {inst.gate.id} ({inst.key}) disabled: it conflicts with task links (cycle)")
+                        f"gate {inst.gate.id} ({inst.key}) disabled: it conflicts with task links (gate_cycle)")
         if not disabled:
             raise SchedulingError("task precedence graph has a cycle")
 
@@ -278,6 +287,7 @@ class ScheduleResult:
     finishes: list[int]
     floats: list[int]
     warnings: list[str]
+    gate_gaps: list[JSON] = field(default_factory=list)   # sequencing_gaps entries, note "gate_cycle"
 
 
 def duration_days(task: Task, library: StepLibrary) -> int:
@@ -295,7 +305,8 @@ def schedule_tasks(tasks: Seq[Task], library: StepLibrary, crews: Mapping[str, i
     """
     n_tasks = len(tasks)
     durs = [duration_days(t, library) for t in tasks]
-    instances = _gate_instances(library.gates, tasks)
+    phase_order = {p.id: p.order for p in library.phases}
+    instances = _gate_instances(library.gates, tasks, phase_order)
     edges, n, warnings = _resolve_gate_cycles(tasks, instances)
     all_durs = durs + [0] * (n - n_tasks)
     res = cpm(all_durs, edges, finish_nodes=range(n_tasks))
@@ -305,7 +316,12 @@ def schedule_tasks(tasks: Seq[Task], library: StepLibrary, crews: Mapping[str, i
         loads = [min(1.0, max(t.estimated_crew_days, 0.01) / d) for t, d in zip(tasks, durs)] + [0.0] * (n - n_tasks)
     starts = level(all_durs, edges, resources, crews, priority=res.ls, loads=loads)[:n_tasks]
     finishes = [s + d for s, d in zip(starts, durs)]
-    return ScheduleResult(starts, finishes, res.total_float[:n_tasks], warnings)
+    gaps: list[JSON] = []
+    for inst in instances:
+        if not inst.enabled:
+            t = tasks[inst.held[0]]
+            gaps.append({"task_id": t.task_id, "step": t.step_id, "scope": inst.gate.scope, "note": "gate_cycle"})
+    return ScheduleResult(starts, finishes, res.total_float[:n_tasks], warnings, gaps)
 
 
 def weekly_cumulative_cost(tasks: Seq[Task]) -> list[float]:
@@ -354,11 +370,18 @@ def build_sequence(step_map: StepMap, library: StepLibrary, scenario: Scenario,
                    elements: ElementsDoc, *, generated_at: str | None = None,
                    generator: str | None = None,
                    fractional_crews: bool = False) -> tuple[JSON, list[str]]:
-    """Schedule ``step_map`` and assemble the sequence.json bundle; returns (bundle, warnings)."""
+    """Schedule ``step_map`` and assemble the sequence.json bundle; returns (bundle, warnings).
+
+    Gate instances disabled because they conflict with task links are also appended to
+    ``step_map.sequencing_gaps`` with note ``gate_cycle`` (the map is the only mutated input).
+    """
     tasks = [Task.from_dict(t.to_dict()) for t in step_map.tasks]   # do not mutate the input map
     if not tasks:
         raise SchedulingError("no tasks to schedule")
     res = schedule_tasks(tasks, library, scenario.crews_available, fractional_crews)
+    for gap in res.gate_gaps:
+        if gap not in step_map.sequencing_gaps:
+            step_map.sequencing_gaps.append(gap)
     critical: list[str] = []
     for t, s, f, fl in zip(tasks, res.starts, res.finishes, res.floats):
         t.planned_start_day, t.planned_finish_day = s, f

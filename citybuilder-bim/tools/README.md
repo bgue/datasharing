@@ -73,9 +73,12 @@ tasks costs a whole crew-day), which would make the derived `contract_weeks` unp
 ### Scheduler notes
 
 * `duration = max(min_duration_days, ceil(estimated_crew_days))`; a task occupies `[start, finish)`.
-* Gates become one synthetic milestone per (gate, scope instance): all `after_phase` tasks in scope feed
-  it, it feeds all `before_phase` tasks in scope. Milestones are not emitted. A gate instance that would
-  create a cycle with task links is disabled with a warning.
+* Gates are cumulative (docs/02 section 3.2) and become one synthetic milestone per (gate, scope
+  instance): every task with phase order <= `after_phase` in the instance feeds it, and every task with
+  order >= `before_phase` waits for it. An instance with no task at or below `after_phase` is vacuous.
+  Milestones are not emitted. A gate instance that would create a cycle with task links is disabled with a
+  warning and recorded in `sequencing_gaps` with note `gate_cycle` (in `element_step_map.json` written by
+  `build-samples`).
 * `total_float_days` and `is_critical` come from the unlevelled CPM; `planned_*` and `baseline.finish_*`
   from the levelled schedule. `weekly_planned_cost[w]` is the cumulative cost at the end of week `w`,
   `w = 0..finish_week`. `contract_weeks = ceil(finish_week * contract_factor)` and

@@ -7793,7 +7793,38 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000129",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:ELE-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000140",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    },
+    {
+     "task_id": "T000149",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:ELE-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000163",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:ELE-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000240",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:ELE-TRAY-INSTALL"
+    }
+   ],
    "rule_id": "R-instrument",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -13032,6 +13063,12 @@
      "reason": "rule:same_system:PIP-PIPE-INSTALL"
     },
     {
+     "task_id": "T000207",
+     "type": "SS",
+     "lag_days": 1,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    },
+    {
      "task_id": "T000210",
      "type": "SS",
      "lag_days": 1,
@@ -13501,6 +13538,12 @@
      "type": "SS",
      "lag_days": 1,
      "reason": "rule:same_system:PIP-PIPE-INSTALL"
+    },
+    {
+     "task_id": "T000176",
+     "type": "SS",
+     "lag_days": 1,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
     },
     {
      "task_id": "T000207",
@@ -15500,6 +15543,12 @@
      "reason": "rule:same_system:PIP-PIPE-INSTALL"
     },
     {
+     "task_id": "T000279",
+     "type": "SS",
+     "lag_days": 1,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    },
+    {
      "task_id": "T000282",
      "type": "SS",
      "lag_days": 1,
@@ -16177,6 +16226,12 @@
     "dusty": false
    },
    "predecessors": [
+    {
+     "task_id": "T000304",
+     "type": "SS",
+     "lag_days": 1,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    },
     {
      "task_id": "T000348",
      "type": "SS",
@@ -16979,7 +17034,38 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000288",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:ELE-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000314",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:ELE-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000319",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:ELE-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000334",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:ELE-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000364",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    }
+   ],
    "rule_id": "R-instrument",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -18634,6 +18720,12 @@
      "type": "SS",
      "lag_days": 1,
      "reason": "rule:same_system:PIP-PIPE-INSTALL"
+    },
+    {
+     "task_id": "T000359",
+     "type": "SS",
+     "lag_days": 1,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
     },
     {
      "task_id": "T001708",
@@ -21269,6 +21361,12 @@
     "dusty": false
    },
    "predecessors": [
+    {
+     "task_id": "T000250",
+     "type": "SS",
+     "lag_days": 1,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    },
     {
      "task_id": "T000279",
      "type": "SS",
@@ -25987,7 +26085,38 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000407",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:ELE-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000486",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:ELE-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000490",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:ELE-TRAY-INSTALL"
+    },
+    {
+     "task_id": "T000507",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    },
+    {
+     "task_id": "T000510",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_zone:ELE-TRAY-INSTALL"
+    }
+   ],
    "rule_id": "R-instrument",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -39992,7 +40121,134 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000515",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000565",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000573",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000648",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000689",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000707",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000726",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000737",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000748",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000752",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000760",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000765",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000782",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000800",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000805",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000815",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000841",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000864",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000874",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000914",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000968",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    }
+   ],
    "rule_id": "R-fitting",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -40381,7 +40637,134 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000519",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000539",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000549",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000576",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000701",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000707",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000726",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000737",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000745",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000748",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000752",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000760",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000782",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000800",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000815",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000834",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000841",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000919",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000942",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000949",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000984",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    }
+   ],
    "rule_id": "R-fitting",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -40887,7 +41270,134 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000528",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000642",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000658",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000663",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000707",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000726",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000737",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000740",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000748",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000752",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000760",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000768",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000782",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000800",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000815",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000838",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000841",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000898",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000901",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000910",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000979",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    }
+   ],
    "rule_id": "R-fitting",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -44992,7 +45502,134 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000555",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000582",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000585",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000617",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000707",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000721",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000726",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000730",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000737",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000748",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000752",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000760",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000782",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000800",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000801",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000815",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000841",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000859",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000877",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000939",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000965",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    }
+   ],
    "rule_id": "R-fitting",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -49171,7 +49808,134 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000592",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000596",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000608",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000679",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000683",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000707",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000726",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000737",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000748",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000752",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000760",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000771",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000782",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000800",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000815",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000817",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000841",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000891",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000946",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000962",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000975",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    }
+   ],
    "rule_id": "R-fitting",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -49595,7 +50359,134 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T000568",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000579",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000627",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000645",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000707",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000726",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000737",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000748",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000752",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000760",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000782",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000786",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000793",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000800",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000815",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:STR-RACK-CONN"
+    },
+    {
+     "task_id": "T000822",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000841",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000888",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000955",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000971",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    },
+    {
+     "task_id": "T000991",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:PIP-SPOOL-LAY"
+    }
+   ],
    "rule_id": "R-fitting",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -77179,7 +78070,14 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T001259",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    }
+   ],
    "rule_id": "R-instrument",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -78538,7 +79436,14 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T001355",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    }
+   ],
    "rule_id": "R-instrument",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -79038,7 +79943,14 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T001395",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    }
+   ],
    "rule_id": "R-instrument",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -92505,6 +93417,12 @@
      "reason": "rule:same_system:PIP-PIPE-INSTALL"
     },
     {
+     "task_id": "T001629",
+     "type": "SS",
+     "lag_days": 1,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    },
+    {
      "task_id": "T001650",
      "type": "SS",
      "lag_days": 1,
@@ -94140,6 +95058,12 @@
      "reason": "rule:same_system:PIP-PIPE-INSTALL"
     },
     {
+     "task_id": "T001550",
+     "type": "SS",
+     "lag_days": 1,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    },
+    {
      "task_id": "T001624",
      "type": "SS",
      "lag_days": 1,
@@ -94932,7 +95856,20 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T001629",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    },
+    {
+     "task_id": "T001650",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    }
+   ],
    "rule_id": "R-instrument",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -97730,6 +98667,12 @@
      "type": "SS",
      "lag_days": 1,
      "reason": "rule:same_system:PIP-PIPE-INSTALL"
+    },
+    {
+     "task_id": "T001730",
+     "type": "SS",
+     "lag_days": 1,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
     }
    ],
    "rule_id": "R-valve",
@@ -97771,7 +98714,20 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T001671",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    },
+    {
+     "task_id": "T001677",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    }
+   ],
    "rule_id": "R-instrument",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -97858,7 +98814,20 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T001748",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    },
+    {
+     "task_id": "T001759",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    }
+   ],
    "rule_id": "R-instrument",
    "planned_start_day": null,
    "planned_finish_day": null,
@@ -98352,6 +99321,12 @@
      "type": "SS",
      "lag_days": 1,
      "reason": "rule:same_system:PIP-PIPE-INSTALL"
+    },
+    {
+     "task_id": "T001736",
+     "type": "SS",
+     "lag_days": 1,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
     },
     {
      "task_id": "T001748",
@@ -99248,6 +100223,12 @@
      "type": "SS",
      "lag_days": 1,
      "reason": "rule:same_system:PIP-PIPE-INSTALL"
+    },
+    {
+     "task_id": "T001677",
+     "type": "SS",
+     "lag_days": 1,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
     },
     {
      "task_id": "T001719",
@@ -100396,6 +101377,12 @@
      "type": "SS",
      "lag_days": 1,
      "reason": "rule:same_system:PIP-PIPE-INSTALL"
+    },
+    {
+     "task_id": "T001759",
+     "type": "SS",
+     "lag_days": 1,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
     }
    ],
    "rule_id": "R-valve",
@@ -106312,7 +107299,14 @@
     "noisy": false,
     "dusty": false
    },
-   "predecessors": [],
+   "predecessors": [
+    {
+     "task_id": "T001889",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell:PIP-PIPE-INSTALL"
+    }
+   ],
    "rule_id": "R-instrument",
    "planned_start_day": null,
    "planned_finish_day": null,

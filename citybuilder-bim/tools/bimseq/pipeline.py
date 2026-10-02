@@ -123,10 +123,10 @@ def build_sector(sector: str, out_dir: Path, sectors_dir: Path = DEFAULT_SECTORS
     step_map = map_elements(doc, library, rules, generated_at=generated_at,
                             step_library_ref=f"{tag}:{inputs.library.name}",
                             mapping_rules_ref=f"{tag}:{inputs.rules.name}")
-    write_json(target / "element_step_map.json", step_map.to_dict())
     bundle, warnings = build_sequence(step_map, library, scenario, doc, generated_at=generated_at,
                                       generator=_generator(inputs.fallback, fractional_crews),
                                       fractional_crews=fractional_crews)
+    write_json(target / "element_step_map.json", step_map.to_dict())   # after scheduling: gate_cycle gaps
     write_json(target / "sequence.json", bundle)
     export_csv(bundle, target / "sequence.csv")
     return BuildSummary(

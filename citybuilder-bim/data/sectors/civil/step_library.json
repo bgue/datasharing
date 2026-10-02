@@ -339,6 +339,18 @@
     {
      "step": "CIV-TM-STAGE1",
      "scope": "same_zone"
+    },
+    {
+     "step": "CIV-UTIL-DIVERT",
+     "scope": "same_cell_below"
+    },
+    {
+     "step": "CIV-UTIL-TEST",
+     "scope": "same_cell_below"
+    },
+    {
+     "step": "CIV-TM-STAGE1",
+     "scope": "same_cell_below"
     }
    ],
    "tags": [
@@ -468,6 +480,32 @@
     {
      "step": "CIV-UTIL-TEST",
      "scope": "same_zone"
+    },
+    {
+     "step": "CIV-TM-STAGE1",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-UTIL-DIVERT",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-EARTH-CUT",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "CIV-EARTH-FILL",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "CIV-UTIL-TEST",
+     "scope": "same_storey"
+    },
+    {
+     "step": "CIV-EARTH-CUT",
+     "scope": "project",
+     "type": "SS",
+     "lag_days": 5
     }
    ],
    "tags": [
@@ -641,6 +679,22 @@
     {
      "step": "CIV-EARTH-FILL",
      "scope": "same_zone"
+    },
+    {
+     "step": "CIV-TRENCH-DIG",
+     "scope": "same_cell"
+    },
+    {
+     "step": "CIV-EARTH-CUT",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "CIV-TM-STAGE1",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-UTIL-TEST",
+     "scope": "same_zone"
     }
    ],
    "tags": [
@@ -789,6 +843,14 @@
     {
      "step": "STR-FOOT-POUR",
      "scope": "same_cell"
+    },
+    {
+     "step": "CIV-PILE-DRIVE",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-CAP-POUR",
+     "scope": "same_cell_below"
     }
    ],
    "tags": [
@@ -924,6 +986,14 @@
    "predecessors": [
     {
      "step": "STR-FOOT-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "CIV-CULVERT-SET",
+     "scope": "same_cell"
+    },
+    {
+     "step": "CIV-EARTH-CUT",
      "scope": "same_cell"
     }
    ],
@@ -1391,7 +1461,16 @@
    "noisy": false,
    "dusty": false,
    "progress_visual": "solid",
-   "predecessors": [],
+   "predecessors": [
+    {
+     "step": "CIV-EARTH-CUT",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-TM-STAGE1",
+     "scope": "same_zone"
+    }
+   ],
    "tags": [
     "concrete"
    ]
@@ -1429,6 +1508,26 @@
     },
     {
      "step": "CIV-TM-STAGE1",
+     "scope": "same_zone"
+    },
+    {
+     "step": "STR-DECK-POUR",
+     "scope": "same_zone"
+    },
+    {
+     "step": "STR-PIER-POUR",
+     "scope": "same_zone"
+    },
+    {
+     "step": "STR-BEAM-LIFT",
+     "scope": "same_zone"
+    },
+    {
+     "step": "STR-DECK-POUR",
+     "scope": "project"
+    },
+    {
+     "step": "CIV-UTIL-TEST",
      "scope": "same_zone"
     }
    ],
@@ -1479,6 +1578,30 @@
     },
     {
      "step": "CIV-TM-STAGE2",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-TM-STAGE2",
+     "scope": "project"
+    },
+    {
+     "step": "CIV-EARTH-CUT",
+     "scope": "same_cell"
+    },
+    {
+     "step": "CIV-EARTH-FILL",
+     "scope": "same_cell"
+    },
+    {
+     "step": "CIV-DRAIN-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-UTIL-TEST",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-STRUCT-BACKFILL",
      "scope": "same_zone"
     }
    ],
@@ -1592,6 +1715,18 @@
     {
      "step": "CIV-BASE-LAY",
      "scope": "same_cell"
+    },
+    {
+     "step": "CIV-SUBGRADE-PREP",
+     "scope": "same_cell"
+    },
+    {
+     "step": "CIV-SUBBASE-LAY",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-DRAIN-BACKFILL",
+     "scope": "same_zone"
     }
    ],
    "tags": [
@@ -1779,6 +1914,18 @@
    "predecessors": [
     {
      "step": "CIV-BASE-LAY",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-ASPHALT-BASE",
+     "scope": "same_cell"
+    },
+    {
+     "step": "CIV-ASPHALT-WEAR",
+     "scope": "same_zone"
+    },
+    {
+     "step": "CIV-TM-STAGE2",
      "scope": "same_zone"
     }
    ],
@@ -2060,11 +2207,11 @@
    "name": "Formation proven before drainage",
    "after_phase": "earthworks",
    "before_phase": "drainage",
-   "scope": "zone",
+   "scope": "storey",
    "requires_inspection_types": [
     "geotechnical"
    ],
-   "description": "Cut and fill tested to formation in the zone before trenches go in."
+   "description": "Cut and fill tested to formation before trenches go in. Storey scope because drains sit on the underground storey while earthworks are on ground level; the underground storey also holds utilities and traffic stage 1, which therefore precede drainage there."
   },
   {
    "id": "G-structures-ts2",
@@ -2075,7 +2222,7 @@
    "requires_inspection_types": [
     "structural"
    ],
-   "description": "Traffic only switches to the new carriageway when bridge, culvert and wall works in the zone are inspected."
+   "description": "Zone gate: structures in a zone are inspected before later work there. The stage 2 switch itself sits in the live-traffic zones, so it also waits for the bridge deck project-wide through its predecessor rules."
   },
   {
    "id": "G-ts2-pavement",
@@ -2083,7 +2230,7 @@
    "after_phase": "traffic_stage_2",
    "before_phase": "pavement",
    "scope": "zone",
-   "description": "The released lane can only be paved after stage 2 is in place."
+   "description": "Zone gate: pavement waits for traffic stage 2 tasks in its zone; the project-wide wait for the switch is a predecessor rule on CIV-SUBGRADE-PREP."
   },
   {
    "id": "G-pavement",
