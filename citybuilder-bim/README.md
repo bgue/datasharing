@@ -55,25 +55,37 @@ python3 -m bimseq schedule element_step_map.json --sector healthcare --out seque
 
 Start with `docs/01-game-design.md`.
 
-## Status (v1)
+## Status (v2)
 
 | Check | Result |
 | --- | --- |
-| Pipeline tests (`cd tools && python3 -m unittest discover -s tests`) | 83 tests pass |
-| Schema validation (`python3 -m bimseq validate ../data`) | 28 files, all valid |
-| Godot headless tests (`godot --headless --path godot --script res://tests/run_tests.gd`) | 85 tests pass |
+| Pipeline tests (`cd tools && python3 -m unittest discover -s tests`) | 140 tests pass (1 skipped without `GODOT_BIN`) |
+| Schema validation (`python3 -m bimseq validate ../data`) | all files valid |
+| Godot headless tests (`godot --headless --path godot --script res://tests/run_tests.gd`) | 158 tests pass |
+| Real-game MCP integration test (`GODOT_BIN=... python3 -m unittest tests.test_mcp_integration`) | passes |
 
-Generated sample projects (synthetic BIM, seed 42):
+v2 adds work packages with a crew demand curve, work faces, takt sequence
+cards and trains, second shift, a hideable Gantt timeline, a JSON-RPC
+WebSocket control API (`godot --headless --path godot --api=8765 -- --scenario=<id>`)
+and an MCP server (`cd tools && python3 -m sitebuilder_mcp`). See
+`docs/05-complex-areas-and-control-api.md` and `tools/sitebuilder_mcp/README.md`.
 
-| Sector | Elements | Tasks | Links | Baseline | Contract |
+Generated sample projects (synthetic BIM, seed 42, fractional crew model):
+
+| Sector | Elements | Tasks | Packages | Baseline | Contract |
 | --- | --- | --- | --- | --- | --- |
-| industrial | 849 | 1910 | 5436 | 36 weeks | 40 weeks |
-| civil | 723 | 1588 | 11477 | 20 weeks | 22 weeks |
-| healthcare | 834 | 1370 | 5556 | 47 weeks | 52 weeks |
+| industrial | 849 | 1910 | 258 | 36 weeks | 40 weeks |
+| civil | 723 | 1588 | 192 | 20 weeks | 22 weeks |
+| healthcare | 834 | 1370 | 285 | 37 weeks | 41 weeks |
 
-Known gaps: no real IFC file has been run through `ifc-to-elements` yet
-(ifcopenshell is optional and untested here); the Godot UI has only been
-exercised headless, so layout and look-and-feel need a pass in the editor;
-economy balance is first-cut (half crews on healthcare survive 40 weeks but
-trend negative); industrial throughput is bounded by 30 to 40 week
-procurement lead times, which is intended but may want tuning.
+Unfunded autopilot at week 40 (standard levels): healthcare 88% finished,
+industrial 62%, civil 44%; none bankrupt. Civil utilisation is low (33%)
+because staged traffic work gates crews, so its library budgets labour at
+40% utilisation; its autopilot throughput is a known gap.
+
+Known gaps: no real IFC file has been run through `ifc-to-elements`; the
+Godot UI and Gantt have only been exercised headless; economy balance has
+had one tuning pass; industrial throughput is bounded by 30 to 40 week
+procurement lead times. The roadmap for large models, visual kits, manual
+sequencing and the construction logic library is in
+`docs/06-roadmap-scale-visuals-manual-logic.md`.

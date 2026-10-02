@@ -8,7 +8,7 @@ const MIN_FINISHED_FRACTION: float = 0.20
 ## Per-bundle target for the funded max-crews run (everything else needs MIN_FINISHED_FRACTION).
 ## healthcare_standard is limited by its crew profiles (concrete cap 3 against packages that need 2 to 3
 ## crews each), see test_healthcare_with_single_crew_minimums_holds_throughput for the sim's own capacity.
-const TARGET_FRACTION: Dictionary = {"healthcare_standard": 0.35, "civil_standard": 0.70}
+const TARGET_FRACTION: Dictionary = {"healthcare_standard": 0.70, "civil_standard": 0.70}
 const RS := TaskRuntime.State
 ## Cash added at the start: this test is about throughput and flow at scale, not economic balance
 ## (hiring every available crew bankrupts the shipped scenarios within 6 to 22 weeks, see the report).
@@ -45,7 +45,7 @@ func _lay_out_site(gs: SimState) -> void:
 func _install_planner(gs: SimState, fraction: float = 1.0) -> void:
     gs.before_work_day = func(_d: int) -> void:
         var t0: int = Time.get_ticks_usec()
-        Planner.daily_plan(gs, "ideal", fraction, true)
+        Planner.daily_plan(gs, "ideal", fraction, true, true)
         planner_us += Time.get_ticks_usec() - t0
 
 
@@ -144,36 +144,48 @@ func test_main_scene_frame_cost_at_scale() -> void:
         sc.set("current_bundle", null)
 
 
-## No funding top-up, half the available crews per trade: sensible staffing must not go bankrupt
-## within 40 weeks on healthcare_standard. Prints the weekly cash trajectory (first 12 weeks) so a
-## failure can be diagnosed from the log.
-func test_healthcare_sensible_crews_survive_without_funding() -> void:
-    var path: String = "res://scenarios/healthcare_standard/sequence.json"
-    if not FileAccess.file_exists(path):
-        return
-    var b := SequenceBundle.load_from_path(path)
-    ok(b.valid, "healthcare_standard valid")
-    var gs := SimState.new()
-    gs.start(b)
-    _lay_out_site(gs)
-    _install_planner(gs, 0.5)
-    var traj: PackedStringArray = []
-    var cash0: float = gs.cash
-    for w in WEEKS:
-        if gs.finished:
-            break
-        if not gs.pending_event.is_empty():
-            gs.resolve_event(0)
-        _order_long_lead(gs)
-        gs.advance_week()
-        if w < 12:
-            traj.append("%d:%d" % [w + 1, int(gs.cash / 1000.0)])
-    var frac: float = float(gs.finished_task_count()) / float(b.tasks.size())
-    print("      [scale-cash] healthcare_standard start cash %s, half crews, weeks=%d, finished %.0f%%, final cash %s, game_over=%s" % [
-        Fmt.money(cash0), gs.week, frac * 100.0, Fmt.money(gs.cash), str(gs.finished and not gs.won)])
-    print("      [scale-cash] cash (k$) by week for the first 12 weeks: %s" % " ".join(traj))
-    ok(not (gs.finished and not gs.won), "no bankruptcy / game over by week %d (%s)" % [gs.week, str(gs.result.get("reason", ""))])
-    gs.free()
+## Unfunded (no top-up), the autopilot hires only when no idle crew exists and fires crews idle for 5+
+## working days: sensible staffing must not go bankrupt within 40 weeks on any standard bundle.
+## Prints finished %, minimum cash and crew utilisation per bundle.
+func test_standard_bundles_survive_without_funding() -> void:
+    var min_finished: Dictionary = {"healthcare_standard": 0.60}
+    var known_gaps: Array[String] = ["civil_standard"]
+    for id in ["civil_standard", "healthcare_standard", "industrial_standard"]:
+        var path: String = "res://scenarios/%s/sequence.json" % id
+        if not FileAccess.file_exists(path):
+            continue
+        var b := SequenceBundle.load_from_path(path)
+        ok(b.valid, "%s valid" % id)
+        var gs := SimState.new()
+        gs.start(b)
+        var cash0: float = gs.cash
+        Planner.auto_layout(gs, LAYDOWN_TILES)
+        var cash_track: Dictionary = {"min": gs.cash}
+        gs.week_advanced.connect(func(_w: int) -> void: cash_track["min"] = minf(float(cash_track["min"]), gs.cash))
+        var weeks_left: int = WEEKS
+        while weeks_left > 0 and not gs.finished:
+            if not gs.pending_event.is_empty():
+                gs.resolve_event(0)
+            var before: int = gs.week
+            Planner.autopilot(gs, weeks_left, "ideal", 1.0, true, 8, true)
+            weeks_left -= maxi(gs.week - before, 0)
+            if gs.week == before and gs.pending_event.is_empty():
+                break
+        var frac: float = float(gs.finished_task_count()) / float(b.tasks.size())
+        print("      [scale-cash] %-20s unfunded (start %s): week %d, finished %.0f%%, min cash %s, final cash %s, utilisation %.0f%%, crews %d, game_over=%s" % [
+            id, Fmt.money(cash0), gs.week, frac * 100.0, Fmt.money(float(cash_track["min"])), Fmt.money(gs.cash),
+            gs.crew_utilisation() * 100.0, gs.crews.size(), str(gs.finished and not gs.won)])
+        var over: bool = gs.finished and not gs.won
+        if known_gaps.has(id):
+            # Economy gap reported to the data owners: civil_standard's crawler-crane and wage bill outruns
+            # the start cash while the work is gate-limited (see the report). It must still get a good way in.
+            print("      [scale-cash] KNOWN GAP: %s ends in %s" % [id, "game over at week %d" % gs.week if over else "no game over"])
+            ok(gs.week >= 25 and frac >= 0.35, "%s: reached week %d with %.0f%% finished before running out of cash" % [id, gs.week, frac * 100.0])
+        else:
+            ok(not over, "%s: no bankruptcy / game over by week %d (%s)" % [id, gs.week, str(gs.result.get("reason", ""))])
+        if min_finished.has(id):
+            ok(frac >= float(min_finished[id]), "%s: %.1f%% finished unfunded (need >= %.0f%%)" % [id, frac * 100.0, float(min_finished[id]) * 100.0])
+        gs.free()
 
 
 ## The packages' minimum crews are what holds healthcare_standard back (a package below its minimum makes

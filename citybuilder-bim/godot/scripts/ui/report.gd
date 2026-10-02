@@ -59,9 +59,9 @@ func setup(state: SimState) -> void:
 func show_week(r: Dictionary) -> void:
     if r.is_empty() or gs.finished:
         return
-    var txt: String = "[b]Week %d done[/b]  cash %s (%s)\nTasks finished: %d | crews worked: %d tasks\n" % [
+    var txt: String = "[b]Week %d done[/b]  cash %s (%s)\nTasks finished: %d | crew utilisation %s (%s overall)\n" % [
         int(r["week"]), Fmt.money(float(r["cash"])), _signed(float(r["cash_change"])),
-        int(r["tasks_finished"]), int(r["worked_tasks"])]
+        int(r["tasks_finished"]), Fmt.pct(float(r.get("utilisation_week", 0.0))), Fmt.pct(float(r.get("utilisation", 0.0)))]
     var lines: Array = r["log"]
     var n: int = 0
     for l in lines:

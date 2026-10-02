@@ -52,6 +52,7 @@ var inspections_first_pass: int = 0
 var inspection_failures_total: int = 0
 var inspection_fail_override: float = -1.0  # tests: force the fail chance
 var spent_total: float = 0.0
+var spent_by: Dictionary = {}  # category (materials, weekly, place, mobilise, overdraft fee, event) -> amount
 var overdraft_fees_total: float = 0.0
 var payments_received: float = 0.0
 var retention_held: float = 0.0
@@ -60,7 +61,10 @@ var cumulative_spend_by_week: Array[float] = []
 var crew_count_by_week: Array[int] = []
 var crew_days_worked: float = 0.0
 var crew_days_idle: float = 0.0
-var crew_days_by_trade: Dictionary = {}  # trade -> [worked, idle] (assigned crews only)
+var crew_days_by_trade: Dictionary = {}  # trade -> [worked, idle] (all hired crews: they are paid)
+var week_crew_days_worked: float = 0.0
+var week_crew_days_idle: float = 0.0
+var crew_idle_days: Dictionary = {}  # crew id -> consecutive working days without productive work
 var worked_this_week: Array[String] = []
 var week_log: Array[String] = []
 var last_report: Dictionary = {}
@@ -170,6 +174,7 @@ func start(b: SequenceBundle) -> bool:
     inspection_failures_total = 0
     inspection_fail_override = -1.0
     spent_total = 0.0
+    spent_by.clear()
     overdraft_fees_total = 0.0
     payments_received = 0.0
     retention_held = 0.0
@@ -179,6 +184,9 @@ func start(b: SequenceBundle) -> bool:
     crew_days_worked = 0.0
     crew_days_idle = 0.0
     crew_days_by_trade.clear()
+    crew_idle_days.clear()
+    week_crew_days_worked = 0.0
+    week_crew_days_idle = 0.0
     worked_this_week.clear()
     week_log.clear()
     last_report = {}
@@ -220,9 +228,11 @@ func log_event(msg: String) -> void:
     week_log.append(msg)
 
 
-func spend(amount: float, _what: String = "") -> void:
+func spend(amount: float, what: String = "") -> void:
     if amount <= 0.0:
         return
+    var cat: String = what.get_slice(":", 0).get_slice(" ", 0) if what != "" else "other"
+    spent_by[cat] = float(spent_by.get(cat, 0.0)) + amount
     cash -= amount
     spent_total += amount
     cash_changed.emit(cash)
@@ -427,6 +437,7 @@ func fire(crew_id: int) -> bool:
     for i in crews.size():
         if int(crews[i]["id"]) == crew_id:
             crews.remove_at(i)
+            crew_idle_days.erase(crew_id)
             crews_changed.emit()
             return true
     last_error = "no such crew"
@@ -633,6 +644,8 @@ func advance_week() -> bool:
     if not running or finished or not pending_event.is_empty():
         return false
     week_log.clear()
+    week_crew_days_worked = 0.0
+    week_crew_days_idle = 0.0
     worked_this_week.clear()
     hired_this_week.clear()
     var cash_before: float = cash
@@ -661,6 +674,8 @@ func advance_week() -> bool:
         "cash_change": cash - cash_before,
         "tasks_finished": finished_task_count() - finished_before,
         "worked_tasks": worked_this_week.size(),
+        "utilisation_week": utilisation_of(week_crew_days_worked, week_crew_days_idle),
+        "utilisation": crew_utilisation(),
         "log": week_log.duplicate(),
         "score": Scoring.compute(self, true),
     }
@@ -696,6 +711,16 @@ func _expire_modifiers() -> void:
 func resolve_event(choice_index: int) -> void:
     Events.resolve(self, choice_index)
     refresh_states()
+
+
+static func utilisation_of(worked: float, idle: float) -> float:
+    var total: float = worked + idle
+    return worked / total if total > 0.0 else 0.0
+
+
+## Crew utilisation so far: worked / (worked + idle) crew-days over all hired crews.
+func crew_utilisation() -> float:
+    return utilisation_of(crew_days_worked, crew_days_idle)
 
 
 func finished_task_count() -> int:
@@ -879,6 +904,7 @@ func snapshot() -> Dictionary:
         "tile_count": tiles.size(),
         "weekly_outflow": Economy.weekly_outflow(self),
         "double_shift_zone_weeks": double_shift_zone_weeks,
+        "utilisation": crew_utilisation(),
         "score": Scoring.compute(self, true),
         "phases": storey_phase_status(),
     }

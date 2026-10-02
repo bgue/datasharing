@@ -122,5 +122,5 @@ static func update(gs: SimState) -> void:
     for zid in gs.card_zones():
         var zr: ZoneRuntime = gs.zone_runtime[zid]
         if zr.auto_staff == "min" or zr.auto_staff == "ideal":
-            Planner.staff_zone(gs, zid, zr.auto_staff, false)
+            Planner.staff_zone(gs, zid, zr.auto_staff, false, false)
             Planner.release_idle_crews(gs, zid)

@@ -126,6 +126,58 @@ static func _place_cranes(gs: SimState) -> int:
     return placed
 
 
+## Hires cranes only while crane work is at hand: a crane whose coverage holds no unfinished
+## crane task that is workable now (or planned within two weeks) is demobilised, and one is placed
+## again on an existing crane pad when such work is uncovered. Returns [removed, placed].
+static func manage_cranes(gs: SimState) -> Array[int]:
+    var removed: int = 0
+    var placed: int = 0
+    var soon: Array[TaskData] = []
+    var horizon_day: int = (gs.week + 2) * 5
+    for t in gs.bundle.tasks:
+        if not t.requires_crane:
+            continue
+        var st: int = (gs.runtime[t.task_id] as TaskRuntime).state
+        if TaskRuntime.is_finished(st):
+            continue
+        if st == TaskRuntime.State.READY or st == TaskRuntime.State.ACTIVE or st == TaskRuntime.State.REWORK \
+                or t.planned_start_day <= horizon_day:
+            soon.append(t)
+    for i in range(gs.equipment_placed.size() - 1, -1, -1):
+        var e: Dictionary = gs.equipment_placed[i]
+        var def: EquipmentDef = gs.equipment_def(str(e["id"]))
+        if def == null or not def.is_crane():
+            continue
+        var used: bool = false
+        for t in soon:
+            if Logistics.cranes_cover([{"cell": e["cell"], "reach": float(def.reach_cells)}], t.cells):
+                used = true
+                break
+        if not used and gs.remove_equipment(i):
+            removed += 1
+    for t in soon:
+        if Logistics.crane_covers(gs, t.cells):
+            continue
+        var done: bool = false
+        for c in gs.tiles:
+            if done or Logistics.tile_at(gs.tiles, c) != SiteTiles.CRANE_PAD:
+                continue
+            var in_use: bool = false
+            for e in gs.equipment_placed:
+                if e["cell"] == c:
+                    in_use = true
+            if in_use:
+                continue
+            for def in gs.scenario.equipment:
+                if def.is_crane() and gs.equipment_count(def.id) < def.max_count \
+                        and Logistics.cranes_cover([{"cell": c, "reach": float(def.reach_cells)}], t.cells):
+                    if gs.place_equipment(def.id, c):
+                        placed += 1
+                        done = true
+                        break
+    return [removed, placed]
+
+
 # ----------------------------------------------------------------- procurement
 
 ## Orders every long-lead task whose planned start minus lead time falls within the horizon.
@@ -156,15 +208,35 @@ static func level_need(p: PackageData, level: String) -> int:
     return p.crew_ideal
 
 
+## Crew-days of work a package can absorb right now: remaining effort of its READY (unimpeded),
+## ACTIVE and REWORK tasks. Work that cannot start this week (gate, delivery, access) is not counted.
+static func ready_crew_days(gs: SimState, p: PackageData) -> float:
+    var rt: PackageRuntime = gs.package_runtime[p.package_id]
+    var sum: float = 0.0
+    for t in p.tasks:
+        var trt: TaskRuntime = gs.runtime[t.task_id]
+        if trt.state == TaskRuntime.State.ACTIVE or trt.state == TaskRuntime.State.REWORK \
+                or (trt.state == TaskRuntime.State.READY and rt.released \
+                and (trt.blocked_reason == "" or trt.blocked_reason.begins_with("No free laydown"))):
+            sum += maxf(trt.required - trt.progress, 0.0)
+    return sum
+
+
 ## Crews of a trade the zone needs at `level`: the level demand of the package the crews will work
-## first (lowest priority value with ready work), capped by the zone's max_crews. Crews beyond that
+## first (lowest priority value with ready work), but never more than the ready work can keep busy
+## for a week (and never below the package minimum), capped by the zone's max_crews. Crews beyond that
 ## package's max spill to the next one, so the head package is what a crew count has to satisfy.
 static func zone_trade_need(gs: SimState, zone_id: String, trade: String, level: String) -> int:
     var pkgs: Array[PackageData] = Packages.workable(gs, zone_id, trade)
     if pkgs.is_empty():
         return 0
     var zone: ZoneData = gs.bundle.zones_by_id[zone_id]
-    return mini(level_need(pkgs[0], level), zone.max_crews)
+    var head: PackageData = pkgs[0]
+    var want: int = level_need(head, level)
+    if level != "min":
+        var busy: int = ceili(ready_crew_days(gs, head) / 5.0)
+        want = mini(want, maxi(busy, head.crew_min))
+    return mini(want, zone.max_crews)
 
 
 static func _crews_of(gs: SimState, trade: String, zone_id: String) -> Array[int]:
@@ -187,13 +259,33 @@ static func _find_idle_crew(gs: SimState, trade: String, exclude_zone: String) -
     return -1
 
 
-## Moves idle crews (hiring when `hire` and caps allow) so each trade with workable packages in the
-## zone has the crews that level calls for. Returns {moved, hired, unmet}.
-static func staff_zone(gs: SimState, zone_id: String, level: String = "ideal", hire: bool = false) -> Dictionary:
-    var res: Dictionary = {"moved": 0, "hired": 0, "unmet": 0}
+const IDLE_FIRE_DAYS: int = 5
+
+
+## Fires crews that were idle for IDLE_FIRE_DAYS or more consecutive working days (optionally only in
+## one zone; "" = all crews, including unassigned ones). Returns how many were fired.
+static func fire_idle_crews(gs: SimState, zone_id: String = "", all_zones: bool = true, idle_days: int = IDLE_FIRE_DAYS) -> int:
+    var n: int = 0
+    for c in gs.crews.duplicate():
+        if not all_zones and str(c["zone_id"]) != zone_id:
+            continue
+        if int(gs.crew_idle_days.get(int(c["id"]), 0)) >= idle_days:
+            if gs.fire(int(c["id"])):
+                n += 1
+    return n
+
+
+## Moves idle crews (hiring when `hire` and caps allow, and only when no idle crew of the trade exists)
+## so each trade with workable packages in the zone has the crews that level calls for. With `hire` and
+## `fire_idle`, crews of the zone that were idle for 5+ working days are fired first.
+## Returns {moved, hired, fired, unmet}.
+static func staff_zone(gs: SimState, zone_id: String, level: String = "ideal", hire: bool = false, fire_idle: bool = true) -> Dictionary:
+    var res: Dictionary = {"moved": 0, "hired": 0, "fired": 0, "unmet": 0}
     if not gs.bundle.zones_by_id.has(zone_id):
         gs.last_error = "no such zone"
         return res
+    if hire and fire_idle:
+        res["fired"] = fire_idle_crews(gs, zone_id, false)
     for trade in gs.bundle.trade_ids():
         var need: int = zone_trade_need(gs, zone_id, trade, level)
         if need <= 0:
@@ -240,86 +332,116 @@ static func trade_has_work(gs: SimState, trade: String) -> bool:
     return false
 
 
-## Hires crews of every trade that has workable packages, up to `fraction` of the available crews
-## (at least one per trade), respecting the weekly hire cap.
-static func hire_for_work(gs: SimState, fraction: float = 1.0) -> int:
-    var hired: int = 0
+## One planning pass (also run before every working day by the autopilot). Per trade:
+## 1. deal the existing crews over the zones with workable packages of that trade: pass 1 gives each zone
+##    the head package's minimum, pass 2 raises it to `level` (capped by the ready work), pass 3 adds
+##    spare crews up to the package maximum; crews nobody needs are unassigned;
+## 2. only if some zone still lacks crews and no surplus crew of the trade exists, hire (up to
+##    `crew_fraction` of the available crews, at least one per trade, weekly hire cap) and deal again.
+## With `hire` and `fire_idle`, crews idle for 5+ consecutive working days are fired first.
+static func daily_plan(gs: SimState, level: String = "ideal", crew_fraction: float = 1.0, hire: bool = true, fire_idle: bool = true) -> void:
+    # when cash is short the autopilot stops hiring and sheds crews that are not working
+    var lean: bool = hire and gs.cash < -0.25 * gs.scenario.overdraft_limit
+    if hire and fire_idle:
+        fire_idle_crews(gs, "", true, 1 if lean else IDLE_FIRE_DAYS)
+        manage_cranes(gs)
     for t in gs.bundle.trades:
-        if not trade_has_work(gs, t.id):
+        var trade: String = t.id
+        var dealt: Dictionary = _deal_trade(gs, trade, level)
+        # spare crews that could not fill a package minimum on their own count towards the shortfall
+        var unmet: int = int(dealt["unmet"]) - int(dealt["spare"])
+        if not hire or unmet <= 0 or (lean and gs.crew_count(trade) > 0):
             continue
-        var cap: int = mini(maxi(1, int(floor(float(gs.crews_cap(t.id)) * fraction))), gs.crews_cap(t.id))
-        while gs.crew_count(t.id) < cap and gs.hires_left_this_week(t.id) > 0:
-            if gs.hire(t.id) < 0:
+        var cap: int = mini(maxi(1, int(floor(float(gs.crews_cap(trade)) * crew_fraction))), gs.crews_cap(trade))
+        var hired: int = 0
+        while hired < unmet and gs.crew_count(trade) < cap and gs.hires_left_this_week(trade) > 0:
+            if gs.hire(trade) < 0:
                 break
             hired += 1
-    return hired
+        if hired > 0:
+            _deal_trade(gs, trade, level)
 
 
-## One planning pass (also run before every working day by the autopilot): deals each trade's crews
-## over the zones with workable packages of that trade. Pass 1 gives each zone the package minimum,
-## pass 2 raises it to `level`, leftovers are stacked round-robin (they spill over to the next package).
-static func daily_plan(gs: SimState, level: String = "ideal", crew_fraction: float = 1.0, hire: bool = true) -> void:
-    if hire:
-        hire_for_work(gs, crew_fraction)
-    for trade in gs.bundle.trade_ids():
-        var crews: Array[int] = []
-        for c in gs.crews:
-            if str(c["trade"]) == trade:
-                crews.append(int(c["id"]))
-        if crews.is_empty():
-            continue
-        var zones: Array[String] = []
-        for z in gs.bundle.zones:
-            var pk: Array[PackageData] = Packages.workable(gs, z.id, trade)
-            if not pk.is_empty():
-                zones.append(z.id)
-        # zones are served in zone order: spreading crews over the whole site beats following the baseline order
-        var target: Dictionary = {}  # zone -> crews
-        var left: int = crews.size()
+## Deals the trade's crews over its work zones. Returns {unmet: crews still missing at `level`,
+## spare: crews nobody could use (left unassigned)}.
+static func _deal_trade(gs: SimState, trade: String, level: String) -> Dictionary:
+    var crews: Array[int] = []
+    for c in gs.crews:
+        if str(c["trade"]) == trade:
+            crews.append(int(c["id"]))
+    var zones: Array[String] = []
+    for z in gs.bundle.zones:
+        if not Packages.workable(gs, z.id, trade).is_empty():
+            zones.append(z.id)  # zone order: spreading crews over the site beats following the baseline order
+    var target: Dictionary = {}  # zone -> crews
+    var left: int = crews.size()
+    var wanted: int = 0
+    for z in zones:
+        var m: int = zone_trade_need(gs, z, trade, "min")
+        wanted += zone_trade_need(gs, z, trade, level)
+        if m > 0 and left >= m:
+            target[z] = m
+            left -= m
+    if level != "min":
         for z in zones:
-            var m: int = zone_trade_need(gs, z, trade, "min")
-            if m > 0 and left >= m:
-                target[z] = m
-                left -= m
-        if level != "min":
-            for z in zones:
-                if left <= 0:
-                    break
-                var want: int = zone_trade_need(gs, z, trade, level) - int(target.get(z, 0))
-                var give: int = mini(maxi(want, 0), left)
-                if give > 0 and (target.has(z) or give >= zone_trade_need(gs, z, trade, "min")):
-                    target[z] = int(target.get(z, 0)) + give
-                    left -= give
-        var i: int = 0
-        while left > 0 and not target.is_empty():
-            var z2: String = target.keys()[i % target.size()]
-            target[z2] = int(target[z2]) + 1
-            left -= 1
-            i += 1
-        # deal crews: keep crews where they are when the zone still needs them
-        var assigned: Dictionary = {}
-        var pool: Array[int] = []
-        for cid in crews:
-            var cz: String = str(gs.crew_by_id(cid)["zone_id"])
-            if target.has(cz) and int(assigned.get(cz, 0)) < int(target[cz]):
-                assigned[cz] = int(assigned.get(cz, 0)) + 1
-            else:
-                pool.append(cid)
-        for z in target:
-            while int(assigned.get(z, 0)) < int(target[z]) and not pool.is_empty():
-                gs.assign_crew(pool.pop_front(), z)
-                assigned[z] = int(assigned.get(z, 0)) + 1
-        for cid in pool:
-            if str(gs.crew_by_id(cid)["zone_id"]) != "":
-                gs.assign_crew(cid, "")
+            if left <= 0:
+                break
+            var want: int = zone_trade_need(gs, z, trade, level) - int(target.get(z, 0))
+            var give: int = mini(maxi(want, 0), left)
+            if give > 0 and (target.has(z) or give >= zone_trade_need(gs, z, trade, "min")):
+                target[z] = int(target.get(z, 0)) + give
+                left -= give
+    # crews that cannot fill a package minimum on their own wait in the first zone that lacks crews, so a
+    # partner can join them (they are not idle, and are not fired)
+    if left > 0:
+        for z in zones:
+            if not target.has(z):
+                target[z] = left
+                left = 0
+                break
+    var assigned_total: int = crews.size() - left
+    var unmet: int = maxi(wanted - assigned_total, 0)
+    # hiring is conservative: only to give every zone with workable packages the package minimum
+    # (the extra crews up to `level` come from existing crews only)
+    var wanted_min: int = 0
+    for z in zones:
+        wanted_min += zone_trade_need(gs, z, trade, "min")
+    unmet = mini(unmet, maxi(wanted_min - crews.size(), 0) + left)
+    # spare crews: up to the head package's maximum
+    for z in zones:
+        if left <= 0:
+            break
+        if not target.has(z):
+            continue
+        var room: int = mini(zone_trade_need(gs, z, trade, "max"), gs.bundle.zones_by_id[z].max_crews) - int(target[z])
+        var add: int = mini(maxi(room, 0), left)
+        target[z] = int(target[z]) + add
+        left -= add
+    # deal: crews stay where the zone still needs them
+    var assigned: Dictionary = {}
+    var pool: Array[int] = []
+    for cid in crews:
+        var cz: String = str(gs.crew_by_id(cid)["zone_id"])
+        if target.has(cz) and int(assigned.get(cz, 0)) < int(target[cz]):
+            assigned[cz] = int(assigned.get(cz, 0)) + 1
+        else:
+            pool.append(cid)
+    for z in target:
+        while int(assigned.get(z, 0)) < int(target[z]) and not pool.is_empty():
+            gs.assign_crew(pool.pop_front(), z)
+            assigned[z] = int(assigned.get(z, 0)) + 1
+    for cid in pool:
+        if str(gs.crew_by_id(cid)["zone_id"]) != "":
+            gs.assign_crew(cid, "")
+    return {"unmet": unmet, "spare": pool.size()}
 
 
 ## Weekly loop: order due items, plan crews before each working day, advance. Stops early when an
 ## event with choices is pending. Returns a summary.
-static func autopilot(gs: SimState, weeks: int, level: String = "ideal", crew_fraction: float = 1.0, hire: bool = true, horizon_weeks: int = 8) -> Dictionary:
+static func autopilot(gs: SimState, weeks: int, level: String = "ideal", crew_fraction: float = 1.0, hire: bool = true, horizon_weeks: int = 8, fire_idle: bool = true) -> Dictionary:
     var run_weeks: int = 0
     var prev_hook: Callable = gs.before_work_day
-    gs.before_work_day = func(_d: int) -> void: daily_plan(gs, level, crew_fraction, hire)
+    gs.before_work_day = func(_d: int) -> void: daily_plan(gs, level, crew_fraction, hire, fire_idle)
     for w in weeks:
         if gs.finished or not gs.pending_event.is_empty():
             break

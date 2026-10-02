@@ -304,6 +304,7 @@ class StepLibrary:
     packaging: Packaging = field(default_factory=Packaging)
     exclusive_faces: list[str] = field(default_factory=lambda: ["floor"])
     sequence_cards: list[JSON] = field(default_factory=list)
+    labour_utilisation: float = 0.65
 
     def to_dict(self) -> JSON:
         return copy.deepcopy(self.raw)
@@ -349,7 +350,8 @@ def step_library_from_dict(d: Mapping[str, Any]) -> StepLibrary:
         max_over_ideal=int(pk.get("max_over_ideal", 1)),
         over_ideal_factor=float(pk.get("over_ideal_factor", 0.6)))
     return StepLibrary(d["sector"], phases, trades, steps, gates, copy.deepcopy(dict(d)), packaging,
-                       list(d.get("exclusive_faces", ["floor"])), copy.deepcopy(list(d.get("sequence_cards", []))))
+                       list(d.get("exclusive_faces", ["floor"])), copy.deepcopy(list(d.get("sequence_cards", []))),
+                       float(d.get("labour_utilisation", 0.65)))
 
 
 def load_step_library(path: str | Path) -> StepLibrary:

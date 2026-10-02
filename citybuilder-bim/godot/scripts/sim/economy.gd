@@ -88,8 +88,9 @@ static func overdraft_fee(cash: float) -> float:
 
 static func run_week(gs: SimState) -> void:
     var out: Dictionary = weekly_outflow(gs)
-    if float(out["total"]) > 0.0:
-        gs.spend(float(out["total"]), "weekly crews, equipment and rent")
+    gs.spend(float(out["crews"]), "crews: weekly wages")
+    gs.spend(float(out["equipment"]), "equipment: weekly hire")
+    gs.spend(float(out["rent"]), "rent: site tiles")
     if is_payment_week(gs):
         pay_progress(gs)
     var fee: float = overdraft_fee(gs.cash)

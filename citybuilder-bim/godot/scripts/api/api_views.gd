@@ -26,6 +26,7 @@ static func summary(gs: SimState) -> Dictionary:
         "tasks_total": gs.runtime.size(), "tasks_finished": gs.finished_task_count(),
         "incidents": gs.incidents, "speed": gs.speed, "spent": gs.spent_total,
         "double_shift_zone_weeks": gs.double_shift_zone_weeks,
+        "utilisation": gs.crew_utilisation(), "crews_hired": gs.crews.size(),
         "finished": gs.finished, "won": gs.won, "result": gs.result,
         "pending_event": pending_event(gs),
     }

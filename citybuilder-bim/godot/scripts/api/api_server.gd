@@ -621,7 +621,7 @@ func _m_zone_staff(p: Dictionary) -> Variant:
     var level: String = str(p.get("level", "ideal"))
     if not Planner.LEVELS.has(level):
         return _err("level must be min, ideal or max", -32602)
-    var res: Dictionary = Planner.staff_zone(gs, (z as ZoneData).id, level, bool(p.get("hire", false)))
+    var res: Dictionary = Planner.staff_zone(gs, (z as ZoneData).id, level, bool(p.get("hire", false)), bool(p.get("fire_idle", true)))
     res["ok"] = true
     res["zone"] = ApiViews.zone_view(gs, z)
     return res
@@ -662,7 +662,7 @@ func _m_autopilot(p: Dictionary) -> Variant:
     if not Planner.LEVELS.has(level):
         return _err("staff_level must be min, ideal or max", -32602)
     var res: Dictionary = Planner.autopilot(gs, int(p.get("weeks", 1)), level, float(p.get("crew_fraction", 1.0)),
-            bool(p.get("hire", true)), int(p.get("horizon_weeks", 8)))
+            bool(p.get("hire", true)), int(p.get("horizon_weeks", 8)), bool(p.get("fire_idle", true)))
     var s: Dictionary = _summary()
     s["weeks_run"] = res["weeks_run"]
     return s

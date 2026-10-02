@@ -113,6 +113,7 @@ static func run_day(gs: SimState, d: int) -> void:
     gs.crew_package.clear()
     var ctx: Dictionary = {"laydown_free": Readiness.laydown_free_cells(gs), "day": day}
     var over_factor: float = gs.bundle.packaging_over_ideal_factor
+    var booked: Dictionary = {}  # crew id -> true
     for pkg in gs.bundle.packages:
         if not alloc["by_package"].has(pkg.package_id):
             continue
@@ -123,7 +124,7 @@ static func run_day(gs: SimState, d: int) -> void:
             gs.crew_package[int(cid)] = pkg.package_id
         if n < pkg.crew_min:
             for cid in crew_ids:
-                _book(gs, str(gs.crew_by_id(int(cid))["trade"]), 0.0, 1.0)
+                _book(gs, int(cid), 0.0, 1.0, booked, true)  # waiting for partners: not "idle" for firing
             continue
         var zone: ZoneData = gs.bundle.zones_by_id[pkg.zone_id]
         var zrt: ZoneRuntime = gs.zone_runtime[pkg.zone_id]
@@ -136,6 +137,7 @@ static func run_day(gs: SimState, d: int) -> void:
         for k in n:
             var weight: float = 1.0 if k < pkg.crew_ideal else over_factor
             var trade: String = str(gs.crew_by_id(int(crew_ids[k]))["trade"])
+            var crew_id: int = int(crew_ids[k])
             var used: float = _crew_day(gs, pkg, weight * face_f * shift_f, zrt.shift_mode == "double", ctx, 1.0)
             # a crew that ran out of ready work in its package spends the rest of the day on the next
             # released package of its trade in the zone (one that has, or needs only, a single crew)
@@ -150,18 +152,31 @@ static func run_day(gs: SimState, d: int) -> void:
                     used += more
                     if used >= 1.0 - EPS:
                         break
-            _book(gs, trade, used, 1.0 - used)
+            _book(gs, crew_id, used, 1.0 - used, booked)
     for cid in alloc["idle"]:
-        _book(gs, str(gs.crew_by_id(int(cid))["trade"]), 0.0, 1.0)
+        _book(gs, int(cid), 0.0, 1.0, booked)
+    # crews without a zone are paid and idle too
+    for c in gs.crews:
+        if not booked.has(int(c["id"])):
+            _book(gs, int(c["id"]), 0.0, 1.0, booked)
 
 
-static func _book(gs: SimState, trade: String, worked: float, idle: float) -> void:
+static func _book(gs: SimState, crew_id: int, worked: float, idle: float, booked: Dictionary, waiting_for_crew: bool = false) -> void:
+    booked[crew_id] = true
+    var trade: String = str(gs.crew_by_id(crew_id).get("trade", ""))
     gs.crew_days_worked += worked
     gs.crew_days_idle += idle
+    gs.week_crew_days_worked += worked
+    gs.week_crew_days_idle += idle
     var bt: Array = gs.crew_days_by_trade.get(trade, [0.0, 0.0])
     bt[0] += worked
     bt[1] += idle
     gs.crew_days_by_trade[trade] = bt
+    # consecutive working days without productive work (used by the planner to fire idle crews)
+    if worked > 0.01:
+        gs.crew_idle_days[crew_id] = 0
+    elif not waiting_for_crew:
+        gs.crew_idle_days[crew_id] = int(gs.crew_idle_days.get(crew_id, 0)) + 1
 
 
 ## One crew's day on one package. Returns the fraction of the day it was busy.

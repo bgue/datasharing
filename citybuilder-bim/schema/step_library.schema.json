@@ -356,6 +356,13 @@
       "items": {
         "$ref": "common.schema.json#/$defs/sequence_card"
       }
+    },
+    "labour_utilisation": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "default": 0.65,
+      "description": "Expected share of paid crew-weeks that is productive; divides baseline labour cost"
     }
   }
 }

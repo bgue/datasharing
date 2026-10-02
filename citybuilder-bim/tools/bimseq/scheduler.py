@@ -335,13 +335,14 @@ LABOUR_UTILISATION = 0.65
 
 
 def labour_costs(tasks: Seq[Task], library: StepLibrary) -> list[float]:
-    """Wages per task: ``estimated_crew_days * trade.weekly_cost / 5 / LABOUR_UTILISATION``
-    (8000/week if trade unknown)."""
+    """Wages per task: ``estimated_crew_days * trade.weekly_cost / 5 / utilisation``
+    (8000/week if trade unknown; utilisation from ``library.labour_utilisation``, default 0.65)."""
     out = []
+    util = float(getattr(library, "labour_utilisation", LABOUR_UTILISATION) or LABOUR_UTILISATION)
     for t in tasks:
         trade = library.trades.get(t.trade)
         weekly = trade.weekly_cost if trade is not None else DEFAULT_TRADE_WEEKLY_COST
-        out.append(t.estimated_crew_days * weekly / DAYS_PER_WEEK / LABOUR_UTILISATION)
+        out.append(t.estimated_crew_days * weekly / DAYS_PER_WEEK / util)
     return out
 
 

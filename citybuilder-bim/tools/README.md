@@ -87,7 +87,7 @@ tasks costs a whole crew-day), which would make the derived `contract_weeks` unp
   `estimated_crew_days * trade.weekly_cost / 5` per task (8000/week for a trade missing from the library),
   reported as `baseline.total_labour_cost`; `baseline.total_cost` stays material cost only, and
   `weekly_planned_cost` accrues materials plus labour. With `budget == 0`:
-  `budget = round((total_cost + total_labour_cost) * budget_factor * 1.05)` (5% mobilisation allowance). Labour is crew-days × weekly cost / 5 divided by an expected utilisation of 0.65 (`LABOUR_UTILISATION`), because crews are paid for whole weeks including time waiting on gates, inspections and deliveries.
+  `budget = round((total_cost + total_labour_cost) * budget_factor * 1.05)` (5% mobilisation allowance). Labour is crew-days × weekly cost / 5 divided by an expected utilisation of 0.65 (`LABOUR_UTILISATION`), because crews are paid for whole weeks including time waiting on gates, inspections and deliveries. A step library may override it with `labour_utilisation` (civil uses 0.4 because staged traffic work idles crews).
   With `W = (total_cost + total_labour_cost) / finish_week`, `start_cash` is raised to at least `8 * W`
   and `overdraft_limit` to at least `4 * W`; each raise prints a `note:` line. Explicit budgets and larger
   cash values are left alone.
