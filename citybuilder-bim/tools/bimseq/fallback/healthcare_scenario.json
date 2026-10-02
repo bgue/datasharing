@@ -1,0 +1,120 @@
+{
+ "schema_version": "1.0",
+ "sector": "healthcare",
+ "id": "standard",
+ "name": "Hospital wing (fallback standard)",
+ "description": "FALLBACK scenario for pipeline testing; not the authored WP-B level.",
+ "difficulty": "standard",
+ "contract_weeks": null,
+ "budget": 0,
+ "start_cash": 600000,
+ "overdraft_limit": 200000,
+ "weather": {
+  "start_week_of_year": 10,
+  "monthly_factor": [
+   0.7,
+   0.75,
+   0.85,
+   0.9,
+   1,
+   1,
+   1,
+   1,
+   0.95,
+   0.85,
+   0.75,
+   0.7
+  ]
+ },
+ "crews_available": {
+  "concrete": 3,
+  "envelope": 3,
+  "finishes": 4,
+  "mechanical": 3,
+  "electrical": 3,
+  "plumbing": 2,
+  "equipment": 1,
+  "commissioning": 2
+ },
+ "equipment": [
+  {
+   "id": "tc1",
+   "type": "tower_crane",
+   "name": "Tower crane",
+   "weekly_cost": 9000,
+   "mobilisation_cost": 20000,
+   "reach_cells": 6,
+   "footprint_cells": 1,
+   "max_count": 1
+  }
+ ],
+ "site": {
+  "gates": [
+   [
+    0,
+    2
+   ]
+  ],
+  "occupied_cells": [
+   [
+    8,
+    2
+   ],
+   [
+    8,
+    3
+   ]
+  ],
+  "tile_costs": {
+   "haul_road": {
+    "place": 500,
+    "weekly": 50
+   },
+   "laydown": {
+    "place": 300,
+    "weekly": 100
+   },
+   "crane_pad": {
+    "place": 2000,
+    "weekly": 0
+   },
+   "welfare": {
+    "place": 4000,
+    "weekly": 400
+   },
+   "hoarding": {
+    "place": 200,
+    "weekly": 10
+   }
+  }
+ },
+ "events": [
+  {
+   "id": "rain",
+   "name": "Wet week",
+   "text": "Heavy rain all week. Weather-sensitive work slows.",
+   "weight": 3,
+   "effect": {
+    "productivity_factor": 0.5,
+    "affects_steps_with_tag": "weather_sensitive",
+    "duration_weeks": 1
+   }
+  }
+ ],
+ "scoring": {
+  "weights": {
+   "time": 35,
+   "cost": 25,
+   "safety": 20,
+   "quality": 10,
+   "stability": 10
+  },
+  "max_incidents_hard": 3,
+  "grade_thresholds": {
+   "S": 90,
+   "A": 75,
+   "B": 60,
+   "C": 40
+  }
+ }
+}

@@ -1,0 +1,422 @@
+{
+ "schema_version": "1.0",
+ "_comment": "FALLBACK DATA written by WP-A so the pipeline runs end to end when data/sectors/<sector>/ is not available. Not the authoritative sector content (see data/sectors/).",
+ "sector": "civil",
+ "step_library": "civil_step_library.json",
+ "rules": [
+  {
+   "id": "R-sign-temp",
+   "priority": 120,
+   "match": {
+    "ifc_class": [
+     "IfcSign"
+    ],
+    "properties": {
+     "Temporary": true
+    }
+   },
+   "steps": [
+    {
+     "step": "TMP-TM-SIGN",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-sign",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcSign"
+    ]
+   },
+   "steps": [
+    {
+     "step": "FIN-SIGN-INSTALL",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-water",
+   "priority": 120,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "UTL-DIVERT-WATER",
+     "quantity": "length_m"
+    }
+   ],
+   "system_prefix": "UT-WATER"
+  },
+  {
+   "id": "R-gas",
+   "priority": 120,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "UTL-DIVERT-GAS",
+     "quantity": "length_m"
+    }
+   ],
+   "system_prefix": "UT-GAS"
+  },
+  {
+   "id": "R-drain",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "DRN-PIPE-LAY",
+     "quantity": "length_m"
+    }
+   ]
+  },
+  {
+   "id": "R-comms",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcCableCarrierSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "UTL-COMMS-DUCT",
+     "quantity": "length_m"
+    }
+   ]
+  },
+  {
+   "id": "R-manhole",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcDistributionChamberElement"
+    ]
+   },
+   "steps": [
+    {
+     "step": "DRN-MH-BUILD",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-cut",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcEarthworksCut"
+    ]
+   },
+   "steps": [
+    {
+     "step": "EW-CUT",
+     "quantity": "volume_m3"
+    }
+   ]
+  },
+  {
+   "id": "R-fill",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcEarthworksFill"
+    ]
+   },
+   "steps": [
+    {
+     "step": "EW-FILL",
+     "quantity": "volume_m3"
+    }
+   ]
+  },
+  {
+   "id": "R-subbase",
+   "priority": 110,
+   "match": {
+    "ifc_class": [
+     "IfcCourse"
+    ],
+    "predefined_type": [
+     "SUBBASE"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PAV-SUBBASE",
+     "quantity": "volume_m3"
+    }
+   ]
+  },
+  {
+   "id": "R-base",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcCourse"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PAV-BASE",
+     "quantity": "volume_m3"
+    }
+   ]
+  },
+  {
+   "id": "R-deck-surface",
+   "priority": 120,
+   "match": {
+    "ifc_class": [
+     "IfcPavement"
+    ],
+    "properties": {
+     "Layer": "deck_surfacing"
+    }
+   },
+   "steps": [
+    {
+     "step": "PAV-DECK-SURFACE",
+     "quantity": "area_m2"
+    }
+   ]
+  },
+  {
+   "id": "R-wearing",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcPavement"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PAV-WEAR",
+     "quantity": "volume_m3"
+    }
+   ]
+  },
+  {
+   "id": "R-kerb",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcKerb"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PAV-KERB-LAY",
+     "quantity": "length_m"
+    }
+   ]
+  },
+  {
+   "id": "R-parapet",
+   "priority": 120,
+   "match": {
+    "ifc_class": [
+     "IfcRailing"
+    ],
+    "properties": {
+     "BridgePart": "parapet"
+    }
+   },
+   "steps": [
+    {
+     "step": "STR-PARAPET-FIX",
+     "quantity": "length_m"
+    }
+   ]
+  },
+  {
+   "id": "R-barrier",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcRailing"
+    ]
+   },
+   "steps": [
+    {
+     "step": "FIN-BARRIER-INSTALL",
+     "quantity": "length_m"
+    }
+   ]
+  },
+  {
+   "id": "R-pile",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcPile"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-PILE-BORE",
+     "quantity": "length_m"
+    }
+   ]
+  },
+  {
+   "id": "R-pile-cap",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcDeepFoundation"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-CAP-POUR",
+     "quantity": "volume_m3"
+    }
+   ]
+  },
+  {
+   "id": "R-pier",
+   "priority": 120,
+   "match": {
+    "ifc_class": [
+     "IfcColumn"
+    ],
+    "properties": {
+     "BridgePart": "pier"
+    }
+   },
+   "steps": [
+    {
+     "step": "STR-PIER-POUR",
+     "quantity": "volume_m3"
+    }
+   ]
+  },
+  {
+   "id": "R-abutment",
+   "priority": 120,
+   "match": {
+    "ifc_class": [
+     "IfcWall"
+    ],
+    "properties": {
+     "BridgePart": "abutment"
+    }
+   },
+   "steps": [
+    {
+     "step": "STR-ABUT-POUR",
+     "quantity": "volume_m3"
+    }
+   ]
+  },
+  {
+   "id": "R-headwall",
+   "priority": 110,
+   "match": {
+    "ifc_class": [
+     "IfcWall"
+    ],
+    "properties": {
+     "Culvert": true
+    }
+   },
+   "steps": [
+    {
+     "step": "STR-HEADWALL-POUR",
+     "quantity": "volume_m3"
+    }
+   ]
+  },
+  {
+   "id": "R-bearing",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcBearing"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-BEARING-SET",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-girder",
+   "priority": 120,
+   "match": {
+    "ifc_class": [
+     "IfcBeam"
+    ],
+    "properties": {
+     "BridgePart": "girder"
+    }
+   },
+   "steps": [
+    {
+     "step": "STR-GIRDER-LIFT",
+     "quantity": "weight_t"
+    }
+   ]
+  },
+  {
+   "id": "R-deck",
+   "priority": 120,
+   "match": {
+    "ifc_class": [
+     "IfcSlab"
+    ],
+    "properties": {
+     "BridgePart": "deck"
+    }
+   },
+   "steps": [
+    {
+     "step": "STR-DECK-POUR",
+     "quantity": "volume_m3"
+    }
+   ]
+  },
+  {
+   "id": "R-culvert",
+   "priority": 120,
+   "match": {
+    "ifc_class": [
+     "IfcBuildingElementProxy"
+    ],
+    "name_regex": "(?i)culvert"
+   },
+   "steps": [
+    {
+     "step": "STR-CULV-SET",
+     "quantity": "weight_t"
+    }
+   ]
+  }
+ ],
+ "default": {
+  "steps": [
+   {
+    "step": "FIN-MISC-INSTALL",
+    "quantity": "count"
+   }
+  ],
+  "visual": "generic"
+ }
+}

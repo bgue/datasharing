@@ -1,0 +1,613 @@
+{
+ "schema_version": "1.0",
+ "_comment": "FALLBACK DATA written by WP-A so the pipeline runs end to end when data/sectors/<sector>/ is not available. Not the authoritative sector content (see data/sectors/).",
+ "sector": "civil",
+ "phases": [
+  {
+   "id": "mobilise",
+   "name": "Mobilise",
+   "order": 0
+  },
+  {
+   "id": "traffic_stage_1",
+   "name": "Traffic Stage 1",
+   "order": 1
+  },
+  {
+   "id": "utilities",
+   "name": "Utilities",
+   "order": 2
+  },
+  {
+   "id": "earthworks",
+   "name": "Earthworks",
+   "order": 3
+  },
+  {
+   "id": "drainage",
+   "name": "Drainage",
+   "order": 4
+  },
+  {
+   "id": "structures",
+   "name": "Structures",
+   "order": 5
+  },
+  {
+   "id": "traffic_stage_2",
+   "name": "Traffic Stage 2",
+   "order": 6
+  },
+  {
+   "id": "pavement",
+   "name": "Pavement",
+   "order": 7
+  },
+  {
+   "id": "finishing",
+   "name": "Finishing",
+   "order": 8
+  },
+  {
+   "id": "handover",
+   "name": "Handover",
+   "order": 9
+  }
+ ],
+ "trades": [
+  {
+   "id": "traffic",
+   "name": "Traffic management crew",
+   "weekly_cost": 6500,
+   "crew_size": 4,
+   "color": "#f2c230"
+  },
+  {
+   "id": "utilities",
+   "name": "Utility diversion crew",
+   "weekly_cost": 8000,
+   "crew_size": 4,
+   "color": "#3aa6a6"
+  },
+  {
+   "id": "earthworks",
+   "name": "Earthworks crew",
+   "weekly_cost": 12000,
+   "crew_size": 5,
+   "color": "#a47c48"
+  },
+  {
+   "id": "drainage",
+   "name": "Drainage crew",
+   "weekly_cost": 8500,
+   "crew_size": 4,
+   "color": "#5b8def"
+  },
+  {
+   "id": "piling",
+   "name": "Piling crew",
+   "weekly_cost": 15000,
+   "crew_size": 5,
+   "color": "#8d8d8d"
+  },
+  {
+   "id": "structures",
+   "name": "Structures crew",
+   "weekly_cost": 10000,
+   "crew_size": 6,
+   "color": "#c0c0c0"
+  },
+  {
+   "id": "lifting",
+   "name": "Heavy lift crew",
+   "weekly_cost": 13000,
+   "crew_size": 5,
+   "color": "#b05bd1"
+  },
+  {
+   "id": "paving",
+   "name": "Paving crew",
+   "weekly_cost": 11000,
+   "crew_size": 6,
+   "color": "#444444"
+  },
+  {
+   "id": "finishing",
+   "name": "Finishing crew",
+   "weekly_cost": 7000,
+   "crew_size": 4,
+   "color": "#4caf50"
+  }
+ ],
+ "steps": [
+  {
+   "id": "TMP-TM-SIGN",
+   "name": "Install temporary traffic signs",
+   "phase": "traffic_stage_1",
+   "trade": "traffic",
+   "discipline": "civil",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 12,
+   "unit_cost": 300,
+   "risk": 0.2,
+   "predecessors": []
+  },
+  {
+   "id": "UTL-DIVERT-WATER",
+   "name": "Divert water main",
+   "phase": "utilities",
+   "trade": "utilities",
+   "discipline": "plumbing",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 24,
+   "unit_cost": 420,
+   "risk": 0.3,
+   "inspection": true,
+   "inspection_type": "pressure",
+   "predecessors": []
+  },
+  {
+   "id": "UTL-DIVERT-GAS",
+   "name": "Divert gas main",
+   "phase": "utilities",
+   "trade": "utilities",
+   "discipline": "process",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 18,
+   "unit_cost": 380,
+   "risk": 0.4,
+   "inspection": true,
+   "inspection_type": "pressure",
+   "predecessors": []
+  },
+  {
+   "id": "UTL-COMMS-DUCT",
+   "name": "Lay communications duct",
+   "phase": "utilities",
+   "trade": "utilities",
+   "discipline": "electrical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 40,
+   "unit_cost": 150,
+   "predecessors": []
+  },
+  {
+   "id": "EW-CUT",
+   "name": "Excavate cut",
+   "phase": "earthworks",
+   "trade": "earthworks",
+   "discipline": "civil",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 600,
+   "unit_cost": 14,
+   "weather_sensitive": true,
+   "dusty": true,
+   "noisy": true,
+   "predecessors": []
+  },
+  {
+   "id": "EW-FILL",
+   "name": "Place and compact fill",
+   "phase": "earthworks",
+   "trade": "earthworks",
+   "discipline": "civil",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 500,
+   "unit_cost": 18,
+   "weather_sensitive": true,
+   "dusty": true,
+   "inspection": true,
+   "inspection_type": "compaction",
+   "predecessors": []
+  },
+  {
+   "id": "DRN-PIPE-LAY",
+   "name": "Lay drainage pipe",
+   "phase": "drainage",
+   "trade": "drainage",
+   "discipline": "civil",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 36,
+   "unit_cost": 380,
+   "weather_sensitive": true,
+   "predecessors": []
+  },
+  {
+   "id": "DRN-MH-BUILD",
+   "name": "Build manhole",
+   "phase": "drainage",
+   "trade": "drainage",
+   "discipline": "civil",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 0.6,
+   "unit_cost": 6500,
+   "predecessors": [
+    {
+     "step": "DRN-PIPE-LAY",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "STR-PILE-BORE",
+   "name": "Bore and cast pile",
+   "phase": "structures",
+   "trade": "piling",
+   "discipline": "structure",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 36,
+   "unit_cost": 650,
+   "noisy": true,
+   "risk": 0.3,
+   "requires_crane": true,
+   "inspection": true,
+   "inspection_type": "pile_integrity",
+   "predecessors": []
+  },
+  {
+   "id": "STR-CAP-POUR",
+   "name": "Pour pile cap",
+   "phase": "structures",
+   "trade": "structures",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 20,
+   "unit_cost": 420,
+   "weather_sensitive": true,
+   "predecessors": [
+    {
+     "step": "STR-PILE-BORE",
+     "scope": "same_cell",
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "STR-PIER-POUR",
+   "name": "Pour pier column",
+   "phase": "structures",
+   "trade": "structures",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 14,
+   "unit_cost": 520,
+   "requires_crane": true,
+   "risk": 0.25,
+   "predecessors": [
+    {
+     "step": "STR-PILE-BORE",
+     "scope": "same_cell",
+     "required": true
+    },
+    {
+     "step": "STR-CAP-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "STR-ABUT-POUR",
+   "name": "Pour abutment wall",
+   "phase": "structures",
+   "trade": "structures",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 16,
+   "unit_cost": 480,
+   "weather_sensitive": true,
+   "predecessors": [
+    {
+     "step": "STR-PILE-BORE",
+     "scope": "same_cell",
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "STR-BEARING-SET",
+   "name": "Set bearing",
+   "phase": "structures",
+   "trade": "structures",
+   "discipline": "structure",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 8,
+   "unit_cost": 3200,
+   "lead_time_weeks": 12,
+   "predecessors": [
+    {
+     "step": "STR-PIER-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-ABUT-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "STR-GIRDER-LIFT",
+   "name": "Lift precast girder",
+   "phase": "structures",
+   "trade": "lifting",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 180,
+   "unit_cost": 1400,
+   "requires_crane": true,
+   "lead_time_weeks": 10,
+   "laydown_cells": 2,
+   "risk": 0.4,
+   "inspection": true,
+   "inspection_type": "lift",
+   "predecessors": [
+    {
+     "step": "STR-BEARING-SET",
+     "scope": "same_cell",
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "STR-DECK-POUR",
+   "name": "Pour bridge deck",
+   "phase": "structures",
+   "trade": "structures",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 45,
+   "unit_cost": 380,
+   "weather_sensitive": true,
+   "inspection": true,
+   "inspection_type": "structural",
+   "predecessors": [
+    {
+     "step": "STR-GIRDER-LIFT",
+     "scope": "same_cell",
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "STR-PARAPET-FIX",
+   "name": "Fix bridge parapet",
+   "phase": "structures",
+   "trade": "structures",
+   "discipline": "structure",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 60,
+   "unit_cost": 240,
+   "predecessors": [
+    {
+     "step": "STR-DECK-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "STR-CULV-SET",
+   "name": "Set culvert unit",
+   "phase": "structures",
+   "trade": "lifting",
+   "discipline": "civil",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 90,
+   "unit_cost": 900,
+   "requires_crane": true,
+   "lead_time_weeks": 8,
+   "laydown_cells": 2,
+   "predecessors": [
+    {
+     "step": "EW-CUT",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "STR-HEADWALL-POUR",
+   "name": "Pour culvert headwall",
+   "phase": "structures",
+   "trade": "structures",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 16,
+   "unit_cost": 450,
+   "predecessors": [
+    {
+     "step": "STR-CULV-SET",
+     "scope": "same_zone"
+    }
+   ]
+  },
+  {
+   "id": "PAV-SUBBASE",
+   "name": "Lay sub-base",
+   "phase": "pavement",
+   "trade": "paving",
+   "discipline": "civil",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 450,
+   "unit_cost": 42,
+   "dusty": true,
+   "predecessors": [
+    {
+     "step": "EW-CUT",
+     "scope": "same_cell"
+    },
+    {
+     "step": "EW-FILL",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "PAV-BASE",
+   "name": "Lay base course",
+   "phase": "pavement",
+   "trade": "paving",
+   "discipline": "civil",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 350,
+   "unit_cost": 160,
+   "weather_sensitive": true,
+   "predecessors": [
+    {
+     "step": "PAV-SUBBASE",
+     "scope": "same_cell",
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "PAV-WEAR",
+   "name": "Lay wearing course",
+   "phase": "pavement",
+   "trade": "paving",
+   "discipline": "civil",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 300,
+   "unit_cost": 210,
+   "weather_sensitive": true,
+   "inspection": true,
+   "inspection_type": "surface",
+   "predecessors": [
+    {
+     "step": "PAV-BASE",
+     "scope": "same_cell",
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "PAV-DECK-SURFACE",
+   "name": "Surface bridge deck",
+   "phase": "pavement",
+   "trade": "paving",
+   "discipline": "civil",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 700,
+   "unit_cost": 55,
+   "weather_sensitive": true,
+   "predecessors": [
+    {
+     "step": "STR-DECK-POUR",
+     "scope": "same_cell",
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "PAV-KERB-LAY",
+   "name": "Lay kerb",
+   "phase": "pavement",
+   "trade": "paving",
+   "discipline": "civil",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 180,
+   "unit_cost": 48,
+   "predecessors": [
+    {
+     "step": "PAV-BASE",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-DECK-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "FIN-BARRIER-INSTALL",
+   "name": "Install safety barrier",
+   "phase": "finishing",
+   "trade": "finishing",
+   "discipline": "civil",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 220,
+   "unit_cost": 85,
+   "predecessors": [
+    {
+     "step": "PAV-WEAR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "FIN-SIGN-INSTALL",
+   "name": "Install permanent sign",
+   "phase": "finishing",
+   "trade": "finishing",
+   "discipline": "civil",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 10,
+   "unit_cost": 450,
+   "predecessors": [
+    {
+     "step": "PAV-WEAR",
+     "scope": "same_zone"
+    }
+   ]
+  },
+  {
+   "id": "FIN-MISC-INSTALL",
+   "name": "Miscellaneous finishing",
+   "phase": "finishing",
+   "trade": "finishing",
+   "discipline": "civil",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 10,
+   "unit_cost": 500,
+   "predecessors": []
+  }
+ ],
+ "gates": [
+  {
+   "id": "G-tm",
+   "name": "Traffic management before utilities",
+   "after_phase": "traffic_stage_1",
+   "before_phase": "utilities",
+   "scope": "project"
+  },
+  {
+   "id": "G-util",
+   "name": "Utilities diverted before earthworks",
+   "after_phase": "utilities",
+   "before_phase": "earthworks",
+   "scope": "project"
+  },
+  {
+   "id": "G-earth-drain",
+   "name": "Earthworks before drainage",
+   "after_phase": "earthworks",
+   "before_phase": "drainage",
+   "scope": "project"
+  },
+  {
+   "id": "G-earth-pave",
+   "name": "Earthworks before pavement",
+   "after_phase": "earthworks",
+   "before_phase": "pavement",
+   "scope": "zone"
+  },
+  {
+   "id": "G-drain-pave",
+   "name": "Drainage before pavement",
+   "after_phase": "drainage",
+   "before_phase": "pavement",
+   "scope": "project"
+  },
+  {
+   "id": "G-struct-pave",
+   "name": "Structures before pavement",
+   "after_phase": "structures",
+   "before_phase": "pavement",
+   "scope": "project"
+  },
+  {
+   "id": "G-pave-fin",
+   "name": "Pavement before finishing",
+   "after_phase": "pavement",
+   "before_phase": "finishing",
+   "scope": "zone"
+  }
+ ]
+}

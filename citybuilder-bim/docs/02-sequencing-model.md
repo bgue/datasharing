@@ -97,10 +97,20 @@ overlap (e.g. MEP rough-in may start SS+5 after framing).
 
 ### 3.2 Gates
 
-A gate is a hold point: "no step of phase `P+1` may start in scope `S` until all
-steps of phase `P` in `S` are complete and inspected". Gates are evaluated at
-run time by the game and used by the scheduler as additional FS links.
-Scope: `zone`, `storey`, `project`.
+A gate is a cumulative phase hold point. `after_phase` is the last phase that
+must be finished; `before_phase` is the first phase that is held. Within each
+scope instance (one zone, one storey, or the project):
+
+* every task whose phase order is **≤ order(after_phase)** must be finished
+  (and inspected, where the step has an inspection) before
+* any task whose phase order is **≥ order(before_phase)** may start.
+
+Because gates are cumulative, a phase that is not named directly by any gate
+is still held by every gate whose `before_phase` is at or below it. A scope
+instance with no tasks at or below `after_phase` has a vacuous gate (it
+passes immediately). Gates are evaluated at run time by the game and used by
+the scheduler as additional FS links through one synthetic milestone per
+(gate, scope instance). Scope: `zone`, `storey`, `project`.
 
 ## 4. Mapping rules
 
@@ -180,12 +190,17 @@ actual_finish`) is produced for scheduling tools.
 
 ## 6. Scheduler (baseline)
 
-The pipeline computes a baseline with a simple resource-unaware critical path
-method: duration = `ceil(quantity / rate_per_crew_day)` clamped to
-`min_duration_days`, forward pass over predecessors and gate links, then a
-greedy weekly resource levelling pass using the scenario's crew availability
-so the baseline is beatable but not trivial. The baseline finish week sets
-the level's contract date (`scenario.contract_weeks` overrides).
+The pipeline computes a baseline with a critical path method: duration =
+`ceil(estimated_crew_days)` clamped to `min_duration_days`, forward pass over
+predecessors (FS/SS/FF with lag) and cumulative gate milestones, backward pass
+for float and the critical path, then a greedy day-by-day resource levelling
+pass against the scenario's `crews_available`. Two crew models exist:
+`whole` (one task occupies one crew) and `fractional` (a task occupies
+`estimated_crew_days / duration` crews, so many small element tasks share a
+crew). Shipped samples use `fractional`, which matches how the game tracks
+progress in crew-days; `whole` gives a much longer, more conservative
+baseline. The baseline finish week sets the level's contract date
+(`scenario.contract_weeks` overrides; otherwise `contract_factor` applies).
 
 ## 7. Sector step libraries (summary)
 

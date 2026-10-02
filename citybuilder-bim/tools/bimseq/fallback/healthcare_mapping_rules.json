@@ -1,0 +1,492 @@
+{
+ "schema_version": "1.0",
+ "_comment": "FALLBACK DATA written by WP-A so the pipeline runs end to end when data/sectors/<sector>/ is not available. Not the authoritative sector content (see data/sectors/).",
+ "sector": "healthcare",
+ "step_library": "healthcare_step_library.json",
+ "rules": [
+  {
+   "id": "R-footing",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcFooting"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-FOOT-POUR",
+     "quantity": "volume_m3"
+    }
+   ]
+  },
+  {
+   "id": "R-column",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcColumn"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-COL-POUR",
+     "quantity": "volume_m3"
+    }
+   ]
+  },
+  {
+   "id": "R-slab",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcSlab"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-SLAB-POUR",
+     "quantity": "volume_m3"
+    }
+   ]
+  },
+  {
+   "id": "R-beam",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcBeam"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-BEAM-POUR",
+     "quantity": "volume_m3"
+    }
+   ]
+  },
+  {
+   "id": "R-roof",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcRoof"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STR-ROOF-POUR",
+     "quantity": "volume_m3"
+    }
+   ]
+  },
+  {
+   "id": "R-wall-external",
+   "priority": 120,
+   "match": {
+    "ifc_class": [
+     "IfcWall",
+     "IfcWallStandardCase"
+    ],
+    "properties": {
+     "IsExternal": true
+    }
+   },
+   "steps": [
+    {
+     "step": "ENV-WALL-BUILD",
+     "quantity": "area_m2"
+    }
+   ]
+  },
+  {
+   "id": "R-wall-lead",
+   "priority": 130,
+   "match": {
+    "ifc_class": [
+     "IfcWall",
+     "IfcWallStandardCase"
+    ],
+    "properties": {
+     "Shielding": true
+    }
+   },
+   "steps": [
+    {
+     "step": "ARC-LEAD-WALL",
+     "quantity": "area_m2"
+    }
+   ]
+  },
+  {
+   "id": "R-wall-partition",
+   "priority": 90,
+   "match": {
+    "ifc_class": [
+     "IfcWall",
+     "IfcWallStandardCase"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-PART-BUILD",
+     "quantity": "area_m2"
+    }
+   ]
+  },
+  {
+   "id": "R-curtain-wall",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcCurtainWall"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ENV-CURTAIN-INSTALL",
+     "quantity": "area_m2"
+    }
+   ]
+  },
+  {
+   "id": "R-window",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcWindow"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ENV-WINDOW-INSTALL",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-door",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcDoor"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-DOOR-HANG",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-floor-hygienic",
+   "priority": 130,
+   "match": {
+    "ifc_class": [
+     "IfcCovering"
+    ],
+    "predefined_type": [
+     "FLOORING"
+    ],
+    "properties": {
+     "Hygienic": true
+    }
+   },
+   "steps": [
+    {
+     "step": "ARC-FLOOR-HYGIENIC",
+     "quantity": "area_m2"
+    }
+   ]
+  },
+  {
+   "id": "R-ceiling-hygienic",
+   "priority": 130,
+   "match": {
+    "ifc_class": [
+     "IfcCovering"
+    ],
+    "predefined_type": [
+     "CEILING"
+    ],
+    "properties": {
+     "Hygienic": true
+    }
+   },
+   "steps": [
+    {
+     "step": "ARC-CEIL-HYGIENIC",
+     "quantity": "area_m2"
+    }
+   ]
+  },
+  {
+   "id": "R-floor",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcCovering"
+    ],
+    "predefined_type": [
+     "FLOORING"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-FLOOR-INSTALL",
+     "quantity": "area_m2"
+    }
+   ]
+  },
+  {
+   "id": "R-ceiling",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcCovering"
+    ],
+    "predefined_type": [
+     "CEILING",
+     null
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-CEIL-INSTALL",
+     "quantity": "area_m2"
+    }
+   ]
+  },
+  {
+   "id": "R-duct",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcDuctSegment",
+     "IfcDuctFitting"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "quantity": "length_m"
+    }
+   ]
+  },
+  {
+   "id": "R-pipe-medgas",
+   "priority": 120,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment",
+     "IfcPipeFitting"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-MGAS-INSTALL",
+     "quantity": "length_m"
+    },
+    {
+     "step": "CX-MEDGAS-TEST",
+     "quantity": "length_m"
+    }
+   ],
+   "system_prefix": "MG-"
+  },
+  {
+   "id": "R-pipe",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment",
+     "IfcPipeFitting"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-PIPE-INSTALL",
+     "quantity": "length_m"
+    }
+   ]
+  },
+  {
+   "id": "R-tray",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcCableCarrierSegment",
+     "IfcCableSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-TRAY-INSTALL",
+     "quantity": "length_m"
+    }
+   ]
+  },
+  {
+   "id": "R-ahu",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcFlowMovingDevice"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-AHU-INSTALL",
+     "quantity": "count"
+    },
+    {
+     "step": "CX-AIR-BALANCE",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-plant",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcEnergyConversionDevice"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-PLANT-INSTALL",
+     "quantity": "weight_t"
+    }
+   ]
+  },
+  {
+   "id": "R-board",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcElectricDistributionBoard"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-BOARD-INSTALL",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-damper",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcFlowController"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-DAMPER-INSTALL",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-light",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcLightFixture"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-LIGHT-INSTALL",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-air-terminal",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcAirTerminal"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MEP-AIRTERM-INSTALL",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-sanitary",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcSanitaryTerminal"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PLB-FIXT-INSTALL",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-imaging",
+   "priority": 120,
+   "match": {
+    "ifc_class": [
+     "IfcMedicalDevice"
+    ],
+    "properties": {
+     "Shielding": true
+    }
+   },
+   "steps": [
+    {
+     "step": "MED-IMAGING-INSTALL",
+     "quantity": "weight_t",
+     "min_quantity": 0.5
+    },
+    {
+     "step": "CX-DEVICE-ACCEPT",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-medical-device",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcMedicalDevice"
+    ]
+   },
+   "steps": [
+    {
+     "step": "MED-DEVICE-INSTALL",
+     "quantity": "weight_t",
+     "min_quantity": 0.2
+    },
+    {
+     "step": "CX-DEVICE-ACCEPT",
+     "quantity": "count"
+    }
+   ]
+  }
+ ],
+ "default": {
+  "steps": [
+   {
+    "step": "ARC-PART-BUILD",
+    "quantity": "area_m2",
+    "min_quantity": 1
+   }
+  ],
+  "visual": "generic"
+ }
+}

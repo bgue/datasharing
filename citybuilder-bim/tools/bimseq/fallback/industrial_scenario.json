@@ -1,0 +1,115 @@
+{
+ "schema_version": "1.0",
+ "sector": "industrial",
+ "id": "standard",
+ "name": "Process building (fallback standard)",
+ "description": "FALLBACK scenario for pipeline testing; not the authored WP-B level.",
+ "difficulty": "standard",
+ "contract_weeks": null,
+ "budget": 0,
+ "start_cash": 1500000,
+ "overdraft_limit": 400000,
+ "crews_available": {
+  "civil": 3,
+  "steel": 3,
+  "cladding": 2,
+  "piping": 4,
+  "electrical": 3,
+  "instrument": 2,
+  "equipment": 2,
+  "commissioning": 2,
+  "general": 1
+ },
+ "equipment": [
+  {
+   "id": "cc1",
+   "type": "crawler_crane",
+   "name": "Crawler crane 400t",
+   "weekly_cost": 22000,
+   "mobilisation_cost": 60000,
+   "reach_cells": 8,
+   "footprint_cells": 4,
+   "max_count": 1
+  },
+  {
+   "id": "mc1",
+   "type": "mobile_crane",
+   "name": "Mobile crane 80t",
+   "weekly_cost": 7000,
+   "mobilisation_cost": 8000,
+   "reach_cells": 4,
+   "footprint_cells": 2,
+   "max_count": 2
+  }
+ ],
+ "site": {
+  "gates": [
+   [
+    0,
+    9
+   ]
+  ],
+  "occupied_cells": [],
+  "tile_costs": {
+   "haul_road": {
+    "place": 500,
+    "weekly": 50
+   },
+   "laydown": {
+    "place": 300,
+    "weekly": 100
+   },
+   "crane_pad": {
+    "place": 2000,
+    "weekly": 0
+   },
+   "welfare": {
+    "place": 4000,
+    "weekly": 400
+   },
+   "hoarding": {
+    "place": 200,
+    "weekly": 10
+   }
+  }
+ },
+ "events": [
+  {
+   "id": "rain",
+   "name": "Wet week",
+   "text": "Heavy rain all week. Weather-sensitive work slows.",
+   "weight": 3,
+   "effect": {
+    "productivity_factor": 0.5,
+    "affects_steps_with_tag": "weather_sensitive",
+    "duration_weeks": 1
+   }
+  },
+  {
+   "id": "late-module",
+   "name": "Late module delivery",
+   "text": "A fabricator misses its slot.",
+   "weight": 2,
+   "min_week": 4,
+   "effect": {
+    "delay_lead_time_weeks": 2
+   }
+  }
+ ],
+ "scoring": {
+  "weights": {
+   "time": 35,
+   "cost": 25,
+   "safety": 20,
+   "quality": 10,
+   "stability": 10
+  },
+  "max_incidents_hard": 3,
+  "grade_thresholds": {
+   "S": 90,
+   "A": 75,
+   "B": 60,
+   "C": 40
+  }
+ }
+}

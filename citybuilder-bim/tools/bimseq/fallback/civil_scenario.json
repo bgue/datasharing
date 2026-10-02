@@ -1,0 +1,138 @@
+{
+ "schema_version": "1.0",
+ "sector": "civil",
+ "id": "standard",
+ "name": "Road widening (fallback standard)",
+ "description": "FALLBACK scenario for pipeline testing; not the authored WP-B level.",
+ "difficulty": "standard",
+ "contract_weeks": null,
+ "budget": 0,
+ "start_cash": 800000,
+ "overdraft_limit": 300000,
+ "crews_available": {
+  "traffic": 1,
+  "utilities": 2,
+  "earthworks": 3,
+  "drainage": 2,
+  "piling": 1,
+  "structures": 3,
+  "lifting": 1,
+  "paving": 2,
+  "finishing": 2
+ },
+ "equipment": [
+  {
+   "id": "ex1",
+   "type": "excavator",
+   "name": "Excavator 30t",
+   "weekly_cost": 4500,
+   "mobilisation_cost": 3000,
+   "reach_cells": 3,
+   "footprint_cells": 1,
+   "max_count": 3
+  },
+  {
+   "id": "pr1",
+   "type": "piling_rig",
+   "name": "Piling rig",
+   "weekly_cost": 12000,
+   "mobilisation_cost": 15000,
+   "reach_cells": 2,
+   "footprint_cells": 2,
+   "max_count": 1
+  },
+  {
+   "id": "cc1",
+   "type": "crawler_crane",
+   "name": "Crawler crane 200t",
+   "weekly_cost": 14000,
+   "mobilisation_cost": 25000,
+   "reach_cells": 6,
+   "footprint_cells": 4,
+   "max_count": 1
+  },
+  {
+   "id": "pv1",
+   "type": "paver",
+   "name": "Asphalt paver",
+   "weekly_cost": 6000,
+   "mobilisation_cost": 5000,
+   "reach_cells": 2,
+   "footprint_cells": 2,
+   "max_count": 1
+  }
+ ],
+ "site": {
+  "gates": [
+   [
+    0,
+    3
+   ]
+  ],
+  "occupied_cells": [],
+  "tile_costs": {
+   "haul_road": {
+    "place": 500,
+    "weekly": 50
+   },
+   "laydown": {
+    "place": 300,
+    "weekly": 100
+   },
+   "crane_pad": {
+    "place": 2000,
+    "weekly": 0
+   },
+   "welfare": {
+    "place": 4000,
+    "weekly": 400
+   },
+   "hoarding": {
+    "place": 200,
+    "weekly": 10
+   }
+  }
+ },
+ "events": [
+  {
+   "id": "rain",
+   "name": "Wet week",
+   "text": "Heavy rain all week. Weather-sensitive work slows.",
+   "weight": 3,
+   "effect": {
+    "productivity_factor": 0.5,
+    "affects_steps_with_tag": "weather_sensitive",
+    "duration_weeks": 1
+   }
+  },
+  {
+   "id": "utility-strike",
+   "name": "Utility strike",
+   "text": "An unmarked service is hit.",
+   "weight": 2,
+   "trigger": {
+    "phase_active": "earthworks"
+   },
+   "effect": {
+    "pause_zone_weeks": 1,
+    "score_delta": -5
+   }
+  }
+ ],
+ "scoring": {
+  "weights": {
+   "time": 35,
+   "cost": 25,
+   "safety": 20,
+   "quality": 10,
+   "stability": 10
+  },
+  "max_incidents_hard": 3,
+  "grade_thresholds": {
+   "S": 90,
+   "A": 75,
+   "B": 60,
+   "C": 40
+  }
+ }
+}

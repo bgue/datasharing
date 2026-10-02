@@ -1,0 +1,776 @@
+{
+ "schema_version": "1.0",
+ "_comment": "FALLBACK DATA written by WP-A so the pipeline runs end to end when data/sectors/<sector>/ is not available. Not the authoritative sector content (see data/sectors/).",
+ "sector": "healthcare",
+ "phases": [
+  {
+   "id": "mobilise",
+   "name": "Mobilise",
+   "order": 0
+  },
+  {
+   "id": "substructure",
+   "name": "Substructure",
+   "order": 1
+  },
+  {
+   "id": "superstructure",
+   "name": "Superstructure",
+   "order": 2
+  },
+  {
+   "id": "envelope",
+   "name": "Envelope",
+   "order": 3
+  },
+  {
+   "id": "mep_roughin",
+   "name": "Mep Roughin",
+   "order": 4
+  },
+  {
+   "id": "interiors",
+   "name": "Interiors",
+   "order": 5
+  },
+  {
+   "id": "mep_finish",
+   "name": "Mep Finish",
+   "order": 6
+  },
+  {
+   "id": "medical_equipment",
+   "name": "Medical Equipment",
+   "order": 7
+  },
+  {
+   "id": "commissioning",
+   "name": "Commissioning",
+   "order": 8
+  },
+  {
+   "id": "handover",
+   "name": "Handover",
+   "order": 9
+  }
+ ],
+ "trades": [
+  {
+   "id": "concrete",
+   "name": "Concrete crew",
+   "weekly_cost": 9000,
+   "crew_size": 6,
+   "color": "#8d8d8d"
+  },
+  {
+   "id": "envelope",
+   "name": "Envelope crew",
+   "weekly_cost": 8000,
+   "crew_size": 4,
+   "color": "#c0804f"
+  },
+  {
+   "id": "finishes",
+   "name": "Finishes crew",
+   "weekly_cost": 7000,
+   "crew_size": 4,
+   "color": "#d9a066"
+  },
+  {
+   "id": "mechanical",
+   "name": "Mechanical crew",
+   "weekly_cost": 8500,
+   "crew_size": 4,
+   "color": "#5b8def"
+  },
+  {
+   "id": "electrical",
+   "name": "Electrical crew",
+   "weekly_cost": 8200,
+   "crew_size": 4,
+   "color": "#f2c230"
+  },
+  {
+   "id": "plumbing",
+   "name": "Plumbing and medical gas crew",
+   "weekly_cost": 8300,
+   "crew_size": 4,
+   "color": "#3aa6a6"
+  },
+  {
+   "id": "equipment",
+   "name": "Medical equipment installers",
+   "weekly_cost": 9500,
+   "crew_size": 3,
+   "color": "#b05bd1"
+  },
+  {
+   "id": "commissioning",
+   "name": "Commissioning team",
+   "weekly_cost": 6000,
+   "crew_size": 2,
+   "color": "#4caf50"
+  }
+ ],
+ "steps": [
+  {
+   "id": "STR-FOOT-POUR",
+   "name": "Pour pad footing",
+   "phase": "substructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 12,
+   "unit_cost": 320,
+   "inspection": true,
+   "inspection_type": "structural",
+   "weather_sensitive": true,
+   "risk": 0.15,
+   "predecessors": []
+  },
+  {
+   "id": "STR-SLAB-POUR",
+   "name": "Form, reinforce and pour slab",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 14,
+   "unit_cost": 360,
+   "laydown_cells": 1,
+   "inspection": true,
+   "inspection_type": "structural",
+   "weather_sensitive": true,
+   "risk": 0.2,
+   "predecessors": [
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-COL-POUR",
+     "scope": "same_cell_below"
+    }
+   ]
+  },
+  {
+   "id": "STR-COL-POUR",
+   "name": "Form and pour column",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 4,
+   "unit_cost": 480,
+   "requires_crane": true,
+   "risk": 0.25,
+   "predecessors": [
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "STR-BEAM-POUR",
+   "name": "Form and pour edge beam",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 6,
+   "unit_cost": 520,
+   "requires_crane": true,
+   "risk": 0.2,
+   "predecessors": [
+    {
+     "step": "STR-COL-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "STR-ROOF-POUR",
+   "name": "Pour roof slab and membrane",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 16,
+   "unit_cost": 330,
+   "weather_sensitive": true,
+   "inspection": true,
+   "inspection_type": "structural",
+   "predecessors": [
+    {
+     "step": "STR-COL-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "ENV-WALL-BUILD",
+   "name": "Build external cavity wall",
+   "phase": "envelope",
+   "trade": "envelope",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 24,
+   "unit_cost": 140,
+   "weather_sensitive": true,
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "ENV-CURTAIN-INSTALL",
+   "name": "Install curtain wall",
+   "phase": "envelope",
+   "trade": "envelope",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 18,
+   "unit_cost": 520,
+   "requires_crane": true,
+   "lead_time_weeks": 8,
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "ENV-WINDOW-INSTALL",
+   "name": "Install window",
+   "phase": "envelope",
+   "trade": "envelope",
+   "discipline": "architecture",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 6,
+   "unit_cost": 900,
+   "lead_time_weeks": 6,
+   "predecessors": [
+    {
+     "step": "ENV-WALL-BUILD",
+     "scope": "host",
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "MEP-DUCT-INSTALL",
+   "name": "Install ductwork",
+   "phase": "mep_roughin",
+   "trade": "mechanical",
+   "discipline": "mechanical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 25,
+   "unit_cost": 140,
+   "laydown_cells": 1,
+   "inspection": true,
+   "inspection_type": "mechanical",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "STR-ROOF-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "MEP-PIPE-INSTALL",
+   "name": "Install pipework",
+   "phase": "mep_roughin",
+   "trade": "mechanical",
+   "discipline": "mechanical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 30,
+   "unit_cost": 95,
+   "laydown_cells": 1,
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "STR-ROOF-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "MEP-MGAS-INSTALL",
+   "name": "Install medical gas pipework",
+   "phase": "mep_roughin",
+   "trade": "plumbing",
+   "discipline": "medical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 18,
+   "unit_cost": 160,
+   "inspection": true,
+   "inspection_type": "medical_gas",
+   "risk": 0.2,
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "STR-ROOF-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "MEP-TRAY-INSTALL",
+   "name": "Install cable tray",
+   "phase": "mep_roughin",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 60,
+   "unit_cost": 45,
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_above"
+    },
+    {
+     "step": "STR-ROOF-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "MEP-AHU-INSTALL",
+   "name": "Set air handling unit",
+   "phase": "mep_roughin",
+   "trade": "mechanical",
+   "discipline": "mechanical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 0.5,
+   "unit_cost": 28000,
+   "requires_crane": true,
+   "lead_time_weeks": 16,
+   "laydown_cells": 2,
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "MEP-PLANT-INSTALL",
+   "name": "Set chiller or boiler",
+   "phase": "mep_roughin",
+   "trade": "mechanical",
+   "discipline": "mechanical",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 8,
+   "unit_cost": 6500,
+   "requires_crane": true,
+   "lead_time_weeks": 24,
+   "laydown_cells": 2,
+   "risk": 0.3,
+   "predecessors": [
+    {
+     "step": "STR-ROOF-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "MEP-BOARD-INSTALL",
+   "name": "Install distribution board",
+   "phase": "mep_roughin",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 2,
+   "unit_cost": 3500,
+   "lead_time_weeks": 10,
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "MEP-DAMPER-INSTALL",
+   "name": "Install fire damper",
+   "phase": "mep_roughin",
+   "trade": "mechanical",
+   "discipline": "fire",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 6,
+   "unit_cost": 420,
+   "predecessors": [
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "ARC-PART-BUILD",
+   "name": "Build partition wall",
+   "phase": "interiors",
+   "trade": "finishes",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 35,
+   "unit_cost": 80,
+   "dusty": true,
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "ARC-LEAD-WALL",
+   "name": "Build lead-lined shielding wall",
+   "phase": "interiors",
+   "trade": "finishes",
+   "discipline": "medical",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 12,
+   "unit_cost": 450,
+   "inspection": true,
+   "inspection_type": "radiation",
+   "lead_time_weeks": 6,
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "ARC-DOOR-HANG",
+   "name": "Hang door",
+   "phase": "interiors",
+   "trade": "finishes",
+   "discipline": "architecture",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 8,
+   "unit_cost": 650,
+   "predecessors": [
+    {
+     "step": "ARC-PART-BUILD",
+     "scope": "host"
+    },
+    {
+     "step": "ENV-WALL-BUILD",
+     "scope": "host"
+    }
+   ]
+  },
+  {
+   "id": "ARC-CEIL-INSTALL",
+   "name": "Install ceiling",
+   "phase": "interiors",
+   "trade": "finishes",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 120,
+   "unit_cost": 38,
+   "dusty": true,
+   "predecessors": [
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "MEP-PIPE-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "ARC-PART-BUILD",
+     "scope": "same_zone"
+    }
+   ]
+  },
+  {
+   "id": "ARC-CEIL-HYGIENIC",
+   "name": "Install sealed hygienic ceiling",
+   "phase": "interiors",
+   "trade": "finishes",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 70,
+   "unit_cost": 85,
+   "inspection": true,
+   "inspection_type": "icra",
+   "predecessors": [
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "MEP-MGAS-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "ARC-PART-BUILD",
+     "scope": "same_zone"
+    }
+   ]
+  },
+  {
+   "id": "ARC-FLOOR-INSTALL",
+   "name": "Install floor finish",
+   "phase": "interiors",
+   "trade": "finishes",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 90,
+   "unit_cost": 45,
+   "predecessors": [
+    {
+     "step": "ARC-CEIL-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "ARC-PART-BUILD",
+     "scope": "same_zone"
+    }
+   ]
+  },
+  {
+   "id": "ARC-FLOOR-HYGIENIC",
+   "name": "Install welded hygienic floor",
+   "phase": "interiors",
+   "trade": "finishes",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 60,
+   "unit_cost": 95,
+   "inspection": true,
+   "inspection_type": "icra",
+   "predecessors": [
+    {
+     "step": "ARC-CEIL-HYGIENIC",
+     "scope": "same_zone"
+    },
+    {
+     "step": "ARC-PART-BUILD",
+     "scope": "same_zone"
+    }
+   ]
+  },
+  {
+   "id": "MEP-LIGHT-INSTALL",
+   "name": "Install light fixtures",
+   "phase": "mep_finish",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 24,
+   "unit_cost": 150,
+   "predecessors": [
+    {
+     "step": "ARC-CEIL-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "ARC-CEIL-HYGIENIC",
+     "scope": "same_zone"
+    }
+   ]
+  },
+  {
+   "id": "MEP-AIRTERM-INSTALL",
+   "name": "Install air terminals",
+   "phase": "mep_finish",
+   "trade": "mechanical",
+   "discipline": "mechanical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 24,
+   "unit_cost": 130,
+   "predecessors": [
+    {
+     "step": "ARC-CEIL-INSTALL",
+     "scope": "same_zone"
+    },
+    {
+     "step": "ARC-CEIL-HYGIENIC",
+     "scope": "same_zone"
+    },
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "scope": "same_system"
+    }
+   ]
+  },
+  {
+   "id": "PLB-FIXT-INSTALL",
+   "name": "Install sanitary fixtures",
+   "phase": "mep_finish",
+   "trade": "plumbing",
+   "discipline": "plumbing",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 8,
+   "unit_cost": 650,
+   "predecessors": [
+    {
+     "step": "ARC-PART-BUILD",
+     "scope": "same_zone"
+    }
+   ]
+  },
+  {
+   "id": "MED-IMAGING-INSTALL",
+   "name": "Install imaging equipment",
+   "phase": "medical_equipment",
+   "trade": "equipment",
+   "discipline": "medical",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 2,
+   "unit_cost": 150000,
+   "requires_crane": true,
+   "lead_time_weeks": 26,
+   "laydown_cells": 2,
+   "inspection": true,
+   "inspection_type": "radiation",
+   "risk": 0.3,
+   "predecessors": [
+    {
+     "step": "ARC-LEAD-WALL",
+     "scope": "same_zone",
+     "required": true
+    },
+    {
+     "step": "ARC-FLOOR-HYGIENIC",
+     "scope": "same_zone"
+    }
+   ]
+  },
+  {
+   "id": "MED-DEVICE-INSTALL",
+   "name": "Install medical device",
+   "phase": "medical_equipment",
+   "trade": "equipment",
+   "discipline": "medical",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 2,
+   "unit_cost": 60000,
+   "lead_time_weeks": 12,
+   "predecessors": [
+    {
+     "step": "ARC-PART-BUILD",
+     "scope": "same_zone"
+    }
+   ]
+  },
+  {
+   "id": "CX-AIR-BALANCE",
+   "name": "Test and balance air system",
+   "phase": "commissioning",
+   "trade": "commissioning",
+   "discipline": "commissioning",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 1,
+   "unit_cost": 4000,
+   "requires_access": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "MEP-AIRTERM-INSTALL",
+     "scope": "same_system",
+     "required": true
+    },
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "scope": "same_system"
+    }
+   ]
+  },
+  {
+   "id": "CX-MEDGAS-TEST",
+   "name": "Pressure test and certify medical gas",
+   "phase": "commissioning",
+   "trade": "commissioning",
+   "discipline": "commissioning",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 200,
+   "unit_cost": 14,
+   "requires_access": false,
+   "inspection": true,
+   "inspection_type": "medical_gas",
+   "progress_visual": "finished",
+   "predecessors": []
+  },
+  {
+   "id": "CX-DEVICE-ACCEPT",
+   "name": "Acceptance test medical device",
+   "phase": "commissioning",
+   "trade": "commissioning",
+   "discipline": "commissioning",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 1,
+   "unit_cost": 8000,
+   "requires_access": false,
+   "progress_visual": "finished",
+   "predecessors": []
+  }
+ ],
+ "gates": [
+  {
+   "id": "G-struct",
+   "name": "Structure complete before envelope",
+   "after_phase": "superstructure",
+   "before_phase": "envelope",
+   "scope": "storey"
+  },
+  {
+   "id": "G-env",
+   "name": "Envelope complete before MEP rough-in",
+   "after_phase": "envelope",
+   "before_phase": "mep_roughin",
+   "scope": "storey"
+  },
+  {
+   "id": "G-rough",
+   "name": "MEP rough-in complete before interiors",
+   "after_phase": "mep_roughin",
+   "before_phase": "interiors",
+   "scope": "zone"
+  },
+  {
+   "id": "G-interiors",
+   "name": "Interiors complete before MEP finish",
+   "after_phase": "interiors",
+   "before_phase": "mep_finish",
+   "scope": "zone"
+  },
+  {
+   "id": "G-finish",
+   "name": "Fit-out complete before commissioning",
+   "after_phase": "mep_finish",
+   "before_phase": "commissioning",
+   "scope": "storey"
+  },
+  {
+   "id": "G-icra",
+   "name": "Interiors complete before medical equipment",
+   "after_phase": "interiors",
+   "before_phase": "medical_equipment",
+   "scope": "zone"
+  }
+ ]
+}

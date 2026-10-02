@@ -1,0 +1,702 @@
+{
+ "schema_version": "1.0",
+ "_comment": "FALLBACK DATA written by WP-A so the pipeline runs end to end when data/sectors/<sector>/ is not available. Not the authoritative sector content (see data/sectors/).",
+ "sector": "industrial",
+ "phases": [
+  {
+   "id": "mobilise",
+   "name": "Mobilise",
+   "order": 0
+  },
+  {
+   "id": "foundations",
+   "name": "Foundations",
+   "order": 1
+  },
+  {
+   "id": "steel",
+   "name": "Steel",
+   "order": 2
+  },
+  {
+   "id": "pipe_rack",
+   "name": "Pipe Rack",
+   "order": 3
+  },
+  {
+   "id": "equipment",
+   "name": "Equipment",
+   "order": 4
+  },
+  {
+   "id": "piping",
+   "name": "Piping",
+   "order": 5
+  },
+  {
+   "id": "electrical_instrumentation",
+   "name": "Electrical Instrumentation",
+   "order": 6
+  },
+  {
+   "id": "envelope",
+   "name": "Envelope",
+   "order": 7
+  },
+  {
+   "id": "insulation",
+   "name": "Insulation",
+   "order": 8
+  },
+  {
+   "id": "commissioning",
+   "name": "Commissioning",
+   "order": 9
+  },
+  {
+   "id": "handover",
+   "name": "Handover",
+   "order": 10
+  }
+ ],
+ "trades": [
+  {
+   "id": "civil",
+   "name": "Civil crew",
+   "weekly_cost": 9000,
+   "crew_size": 6,
+   "color": "#8d8d8d"
+  },
+  {
+   "id": "steel",
+   "name": "Steel erection crew",
+   "weekly_cost": 11000,
+   "crew_size": 6,
+   "color": "#5b6f8d"
+  },
+  {
+   "id": "cladding",
+   "name": "Cladding crew",
+   "weekly_cost": 8000,
+   "crew_size": 4,
+   "color": "#c0804f"
+  },
+  {
+   "id": "piping",
+   "name": "Pipefitting crew",
+   "weekly_cost": 9500,
+   "crew_size": 5,
+   "color": "#3aa6a6"
+  },
+  {
+   "id": "electrical",
+   "name": "Electrical crew",
+   "weekly_cost": 8200,
+   "crew_size": 4,
+   "color": "#f2c230"
+  },
+  {
+   "id": "instrument",
+   "name": "Instrument technicians",
+   "weekly_cost": 8800,
+   "crew_size": 3,
+   "color": "#e0703a"
+  },
+  {
+   "id": "equipment",
+   "name": "Heavy lift and rigging crew",
+   "weekly_cost": 14000,
+   "crew_size": 5,
+   "color": "#b05bd1"
+  },
+  {
+   "id": "commissioning",
+   "name": "Commissioning team",
+   "weekly_cost": 6500,
+   "crew_size": 3,
+   "color": "#4caf50"
+  },
+  {
+   "id": "general",
+   "name": "General crew",
+   "weekly_cost": 6000,
+   "crew_size": 3,
+   "color": "#999999"
+  }
+ ],
+ "steps": [
+  {
+   "id": "CIV-FOOT-POUR",
+   "name": "Pour footing or plinth",
+   "phase": "foundations",
+   "trade": "civil",
+   "discipline": "civil",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 14,
+   "unit_cost": 310,
+   "inspection": true,
+   "inspection_type": "structural",
+   "weather_sensitive": true,
+   "risk": 0.15,
+   "predecessors": []
+  },
+  {
+   "id": "CIV-SLAB-POUR",
+   "name": "Pour ground slab",
+   "phase": "foundations",
+   "trade": "civil",
+   "discipline": "civil",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 40,
+   "unit_cost": 230,
+   "weather_sensitive": true,
+   "laydown_cells": 1,
+   "predecessors": [
+    {
+     "step": "CIV-FOOT-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "STL-COL-ERECT",
+   "name": "Erect steel column",
+   "phase": "steel",
+   "trade": "steel",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 12,
+   "unit_cost": 1900,
+   "requires_crane": true,
+   "risk": 0.3,
+   "predecessors": [
+    {
+     "step": "CIV-FOOT-POUR",
+     "scope": "same_cell",
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "STL-BEAM-ERECT",
+   "name": "Erect steel beam",
+   "phase": "steel",
+   "trade": "steel",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 14,
+   "unit_cost": 1900,
+   "requires_crane": true,
+   "risk": 0.3,
+   "predecessors": [
+    {
+     "step": "STL-COL-ERECT",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "STL-RACK-ERECT",
+   "name": "Erect pipe rack steel",
+   "phase": "pipe_rack",
+   "trade": "steel",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 10,
+   "unit_cost": 2100,
+   "requires_crane": true,
+   "risk": 0.3,
+   "predecessors": [
+    {
+     "step": "CIV-FOOT-POUR",
+     "scope": "same_cell",
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "STL-STAIR-ERECT",
+   "name": "Erect access stair",
+   "phase": "steel",
+   "trade": "steel",
+   "discipline": "structure",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 1,
+   "unit_cost": 9000,
+   "requires_crane": true,
+   "predecessors": [
+    {
+     "step": "STL-COL-ERECT",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "STL-RAIL-INSTALL",
+   "name": "Install handrail",
+   "phase": "steel",
+   "trade": "steel",
+   "discipline": "structure",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 60,
+   "unit_cost": 90,
+   "predecessors": [
+    {
+     "step": "STL-STAIR-ERECT",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "STL-STACK-ERECT",
+   "name": "Erect exhaust stack",
+   "phase": "steel",
+   "trade": "steel",
+   "discipline": "structure",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 6,
+   "unit_cost": 3200,
+   "requires_crane": true,
+   "lead_time_weeks": 16,
+   "risk": 0.35,
+   "predecessors": [
+    {
+     "step": "CIV-FOOT-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "EQP-MODULE-SET",
+   "name": "Lift in process module",
+   "phase": "equipment",
+   "trade": "equipment",
+   "discipline": "process",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 40,
+   "unit_cost": 1800,
+   "requires_crane": true,
+   "lead_time_weeks": 20,
+   "laydown_cells": 3,
+   "inspection": true,
+   "inspection_type": "lift",
+   "risk": 0.4,
+   "predecessors": [
+    {
+     "step": "CIV-FOOT-POUR",
+     "scope": "same_cell",
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "EQP-PUMP-SET",
+   "name": "Set pump",
+   "phase": "equipment",
+   "trade": "equipment",
+   "discipline": "process",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 3,
+   "unit_cost": 12000,
+   "requires_crane": true,
+   "lead_time_weeks": 12,
+   "predecessors": [
+    {
+     "step": "CIV-SLAB-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "EQP-TANK-SET",
+   "name": "Erect storage tank",
+   "phase": "equipment",
+   "trade": "equipment",
+   "discipline": "process",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 20,
+   "unit_cost": 3200,
+   "requires_crane": true,
+   "lead_time_weeks": 24,
+   "risk": 0.3,
+   "predecessors": [
+    {
+     "step": "CIV-FOOT-POUR",
+     "scope": "same_cell",
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "EQP-XFMR-SET",
+   "name": "Set transformer",
+   "phase": "equipment",
+   "trade": "equipment",
+   "discipline": "electrical",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 20,
+   "unit_cost": 6500,
+   "requires_crane": true,
+   "lead_time_weeks": 40,
+   "risk": 0.3,
+   "predecessors": [
+    {
+     "step": "CIV-FOOT-POUR",
+     "scope": "same_cell",
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "EQP-HEATER-SET",
+   "name": "Set fired heater or exchanger",
+   "phase": "equipment",
+   "trade": "equipment",
+   "discipline": "process",
+   "quantity_basis": "weight_t",
+   "rate_per_crew_day": 20,
+   "unit_cost": 4200,
+   "requires_crane": true,
+   "lead_time_weeks": 28,
+   "risk": 0.3,
+   "predecessors": [
+    {
+     "step": "CIV-FOOT-POUR",
+     "scope": "same_cell",
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "ENV-CLAD-INSTALL",
+   "name": "Install wall cladding",
+   "phase": "envelope",
+   "trade": "cladding",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 90,
+   "unit_cost": 85,
+   "weather_sensitive": true,
+   "predecessors": [
+    {
+     "step": "STL-COL-ERECT",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "ENV-ROOF-INSTALL",
+   "name": "Install roof sheeting",
+   "phase": "envelope",
+   "trade": "cladding",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 150,
+   "unit_cost": 70,
+   "weather_sensitive": true,
+   "risk": 0.25,
+   "predecessors": [
+    {
+     "step": "STL-BEAM-ERECT",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "ENV-DOOR-INSTALL",
+   "name": "Install roller door",
+   "phase": "envelope",
+   "trade": "cladding",
+   "discipline": "architecture",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 2,
+   "unit_cost": 4200,
+   "predecessors": [
+    {
+     "step": "ENV-CLAD-INSTALL",
+     "scope": "host",
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "ENV-WINDOW-INSTALL",
+   "name": "Install clerestory window",
+   "phase": "envelope",
+   "trade": "cladding",
+   "discipline": "architecture",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 4,
+   "unit_cost": 1100,
+   "predecessors": [
+    {
+     "step": "ENV-CLAD-INSTALL",
+     "scope": "host",
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "PIP-RACK-PIPE",
+   "name": "Install rack pipework",
+   "phase": "piping",
+   "trade": "piping",
+   "discipline": "process",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 60,
+   "unit_cost": 210,
+   "inspection": true,
+   "inspection_type": "weld",
+   "predecessors": [
+    {
+     "step": "STL-RACK-ERECT",
+     "scope": "same_cell",
+     "required": true
+    }
+   ]
+  },
+  {
+   "id": "PIP-PROC-PIPE",
+   "name": "Install process pipework",
+   "phase": "piping",
+   "trade": "piping",
+   "discipline": "process",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 30,
+   "unit_cost": 260,
+   "inspection": true,
+   "inspection_type": "weld",
+   "predecessors": [
+    {
+     "step": "EQP-MODULE-SET",
+     "scope": "same_system"
+    }
+   ]
+  },
+  {
+   "id": "PIP-FITT-INSTALL",
+   "name": "Install pipe fitting",
+   "phase": "piping",
+   "trade": "piping",
+   "discipline": "process",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 10,
+   "unit_cost": 350,
+   "predecessors": [
+    {
+     "step": "PIP-RACK-PIPE",
+     "scope": "same_system"
+    },
+    {
+     "step": "PIP-PROC-PIPE",
+     "scope": "same_system"
+    }
+   ]
+  },
+  {
+   "id": "PIP-VALVE-INSTALL",
+   "name": "Install valve",
+   "phase": "piping",
+   "trade": "piping",
+   "discipline": "process",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 8,
+   "unit_cost": 1200,
+   "predecessors": [
+    {
+     "step": "EQP-MODULE-SET",
+     "scope": "same_system"
+    }
+   ]
+  },
+  {
+   "id": "ELE-TRAY-INSTALL",
+   "name": "Install cable tray",
+   "phase": "electrical_instrumentation",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 80,
+   "unit_cost": 55,
+   "predecessors": [
+    {
+     "step": "STL-RACK-ERECT",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STL-BEAM-ERECT",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "ELE-CABLE-PULL",
+   "name": "Pull power cable",
+   "phase": "electrical_instrumentation",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 150,
+   "unit_cost": 28,
+   "predecessors": [
+    {
+     "step": "ELE-TRAY-INSTALL",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "ELE-BOARD-INSTALL",
+   "name": "Install motor control centre",
+   "phase": "electrical_instrumentation",
+   "trade": "electrical",
+   "discipline": "electrical",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 1,
+   "unit_cost": 18000,
+   "lead_time_weeks": 20,
+   "predecessors": [
+    {
+     "step": "CIV-SLAB-POUR",
+     "scope": "same_cell"
+    }
+   ]
+  },
+  {
+   "id": "INS-INSTR-INSTALL",
+   "name": "Install instrument loop",
+   "phase": "electrical_instrumentation",
+   "trade": "instrument",
+   "discipline": "instrumentation",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 10,
+   "unit_cost": 900,
+   "predecessors": [
+    {
+     "step": "PIP-PROC-PIPE",
+     "scope": "same_system"
+    }
+   ]
+  },
+  {
+   "id": "INS-PIPE-LAGGING",
+   "name": "Insulate and clad pipework",
+   "phase": "insulation",
+   "trade": "cladding",
+   "discipline": "process",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 45,
+   "unit_cost": 70,
+   "predecessors": [
+    {
+     "step": "PIP-RACK-PIPE",
+     "scope": "same_system"
+    }
+   ]
+  },
+  {
+   "id": "CX-LOOP-CHECK",
+   "name": "Loop check",
+   "phase": "commissioning",
+   "trade": "commissioning",
+   "discipline": "commissioning",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 8,
+   "unit_cost": 150,
+   "requires_access": false,
+   "progress_visual": "finished",
+   "predecessors": []
+  },
+  {
+   "id": "CX-MODULE-START",
+   "name": "Start up process module",
+   "phase": "commissioning",
+   "trade": "commissioning",
+   "discipline": "commissioning",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 0.5,
+   "unit_cost": 15000,
+   "requires_access": false,
+   "inspection": true,
+   "inspection_type": "startup",
+   "progress_visual": "finished",
+   "predecessors": []
+  },
+  {
+   "id": "GEN-MISC-INSTALL",
+   "name": "Miscellaneous installation",
+   "phase": "equipment",
+   "trade": "general",
+   "discipline": "general",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 10,
+   "unit_cost": 500,
+   "predecessors": []
+  }
+ ],
+ "gates": [
+  {
+   "id": "G-found",
+   "name": "Foundations before steel",
+   "after_phase": "foundations",
+   "before_phase": "steel",
+   "scope": "zone"
+  },
+  {
+   "id": "G-steel",
+   "name": "Steel complete before equipment",
+   "after_phase": "steel",
+   "before_phase": "equipment",
+   "scope": "project"
+  },
+  {
+   "id": "G-rack",
+   "name": "Rack steel before rack piping",
+   "after_phase": "pipe_rack",
+   "before_phase": "piping",
+   "scope": "zone"
+  },
+  {
+   "id": "G-equip",
+   "name": "Equipment set before piping",
+   "after_phase": "equipment",
+   "before_phase": "piping",
+   "scope": "zone"
+  },
+  {
+   "id": "G-ei",
+   "name": "Equipment set before electrical and instruments",
+   "after_phase": "equipment",
+   "before_phase": "electrical_instrumentation",
+   "scope": "zone"
+  },
+  {
+   "id": "G-env",
+   "name": "Modules in before roofing",
+   "after_phase": "equipment",
+   "before_phase": "envelope",
+   "scope": "project"
+  },
+  {
+   "id": "G-piping",
+   "name": "Piping complete before insulation",
+   "after_phase": "piping",
+   "before_phase": "insulation",
+   "scope": "zone"
+  },
+  {
+   "id": "G-cx-pipe",
+   "name": "Piping complete before commissioning",
+   "after_phase": "piping",
+   "before_phase": "commissioning",
+   "scope": "project"
+  },
+  {
+   "id": "G-cx-ei",
+   "name": "E and I complete before commissioning",
+   "after_phase": "electrical_instrumentation",
+   "before_phase": "commissioning",
+   "scope": "project"
+  }
+ ]
+}

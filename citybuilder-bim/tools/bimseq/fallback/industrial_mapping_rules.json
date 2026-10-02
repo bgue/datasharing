@@ -1,0 +1,426 @@
+{
+ "schema_version": "1.0",
+ "_comment": "FALLBACK DATA written by WP-A so the pipeline runs end to end when data/sectors/<sector>/ is not available. Not the authoritative sector content (see data/sectors/).",
+ "sector": "industrial",
+ "step_library": "industrial_step_library.json",
+ "rules": [
+  {
+   "id": "R-footing",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcFooting"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-FOOT-POUR",
+     "quantity": "volume_m3"
+    }
+   ]
+  },
+  {
+   "id": "R-slab",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcSlab"
+    ]
+   },
+   "steps": [
+    {
+     "step": "CIV-SLAB-POUR",
+     "quantity": "volume_m3"
+    }
+   ]
+  },
+  {
+   "id": "R-column",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcColumn"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STL-COL-ERECT",
+     "quantity": "weight_t"
+    }
+   ]
+  },
+  {
+   "id": "R-beam",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcBeam"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STL-BEAM-ERECT",
+     "quantity": "weight_t"
+    }
+   ]
+  },
+  {
+   "id": "R-rack-member",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcMember"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STL-RACK-ERECT",
+     "quantity": "weight_t"
+    }
+   ]
+  },
+  {
+   "id": "R-stair",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcStair"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STL-STAIR-ERECT",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-railing",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcRailing"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STL-RAIL-INSTALL",
+     "quantity": "length_m"
+    }
+   ]
+  },
+  {
+   "id": "R-chimney",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcChimney"
+    ]
+   },
+   "steps": [
+    {
+     "step": "STL-STACK-ERECT",
+     "quantity": "weight_t"
+    }
+   ]
+  },
+  {
+   "id": "R-wall",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcWall",
+     "IfcWallStandardCase"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ENV-CLAD-INSTALL",
+     "quantity": "area_m2"
+    }
+   ]
+  },
+  {
+   "id": "R-roof",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcRoof"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ENV-ROOF-INSTALL",
+     "quantity": "area_m2"
+    }
+   ]
+  },
+  {
+   "id": "R-door",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcDoor"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ENV-DOOR-INSTALL",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-window",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcWindow"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ENV-WINDOW-INSTALL",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-module",
+   "priority": 120,
+   "match": {
+    "ifc_class": [
+     "IfcBuildingElementProxy",
+     "IfcDistributionElement"
+    ],
+    "properties": {
+     "Module": true
+    }
+   },
+   "steps": [
+    {
+     "step": "EQP-MODULE-SET",
+     "quantity": "weight_t",
+     "min_quantity": 1
+    },
+    {
+     "step": "CX-MODULE-START",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-instrument",
+   "priority": 110,
+   "match": {
+    "ifc_class": [
+     "IfcDistributionElement"
+    ],
+    "properties": {
+     "Instrument": true
+    }
+   },
+   "steps": [
+    {
+     "step": "INS-INSTR-INSTALL",
+     "quantity": "count"
+    },
+    {
+     "step": "CX-LOOP-CHECK",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-pump",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcFlowMovingDevice"
+    ]
+   },
+   "steps": [
+    {
+     "step": "EQP-PUMP-SET",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-tank",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcTank",
+     "IfcFlowStorageDevice"
+    ]
+   },
+   "steps": [
+    {
+     "step": "EQP-TANK-SET",
+     "quantity": "weight_t"
+    }
+   ]
+  },
+  {
+   "id": "R-transformer",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcTransformer"
+    ]
+   },
+   "steps": [
+    {
+     "step": "EQP-XFMR-SET",
+     "quantity": "weight_t"
+    }
+   ]
+  },
+  {
+   "id": "R-heater",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcEnergyConversionDevice"
+    ]
+   },
+   "steps": [
+    {
+     "step": "EQP-HEATER-SET",
+     "quantity": "weight_t"
+    }
+   ]
+  },
+  {
+   "id": "R-pipe-rack",
+   "priority": 120,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PIP-RACK-PIPE",
+     "quantity": "length_m"
+    }
+   ],
+   "system_prefix": "PR-"
+  },
+  {
+   "id": "R-pipe",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcPipeSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PIP-PROC-PIPE",
+     "quantity": "length_m"
+    }
+   ]
+  },
+  {
+   "id": "R-pipe-fitting",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcPipeFitting"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PIP-FITT-INSTALL",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-valve",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcFlowController"
+    ]
+   },
+   "steps": [
+    {
+     "step": "PIP-VALVE-INSTALL",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-tray",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcCableCarrierSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ELE-TRAY-INSTALL",
+     "quantity": "length_m"
+    }
+   ]
+  },
+  {
+   "id": "R-cable",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcCableSegment"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ELE-CABLE-PULL",
+     "quantity": "length_m"
+    }
+   ]
+  },
+  {
+   "id": "R-board",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcElectricDistributionBoard"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ELE-BOARD-INSTALL",
+     "quantity": "count"
+    }
+   ]
+  },
+  {
+   "id": "R-insulation",
+   "priority": 100,
+   "match": {
+    "ifc_class": [
+     "IfcCovering"
+    ]
+   },
+   "steps": [
+    {
+     "step": "INS-PIPE-LAGGING",
+     "quantity": "area_m2"
+    }
+   ]
+  }
+ ],
+ "default": {
+  "steps": [
+   {
+    "step": "GEN-MISC-INSTALL",
+    "quantity": "count"
+   }
+  ],
+  "visual": "generic"
+ }
+}
