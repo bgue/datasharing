@@ -79,7 +79,7 @@ static func factors(gs: SimState, task: TaskData) -> Dictionary:
         "congestion": zone_congestion(gs, task.zone_id),
         "weather": weather_factor(gs.scenario, gs.week, task),
         "access": access_factor(gs, task),
-        "learning": learning_factor(int(gs.learning_counts.get(task.step_id, 0))),
+        "learning": 1.0 if task.is_duration_driven() else learning_factor(int(gs.learning_counts.get(task.step_id, 0))),
         "event": event_factor(gs, task),
     }
     if int(gs.zone_paused_until.get(task.zone_id, 0)) > gs.week:
@@ -111,7 +111,7 @@ static func run_day(gs: SimState, d: int) -> void:
     var alloc: Dictionary = Packages.allocate(gs)
     Packages.compute_face_state(gs, alloc)
     gs.crew_package.clear()
-    var ctx: Dictionary = {"laydown_free": Readiness.laydown_free_cells(gs), "day": day}
+    var ctx: Dictionary = {"laydown_free": Readiness.laydown_free_cells(gs), "day": day, "duration_today": {}}
     var over_factor: float = gs.bundle.packaging_over_ideal_factor
     var booked: Dictionary = {}  # crew id -> true
     for pkg in gs.bundle.packages:
@@ -182,7 +182,10 @@ static func _book(gs: SimState, crew_id: int, worked: float, idle: float, booked
 ## One crew's day on one package. Returns the fraction of the day it was busy.
 static func _crew_day(gs: SimState, pkg: PackageData, weight: float, double_shift: bool, ctx: Dictionary, day_fraction: float) -> float:
     var day: int = int(ctx["day"])
-    var released: bool = (gs.package_runtime[pkg.package_id] as PackageRuntime).released
+    var prt: PackageRuntime = gs.package_runtime[pkg.package_id]
+    if prt.frozen:
+        return 0.0
+    var released: bool = prt.released
     var cands: Array[TaskData] = []
     for t in pkg.tasks:
         var rt0: TaskRuntime = gs.runtime[t.task_id]
@@ -212,7 +215,13 @@ static func _crew_day(gs: SimState, pkg: PackageData, weight: float, double_shif
             gs.set_task_state(task.task_id, TaskRuntime.State.ACTIVE)
             gs.log_event("Started %s" % Readiness.pred_label(gs, task.task_id))
         var fac: Dictionary = factors(gs, task)
-        var m: float = float(fac["total"]) * weight
+        var dur_tasks: Dictionary = ctx["duration_today"]
+        if task.is_duration_driven():
+            # time-driven task: one working day per day whatever the crew weight / quantity, and only one crew counts
+            if dur_tasks.has(task.task_id):
+                continue
+            dur_tasks[task.task_id] = true
+        var m: float = float(fac["total"]) * (1.0 if task.is_duration_driven() else weight)
         if m <= EPS:
             continue
         if double_shift:

@@ -60,6 +60,7 @@ static func ff_pending(gs: SimState, task: TaskData, at_day: int = -1) -> bool:
 ## phase order is <= order(after_phase) is finished (INSPECTED where the step is inspected).
 ## A scope instance with no such tasks passes. Returns "" or the reason; `cache` memoises counts.
 static func gate_block(gs: SimState, task: TaskData, cache: Dictionary = {}) -> String:
+    var skip_frozen: bool = not gs.manual_zones.is_empty()
     var task_order: int = gs.bundle.order_of_phase(task.phase)
     for gate in gs.bundle.gates:
         if task_order < gs.bundle.order_of_phase(gate.before_phase):
@@ -68,6 +69,8 @@ static func gate_block(gs: SimState, task: TaskData, cache: Dictionary = {}) -> 
         if not cache.has(key):
             var open_count: int = 0
             for t2 in gs.bundle.gate_scope_tasks(gate, task):
+                if skip_frozen and gs.is_frozen_task(t2):
+                    continue  # generated tasks of a zone in manual mode are suppressed
                 var rt2: TaskRuntime = gs.runtime[t2.task_id]
                 if not TaskRuntime.is_finished(rt2.state):
                     open_count += 1
@@ -95,6 +98,8 @@ static func procurement_block(gs: SimState, task: TaskData) -> String:
 
 ## Result: {"ready": bool, "reason": String}
 static func evaluate(gs: SimState, task: TaskData, gate_cache: Dictionary = {}, at_day: int = -1) -> Dictionary:
+    if gs.is_frozen_task(task):
+        return {"ready": false, "reason": "Zone %s is in manual mode (generated tasks frozen)" % task.zone_id}
     var r: String = predecessor_block(gs, task, at_day)
     if r == "":
         r = gate_block(gs, task, gate_cache)
@@ -180,7 +185,7 @@ static func process_dirty(gs: SimState, day: int) -> void:
     var seen: Dictionary = {}
     var free_laydown: int = laydown_free_cells(gs)
     for sid in ids:
-        if seen.has(sid):
+        if seen.has(sid) or not gs.runtime.has(sid):
             continue
         seen[sid] = true
         var rt: TaskRuntime = gs.runtime[sid]

@@ -56,3 +56,18 @@ func centroid() -> Vector2:
     for c in cells:
         s += Vector2(c)
     return s / float(cells.size())
+
+
+## The zone cell closest to the centroid (a cell that belongs to the zone), (0, 0) for an empty zone.
+func centre_cell() -> Vector2i:
+    if cells.is_empty():
+        return Vector2i.ZERO
+    var c: Vector2 = centroid()
+    var best: Vector2i = cells[0]
+    var best_d: float = INF
+    for cell in cells:
+        var d: float = Vector2(cell).distance_squared_to(c)
+        if d < best_d - 0.000001:
+            best_d = d
+            best = cell
+    return best

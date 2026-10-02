@@ -19,7 +19,14 @@ static func pending_event(gs: SimState) -> Variant:
 
 static func summary(gs: SimState) -> Dictionary:
     var score: Dictionary = Scoring.compute(gs, true)
+    var vc: Dictionary = gs.virtual_task_counts()
+    var manual_tasks: int = 0
+    for t in gs.bundle.tasks:
+        if t.is_authored():
+            manual_tasks += 1
     return {
+        "manual_zones": gs.manual_zones.size(), "manual_tasks": manual_tasks,
+        "virtual_tasks": int(vc["total"]), "virtual_finished": int(vc["finished"]), "virtual_active": int(vc["active"]),
         "scenario_id": gs.scenario.id, "name": gs.scenario.name, "sector": gs.scenario.sector,
         "week": gs.week, "day": gs.current_day(), "cash": gs.cash, "budget": gs.bundle.contract_budget(),
         "contract_weeks": gs.bundle.contract_weeks(), "counts": gs.state_counts(), "score": score,
@@ -46,6 +53,8 @@ static func package_view(gs: SimState, p: PackageData) -> Dictionary:
     var d: Dictionary = p.to_dict()
     d["state"] = rt.state
     d["released"] = rt.released
+    d["manual"] = p.manual
+    d["frozen"] = rt.frozen
     d["priority"] = rt.priority
     d["crews_now"] = rt.crews_now
     d["crew_days_done"] = rt.crew_days_done
@@ -58,8 +67,10 @@ static func package_view(gs: SimState, p: PackageData) -> Dictionary:
 
 static func task_view(gs: SimState, t: TaskData) -> Dictionary:
     var rt: TaskRuntime = gs.runtime[t.task_id]
-    var d: Dictionary = t.raw.duplicate(true)
+    var d: Dictionary = t.export_dict()
     d["package_id"] = t.package_id
+    d["manual_zone"] = gs.manual_zones.has(t.zone_id)
+    d["frozen"] = gs.is_frozen_task(t)
     d["state"] = TaskRuntime.state_name(rt.state)
     d["progress"] = rt.progress
     d["required"] = rt.required
@@ -87,6 +98,7 @@ static func zone_view(gs: SimState, z: ZoneData) -> Dictionary:
     d["faces"] = z.faces.duplicate()
     d["face_state"] = (gs.zone_face_state.get(z.id, {}) as Dictionary).duplicate(true)
     d["shift_mode"] = zr.shift_mode
+    d["manual_mode"] = gs.manual_zones.has(z.id)
     d["shift_allowed"] = z.shift_allowed
     d["card"] = zr.card_id if zr.card_id != "" else null
     d["station"] = Cards.station_name(gs, zr, zr.station_index) if zr.card_id != "" else null

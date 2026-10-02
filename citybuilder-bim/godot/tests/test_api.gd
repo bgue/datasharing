@@ -97,7 +97,9 @@ func test_methods_registered() -> void:
             "procure.order", "package.release", "package.hold", "package.priority", "zone.set_shift", "card.list", "card.get",
             "card.apply", "card.clear", "card.save", "train.apply", "plan.export", "save.write", "save.read",
             "zone.staff", "zone.clear_crews", "site.auto_layout", "procure.order_all_due", "sim.run_until", "sim.autopilot",
-            "analysis.bottlenecks", "analysis.critical", "analysis.s_curve", "analysis.what_if_shift"]:
+            "analysis.bottlenecks", "analysis.critical", "analysis.s_curve", "analysis.what_if_shift",
+            "manual.set_mode", "manual.add_task", "manual.update_task", "manual.remove_task", "manual.link", "manual.unlink",
+            "manual.apply_recipe", "manual.export", "manual.tasks", "logic.list", "logic.get", "logic.explain", "logic.apply"]:
         ok(names.has(m), "method registered: %s" % m)
     _stop_server()
 
@@ -326,4 +328,105 @@ func test_events_are_notified_and_resolved() -> void:
     ok(rpc("sim.advance", {"weeks": 1}).has("error"), "advancing with a pending event is refused")
     var after: Dictionary = call_ok("sim.resolve_event", {"choice": 0})
     eq(after["pending_event"], null, "resolved")
+    _stop_server()
+
+
+const _SURVEY_STEP: Dictionary = {"id": "GEN-SURVEY-ASBUILT", "name": "As-built survey", "phase": "substructure", "trade": "finishes",
+        "discipline": "general", "quantity_basis": "count", "rate_per_crew_day": 1, "unit_cost": 100, "requires_access": false}
+const _CUT_STEP: Dictionary = {"id": "CIV-EARTH-CUT", "name": "Excavate", "phase": "substructure", "trade": "concrete",
+        "discipline": "civil", "quantity_basis": "volume_m3", "rate_per_crew_day": 20, "unit_cost": 50}
+
+
+func test_manual_and_logic_methods() -> void:
+    _start_server()
+    call_ok("scenario.load", {"id": "minimal"})
+    _gs.cash += 1.0e6
+    var s0: Dictionary = call_ok("state.summary")
+    eq(int(s0["manual_zones"]), 0, "summary: no manual zones")
+    eq(int(s0["virtual_tasks"]), 0, "summary: no virtual tasks")
+    # logic library (the bundle has no recipes: inject one the way a pipeline bundle carries it)
+    ok(call_ok("logic.list") is Array, "logic.list returns an array")
+    var rec: Dictionary = {"schema_version": "1.0", "id": "rec_api_footing", "name": "Footing with survey", "sector": "healthcare",
+            "applies_to": {"ifc_class": ["IfcFooting"]},
+            "steps": [{"ref": "GEN-SURVEY-ASBUILT", "virtual": true, "duration_days": 2, "marker": "survey", "step": _SURVEY_STEP},
+                    {"ref": "STR-FOOT-POUR"}]}
+    var rd := RecipeData.from_dict(rec)
+    _gs.bundle.recipes.append(rd)
+    _gs.bundle.recipes_by_id[rd.id] = rd
+    var listed: Array = call_ok("logic.list", {"sector": "healthcare"})
+    ok(listed.any(func(r: Dictionary) -> bool: return r["id"] == "rec_api_footing"), "logic.list shows the recipe")
+    eq(call_ok("logic.get", {"id": "rec_api_footing"})["name"], "Footing with survey", "logic.get")
+    ok(rpc("logic.get", {"id": "rec_nope"}).has("error"), "logic.get unknown recipe is an error")
+    var ex: Dictionary = call_ok("logic.explain", {"element_guid": "FOOT0"})
+    eq(ex["scope"], "element", "explain scope")
+    eq(ex["recipes"].size(), 1, "one recipe applies to a footing")
+    eq(ex["recipes"][0]["steps"][0]["status"], "missing", "virtual survey missing")
+    eq(ex["recipes"][0]["steps"][1]["status"], "covered", "footing pour covered")
+    ok(call_ok("logic.explain", {"element_guid": "COL00"})["none"], "no recipe for a column")
+    eq(call_ok("logic.explain", {"zone_id": "L00-Z1"})["scope"], "zone", "zone explain")
+    ok(rpc("logic.explain", {}).has("error"), "explain needs a target")
+    # manual mode
+    var mode: Dictionary = call_ok("manual.set_mode", {"zone_id": "L00-Z1", "on": true})
+    ok(mode["manual_mode"] and int(mode["manual_zones"]) == 1, "manual.set_mode on")
+    eq(call_ok("state.summary")["manual_zones"], 1, "summary counts the manual zone")
+    ok(call_ok("state.zones", {"storey_id": "L00"})[0]["manual_mode"], "zone view flag")
+    var held: Array = call_ok("state.packages", {"zone_id": "L00-Z1"})
+    ok(held.all(func(p: Dictionary) -> bool: return p["state"] == "held" and p["frozen"]), "generated packages held")
+    ok(rpc("manual.set_mode", {"zone_id": "NOPE", "on": true}).has("error"), "unknown zone")
+    # authoring
+    var a: Dictionary = call_ok("manual.add_task", {"step": "CIV-EARTH-CUT", "step_def": _CUT_STEP, "zone_id": "L00-Z1",
+            "elements": ["FOOT0"], "quantity": 20})
+    ok(a["ok"] and str(a["task_id"]).begins_with("M"), "manual.add_task returns a runtime id: %s" % str(a["task_id"]))
+    eq(a["task"]["origin"], "manual", "task view origin")
+    var v: Dictionary = call_ok("manual.add_task", {"step": "GEN-SURVEY-ASBUILT", "step_def": _SURVEY_STEP, "zone_id": "L00-Z1",
+            "virtual": true, "duration_days": 2, "after": [a["task_id"]], "marker": "survey"})
+    eq(v["task"]["virtual"], true, "virtual task view")
+    ok(v["task"]["element_guid"] == null, "element_guid null in the view")
+    eq(v["task"]["marker"], "survey", "marker in the view")
+    eq(v["task"]["duration_days"], 2, "duration in the view")
+    eq(v["task"]["manual_id"], v["task_id"], "manual id in the view")
+    ok(rpc("manual.add_task", {"step": "NO-STEP", "zone_id": "L00-Z1", "virtual": true}).has("error"), "unknown step is an error")
+    var tasks: Array = call_ok("state.tasks", {"zone_id": "L00-Z1"})
+    ok(tasks.any(func(t: Dictionary) -> bool: return t["task_id"] == v["task_id"] and t["virtual"]), "state.tasks shows virtual tasks")
+    eq(call_ok("manual.tasks", {"zone_id": "L00-Z1"}).size(), 2, "manual.tasks")
+    var sm: Dictionary = call_ok("state.summary")
+    eq(int(sm["virtual_tasks"]), 1, "summary virtual count")
+    eq(int(sm["manual_tasks"]), 2, "summary manual count")
+    var upd: Dictionary = call_ok("manual.update_task", {"task_id": a["task_id"], "fields": {"quantity": 40}})
+    near(float(upd["task"]["estimated_crew_days"]), 2.0, "update_task changes the effort")
+    var lk: Dictionary = call_ok("manual.link", {"from_id": v["task_id"], "to_id": "T000011", "type": "SS", "lag_days": 2})
+    ok(lk["ok"], "manual.link to a generated task")
+    ok(rpc("manual.link", {"from_id": "T000011", "to_id": a["task_id"]}).has("error"), "a cycle through a generated task is refused (the wall follows the survey which follows the excavation)")
+    ok(call_ok("manual.unlink", {"from_id": v["task_id"], "to_id": "T000011"})["ok"], "manual.unlink")
+    # recipes
+    var ap: Dictionary = call_ok("manual.apply_recipe", {"recipe_id": "rec_api_footing", "zone_id": "L00-Z1", "element_guid": "FOOT1"})
+    ok(ap["ok"] and (ap["reused"] as Array).size() == 1 and (ap["created"] as Array).size() == 1,
+            "apply reuses the existing virtual survey; the generated footing pour is frozen in a manual zone, so it is created: %s" % str(ap))
+    var ap2: Dictionary = call_ok("logic.apply", {"recipe_id": "rec_api_footing", "zone_id": "L00-Z1", "element_guid": "FOOT2"})
+    ok(ap2["ok"], "logic.apply is the same call")
+    ok(rpc("manual.apply_recipe", {"recipe_id": "rec_nope", "zone_id": "L00-Z1"}).has("error"), "unknown recipe")
+    # export
+    var doc: Dictionary = call_ok("manual.export")
+    eq(doc["schema_version"], "1.0", "export schema version")
+    eq(doc["zones_in_manual_mode"], ["L00-Z1"], "export zones")
+    eq(doc["tasks"].size(), 4, "export tasks: the two authored ones plus the two the recipe applications created")
+    eq(doc["tasks"][1]["after"], [a["task_id"]], "export links")
+    eq(doc["applied_recipes"].size(), 2, "export applied recipes")
+    var plan: Dictionary = call_ok("plan.export", {"path": "user://api_manual_plan.json"})
+    ok(plan["ok"], "plan.export with manual tasks")
+    var exported: Variant = JSON.parse_string(FileAccess.get_file_as_string("user://api_manual_plan.json"))
+    ok(exported is Dictionary and (exported as Dictionary)["tasks"].size() == 16, "plan export holds generated + manual tasks")
+    # save / load keeps the manual state
+    var sv: Dictionary = call_ok("save.write", {"slot": "manual_api"})
+    ok(sv["ok"], "save.write")
+    ok(call_ok("manual.remove_task", {"task_id": v["task_id"]})["ok"], "manual.remove_task")
+    eq(call_ok("state.summary")["virtual_tasks"], 0, "virtual task removed")
+    ok(call_ok("save.read", {"slot": "manual_api"})["ok"], "save.read")
+    eq(call_ok("state.summary")["virtual_tasks"], 1, "virtual task is back after loading")
+    eq(call_ok("state.summary")["manual_zones"], 1, "manual zone restored by the load")
+    ok(call_ok("manual.set_mode", {"zone_id": "L00-Z1", "on": false})["ok"], "manual mode off")
+    eq(call_ok("state.summary")["manual_zones"], 0, "no manual zones")
+    # a short autopilot run still works with virtual tasks around
+    var ap_run: Dictionary = call_ok("sim.autopilot", {"weeks": 2})
+    ok(ap_run.has("weeks_run"), "autopilot with manual tasks")
     _stop_server()

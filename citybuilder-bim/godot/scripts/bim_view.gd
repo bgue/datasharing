@@ -18,11 +18,31 @@ const DISCIPLINE_COLORS: Dictionary = {
     "commissioning": Color(0.35, 0.75, 0.4),
 }
 const CYLINDER_KINDS: Array[String] = ["column", "pile", "pier", "pipe", "tank", "culvert"]
+## Placeholder colours of the virtual-task markers (docs/06 A.3); the kits agent may replace the meshes.
+const MARKER_COLORS: Dictionary = {
+    "survey": Color(0.98, 0.85, 0.2),
+    "dewatering": Color(0.25, 0.5, 0.95),
+    "scaffold": Color(0.6, 0.62, 0.66),
+    "lift_plan": Color(0.98, 0.55, 0.12),
+    "permit": Color(0.95, 0.95, 0.95),
+    "test": Color(0.25, 0.8, 0.4),
+    "shoring": Color(0.5, 0.33, 0.18),
+    "crane": Color(0.98, 0.55, 0.12),
+    "generic": Color(0.72, 0.55, 0.9),
+}
+const MARKER_RADIUS: float = 0.12
+const MARKER_HEIGHT: float = 0.4
 const GHOST_ALPHA: float = 0.15
 const FRAMED_ALPHA: float = 0.5
 const ABOVE_FOCUS_ALPHA: float = 0.07
 
 var gs: SimState = null
+## Optional hook for a marker kit: `func(marker: String) -> Mesh`; a null result falls back to the placeholder cylinder.
+var marker_mesh_provider: Callable = Callable()
+# >>> visual kits (WP-O): elements with a kit (scripts/kits/) are drawn by KitLayer instead of the MultiMesh pass
+var use_kits: bool = true
+var _kit_layer: KitLayer = null
+# <<< visual kits
 var show_ghost: bool = true
 var focus_storey_index: int = 0
 
@@ -34,12 +54,16 @@ var _rework_guids: Dictionary = {}
 var _dirty: bool = true
 var _pulse: float = 0.0
 var _material: StandardMaterial3D = null
+var _marker_root: Node3D = null
+var _marker_nodes: Dictionary = {}  # task_id -> MeshInstance3D
+var _marker_default_mesh: CylinderMesh = null
 
 
 func setup(state: SimState) -> void:
     gs = state
     _build()
     gs.task_state_changed.connect(_on_task_state_changed)
+    gs.tasks_changed.connect(func() -> void: _rebuild_markers())
     gs.level_started.connect(func() -> void: _build())
     gs.week_advanced.connect(func(_w: int) -> void: _dirty = true)
 
@@ -47,16 +71,124 @@ func setup(state: SimState) -> void:
 func set_ghost_visible(v: bool) -> void:
     show_ghost = v
     _dirty = true
+    if _kit_layer != null:  # visual kits (WP-O)
+        _kit_layer.set_ghost_visible(v)
 
 
 func set_focus_storey(idx: int) -> void:
     focus_storey_index = idx
     _dirty = true
+    if _kit_layer != null:  # visual kits (WP-O)
+        _kit_layer.set_focus_storey(idx)
 
 
 func _on_task_state_changed(task_id: String, _old: int, _new: int) -> void:
-    var t: TaskData = gs.bundle.tasks_by_id[task_id]
-    _apply_color(t.element_guid)
+    var t: TaskData = gs.bundle.tasks_by_id.get(task_id, null)
+    if t == null:
+        return
+    if t.is_virtual:
+        _apply_marker_state(task_id)
+        return
+    for g in t.element_guids:
+        _apply_color(g)
+
+
+# ------------------------------------------------------------------ virtual task markers
+
+## Mesh of a marker kit. Assign `marker_mesh_provider` (a Callable taking the marker id and returning a Mesh) to
+## replace the placeholder cylinder; a provider that returns null keeps the placeholder.
+func marker_mesh_for(marker: String) -> Mesh:
+    if marker_mesh_provider.is_valid():
+        var m: Variant = marker_mesh_provider.call(marker)
+        if m is Mesh:
+            return m
+    if _marker_default_mesh == null:
+        _marker_default_mesh = CylinderMesh.new()
+        _marker_default_mesh.top_radius = MARKER_RADIUS
+        _marker_default_mesh.bottom_radius = MARKER_RADIUS
+        _marker_default_mesh.height = MARKER_HEIGHT
+        _marker_default_mesh.radial_segments = 10
+        _marker_default_mesh.rings = 1
+    return _marker_default_mesh
+
+
+static func marker_colour(marker: String) -> Color:
+    return MARKER_COLORS.get(marker, MARKER_COLORS["generic"])
+
+
+## Marker node of a virtual task (null when it has none): for tests and the UI.
+func marker_node(task_id: String) -> MeshInstance3D:
+    return _marker_nodes.get(task_id, null)
+
+
+func marker_count() -> int:
+    return _marker_nodes.size()
+
+
+func marker_position(m: Dictionary, count_in_zone: int) -> Vector3:
+    var b: SequenceBundle = gs.bundle
+    var cell: Vector2i = m["cell"]
+    var idx: int = int(m["index"])
+    var cols: int = 4
+    var dx: float = (float(idx % cols) - float(mini(count_in_zone, cols) - 1) * 0.5) * 0.3
+    var dz: float = float(idx / cols) * 0.3 + 0.25
+    var y: float = b.storey_y(str(m["storey_id"])) + MARKER_HEIGHT * 0.5 + 0.02
+    return Vector3(float(cell.x) + dx, y, float(cell.y) + dz)
+
+
+func _rebuild_markers() -> void:
+    if _marker_root == null:
+        _marker_root = Node3D.new()
+        _marker_root.name = "Markers"
+        add_child(_marker_root)
+    for k in _marker_nodes:
+        (_marker_nodes[k] as Node).queue_free()
+    _marker_nodes.clear()
+    if gs == null or gs.bundle == null:
+        return
+    var list: Array[Dictionary] = gs.virtual_markers()
+    var per_zone: Dictionary = {}
+    for m in list:
+        per_zone[m["zone_id"]] = int(per_zone.get(m["zone_id"], 0)) + 1
+    for m in list:
+        var node := MeshInstance3D.new()
+        node.name = "Marker_%s" % str(m["task_id"])
+        node.mesh = marker_mesh_for(str(m["marker"]))
+        if not marker_mesh_provider.is_valid():
+            var mat := StandardMaterial3D.new()
+            mat.albedo_color = marker_colour(str(m["marker"]))
+            mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+            mat.roughness = 0.7
+            node.material_override = mat
+        node.position = marker_position(m, int(per_zone[m["zone_id"]]))
+        node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        _marker_root.add_child(node)
+        _marker_nodes[str(m["task_id"])] = node
+        _apply_marker_state(str(m["task_id"]))
+
+
+## Not started: faint; in progress: solid; done: dimmed and tinted green.
+func _apply_marker_state(task_id: String) -> void:
+    var node: MeshInstance3D = _marker_nodes.get(task_id, null)
+    if node == null or gs == null:
+        return
+    var rt: TaskRuntime = gs.runtime.get(task_id, null)
+    var t: TaskData = gs.bundle.tasks_by_id.get(task_id, null)
+    if rt == null or t == null:
+        return
+    var col: Color = marker_colour(gs.marker_of(t))
+    var a: float = 0.35
+    match rt.state:
+        TaskRuntime.State.ACTIVE, TaskRuntime.State.AWAITING_INSPECTION, TaskRuntime.State.REWORK:
+            a = 1.0
+        TaskRuntime.State.DONE, TaskRuntime.State.INSPECTED:
+            col = col.lerp(Color(0.2, 0.9, 0.35), 0.6)
+            a = 0.6
+    col.a = a
+    if node.material_override is StandardMaterial3D:
+        (node.material_override as StandardMaterial3D).albedo_color = col
+    else:
+        node.transparency = 1.0 - a
 
 
 # ------------------------------------------------------------------ geometry
@@ -189,7 +321,11 @@ func _build() -> void:
     _rework_guids.clear()
     if gs == null or gs.bundle == null:
         return
+    _kits_rebuild()  # visual kits (WP-O)
     for e in gs.bundle.elements:
+        if _kit_layer != null and _kit_layer.handles(e.guid):  # visual kits (WP-O): drawn by KitLayer
+            _storey_index[e.guid] = int(gs.bundle.storey_index_by_id.get(e.storey_id, 0))
+            continue
         if not _kind_elements.has(e.visual):
             _kind_elements[e.visual] = [] as Array[ElementData]
         (_kind_elements[e.visual] as Array[ElementData]).append(e)
@@ -212,6 +348,7 @@ func _build() -> void:
         _instances[kind] = mmi
     _dirty = true
     _apply_all()
+    _rebuild_markers()
 
 
 # ------------------------------------------------------------------ colours
@@ -289,3 +426,28 @@ func instance_counts() -> Dictionary:
 func instance_colour(guid: String) -> Color:
     var s: Dictionary = _slots[guid]
     return (_instances[s["kind"]] as MultiMeshInstance3D).multimesh.get_instance_color(int(s["slot"]))
+
+
+# >>> visual kits (WP-O) ------------------------------------------------------------------------
+## (Re)creates the KitLayer for the current bundle and installs the marker mesh provider. With use_kits
+## off every element goes through the generic MultiMesh pass again.
+func _kits_rebuild() -> void:
+    if _kit_layer != null:
+        _kit_layer.queue_free()
+        _kit_layer = null
+    if not use_kits:
+        return
+    var reg := KitRegistry.new()
+    if not reg.load_manifest():
+        push_warning("visual kits disabled: %s" % ", ".join(reg.errors))
+        return
+    _kit_layer = KitLayer.new()
+    _kit_layer.name = "KitLayer"
+    add_child(_kit_layer)
+    _kit_layer.setup(gs, reg)
+    _kit_layer.set_focus_storey(focus_storey_index)
+    _kit_layer.set_ghost_visible(show_ghost)
+    # marker kit meshes for virtual tasks, unless another provider is already installed
+    if not marker_mesh_provider.is_valid():
+        marker_mesh_provider = Callable(reg, "marker_mesh")
+# <<< visual kits (WP-O)

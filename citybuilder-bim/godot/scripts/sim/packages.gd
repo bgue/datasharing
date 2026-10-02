@@ -15,6 +15,8 @@ static func _is_work_state(st: int) -> bool:
 ## laydown yard is transient (tasks finishing free it), so it does not count as an impediment here.
 static func has_work(gs: SimState, p: PackageData) -> bool:
     var rt: PackageRuntime = gs.package_runtime[p.package_id]
+    if rt.frozen:
+        return false
     for t in p.tasks:
         var trt: TaskRuntime = gs.runtime[t.task_id]
         if _is_work_state(trt.state):
@@ -171,6 +173,8 @@ static func compute_state(gs: SimState, p: PackageData, crews_now: int) -> Dicti
     var rt: PackageRuntime = gs.package_runtime[p.package_id]
     if is_done(gs, p):
         return {"state": "done", "reason": ""}
+    if rt.frozen:
+        return {"state": "held", "reason": "zone in manual mode"}
     if not rt.released:
         return {"state": "held", "reason": "held"}
     var ready: bool = has_work(gs, p)

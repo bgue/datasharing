@@ -15,17 +15,40 @@ static func user_csv_path(scenario_id: String) -> String:
     return "user://plan_export_%s.csv" % scenario_id
 
 
+## task id -> exported T-id: loaded tasks keep theirs, runtime-added tasks (M000001 ...) get T-ids beyond the maximum
+## (their manual id stays in `manual_id`).
+static func task_id_map(gs: SimState) -> Dictionary:
+    var map: Dictionary = {}
+    var max_n: int = 0
+    for t in gs.bundle.tasks:
+        if t.task_id.length() == 7 and t.task_id.begins_with("T") and t.task_id.substr(1).is_valid_int():
+            max_n = maxi(max_n, t.task_id.substr(1).to_int())
+    for t in gs.bundle.tasks:
+        if t.task_id.length() == 7 and t.task_id.begins_with("T") and t.task_id.substr(1).is_valid_int():
+            map[t.task_id] = t.task_id
+        else:
+            max_n += 1
+            map[t.task_id] = "T%06d" % max_n
+    return map
+
+
 static func build(gs: SimState) -> Dictionary:
     var tasks: Array = []
+    var idmap: Dictionary = task_id_map(gs)
     for t in gs.bundle.tasks:
-        var d: Dictionary = t.raw.duplicate(true)
+        var d: Dictionary = t.export_dict()
+        d["task_id"] = idmap[t.task_id]
+        if d.get("manual_id", null) == null and t.is_authored():
+            d["manual_id"] = t.task_id
+        for p in d.get("predecessors", []):
+            (p as Dictionary)["task_id"] = idmap.get(str((p as Dictionary)["task_id"]), (p as Dictionary)["task_id"])
         var rt: TaskRuntime = gs.runtime[t.task_id]
         d["planned_start_day"] = t.planned_start_day
         d["planned_finish_day"] = t.planned_finish_day
         d["actual_start_day"] = rt.actual_start_day if rt.actual_start_day >= 0 else null
         d["actual_finish_day"] = rt.actual_finish_day if (TaskRuntime.is_finished(rt.state) and rt.actual_finish_day >= 0) else null
         tasks.append(d)
-    return {
+    var doc: Dictionary = {
         "schema_version": "1.0",
         "project": gs.bundle.project_raw.duplicate(true),
         "sector": gs.bundle.sector,
@@ -34,10 +57,24 @@ static func build(gs: SimState) -> Dictionary:
         "step_library_ref": "sequence.json#step_library",
         "tasks": tasks,
     }
+    if not gs.manual_zones.is_empty() or gs.bundle.manual != null or _has_authored(gs):
+        doc["manual"] = Manual.export_doc(gs)
+    return doc
+
+
+static func _has_authored(gs: SimState) -> bool:
+    for t in gs.bundle.tasks:
+        if t.is_authored():
+            return true
+    return false
 
 
 static func _day_str(v: Variant) -> String:
     return "" if v == null else str(int(v))
+
+
+static func _guid_str(v: Variant) -> String:
+    return "" if v == null else str(v)
 
 
 static func build_csv(gs: SimState) -> String:
@@ -45,7 +82,7 @@ static func build_csv(gs: SimState) -> String:
     for d in build(gs)["tasks"]:
         var row: Dictionary = d
         lines.append("%s,%s,%s,%s,%s,%s,%s" % [
-            row["element_guid"], row["task_id"], row["step_id"],
+            _guid_str(row["element_guid"]), row["task_id"], row["step_id"],
             _day_str(row["planned_start_day"]), _day_str(row["planned_finish_day"]),
             _day_str(row["actual_start_day"]), _day_str(row["actual_finish_day"]),
         ])

@@ -42,6 +42,21 @@ var exclusive_faces: Array[String] = ["floor"]
 var card_ids: Array[String] = []
 var cards_by_id: Dictionary = {}  # id -> SequenceCardData
 
+## Construction logic recipes embedded in the bundle (`recipes[]`); nothing is synthesised when absent.
+var recipes: Array[RecipeData] = []
+var recipes_by_id: Dictionary = {}  # recipe id -> RecipeData
+## The `manual` block (zones in manual mode, authored tasks, overrides, applied recipes), null when absent.
+var manual: ManualSequenceData = null
+## The parsed dictionary, kept so a bundle edited at runtime (manual tasks) can be re-parsed pristine.
+var source_dict: Dictionary = {}
+## True once manual tasks / links changed the task graph at runtime (SimState.start re-parses before reusing it).
+var edited: bool = false
+var virtual_tasks: Array[TaskData] = []
+var manual_alias: Dictionary = {}  # manual id (M0001) -> task id
+## Step definitions added at runtime (inline `step_def` of manual tasks / recipes), kept for saves.
+var added_steps: Array[Dictionary] = []
+var _next_package_num: int = 1
+
 var baseline_finish_day: int = 0
 var baseline_finish_week: int = 0
 var baseline_total_cost: float = 0.0
@@ -100,6 +115,7 @@ func parse(d: Dictionary) -> void:
     if not errors.is_empty():
         return
 
+    source_dict = d
     var proj: Dictionary = d["project"]
     project_raw = proj
     project_name = str(proj.get("name", ""))
@@ -166,23 +182,30 @@ func parse(d: Dictionary) -> void:
     for c in lib.get("sequence_cards", []):
         _add_card(SequenceCardData.from_dict(c))
 
+    var rl: Variant = d.get("recipes", [])
+    if rl is Array:
+        for r in rl:
+            if r is Dictionary:
+                var rd := RecipeData.from_dict(r)
+                if rd.id != "":
+                    recipes.append(rd)
+                    recipes_by_id[rd.id] = rd
+    var mn: Variant = d.get("manual", null)
+    if mn is Dictionary:
+        manual = ManualSequenceData.from_dict(mn)
+
     for t in d["tasks"]:
         var task := TaskData.from_dict(t)
+        if manual != null and task.origin == "manual" and task.manual_id != "" and not task.is_virtual:
+            # a manual task binds to every element of its manual-block entry (the task row names the first one)
+            var els: Array = manual.task_by_id(task.manual_id).get("elements", [])
+            if not els.is_empty():
+                task.element_guids.clear()
+                for g in els:
+                    task.element_guids.append(str(g))
+                task.element_guid = task.element_guids[0]
         tasks.append(task)
-        tasks_by_id[task.task_id] = task
-        if not tasks_by_zone.has(task.zone_id):
-            tasks_by_zone[task.zone_id] = [] as Array[TaskData]
-        (tasks_by_zone[task.zone_id] as Array[TaskData]).append(task)
-        if not tasks_by_element.has(task.element_guid):
-            tasks_by_element[task.element_guid] = [] as Array[TaskData]
-        (tasks_by_element[task.element_guid] as Array[TaskData]).append(task)
-        if not tasks_by_storey.has(task.storey_id):
-            tasks_by_storey[task.storey_id] = [] as Array[TaskData]
-        (tasks_by_storey[task.storey_id] as Array[TaskData]).append(task)
-        if not tasks_by_phase.has(task.phase):
-            tasks_by_phase[task.phase] = [] as Array[TaskData]
-        (tasks_by_phase[task.phase] as Array[TaskData]).append(task)
-        successors_by_task[task.task_id] = [] as Array[String]
+        _index_task(task)
     for task in tasks:
         for p in task.predecessors:
             var pid: String = p["task_id"]
@@ -213,6 +236,243 @@ func parse(d: Dictionary) -> void:
     _build_packages(d.get("packages", []))
     _compute_site_rect()
     valid = errors.is_empty()
+
+
+## Adds a task to every lookup index (not to `tasks`). Virtual tasks have no element and are not indexed by element.
+func _index_task(task: TaskData) -> void:
+    tasks_by_id[task.task_id] = task
+    if task.manual_id != "":
+        manual_alias[task.manual_id] = task.task_id
+    if not tasks_by_zone.has(task.zone_id):
+        tasks_by_zone[task.zone_id] = [] as Array[TaskData]
+    (tasks_by_zone[task.zone_id] as Array[TaskData]).append(task)
+    if not task.is_virtual:
+        for g in task.element_guids:
+            if not tasks_by_element.has(g):
+                tasks_by_element[g] = [] as Array[TaskData]
+            (tasks_by_element[g] as Array[TaskData]).append(task)
+    else:
+        virtual_tasks.append(task)
+    if not tasks_by_storey.has(task.storey_id):
+        tasks_by_storey[task.storey_id] = [] as Array[TaskData]
+    (tasks_by_storey[task.storey_id] as Array[TaskData]).append(task)
+    if not tasks_by_phase.has(task.phase):
+        tasks_by_phase[task.phase] = [] as Array[TaskData]
+    (tasks_by_phase[task.phase] as Array[TaskData]).append(task)
+    successors_by_task[task.task_id] = [] as Array[String]
+
+
+## Resolves a task id or a manual id (M0001) to the task id, "" when unknown.
+func resolve_task_id(id: String) -> String:
+    if tasks_by_id.has(id):
+        return id
+    return str(manual_alias.get(id, ""))
+
+
+## A pristine copy of this bundle re-parsed from the source dictionary (drops every runtime edit).
+func pristine_copy() -> SequenceBundle:
+    var b := SequenceBundle.from_dictionary(source_dict)
+    b.source_path = source_path
+    return b
+
+
+func add_step(st: StepDef, raw_def: Dictionary = {}) -> void:
+    if not steps_by_id.has(st.id):
+        steps.append(st)
+        if not raw_def.is_empty():
+            added_steps.append(raw_def.duplicate(true))
+        edited = true
+    steps_by_id[st.id] = st
+
+
+func invalidate_gate_caches() -> void:
+    _gate_scope_cache.clear()
+
+
+## Adds a task at runtime: appends it, updates every index, links it as successor of its predecessors and
+## invalidates the gate caches. Package assignment is separate (assign_package).
+func add_task(task: TaskData) -> void:
+    tasks.append(task)
+    _index_task(task)
+    for p in task.predecessors:
+        var pid: String = str(p["task_id"])
+        if successors_by_task.has(pid):
+            (successors_by_task[pid] as Array[String]).append(task.task_id)
+    invalidate_gate_caches()
+    edited = true
+
+
+## Removes a task from every index and its package (an emptied package is dropped). Links in other tasks'
+## predecessor lists are NOT touched (the caller bridges or drops them first).
+func remove_task(task: TaskData) -> void:
+    tasks.erase(task)
+    tasks_by_id.erase(task.task_id)
+    if task.manual_id != "" and str(manual_alias.get(task.manual_id, "")) == task.task_id:
+        manual_alias.erase(task.manual_id)
+    (tasks_by_zone.get(task.zone_id, []) as Array).erase(task)
+    for g in task.element_guids:
+        (tasks_by_element.get(g, []) as Array).erase(task)
+    (tasks_by_storey.get(task.storey_id, []) as Array).erase(task)
+    (tasks_by_phase.get(task.phase, []) as Array).erase(task)
+    virtual_tasks.erase(task)
+    for p in task.predecessors:
+        var plist: Variant = successors_by_task.get(str(p["task_id"]), null)
+        if plist is Array:
+            (plist as Array).erase(task.task_id)
+    successors_by_task.erase(task.task_id)
+    unassign_package(task)
+    invalidate_gate_caches()
+    edited = true
+
+
+## Recomputes every successor list from the predecessor links (after bulk edits).
+func rebuild_successors() -> void:
+    for t in tasks:
+        successors_by_task[t.task_id] = [] as Array[String]
+    for t in tasks:
+        for p in t.predecessors:
+            var sl: Variant = successors_by_task.get(str(p["task_id"]), null)
+            if sl is Array and not (sl as Array).has(t.task_id):
+                (sl as Array).append(t.task_id)
+    invalidate_gate_caches()
+
+
+func add_link(succ: TaskData, pred_id: String, type: String, lag_days: int) -> void:
+    succ.predecessors.append({"task_id": pred_id, "type": type, "lag_days": lag_days})
+    var sl: Array[String] = successors_by_task[pred_id]
+    if not sl.has(succ.task_id):
+        sl.append(succ.task_id)
+    invalidate_gate_caches()
+    edited = true
+
+
+func remove_link(succ: TaskData, pred_id: String) -> void:
+    for i in range(succ.predecessors.size() - 1, -1, -1):
+        if str(succ.predecessors[i]["task_id"]) == pred_id:
+            succ.predecessors.remove_at(i)
+    (successors_by_task[pred_id] as Array[String]).erase(succ.task_id)
+    invalidate_gate_caches()
+    edited = true
+
+
+func _key_of(zone_id: String, phase: String, trade: String, face: String, discipline: String, authored: bool) -> String:
+    var parts: PackedStringArray = []
+    for g in packaging_group_by:
+        match g:
+            "zone_id":
+                parts.append(zone_id)
+            "phase":
+                parts.append(phase)
+            "trade":
+                parts.append(trade)
+            "work_face":
+                parts.append(face)
+            "discipline":
+                parts.append(discipline)
+    if authored:
+        parts.append("manual")
+    return "|".join(parts)
+
+
+func next_package_id() -> String:
+    var id: String = "P%05d" % _next_package_num
+    _next_package_num += 1
+    return id
+
+
+## Puts a task into the authored package of its zone / phase / trade / face (a new one when there is none or it is
+## full; same grouping as the synthesis). Authored packages are separate from the generated ones.
+func assign_package(task: TaskData, package_id: String = "") -> PackageData:
+    var st: StepDef = steps_by_id.get(task.step_id, null)
+    var disc: String = st.discipline if st != null else "general"
+    var authored: bool = task.is_authored()
+    var key: String = _key_of(task.zone_id, task.phase, task.trade, task.work_face, disc, authored)
+    var target: PackageData = null
+    if package_id != "" and packages_by_id.has(package_id):
+        target = packages_by_id[package_id]
+    else:
+        for p in packages_by_zone.get(task.zone_id, []):
+            var pk: PackageData = p
+            if pk.manual != authored or _key_of(pk.zone_id, pk.phase, pk.trade, pk.work_face, pk.discipline, pk.manual) != key:
+                continue
+            if pk.tasks.is_empty() or pk.total_crew_days + task.estimated_crew_days <= packaging_max_crew_days:
+                target = pk
+                break
+    if target == null:
+        target = PackageData.new()
+        if package_id != "":
+            target.package_id = package_id
+            if package_id.substr(1).is_valid_int():
+                _next_package_num = maxi(_next_package_num, package_id.substr(1).to_int() + 1)
+        else:
+            target.package_id = next_package_id()
+        target.synthesized = true
+        target.manual = authored
+        target.zone_id = task.zone_id
+        target.storey_id = task.storey_id
+        target.phase = task.phase
+        target.trade = task.trade
+        target.work_face = task.work_face
+        target.discipline = disc
+        target.planned_start_day = task.planned_start_day
+        target.planned_finish_day = task.planned_finish_day
+        var ph_name: String = task.phase
+        for ph in phases:
+            if ph["id"] == task.phase:
+                ph_name = str(ph["name"])
+        target.name = "%s - %s - %s - %s%s" % [task.zone_id, ph_name, task.trade, task.work_face.replace("_", " "),
+                " (manual)" if authored else ""]
+        packages.append(target)
+        packages_by_id[target.package_id] = target
+        if not packages_by_zone.has(target.zone_id):
+            packages_by_zone[target.zone_id] = [] as Array[PackageData]
+        (packages_by_zone[target.zone_id] as Array[PackageData]).append(target)
+    target.tasks.append(task)
+    target.task_ids.append(task.task_id)
+    task.package_id = target.package_id
+    refresh_package(target)
+    return target
+
+
+## Removes the task from its package; an emptied package is dropped. Returns the package (still known or not).
+func unassign_package(task: TaskData) -> PackageData:
+    var p: PackageData = packages_by_id.get(task.package_id, null)
+    if p == null:
+        return null
+    p.tasks.erase(task)
+    p.task_ids.erase(task.task_id)
+    if p.tasks.is_empty():
+        packages.erase(p)
+        packages_by_id.erase(p.package_id)
+        (packages_by_zone.get(p.zone_id, []) as Array).erase(p)
+    else:
+        refresh_package(p)
+    return p
+
+
+## Recomputes totals, planned span and (for authored / synthesised packages) the crew profile from the members.
+func refresh_package(p: PackageData) -> void:
+    p.total_crew_days = 0.0
+    p.cost = 0.0
+    p.requires_crane = false
+    p.lead_time_weeks = 0
+    p.laydown_cells = 0
+    var first: bool = true
+    for t in p.tasks:
+        p.total_crew_days += t.estimated_crew_days
+        p.cost += t.cost
+        p.requires_crane = p.requires_crane or t.requires_crane
+        p.lead_time_weeks = maxi(p.lead_time_weeks, t.lead_time_weeks)
+        p.laydown_cells = maxi(p.laydown_cells, t.laydown_cells)
+        if first:
+            p.planned_start_day = t.planned_start_day
+            p.planned_finish_day = t.planned_finish_day
+            first = false
+        else:
+            p.planned_start_day = mini(p.planned_start_day, t.planned_start_day)
+            p.planned_finish_day = maxi(p.planned_finish_day, t.planned_finish_day)
+    if p.manual or p.synthesized:
+        derive_profile(p)
 
 
 func _parse_packaging(lib: Dictionary) -> void:
@@ -255,6 +515,11 @@ func derive_profile(p: PackageData) -> void:
             step_ideal = maxi(step_ideal, st.crew_ideal)
             step_max = maxi(step_max, st.crew_max)
     min_c = mini(min_c, zmax)
+    if not p.tasks.is_empty() and _all_duration_driven(p):
+        p.crew_min = 1
+        p.crew_ideal = 1
+        p.crew_max = 1
+        return
     var ideal: int = ceili(p.total_crew_days / float(packaging_target_duration_days))
     if step_ideal > 0:
         ideal = step_ideal
@@ -266,6 +531,14 @@ func derive_profile(p: PackageData) -> void:
     p.crew_min = min_c
     p.crew_ideal = ideal
     p.crew_max = max_c
+
+
+## Time-driven packages (every task has duration_days: surveys, dewatering, permits) need exactly one crew.
+func _all_duration_driven(p: PackageData) -> bool:
+    for t in p.tasks:
+        if not t.is_duration_driven():
+            return false
+    return true
 
 
 func _build_packages(raw: Variant) -> void:
@@ -296,15 +569,31 @@ func _build_packages(raw: Variant) -> void:
                     p.crew_max = clampi(p.crew_max, p.crew_ideal, zmax)
             for t in tasks:
                 t.package_id = covered[t.task_id]
+            for p in packages:
+                p.manual = not p.tasks.is_empty() and _all_authored(p)
+                if not p.tasks.is_empty() and _all_duration_driven(p):
+                    p.crew_min = 1
+                    p.crew_ideal = 1
+                    p.crew_max = 1
         else:
             packages.clear()
             packages_by_id.clear()
     if packages.is_empty():
         _synthesise_packages()
+    _next_package_num = 1
     for p in packages:
         if not packages_by_zone.has(p.zone_id):
             packages_by_zone[p.zone_id] = [] as Array[PackageData]
         (packages_by_zone[p.zone_id] as Array[PackageData]).append(p)
+        if p.package_id.length() > 1 and p.package_id.substr(1).is_valid_int():
+            _next_package_num = maxi(_next_package_num, p.package_id.substr(1).to_int() + 1)
+
+
+func _all_authored(p: PackageData) -> bool:
+    for t in p.tasks:
+        if not t.is_authored():
+            return false
+    return true
 
 
 func _group_key(t: TaskData) -> String:
@@ -322,6 +611,8 @@ func _group_key(t: TaskData) -> String:
                 parts.append(t.work_face)
             "discipline":
                 parts.append(st.discipline if st != null else "general")
+    if t.is_authored():
+        parts.append("manual")
     return "|".join(parts)
 
 
@@ -351,6 +642,7 @@ func _synthesise_packages() -> void:
                     and not current.tasks.is_empty()):
                 current = PackageData.new()
                 current.synthesized = true
+                current.manual = task.is_authored()
                 current.zone_id = task.zone_id
                 current.storey_id = task.storey_id
                 current.phase = task.phase

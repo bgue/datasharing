@@ -16,6 +16,10 @@ signal incident_occurred(zone_id: String)
 signal level_started()
 signal focus_changed(storey_index: int)
 signal package_state_changed(package_id: String, state: String)
+## Tasks were added / removed / re-linked at runtime (manual sequencing); views rebuild.
+signal tasks_changed()
+## A zone's manual mode was switched.
+signal manual_changed()
 
 ## Visual state of a BIM element (see BimView).
 enum Visual { GHOST, FRAMED, SOLID, INSPECTED, REWORK }
@@ -95,6 +99,16 @@ var _access_cache: Dictionary = {}
 var _access_cache_version: int = -1
 var _footprint: Dictionary = {}
 
+## Manual sequencing (docs/06 A.3): zones in manual mode (zone id -> true; their generated packages are frozen),
+## ids of tasks created / changed at runtime, pristine tasks removed, the id counter and the applied recipes.
+var manual_zones: Dictionary = {}
+var manual_touched: Dictionary = {}  # task id -> true (created, updated or re-linked by manual operations)
+var manual_removed: Dictionary = {}  # removed loaded task id -> true
+var manual_next_id: int = 1
+var manual_applied: Array[Dictionary] = []  # {recipe, zone_id, element_guid, include_optional}
+var _recipe_fallback: Array[RecipeData] = []
+var _recipe_fallback_loaded: bool = false
+
 
 # ----------------------------------------------------------------- lifecycle
 
@@ -131,6 +145,10 @@ func start(b: SequenceBundle) -> bool:
     if b == null or not b.valid:
         last_error = "invalid bundle"
         return false
+    if b.edited:  # manual edits of a previous run: start from the pristine tasks again
+        var fresh: SequenceBundle = b.pristine_copy()
+        if fresh.valid:
+            b = fresh
     bundle = b
     scenario = b.scenario
     running = true
@@ -139,6 +157,13 @@ func start(b: SequenceBundle) -> bool:
         var rt := TaskRuntime.new()
         rt.required = t.estimated_crew_days
         runtime[t.task_id] = rt
+    manual_zones.clear()
+    manual_touched.clear()
+    manual_removed.clear()
+    manual_applied.clear()
+    manual_next_id = Manual.first_free_id(b)
+    _recipe_fallback.clear()
+    _recipe_fallback_loaded = false
     package_runtime.clear()
     for p in b.packages:
         var prt := PackageRuntime.new()
@@ -200,6 +225,13 @@ func start(b: SequenceBundle) -> bool:
     for e in b.elements:
         element_visuals[e.guid] = Visual.GHOST
     _load_initial_tiles()
+    if b.manual != null:
+        for zid in b.manual.zones_in_manual_mode:
+            if b.zones_by_id.has(zid):
+                manual_zones[zid] = true
+        for a in b.manual.applied_recipes:
+            manual_applied.append(a.duplicate())
+        apply_manual_flags()
     refresh_states()
     level_started.emit()
     return true
@@ -244,7 +276,10 @@ func set_task_state(task_id: String, new_state: int) -> void:
         return
     var old_state: int = rt.state
     rt.state = new_state
-    _update_element_visual((bundle.tasks_by_id[task_id] as TaskData).element_guid)
+    var task: TaskData = bundle.tasks_by_id[task_id]
+    if not task.is_virtual:  # virtual tasks have no element: they show as markers (virtual_markers)
+        for g in task.element_guids:
+            _update_element_visual(g)
     if new_state == TaskRuntime.State.ACTIVE or TaskRuntime.is_finished(new_state):
         Readiness.note_changed(self, task_id, new_state)
     task_state_changed.emit(task_id, old_state, new_state)
@@ -331,6 +366,165 @@ func set_package_priority(package_id: String, priority: int) -> bool:
     (package_runtime[package_id] as PackageRuntime).priority = priority
     Packages.refresh_states(self)
     return true
+
+
+# ----------------------------------------------------------------- manual sequencing / virtual tasks
+
+## True for a generated task in a zone in manual mode: frozen, it does not count for gates or completion.
+func is_frozen_task(task: TaskData) -> bool:
+    return not manual_zones.is_empty() and manual_zones.has(task.zone_id) and not task.is_authored()
+
+
+## (Re)applies the frozen flag to the generated packages of every zone in manual mode and releases the others.
+func apply_manual_flags() -> void:
+    for zone in bundle.zones:
+        var on: bool = manual_zones.has(zone.id)
+        for p in bundle.packages_by_zone.get(zone.id, []):
+            var pkg: PackageData = p
+            var rt: PackageRuntime = package_runtime.get(pkg.package_id, null)
+            if rt == null or pkg.manual:
+                continue
+            if on and not rt.frozen:
+                rt.frozen = true
+                rt.released_before_freeze = rt.released
+                rt.released = false
+            elif not on and rt.frozen:
+                rt.frozen = false
+                rt.released = rt.released_before_freeze
+
+
+## Registers a task created at runtime (manual.add_task, recipes): indices, successors, gate caches, package and
+## runtime structures. The task needs a unique id, a known zone and step and existing predecessors.
+## `refresh` = false defers the readiness pass (batch creation: call graph_changed() once at the end).
+func register_task(task: TaskData, refresh: bool = true, package_id: String = "") -> bool:
+    if bundle == null or not running:
+        last_error = "level not running"
+        return false
+    if task.task_id == "" or bundle.tasks_by_id.has(task.task_id):
+        last_error = "task id %s is empty or already used" % task.task_id
+        return false
+    if not bundle.zones_by_id.has(task.zone_id):
+        last_error = "no such zone: %s" % task.zone_id
+        return false
+    if not bundle.steps_by_id.has(task.step_id):
+        last_error = "unknown step: %s" % task.step_id
+        return false
+    for p in task.predecessors:
+        if not bundle.tasks_by_id.has(str(p["task_id"])):
+            last_error = "unknown predecessor: %s" % str(p["task_id"])
+            return false
+    task.runtime_added = true
+    bundle.add_task(task)
+    bundle.assign_package(task, package_id)
+    var rt := TaskRuntime.new()
+    rt.required = task.estimated_crew_days
+    runtime[task.task_id] = rt
+    manual_touched[task.task_id] = true
+    if refresh:
+        graph_changed()
+    return true
+
+
+## Removes a task created at runtime (or a loaded authored task) from every structure. Links in other tasks are the
+## caller's business (Manual.remove_task bridges them first).
+func unregister_task(task: TaskData) -> void:
+    bundle.remove_task(task)
+    runtime.erase(task.task_id)
+    dirty_tasks.erase(task.task_id)
+    worked_this_week.erase(task.task_id)
+    manual_touched.erase(task.task_id)
+    if not task.runtime_added:
+        manual_removed[task.task_id] = true
+    for g in task.element_guids:
+        if not task.is_virtual and bundle.elements_by_guid.has(g):
+            _update_element_visual(g)
+
+
+## Brings the runtime structures in line with the (edited) task graph: package runtimes, gate caches, readiness,
+## package states. Emits tasks_changed.
+func graph_changed() -> void:
+    bundle.invalidate_gate_caches()
+    for p in bundle.packages:
+        if not package_runtime.has(p.package_id):
+            var prt := PackageRuntime.new()
+            prt.priority = p.planned_start_day
+            package_runtime[p.package_id] = prt
+    for id in package_runtime.keys():
+        if not bundle.packages_by_id.has(id):
+            package_runtime.erase(id)
+    refresh_states()
+    tasks_changed.emit()
+
+
+## Marker kit id of a virtual task: its own, else derived from the step id ("" for tasks that are not virtual).
+func marker_of(task: TaskData) -> String:
+    if not task.is_virtual:
+        return ""
+    if task.marker != "":
+        return task.marker
+    var sid: String = task.step_id
+    for pair in [["SURVEY", "survey"], ["DEWATER", "dewatering"], ["SCAFF", "scaffold"], ["LIFT", "lift_plan"],
+            ["PERMIT", "permit"], ["SHOR", "shoring"], ["CRANE", "crane"], ["TEST", "test"], ["HYDRO", "test"],
+            ["PRESS", "test"]]:
+        if sid.contains(pair[0]):
+            return pair[1]
+    return "generic"
+
+
+## Marker instances for the 3D view (BimView): one per virtual task, at the zone centre cell.
+## Array of {task_id, marker, zone_id, cell: Vector2i, storey_id, state: String, index: int (per zone)}.
+func virtual_markers() -> Array[Dictionary]:
+    var out: Array[Dictionary] = []
+    if bundle == null:
+        return out
+    var per_zone: Dictionary = {}
+    for t in bundle.virtual_tasks:
+        var zone: ZoneData = bundle.zones_by_id.get(t.zone_id, null)
+        if zone == null:
+            continue
+        var rt: TaskRuntime = runtime.get(t.task_id, null)
+        var idx: int = int(per_zone.get(t.zone_id, 0))
+        per_zone[t.zone_id] = idx + 1
+        out.append({"task_id": t.task_id, "marker": marker_of(t), "zone_id": t.zone_id, "cell": zone.centre_cell(),
+                "storey_id": zone.storey_id, "state": TaskRuntime.state_name(rt.state) if rt != null else "NOT_STARTED",
+                "index": idx})
+    return out
+
+
+func virtual_task_counts() -> Dictionary:
+    var total: int = 0
+    var finished: int = 0
+    var active: int = 0
+    for t in bundle.virtual_tasks:
+        total += 1
+        var st: int = (runtime[t.task_id] as TaskRuntime).state
+        if TaskRuntime.is_finished(st):
+            finished += 1
+        elif st == TaskRuntime.State.ACTIVE or st == TaskRuntime.State.REWORK or st == TaskRuntime.State.AWAITING_INSPECTION:
+            active += 1
+    return {"total": total, "finished": finished, "active": active}
+
+
+## Recipes of this scenario: the bundle's `recipes[]`; when it has none, the logic library under res://logic
+## (index.json + recipes/**.json) if present. Nothing is synthesised.
+func recipe_list() -> Array[RecipeData]:
+    if bundle == null:
+        return []
+    if not bundle.recipes.is_empty():
+        return bundle.recipes
+    if not _recipe_fallback_loaded:
+        _recipe_fallback = LogicLib.load_library()
+        _recipe_fallback_loaded = true
+    return _recipe_fallback
+
+
+func recipe_by_id(id: String) -> RecipeData:
+    if bundle != null and bundle.recipes_by_id.has(id):
+        return bundle.recipes_by_id[id]
+    for r in recipe_list():
+        if r.id == id:
+            return r
+    return null
 
 
 # ----------------------------------------------------------------- element visuals
@@ -732,7 +926,12 @@ func finished_task_count() -> int:
 
 
 func all_tasks_finished() -> bool:
-    return finished_task_count() == runtime.size()
+    if manual_zones.is_empty():
+        return finished_task_count() == runtime.size()
+    for t in bundle.tasks:  # generated tasks frozen by a zone's manual mode do not count
+        if not TaskRuntime.is_finished((runtime[t.task_id] as TaskRuntime).state) and not is_frozen_task(t):
+            return false
+    return true
 
 
 func max_weeks() -> int:
@@ -946,6 +1145,7 @@ func serialize() -> Dictionary:
         "finished": finished, "won": won,
         "packages": _serialize_packages(), "zones_rt": _serialize_zones(),
         "dsz": double_shift_zone_weeks, "incident_log": incident_log.duplicate(true),
+        "manual": Manual.serialize(self),
     }
 
 
@@ -967,6 +1167,9 @@ func deserialize(d: Dictionary) -> bool:
     if str(d.get("scenario_id", "")) != scenario.id:
         last_error = "save belongs to another scenario"
         return false
+    if bundle.edited:  # runtime manual edits of this session: replay the save on the pristine tasks
+        start(bundle)
+    Manual.restore(self, d.get("manual", {}))
     week = int(d["week"])
     cash = float(d["cash"])
     crews.clear()
@@ -1036,6 +1239,7 @@ func deserialize(d: Dictionary) -> bool:
     for id in zr:
         if zone_runtime.has(id):
             (zone_runtime[id] as ZoneRuntime).from_dict(zr[id])
+    apply_manual_flags()
     double_shift_zone_weeks = int(d.get("dsz", 0))
     incident_log.clear()
     for e in d.get("incident_log", []):

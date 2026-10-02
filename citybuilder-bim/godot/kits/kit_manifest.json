@@ -1,0 +1,1336 @@
+{
+  "schema_version": "1.0",
+  "kits": {
+    "rack": {
+      "builder": "PipeRackKit",
+      "description": "Pipe rack: steel bents, pipes per tier, EI tray, aircooler/platform, cladding",
+      "params": {
+        "tiers": 2,
+        "bent_spacing_m": 6,
+        "instancing": "group",
+        "height_from": "element",
+        "default_height_m": 7.0,
+        "min_height_m": 5.0
+      },
+      "layers": [
+        {
+          "id": "steel",
+          "disciplines": [
+            "structure"
+          ],
+          "parts": [
+            "columns",
+            "beams",
+            "struts"
+          ],
+          "grow": "count"
+        },
+        {
+          "id": "piping",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "pipes_tier1",
+            "pipes_tier2"
+          ],
+          "grow": "count",
+          "count_from": "length_m"
+        },
+        {
+          "id": "ei",
+          "disciplines": [
+            "electrical",
+            "instrumentation"
+          ],
+          "parts": [
+            "tray",
+            "conduit",
+            "jbox"
+          ],
+          "grow": "length"
+        },
+        {
+          "id": "mech",
+          "disciplines": [
+            "mechanical"
+          ],
+          "parts": [
+            "aircooler",
+            "platform"
+          ],
+          "grow": "count"
+        },
+        {
+          "id": "insul",
+          "disciplines": [
+            "architecture"
+          ],
+          "parts": [
+            "cladding"
+          ],
+          "grow": "length"
+        }
+      ],
+      "variants": {
+        "rack": [
+          "steel",
+          "piping",
+          "insul"
+        ],
+        "rack_ei": [
+          "steel",
+          "piping",
+          "ei",
+          "insul"
+        ],
+        "rack_mpei": [
+          "steel",
+          "piping",
+          "ei",
+          "mech",
+          "insul"
+        ]
+      },
+      "lod_collapse_distance": 100
+    },
+    "tank": {
+      "builder": "TankKit",
+      "description": "Vertical storage tank: ring foundation, shell courses, roof, spiral stair, nozzles, insulation",
+      "params": {
+        "instancing": "element",
+        "height_from": "element",
+        "default_height_m": 14.0,
+        "min_height_m": 6.0
+      },
+      "layers": [
+        {
+          "id": "ring_foundation",
+          "disciplines": [
+            "civil",
+            "structure"
+          ],
+          "parts": [
+            "ring"
+          ],
+          "grow": "none",
+          "follows": "shell"
+        },
+        {
+          "id": "shell",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "courses"
+          ],
+          "grow": "height",
+          "sequence_group": "process",
+          "weight": 4
+        },
+        {
+          "id": "roof",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "cone_roof",
+            "vent"
+          ],
+          "grow": "none",
+          "sequence_group": "process",
+          "weight": 1
+        },
+        {
+          "id": "stair",
+          "disciplines": [
+            "architecture"
+          ],
+          "parts": [
+            "spiral_stair"
+          ],
+          "grow": "none",
+          "follows": "roof"
+        },
+        {
+          "id": "nozzles",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "nozzles",
+            "manhole"
+          ],
+          "grow": "count",
+          "sequence_group": "process",
+          "weight": 1
+        },
+        {
+          "id": "insulation",
+          "disciplines": [
+            "architecture"
+          ],
+          "parts": [
+            "cladding"
+          ],
+          "grow": "height",
+          "follows": "shell"
+        }
+      ],
+      "lod_collapse_distance": 90
+    },
+    "turbine": {
+      "builder": "TurbineKit",
+      "description": "Turbine on pedestal with skid, casing, generator, auxiliaries, exhaust stack and enclosure",
+      "params": {
+        "instancing": "element",
+        "height_from": "element",
+        "default_height_m": 9.0,
+        "min_height_m": 6.0
+      },
+      "layers": [
+        {
+          "id": "pedestal",
+          "disciplines": [
+            "civil",
+            "structure"
+          ],
+          "parts": [
+            "pedestal"
+          ],
+          "grow": "height",
+          "follows": "casing"
+        },
+        {
+          "id": "skid",
+          "disciplines": [
+            "structure"
+          ],
+          "parts": [
+            "skid"
+          ],
+          "grow": "none",
+          "follows": "casing"
+        },
+        {
+          "id": "casing",
+          "disciplines": [
+            "process",
+            "mechanical"
+          ],
+          "parts": [
+            "casing",
+            "inlet",
+            "diffuser"
+          ],
+          "grow": "count",
+          "sequence_group": "equip",
+          "weight": 4
+        },
+        {
+          "id": "generator",
+          "disciplines": [
+            "electrical"
+          ],
+          "parts": [
+            "generator",
+            "cooler"
+          ],
+          "grow": "count",
+          "follows": "casing"
+        },
+        {
+          "id": "auxiliaries",
+          "disciplines": [
+            "mechanical"
+          ],
+          "parts": [
+            "tanks",
+            "pipes"
+          ],
+          "grow": "count",
+          "follows": "casing"
+        },
+        {
+          "id": "exhaust_stack",
+          "disciplines": [
+            "process",
+            "mechanical"
+          ],
+          "parts": [
+            "stack"
+          ],
+          "grow": "height",
+          "sequence_group": "equip",
+          "weight": 1
+        },
+        {
+          "id": "enclosure",
+          "disciplines": [
+            "architecture"
+          ],
+          "parts": [
+            "roof",
+            "walls"
+          ],
+          "grow": "count",
+          "follows": "exhaust_stack"
+        }
+      ],
+      "lod_collapse_distance": 90
+    },
+    "vessel_v": {
+      "builder": "VesselKit",
+      "description": "Vertical process vessel / column / fired heater",
+      "params": {
+        "orientation": "vertical",
+        "instancing": "element",
+        "height_from": "element",
+        "default_height_m": 12.0,
+        "min_height_m": 5.0
+      },
+      "layers": [
+        {
+          "id": "skirt",
+          "disciplines": [
+            "structure",
+            "civil"
+          ],
+          "parts": [
+            "skirt",
+            "saddles"
+          ],
+          "grow": "none",
+          "follows": "shell"
+        },
+        {
+          "id": "shell",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "shell"
+          ],
+          "grow": "height",
+          "sequence_group": "process",
+          "weight": 4
+        },
+        {
+          "id": "heads",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "heads"
+          ],
+          "grow": "count",
+          "sequence_group": "process",
+          "weight": 1
+        },
+        {
+          "id": "nozzles",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "nozzles"
+          ],
+          "grow": "count",
+          "sequence_group": "process",
+          "weight": 1
+        },
+        {
+          "id": "platforms",
+          "disciplines": [
+            "structure"
+          ],
+          "parts": [
+            "platforms",
+            "ladder"
+          ],
+          "grow": "count",
+          "follows": "heads"
+        }
+      ],
+      "lod_collapse_distance": 90
+    },
+    "vessel_h": {
+      "builder": "VesselKit",
+      "description": "Horizontal drum / accumulator on saddles",
+      "params": {
+        "orientation": "horizontal",
+        "instancing": "element",
+        "height_from": "element",
+        "default_height_m": 5.0,
+        "min_height_m": 3.5
+      },
+      "layers": [
+        {
+          "id": "skirt",
+          "disciplines": [
+            "structure",
+            "civil"
+          ],
+          "parts": [
+            "skirt",
+            "saddles"
+          ],
+          "grow": "none",
+          "follows": "shell"
+        },
+        {
+          "id": "shell",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "shell"
+          ],
+          "grow": "height",
+          "sequence_group": "process",
+          "weight": 4
+        },
+        {
+          "id": "heads",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "heads"
+          ],
+          "grow": "count",
+          "sequence_group": "process",
+          "weight": 1
+        },
+        {
+          "id": "nozzles",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "nozzles"
+          ],
+          "grow": "count",
+          "sequence_group": "process",
+          "weight": 1
+        },
+        {
+          "id": "platforms",
+          "disciplines": [
+            "structure"
+          ],
+          "parts": [
+            "platforms",
+            "ladder"
+          ],
+          "grow": "count",
+          "follows": "heads"
+        }
+      ],
+      "lod_collapse_distance": 90
+    },
+    "pump_plinth": {
+      "builder": "PumpKit",
+      "description": "Centrifugal pump and motor on a concrete plinth",
+      "params": {
+        "instancing": "element",
+        "height_from": "element",
+        "default_height_m": 1.6,
+        "min_height_m": 1.6
+      },
+      "layers": [
+        {
+          "id": "plinth",
+          "disciplines": [
+            "civil",
+            "structure"
+          ],
+          "parts": [
+            "plinth"
+          ],
+          "grow": "height",
+          "follows": "pump"
+        },
+        {
+          "id": "pump",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "baseplate",
+            "casing"
+          ],
+          "grow": "count",
+          "sequence_group": "process",
+          "weight": 3
+        },
+        {
+          "id": "motor",
+          "disciplines": [
+            "electrical",
+            "mechanical"
+          ],
+          "parts": [
+            "motor",
+            "cowl"
+          ],
+          "grow": "count",
+          "follows": "pump"
+        },
+        {
+          "id": "piping",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "suction",
+            "discharge"
+          ],
+          "grow": "count",
+          "sequence_group": "process",
+          "weight": 1
+        }
+      ],
+      "lod_collapse_distance": 60
+    },
+    "exchanger": {
+      "builder": "ExchangerKit",
+      "description": "Shell-and-tube heat exchanger on saddles",
+      "params": {
+        "instancing": "element",
+        "height_from": "element",
+        "default_height_m": 4.0,
+        "min_height_m": 3.0
+      },
+      "layers": [
+        {
+          "id": "saddles",
+          "disciplines": [
+            "structure",
+            "civil"
+          ],
+          "parts": [
+            "saddles"
+          ],
+          "grow": "none",
+          "follows": "shell"
+        },
+        {
+          "id": "shell",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "shell"
+          ],
+          "grow": "length",
+          "sequence_group": "process",
+          "weight": 4
+        },
+        {
+          "id": "channel_heads",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "channel",
+            "rear_head"
+          ],
+          "grow": "count",
+          "sequence_group": "process",
+          "weight": 1
+        },
+        {
+          "id": "nozzles",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "nozzles"
+          ],
+          "grow": "count",
+          "sequence_group": "process",
+          "weight": 1
+        }
+      ],
+      "lod_collapse_distance": 80
+    },
+    "compressor": {
+      "builder": "CompressorKit",
+      "description": "Compressor package: skid, casing, motor, coolers, piping",
+      "params": {
+        "instancing": "element",
+        "height_from": "element",
+        "default_height_m": 4.0,
+        "min_height_m": 3.5
+      },
+      "layers": [
+        {
+          "id": "skid",
+          "disciplines": [
+            "structure"
+          ],
+          "parts": [
+            "skid"
+          ],
+          "grow": "none",
+          "follows": "casing"
+        },
+        {
+          "id": "casing",
+          "disciplines": [
+            "process",
+            "mechanical"
+          ],
+          "parts": [
+            "casing",
+            "stages"
+          ],
+          "grow": "count",
+          "sequence_group": "equip",
+          "weight": 3
+        },
+        {
+          "id": "motor",
+          "disciplines": [
+            "electrical"
+          ],
+          "parts": [
+            "motor"
+          ],
+          "grow": "count",
+          "follows": "casing"
+        },
+        {
+          "id": "coolers",
+          "disciplines": [
+            "process",
+            "mechanical"
+          ],
+          "parts": [
+            "coolers"
+          ],
+          "grow": "count",
+          "sequence_group": "equip",
+          "weight": 2
+        },
+        {
+          "id": "piping",
+          "disciplines": [
+            "process",
+            "mechanical"
+          ],
+          "parts": [
+            "scrubber",
+            "lines"
+          ],
+          "grow": "count",
+          "sequence_group": "equip",
+          "weight": 1
+        }
+      ],
+      "lod_collapse_distance": 80
+    },
+    "transformer": {
+      "builder": "TransformerKit",
+      "description": "Power transformer with radiators, bushings and firewall",
+      "params": {
+        "instancing": "element",
+        "height_from": "element",
+        "default_height_m": 4.0,
+        "min_height_m": 3.5
+      },
+      "layers": [
+        {
+          "id": "plinth",
+          "disciplines": [
+            "civil",
+            "structure"
+          ],
+          "parts": [
+            "plinth",
+            "bund"
+          ],
+          "grow": "height",
+          "follows": "tank"
+        },
+        {
+          "id": "tank",
+          "disciplines": [
+            "electrical"
+          ],
+          "parts": [
+            "tank",
+            "conservator"
+          ],
+          "grow": "count",
+          "sequence_group": "elec",
+          "weight": 4
+        },
+        {
+          "id": "radiators",
+          "disciplines": [
+            "electrical"
+          ],
+          "parts": [
+            "radiators"
+          ],
+          "grow": "count",
+          "sequence_group": "elec",
+          "weight": 2
+        },
+        {
+          "id": "bushings",
+          "disciplines": [
+            "electrical"
+          ],
+          "parts": [
+            "bushings"
+          ],
+          "grow": "count",
+          "sequence_group": "elec",
+          "weight": 1
+        },
+        {
+          "id": "firewall",
+          "disciplines": [
+            "architecture",
+            "fire"
+          ],
+          "parts": [
+            "firewall"
+          ],
+          "grow": "length",
+          "follows": "bushings"
+        }
+      ],
+      "lod_collapse_distance": 80
+    },
+    "switchroom": {
+      "builder": "BoxBuildingKit",
+      "description": "Box building (switchroom / substation): walls, roof, doors, louvres, cable trench",
+      "params": {
+        "instancing": "element",
+        "height_from": "element",
+        "default_height_m": 4.0,
+        "min_height_m": 3.5
+      },
+      "layers": [
+        {
+          "id": "slab",
+          "disciplines": [
+            "civil",
+            "structure"
+          ],
+          "parts": [
+            "slab"
+          ],
+          "grow": "none",
+          "follows": "walls"
+        },
+        {
+          "id": "walls",
+          "disciplines": [
+            "structure",
+            "architecture",
+            "electrical"
+          ],
+          "parts": [
+            "walls"
+          ],
+          "grow": "height"
+        },
+        {
+          "id": "roof",
+          "disciplines": [
+            "architecture"
+          ],
+          "parts": [
+            "roof"
+          ],
+          "grow": "none",
+          "follows": "walls"
+        },
+        {
+          "id": "doors",
+          "disciplines": [
+            "architecture"
+          ],
+          "parts": [
+            "doors"
+          ],
+          "grow": "count",
+          "follows": "walls"
+        },
+        {
+          "id": "louvres",
+          "disciplines": [
+            "mechanical"
+          ],
+          "parts": [
+            "louvres"
+          ],
+          "grow": "count",
+          "follows": "walls"
+        },
+        {
+          "id": "trench",
+          "disciplines": [
+            "electrical"
+          ],
+          "parts": [
+            "trench"
+          ],
+          "grow": "length",
+          "follows": "walls"
+        }
+      ],
+      "lod_collapse_distance": 80
+    },
+    "cooling_tower": {
+      "builder": "CoolingTowerKit",
+      "description": "Mechanical draft cooling tower: basin, cells, fan decks, fan rings",
+      "params": {
+        "instancing": "group",
+        "height_from": "element",
+        "default_height_m": 9.0,
+        "min_height_m": 6.0
+      },
+      "layers": [
+        {
+          "id": "basin",
+          "disciplines": [
+            "civil",
+            "structure"
+          ],
+          "parts": [
+            "basin"
+          ],
+          "grow": "height",
+          "follows": "cells"
+        },
+        {
+          "id": "cells",
+          "disciplines": [
+            "process",
+            "mechanical"
+          ],
+          "parts": [
+            "casing"
+          ],
+          "grow": "count",
+          "sequence_group": "equip",
+          "weight": 3
+        },
+        {
+          "id": "fan_decks",
+          "disciplines": [
+            "process",
+            "mechanical"
+          ],
+          "parts": [
+            "decks",
+            "shrouds"
+          ],
+          "grow": "count",
+          "sequence_group": "equip",
+          "weight": 2
+        },
+        {
+          "id": "fans",
+          "disciplines": [
+            "process",
+            "mechanical"
+          ],
+          "parts": [
+            "blades"
+          ],
+          "grow": "count",
+          "sequence_group": "equip",
+          "weight": 1
+        }
+      ],
+      "lod_collapse_distance": 100
+    },
+    "stack": {
+      "builder": "StackKit",
+      "description": "Exhaust stack: base, tapered banded shaft, ladder, platforms",
+      "params": {
+        "instancing": "element",
+        "height_from": "element",
+        "default_height_m": 30.0,
+        "min_height_m": 10.0
+      },
+      "layers": [
+        {
+          "id": "base",
+          "disciplines": [
+            "civil",
+            "structure"
+          ],
+          "parts": [
+            "base"
+          ],
+          "grow": "none",
+          "follows": "shaft"
+        },
+        {
+          "id": "shaft",
+          "disciplines": [
+            "process",
+            "structure"
+          ],
+          "parts": [
+            "shaft"
+          ],
+          "grow": "height"
+        },
+        {
+          "id": "ladder",
+          "disciplines": [
+            "architecture"
+          ],
+          "parts": [
+            "ladder"
+          ],
+          "grow": "none",
+          "follows": "shaft"
+        },
+        {
+          "id": "platforms",
+          "disciplines": [
+            "structure"
+          ],
+          "parts": [
+            "platforms"
+          ],
+          "grow": "count",
+          "follows": "shaft"
+        }
+      ],
+      "lod_collapse_distance": 120
+    },
+    "module": {
+      "builder": "ModuleKit",
+      "description": "Prefabricated process module: steel frame, equipment, internal piping",
+      "params": {
+        "instancing": "element",
+        "height_from": "element",
+        "default_height_m": 7.5,
+        "min_height_m": 5.0
+      },
+      "layers": [
+        {
+          "id": "frame",
+          "disciplines": [
+            "structure"
+          ],
+          "parts": [
+            "members"
+          ],
+          "grow": "count",
+          "follows": "equipment"
+        },
+        {
+          "id": "equipment",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "vessel",
+            "exchanger",
+            "pumps",
+            "deck"
+          ],
+          "grow": "count",
+          "sequence_group": "process",
+          "weight": 3
+        },
+        {
+          "id": "piping",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "pipes"
+          ],
+          "grow": "count",
+          "sequence_group": "process",
+          "weight": 2
+        }
+      ],
+      "lod_collapse_distance": 90
+    },
+    "ahu": {
+      "builder": "AhuKit",
+      "description": "Air handling unit: base, box sections, ducts, controls",
+      "params": {
+        "instancing": "element",
+        "height_from": "element",
+        "default_height_m": 3.0,
+        "min_height_m": 2.5
+      },
+      "layers": [
+        {
+          "id": "base",
+          "disciplines": [
+            "structure",
+            "civil"
+          ],
+          "parts": [
+            "frame"
+          ],
+          "grow": "none",
+          "follows": "sections"
+        },
+        {
+          "id": "sections",
+          "disciplines": [
+            "mechanical"
+          ],
+          "parts": [
+            "intake",
+            "filter",
+            "coil",
+            "fan"
+          ],
+          "grow": "count",
+          "sequence_group": "mech",
+          "weight": 3
+        },
+        {
+          "id": "ducts",
+          "disciplines": [
+            "mechanical"
+          ],
+          "parts": [
+            "riser",
+            "supply",
+            "return"
+          ],
+          "grow": "count",
+          "sequence_group": "mech",
+          "weight": 2
+        },
+        {
+          "id": "controls",
+          "disciplines": [
+            "electrical",
+            "instrumentation"
+          ],
+          "parts": [
+            "panel",
+            "sensor"
+          ],
+          "grow": "none",
+          "follows": "ducts"
+        }
+      ],
+      "lod_collapse_distance": 60
+    },
+    "chiller": {
+      "builder": "ChillerKit",
+      "description": "Chiller: skid, evaporator, condenser, compressor, piping, controls",
+      "params": {
+        "instancing": "element",
+        "height_from": "element",
+        "default_height_m": 3.0,
+        "min_height_m": 2.8
+      },
+      "layers": [
+        {
+          "id": "skid",
+          "disciplines": [
+            "structure"
+          ],
+          "parts": [
+            "skid"
+          ],
+          "grow": "none",
+          "follows": "condenser"
+        },
+        {
+          "id": "condenser",
+          "disciplines": [
+            "mechanical"
+          ],
+          "parts": [
+            "condenser"
+          ],
+          "grow": "length",
+          "sequence_group": "mech",
+          "weight": 2
+        },
+        {
+          "id": "evaporator",
+          "disciplines": [
+            "mechanical"
+          ],
+          "parts": [
+            "evaporator"
+          ],
+          "grow": "length",
+          "sequence_group": "mech",
+          "weight": 2
+        },
+        {
+          "id": "compressor",
+          "disciplines": [
+            "mechanical"
+          ],
+          "parts": [
+            "compressor",
+            "motor"
+          ],
+          "grow": "count",
+          "sequence_group": "mech",
+          "weight": 2
+        },
+        {
+          "id": "piping",
+          "disciplines": [
+            "mechanical",
+            "plumbing"
+          ],
+          "parts": [
+            "pipes"
+          ],
+          "grow": "count",
+          "sequence_group": "mech",
+          "weight": 1
+        },
+        {
+          "id": "controls",
+          "disciplines": [
+            "electrical",
+            "instrumentation"
+          ],
+          "parts": [
+            "panel"
+          ],
+          "grow": "none",
+          "follows": "compressor"
+        }
+      ],
+      "lod_collapse_distance": 60
+    },
+    "mri": {
+      "builder": "MriKit",
+      "description": "MRI suite: shielded room, lining, magnet, table",
+      "params": {
+        "instancing": "element",
+        "height_from": "element",
+        "default_height_m": 3.4,
+        "min_height_m": 3.4
+      },
+      "layers": [
+        {
+          "id": "room",
+          "disciplines": [
+            "structure",
+            "architecture"
+          ],
+          "parts": [
+            "walls"
+          ],
+          "grow": "height",
+          "follows": "magnet"
+        },
+        {
+          "id": "shield",
+          "disciplines": [
+            "architecture"
+          ],
+          "parts": [
+            "lining"
+          ],
+          "grow": "height",
+          "follows": "room"
+        },
+        {
+          "id": "magnet",
+          "disciplines": [
+            "medical"
+          ],
+          "parts": [
+            "housing",
+            "bore",
+            "cryo"
+          ],
+          "grow": "count",
+          "sequence_group": "med",
+          "weight": 3
+        },
+        {
+          "id": "table",
+          "disciplines": [
+            "medical"
+          ],
+          "parts": [
+            "table",
+            "pedestal"
+          ],
+          "grow": "count",
+          "sequence_group": "med",
+          "weight": 1
+        }
+      ],
+      "lod_collapse_distance": 60
+    },
+    "bridge_pier": {
+      "builder": "PierKit",
+      "description": "Bridge pier line: pile cap, stems, pier head, bearings",
+      "params": {
+        "instancing": "group",
+        "height_from": "element",
+        "default_height_m": 7.0,
+        "min_height_m": 5.0
+      },
+      "layers": [
+        {
+          "id": "pile_cap",
+          "disciplines": [
+            "structure",
+            "civil"
+          ],
+          "parts": [
+            "pile_cap"
+          ],
+          "grow": "none",
+          "sequence_group": "structure",
+          "weight": 1
+        },
+        {
+          "id": "stems",
+          "disciplines": [
+            "structure",
+            "civil"
+          ],
+          "parts": [
+            "stems"
+          ],
+          "grow": "height",
+          "sequence_group": "structure",
+          "weight": 3
+        },
+        {
+          "id": "pier_head",
+          "disciplines": [
+            "structure",
+            "civil"
+          ],
+          "parts": [
+            "head"
+          ],
+          "grow": "length",
+          "sequence_group": "structure",
+          "weight": 1
+        },
+        {
+          "id": "bearings",
+          "disciplines": [
+            "structure",
+            "civil"
+          ],
+          "parts": [
+            "bearings"
+          ],
+          "grow": "count",
+          "sequence_group": "structure",
+          "weight": 0.5
+        }
+      ],
+      "lod_collapse_distance": 100
+    },
+    "culvert": {
+      "builder": "CulvertKit",
+      "description": "Box culvert: bedding, segments, headwalls with wing walls",
+      "params": {
+        "instancing": "group",
+        "height_from": "element",
+        "default_height_m": 3.5,
+        "min_height_m": 3.0
+      },
+      "layers": [
+        {
+          "id": "bedding",
+          "disciplines": [
+            "civil"
+          ],
+          "parts": [
+            "bedding"
+          ],
+          "grow": "length"
+        },
+        {
+          "id": "segments",
+          "disciplines": [
+            "structure"
+          ],
+          "parts": [
+            "segments"
+          ],
+          "grow": "count",
+          "sequence_group": "structure",
+          "weight": 3
+        },
+        {
+          "id": "headwalls",
+          "disciplines": [
+            "structure"
+          ],
+          "parts": [
+            "headwalls",
+            "wings"
+          ],
+          "grow": "count",
+          "sequence_group": "structure",
+          "weight": 1
+        }
+      ],
+      "lod_collapse_distance": 100
+    }
+  },
+  "markers": {
+    "survey": {
+      "builder": "MarkerKit",
+      "color": "#F28C1A",
+      "anchor": "zone_centre"
+    },
+    "dewatering": {
+      "builder": "MarkerKit",
+      "color": "#408CF2",
+      "anchor": "zone_edge"
+    },
+    "scaffold": {
+      "builder": "MarkerKit",
+      "color": "#F2CC33",
+      "anchor": "element"
+    },
+    "lift_plan": {
+      "builder": "MarkerKit",
+      "color": "#D9403A",
+      "anchor": "zone_centre"
+    },
+    "permit": {
+      "builder": "MarkerKit",
+      "color": "#4DBF66",
+      "anchor": "zone_edge"
+    },
+    "test": {
+      "builder": "MarkerKit",
+      "color": "#9966D9",
+      "anchor": "element"
+    },
+    "shoring": {
+      "builder": "MarkerKit",
+      "color": "#996B40",
+      "anchor": "zone_edge"
+    },
+    "crane": {
+      "builder": "MarkerKit",
+      "color": "#FAD933",
+      "anchor": "zone_centre"
+    }
+  }
+}

@@ -23,6 +23,8 @@ var lead_time_weeks: int = 0
 var laydown_cells: int = 0
 var cost: float = 0.0
 var synthesized: bool = false
+## Authored package (manual / recipe tasks): not frozen by the zone's manual mode.
+var manual: bool = false
 
 
 static func from_dict(d: Dictionary) -> PackageData:

@@ -100,6 +100,38 @@ docs/05 section 6.2 is implemented (`ApiServer.method_names()` lists them), batc
 `tools/sitebuilder_client` and `tools/sitebuilder_mcp`. High-level planning (`site.auto_layout`, `zone.staff`,
 `sim.autopilot`, `procure.order_all_due`, analysis) is in `scripts/api/planner.gd` and is usable from the UI.
 
+## Manual sequencing, virtual tasks and the logic library (docs/06 track A)
+
+* **Virtual tasks** (`virtual: true`, `element_guid: null`, `origin`, `recipe_id`, `duration_days`, `marker`, `manual_id`)
+  are ordinary tasks of their trade: they count for predecessors, gates, packages and completion, but have no element, so
+  they never touch element visuals. A task with `duration_days` is time driven: its package needs exactly one crew, it
+  advances one day per working day whatever the quantity, crew weights, shift and learning curve (access / crane flags and
+  events still apply). `SimState.virtual_markers()` lists `{task_id, marker, zone_id, cell (zone centre), storey_id, state,
+  index}`; `BimView` draws a placeholder cylinder per marker (survey yellow, dewatering blue, scaffold grey, lift_plan and
+  crane orange, permit white, test green, shoring brown) and a kit can replace the mesh by assigning
+  `BimView.marker_mesh_provider = func(marker: String) -> Mesh` (the visual kits do).
+* **Manual mode** (`Manual.set_mode`, zone inspector check button): the generated packages of the zone are frozen (held, no
+  work, tasks BLOCKED, ignored by gates and by level completion) and only authored tasks (`TaskData.is_authored()`: origin
+  `manual`, or created at runtime) run; switching it off restores the packages. Bundles list their manual zones in the
+  `manual` block; the pipeline already drops the generated tasks there.
+* **Authoring** (`scripts/sim/manual.gd`): `add_task` (runtime ids `M000001`..; `SimState.register_task` updates indices,
+  successors, gate caches, packages and runtime; one authored package per zone / phase / trade / face), `update_task`,
+  `remove_task` (successors inherit its predecessors), `link` / `unlink` (cycle check, FS / SS / FF + lag),
+  `apply_recipe` (library steps bind to the element by `from_element` self / foundation / host / system / zone, existing
+  generated tasks are reused and linked, virtual steps are created or reused per zone, steps chain FS + lag,
+  `parallel_with` is SS, recipe `logic` links raise lags, `hold_point` makes an inspection, nested recipes are expanded),
+  `export_doc` (manual_sequence.schema.json). Plan export lists authored tasks with T-ids beyond the maximum, `manual_id`,
+  `element_guid` null for virtual ones, plus the `manual` document. Saves carry zones, runtime tasks, links and steps; a
+  restart re-parses the pristine bundle.
+* **Logic library** (`scripts/sim/logic_lib.gd`): recipes come from the bundle's `recipes[]` (else
+  `res://logic/recipes/**.json`); a recipe applies to an element when ANY `applies_to` key matches (ifc_class, visual_kit,
+  name_regex, keywords against name / class; zone_tags_any against the zone); `explain` rows are `covered` (task id),
+  `virtual_present` or `missing`.
+* API: `manual.set_mode`, `manual.add_task`, `manual.update_task`, `manual.remove_task`, `manual.link`, `manual.unlink`,
+  `manual.apply_recipe`, `manual.export`, `manual.tasks`, `logic.list`, `logic.get`, `logic.explain`, `logic.apply`;
+  `state.tasks` carries `virtual` / `origin` / `marker` / `recipe_id` / `duration_days` / `manual_id`, `state.summary`
+  `manual_zones`, `manual_tasks`, `virtual_tasks`.
+
 ## Run the tests (headless)
 
 ```
@@ -130,7 +162,7 @@ files, otherwise the global class cache is stale and scripts fail to parse.
 | `scripts/game_state.gd` (autoload `GameState`, class `SimState`) | The simulation: bundle, task states, week loop, crews, equipment, tiles, procurement, events, score, `snapshot()`, save data |
 | `scripts/scenarios.gd` (autoload `Scenarios`) | Bundle discovery and selection |
 | `scripts/sequence_bundle.gd`, `scripts/data/*.gd` | Typed parse of `sequence.json` plus indices |
-| `scripts/sim/*.gd` | `readiness`, `productivity`, `logistics`, `economy`, `events`, `inspections`, `safety`, `scoring`: static helpers over `SimState`, unit-testable |
+| `scripts/sim/*.gd` | `readiness`, `productivity`, `logistics`, `economy`, `events`, `inspections`, `safety`, `scoring`: static helpers over `SimState`, unit-testable; `manual` (manual mode, authored tasks, recipe expansion, manual export) and `logic_lib` (recipe matcher, explain) |
 | `scripts/site_builder.gd`, `site_tile*.gd`, `road_autotile.gd` | Kenney builder adapted: logistics tiles on the GridMap, road auto-tiling |
 | `scripts/bim_view.gd` | MultiMesh stand-ins per `visual` kind, state tint and storey filter |
 | `scripts/zone_overlay.gd` | Zone quads, hover/click picking |

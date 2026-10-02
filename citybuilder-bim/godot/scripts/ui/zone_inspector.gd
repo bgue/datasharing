@@ -19,6 +19,8 @@ var _info: Label
 var _text: RichTextLabel
 var _lane: GanttRenderer
 var _dirty: bool = true
+## Explain rows of "What's needed?" shown above the task list until the zone changes or the button is pressed again.
+var _explain_text: String = ""
 
 
 func setup(state: SimState) -> void:
@@ -70,6 +72,7 @@ func show_zone(id: String) -> void:
     if id == zone_id:
         return
     zone_id = id
+    _explain_text = ""
     _dirty = true
 
 
@@ -127,11 +130,14 @@ func refresh() -> void:
             n += 1
             var st: StepDef = gs.bundle.step_of(task)
             var rt: TaskRuntime = gs.runtime[task.task_id]
-            out += "  %s - %s (%s %s)\n" % [st.name if st != null else task.step_id, task.element_name, _num(task.quantity), task.unit]
+            var vtag: String = " [virtual]" if task.is_virtual else ""
+            out += "  %s - %s (%s %s)%s\n" % [st.name if st != null else task.step_id, task.element_name, _num(task.quantity), task.unit, vtag]
             if s == "ACTIVE" or s == "REWORK":
                 out += "    [color=#9aa5b8]%d%% done[/color]\n" % int(100.0 * rt.progress / maxf(rt.required, 0.0001))
             elif rt.blocked_reason != "":
                 out += "    [color=#ffcf5a]%s[/color]\n" % rt.blocked_reason
+    if _explain_text != "":
+        out = _explain_text + "\n" + out
     _text.text = out
     _build_controls(z)
     _build_packages(z)
@@ -156,6 +162,22 @@ func _build_controls(z: ZoneData) -> void:
         _dirty = true)
     row.add_child(staff)
     _controls.add_child(row)
+    # manual sequencing hooks (docs/06 A.3): the sequence editor panel builds on the same SimState / Manual calls
+    var manual_row := HBoxContainer.new()
+    var manual := CheckButton.new()
+    manual.text = "Manual mode"
+    manual.focus_mode = Control.FOCUS_NONE
+    manual.tooltip_text = "Freeze the generated packages of this zone and run only manual / recipe tasks"
+    manual.button_pressed = gs.manual_zones.has(z.id)
+    manual.toggled.connect(func(on: bool) -> void:
+        if not Manual.set_mode(gs, z.id, on):
+            message.emit(gs.last_error)
+        _dirty = true)
+    manual_row.add_child(manual)
+    var needed := UiStyle.button("What's needed?", "List the construction logic recipes that apply to this zone and which steps are missing")
+    needed.pressed.connect(func() -> void: _show_whats_needed(z.id))
+    manual_row.add_child(needed)
+    _controls.add_child(manual_row)
     var card_row := HBoxContainer.new()
     var opt := OptionButton.new()
     opt.focus_mode = Control.FOCUS_NONE
@@ -230,6 +252,22 @@ func _build_packages(z: ZoneData) -> void:
             _dirty = true)
         row.add_child(b)
         _packages.add_child(row)
+
+
+## Prints the logic.explain rows of the zone into the text area (toggles).
+func _show_whats_needed(zid: String) -> void:
+    if _explain_text != "":
+        _explain_text = ""
+        _dirty = true
+        return
+    var lines: Array[String] = LogicLib.explain_lines(LogicLib.explain_zone(gs, zid))
+    if lines.is_empty():
+        lines.append("No recipe applies here.")
+    var out: String = "[b]What's needed?[/b]\n"
+    for l in lines:
+        out += "%s\n" % l.replace("[", "[lb]")  # the rows contain [x] / [ ] marks, not BBCode tags
+    _explain_text = out
+    _dirty = true
 
 
 func _num(v: float) -> String:

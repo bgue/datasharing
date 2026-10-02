@@ -270,6 +270,20 @@ func _register() -> void:
     _reg("analysis.critical", func(p: Dictionary) -> Variant: return Planner.critical(gs, int(p.get("top", 20))))
     _reg("analysis.s_curve", func(_p: Dictionary) -> Variant: return Planner.s_curve(gs))
     _reg("analysis.what_if_shift", _m_what_if_shift)
+    # manual sequencing and the construction logic library (docs/06 track A)
+    _reg("manual.set_mode", _m_manual_set_mode)
+    _reg("manual.add_task", _m_manual_add_task)
+    _reg("manual.update_task", _m_manual_update_task)
+    _reg("manual.remove_task", _m_manual_remove_task)
+    _reg("manual.link", _m_manual_link)
+    _reg("manual.unlink", _m_manual_unlink)
+    _reg("manual.apply_recipe", _m_manual_apply_recipe)
+    _reg("manual.export", _m_manual_export)
+    _reg("manual.tasks", _m_manual_tasks)
+    _reg("logic.list", _m_logic_list)
+    _reg("logic.get", _m_logic_get)
+    _reg("logic.explain", _m_logic_explain)
+    _reg("logic.apply", _m_manual_apply_recipe)
 
 
 func _m_scenario_list(_p: Dictionary) -> Variant:
@@ -673,3 +687,137 @@ func _m_what_if_shift(p: Dictionary) -> Variant:
     if z is Dictionary:
         return z
     return Planner.what_if_shift(gs, (z as ZoneData).id)
+
+
+# ------------------------------------------------------------------ manual.* and logic.*
+
+func _task_id_param(p: Dictionary, key: String = "task_id") -> String:
+    return str(p.get(key, p.get("id", "")))
+
+
+func _task_view_of(id: String) -> Variant:
+    var t: TaskData = gs.bundle.tasks_by_id.get(gs.bundle.resolve_task_id(id), null)
+    return ApiViews.task_view(gs, t) if t != null else null
+
+
+func _m_manual_set_mode(p: Dictionary) -> Variant:
+    var z: Variant = _zone_or_err(p)
+    if z is Dictionary:
+        return z
+    var on: bool = bool(p.get("on", true))
+    if not Manual.set_mode(gs, (z as ZoneData).id, on):
+        return _fail()
+    return {"ok": true, "zone_id": (z as ZoneData).id, "manual_mode": on, "manual_zones": gs.manual_zones.size(),
+            "zone": ApiViews.zone_view(gs, z)}
+
+
+func _m_manual_add_task(p: Dictionary) -> Variant:
+    var id: String = Manual.add_task(gs, p)
+    if id == "":
+        return _fail()
+    return {"ok": true, "task_id": id, "task": _task_view_of(id)}
+
+
+func _m_manual_update_task(p: Dictionary) -> Variant:
+    var id: String = _task_id_param(p)
+    if id == "":
+        return _err("missing parameter: task_id", -32602)
+    var fields: Dictionary = p.get("fields", {}) if p.get("fields", {}) is Dictionary else {}
+    if fields.is_empty():
+        for k in p:
+            if k != "task_id" and k != "id" and k != "fields":
+                fields[k] = p[k]
+    if not Manual.update_task(gs, id, fields):
+        return _fail()
+    return {"ok": true, "task_id": gs.bundle.resolve_task_id(id), "task": _task_view_of(id)}
+
+
+func _m_manual_remove_task(p: Dictionary) -> Variant:
+    var id: String = _task_id_param(p)
+    if id == "":
+        return _err("missing parameter: task_id", -32602)
+    if not Manual.remove_task(gs, id, bool(p.get("bridge", true))):
+        return _fail()
+    return {"ok": true, "removed": id}
+
+
+func _m_manual_link(p: Dictionary) -> Variant:
+    var from_id: String = str(p.get("from_id", p.get("from", "")))
+    var to_id: String = str(p.get("to_id", p.get("to", "")))
+    if from_id == "" or to_id == "":
+        return _err("missing parameter: from_id / to_id", -32602)
+    if not Manual.link(gs, from_id, to_id, str(p.get("type", p.get("link_type", "FS"))), int(p.get("lag_days", p.get("lag", 0)))):
+        return _fail()
+    return {"ok": true, "task": _task_view_of(to_id)}
+
+
+func _m_manual_unlink(p: Dictionary) -> Variant:
+    var from_id: String = str(p.get("from_id", p.get("from", "")))
+    var to_id: String = str(p.get("to_id", p.get("to", "")))
+    if from_id == "" or to_id == "":
+        return _err("missing parameter: from_id / to_id", -32602)
+    if not Manual.unlink(gs, from_id, to_id):
+        return _fail()
+    return {"ok": true, "task": _task_view_of(to_id)}
+
+
+func _m_manual_apply_recipe(p: Dictionary) -> Variant:
+    var m: String = _need(p, ["recipe_id"])
+    if m != "":
+        return _err(m, -32602)
+    var res: Dictionary = Manual.apply_recipe(gs, str(p["recipe_id"]), str(p.get("zone_id", "")),
+            str(p.get("element_guid", "")) if p.get("element_guid", null) != null else "", bool(p.get("include_optional", false)))
+    if res.is_empty():
+        return _fail()
+    return res
+
+
+func _m_manual_export(p: Dictionary) -> Variant:
+    var doc: Dictionary = Manual.export_doc(gs)
+    var path: String = str(p.get("path", ""))
+    if path != "":
+        var f := FileAccess.open(path, FileAccess.WRITE)
+        if f == null:
+            return _err("cannot write %s" % path)
+        f.store_string(JSON.stringify(doc, " ") + "\n")
+        f.close()
+        doc["path"] = path
+    return doc
+
+
+func _m_manual_tasks(p: Dictionary) -> Variant:
+    var out: Array = []
+    for t in gs.bundle.tasks:
+        if not t.is_authored():
+            continue
+        if p.has("zone_id") and t.zone_id != str(p["zone_id"]):
+            continue
+        out.append(ApiViews.task_view(gs, t))
+    return out
+
+
+func _m_logic_list(p: Dictionary) -> Variant:
+    return LogicLib.list_recipes(gs, str(p.get("sector", "")))
+
+
+func _m_logic_get(p: Dictionary) -> Variant:
+    var id: String = str(p.get("id", p.get("recipe_id", "")))
+    if id == "":
+        return _err("missing parameter: id", -32602)
+    var r: Dictionary = LogicLib.get_recipe(gs, id)
+    if r.is_empty():
+        return _fail()
+    return r
+
+
+func _m_logic_explain(p: Dictionary) -> Variant:
+    var res: Dictionary = {}
+    if p.has("element_guid") and p["element_guid"] != null and str(p["element_guid"]) != "":
+        res = LogicLib.explain_element(gs, str(p["element_guid"]))
+    elif p.has("zone_id"):
+        res = LogicLib.explain_zone(gs, str(p["zone_id"]))
+    else:
+        return _err("missing parameter: element_guid or zone_id", -32602)
+    if res.is_empty():
+        return _fail()
+    return res
