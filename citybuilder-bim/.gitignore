@@ -1,0 +1,4 @@
+godot/.godot/
+godot/export/
+tools/**/__pycache__/
+*.pyc

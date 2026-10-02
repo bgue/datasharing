@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sitebuilder.dev/schema/sequence.schema.json",
+  "title": "Game bundle: project, spatial model, step library, scheduled tasks, gates and scenario in one file",
+  "type": "object",
+  "required": ["schema_version", "project", "storeys", "zones", "systems", "elements",
+               "step_library", "tasks", "baseline", "scenario"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "project": {"$ref": "common.schema.json#/$defs/project"},
+    "storeys": {"type": "array", "items": {"$ref": "common.schema.json#/$defs/storey"}, "minItems": 1},
+    "zones": {"type": "array", "items": {"$ref": "common.schema.json#/$defs/zone"}, "minItems": 1},
+    "systems": {"type": "array", "items": {"$ref": "common.schema.json#/$defs/system"}},
+    "elements": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "required": ["guid", "ifc_class", "name", "storey_id", "zone_id", "cells", "visual"],
+        "properties": {
+          "guid": {"type": "string"}, "ifc_class": {"type": "string"}, "name": {"type": "string"},
+          "storey_id": {"type": "string"}, "zone_id": {"type": "string"}, "system_id": {"type": ["string", "null"]},
+          "cells": {"$ref": "common.schema.json#/$defs/cells"},
+          "visual": {"type": "string"},
+          "size_hint": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3,
+            "description": "Approximate [w, h, d] in metres for the stand-in mesh"}
+        }
+      }
+    },
+    "step_library": {"$ref": "step_library.schema.json"},
+    "tasks": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "allOf": [
+          {"$ref": "element_step_map.schema.json#/$defs/task"},
+          {"required": ["planned_start_day", "planned_finish_day"],
+           "properties": {"planned_start_day": {"type": "integer", "minimum": 0}, "planned_finish_day": {"type": "integer", "minimum": 0}}}
+        ]
+      }
+    },
+    "baseline": {
+      "type": "object", "required": ["finish_day", "finish_week", "total_cost", "critical_task_ids"],
+      "properties": {
+        "finish_day": {"type": "integer", "minimum": 0},
+        "finish_week": {"type": "integer", "minimum": 0},
+        "total_cost": {"type": "number", "minimum": 0},
+        "total_crew_days": {"type": "number", "minimum": 0},
+        "critical_task_ids": {"type": "array", "items": {"$ref": "common.schema.json#/$defs/task_id"}},
+        "weekly_planned_cost": {"type": "array", "items": {"type": "number"}, "description": "Cumulative planned cost per week for the S-curve"}
+      }
+    },
+    "scenario": {"$ref": "scenario.schema.json"},
+    "generated_at": {"type": "string"},
+    "generator": {"type": "string"}
+  }
+}

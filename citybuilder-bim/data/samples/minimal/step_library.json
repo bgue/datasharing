@@ -1,0 +1,203 @@
+{
+ "schema_version": "1.0",
+ "sector": "healthcare",
+ "phases": [
+  {
+   "id": "mobilise",
+   "name": "Mobilise",
+   "order": 0
+  },
+  {
+   "id": "substructure",
+   "name": "Substructure",
+   "order": 1
+  },
+  {
+   "id": "superstructure",
+   "name": "Superstructure",
+   "order": 2
+  },
+  {
+   "id": "mep_roughin",
+   "name": "Mep Roughin",
+   "order": 3
+  },
+  {
+   "id": "interiors",
+   "name": "Interiors",
+   "order": 4
+  },
+  {
+   "id": "commissioning",
+   "name": "Commissioning",
+   "order": 5
+  },
+  {
+   "id": "handover",
+   "name": "Handover",
+   "order": 6
+  }
+ ],
+ "trades": [
+  {
+   "id": "concrete",
+   "name": "Concrete crew",
+   "weekly_cost": 9000,
+   "crew_size": 6,
+   "color": "#8d8d8d"
+  },
+  {
+   "id": "finishes",
+   "name": "Finishes crew",
+   "weekly_cost": 7000,
+   "crew_size": 4,
+   "color": "#d9a066"
+  },
+  {
+   "id": "mechanical",
+   "name": "Mechanical crew",
+   "weekly_cost": 8500,
+   "crew_size": 4,
+   "color": "#5b8def"
+  },
+  {
+   "id": "commissioning",
+   "name": "Commissioning team",
+   "weekly_cost": 6000,
+   "crew_size": 2,
+   "color": "#4caf50"
+  }
+ ],
+ "steps": [
+  {
+   "id": "STR-FOOT-POUR",
+   "name": "Pour pad footing",
+   "phase": "substructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 10,
+   "unit_cost": 300,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.15,
+   "weather_sensitive": true,
+   "progress_visual": "solid",
+   "predecessors": []
+  },
+  {
+   "id": "STR-COL-POUR",
+   "name": "Form and pour column",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 4,
+   "unit_cost": 450,
+   "requires_crane": true,
+   "risk": 0.25,
+   "predecessors": [
+    {
+     "step": "STR-FOOT-POUR",
+     "scope": "same_cell_below"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_below"
+    }
+   ]
+  },
+  {
+   "id": "STR-SLAB-POUR",
+   "name": "Form, reinforce and pour slab",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "discipline": "structure",
+   "quantity_basis": "volume_m3",
+   "rate_per_crew_day": 12,
+   "unit_cost": 350,
+   "laydown_cells": 1,
+   "inspection": true,
+   "inspection_type": "structural",
+   "risk": 0.2,
+   "weather_sensitive": true,
+   "predecessors": [
+    {
+     "step": "STR-COL-POUR",
+     "scope": "same_cell_below"
+    }
+   ]
+  },
+  {
+   "id": "ARC-WALL-BUILD",
+   "name": "Build partition wall",
+   "phase": "interiors",
+   "trade": "finishes",
+   "discipline": "architecture",
+   "quantity_basis": "area_m2",
+   "rate_per_crew_day": 30,
+   "unit_cost": 80,
+   "dusty": true,
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell"
+    },
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_above"
+    }
+   ]
+  },
+  {
+   "id": "MEP-DUCT-INSTALL",
+   "name": "Install ductwork",
+   "phase": "mep_roughin",
+   "trade": "mechanical",
+   "discipline": "mechanical",
+   "quantity_basis": "length_m",
+   "rate_per_crew_day": 20,
+   "unit_cost": 120,
+   "laydown_cells": 1,
+   "inspection": true,
+   "inspection_type": "mechanical",
+   "predecessors": [
+    {
+     "step": "STR-SLAB-POUR",
+     "scope": "same_cell_above"
+    }
+   ]
+  },
+  {
+   "id": "CX-AIR-BALANCE",
+   "name": "Air balance system",
+   "phase": "commissioning",
+   "trade": "commissioning",
+   "discipline": "commissioning",
+   "quantity_basis": "count",
+   "rate_per_crew_day": 1,
+   "unit_cost": 2000,
+   "requires_access": false,
+   "progress_visual": "finished",
+   "predecessors": [
+    {
+     "step": "MEP-DUCT-INSTALL",
+     "scope": "same_system",
+     "required": true
+    }
+   ]
+  }
+ ],
+ "gates": [
+  {
+   "id": "G-struct",
+   "name": "Structure complete before MEP rough-in",
+   "after_phase": "superstructure",
+   "before_phase": "mep_roughin",
+   "scope": "storey",
+   "requires_inspection_types": [
+    "structural"
+   ]
+  }
+ ]
+}

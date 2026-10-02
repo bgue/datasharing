@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sitebuilder.dev/schema/step_library.schema.json",
+  "title": "Sector step library: construction step types, trades, phases, gates",
+  "type": "object",
+  "required": ["schema_version", "sector", "phases", "trades", "steps"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "sector": {"$ref": "common.schema.json#/$defs/sector"},
+    "phases": {
+      "type": "array", "minItems": 2,
+      "items": {
+        "type": "object", "required": ["id", "name", "order"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+          "name": {"type": "string"},
+          "order": {"type": "integer", "minimum": 0},
+          "description": {"type": "string"}
+        }
+      }
+    },
+    "trades": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "required": ["id", "name", "weekly_cost"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+          "name": {"type": "string"},
+          "weekly_cost": {"type": "number", "minimum": 0},
+          "crew_size": {"type": "integer", "minimum": 1, "default": 4},
+          "max_hire_per_week": {"type": "integer", "minimum": 0, "default": 2},
+          "color": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"}
+        }
+      }
+    },
+    "steps": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "phase", "trade", "discipline", "quantity_basis", "rate_per_crew_day", "unit_cost"],
+        "properties": {
+          "id": {"$ref": "common.schema.json#/$defs/step_id"},
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "phase": {"type": "string"},
+          "trade": {"type": "string"},
+          "discipline": {"$ref": "common.schema.json#/$defs/discipline"},
+          "quantity_basis": {"$ref": "common.schema.json#/$defs/quantity_basis"},
+          "rate_per_crew_day": {"type": "number", "exclusiveMinimum": 0},
+          "unit_cost": {"type": "number", "minimum": 0},
+          "min_duration_days": {"type": "integer", "minimum": 1, "default": 1},
+          "requires_crane": {"type": "boolean", "default": false},
+          "requires_access": {"type": "boolean", "default": true},
+          "laydown_cells": {"type": "integer", "minimum": 0, "default": 0},
+          "lead_time_weeks": {"type": "integer", "minimum": 0, "default": 0},
+          "inspection": {"type": "boolean", "default": false},
+          "inspection_type": {"type": ["string", "null"]},
+          "risk": {"type": "number", "minimum": 0, "maximum": 1, "default": 0.1},
+          "weather_sensitive": {"type": "boolean", "default": false},
+          "noisy": {"type": "boolean", "default": false},
+          "dusty": {"type": "boolean", "default": false},
+          "progress_visual": {
+            "type": "string", "enum": ["none", "framed", "solid", "finished"],
+            "default": "solid",
+            "description": "Element render state reached when this step completes"
+          },
+          "predecessors": {
+            "type": "array",
+            "items": {
+              "type": "object", "required": ["step", "scope"],
+              "properties": {
+                "step": {"$ref": "common.schema.json#/$defs/step_id"},
+                "scope": {"$ref": "common.schema.json#/$defs/scope"},
+                "type": {"$ref": "common.schema.json#/$defs/link_type", "default": "FS"},
+                "lag_days": {"type": "integer", "default": 0},
+                "required": {"type": "boolean", "default": false}
+              }
+            }
+          },
+          "tags": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "object", "required": ["id", "name", "after_phase", "before_phase", "scope"],
+        "properties": {
+          "id": {"type": "string"},
+          "name": {"type": "string"},
+          "after_phase": {"type": "string"},
+          "before_phase": {"type": "string"},
+          "scope": {"type": "string", "enum": ["zone", "storey", "project"]},
+          "requires_inspection_types": {"type": "array", "items": {"type": "string"}},
+          "description": {"type": "string"}
+        }
+      }
+    }
+  }
+}

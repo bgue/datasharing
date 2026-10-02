@@ -1,0 +1,155 @@
+{
+ "schema_version": "1.0",
+ "id": "minimal",
+ "name": "Minimal test block",
+ "description": "Hand-authored smoke-test level.",
+ "sector": "healthcare",
+ "difficulty": "tutorial",
+ "contract_weeks": 6,
+ "budget": 120000,
+ "start_cash": 40000,
+ "overdraft_limit": 20000,
+ "weather": {
+  "start_week_of_year": 10,
+  "monthly_factor": [
+   0.7,
+   0.75,
+   0.85,
+   0.9,
+   1,
+   1,
+   1,
+   1,
+   0.95,
+   0.85,
+   0.75,
+   0.7
+  ]
+ },
+ "crews_available": {
+  "concrete": 2,
+  "finishes": 1,
+  "mechanical": 1,
+  "commissioning": 1
+ },
+ "equipment": [
+  {
+   "id": "mc1",
+   "type": "mobile_crane",
+   "name": "Mobile crane 50t",
+   "weekly_cost": 4000,
+   "mobilisation_cost": 3000,
+   "reach_cells": 3,
+   "footprint_cells": 1,
+   "max_count": 1
+  }
+ ],
+ "site": {
+  "gates": [
+   [
+    0,
+    2
+   ]
+  ],
+  "occupied_cells": [
+   [
+    6,
+    2
+   ],
+   [
+    6,
+    3
+   ]
+  ],
+  "initial_tiles": [
+   {
+    "tile": "existing_building",
+    "cell": [
+     6,
+     2
+    ]
+   },
+   {
+    "tile": "existing_building",
+    "cell": [
+     6,
+     3
+    ]
+   }
+  ],
+  "tile_costs": {
+   "haul_road": {
+    "place": 500,
+    "weekly": 50
+   },
+   "laydown": {
+    "place": 300,
+    "weekly": 100
+   },
+   "crane_pad": {
+    "place": 2000,
+    "weekly": 0
+   },
+   "welfare": {
+    "place": 4000,
+    "weekly": 400
+   },
+   "hoarding": {
+    "place": 200,
+    "weekly": 10
+   },
+   "icra_barrier": {
+    "place": 800,
+    "weekly": 100
+   }
+  }
+ },
+ "events": [
+  {
+   "id": "rain",
+   "name": "Wet week",
+   "text": "Heavy rain all week. Exterior concrete slows.",
+   "weight": 3,
+   "effect": {
+    "productivity_factor": 0.5,
+    "affects_steps_with_tag": "weather_sensitive",
+    "duration_weeks": 1
+   }
+  },
+  {
+   "id": "icra_audit",
+   "name": "Infection control audit",
+   "text": "The hospital audits dust control next to the ward.",
+   "weight": 2,
+   "trigger": {
+    "missing_tile_adjacent_to_tag": "occupied_adjacent"
+   },
+   "effect": {
+    "pause_zone_weeks": 1,
+    "score_delta": -5
+   }
+  }
+ ],
+ "scoring": {
+  "weights": {
+   "time": 35,
+   "cost": 25,
+   "safety": 20,
+   "quality": 10,
+   "stability": 10
+  },
+  "max_incidents_hard": 3,
+  "grade_thresholds": {
+   "S": 90,
+   "A": 75,
+   "B": 60,
+   "C": 40
+  }
+ },
+ "tutorial_hints": [
+  {
+   "week": 0,
+   "text": "Place a haul road from the gate to the building, then hire a concrete crew and release the footings."
+  }
+ ]
+}

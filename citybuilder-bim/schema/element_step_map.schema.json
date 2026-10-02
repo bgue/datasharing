@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sitebuilder.dev/schema/element_step_map.schema.json",
+  "title": "BIM element-to-step mapping: one task per (element, step) pair",
+  "type": "object",
+  "required": ["schema_version", "project", "sector", "generated_at", "tasks"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "project": {"$ref": "common.schema.json#/$defs/project"},
+    "sector": {"$ref": "common.schema.json#/$defs/sector"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "generator": {"type": "string"},
+    "step_library_ref": {"type": "string"},
+    "mapping_rules_ref": {"type": "string"},
+    "tasks": {"type": "array", "items": {"$ref": "#/$defs/task"}},
+    "unmapped_elements": {
+      "type": "array",
+      "items": {
+        "type": "object", "required": ["guid", "ifc_class", "reason"],
+        "properties": {
+          "guid": {"type": "string"}, "ifc_class": {"type": "string"},
+          "reason": {"type": "string", "enum": ["default_rule", "no_quantity", "excluded"]}
+        }
+      }
+    },
+    "sequencing_gaps": {
+      "type": "array",
+      "items": {
+        "type": "object", "required": ["task_id", "step", "scope"],
+        "properties": {"task_id": {"type": "string"}, "step": {"type": "string"}, "scope": {"type": "string"}, "note": {"type": "string"}}
+      }
+    }
+  },
+  "$defs": {
+    "task": {
+      "type": "object",
+      "required": ["task_id", "element_guid", "ifc_class", "element_name", "storey_id", "zone_id",
+                   "step_id", "phase", "trade", "quantity", "unit", "estimated_crew_days", "cost",
+                   "cells", "flags", "predecessors", "rule_id"],
+      "properties": {
+        "task_id": {"$ref": "common.schema.json#/$defs/task_id"},
+        "element_guid": {"type": "string"},
+        "ifc_class": {"type": "string"},
+        "element_name": {"type": "string"},
+        "storey_id": {"type": "string"},
+        "zone_id": {"type": "string"},
+        "system_id": {"type": ["string", "null"]},
+        "step_id": {"$ref": "common.schema.json#/$defs/step_id"},
+        "phase": {"type": "string"},
+        "trade": {"type": "string"},
+        "quantity": {"type": "number", "minimum": 0},
+        "unit": {"$ref": "common.schema.json#/$defs/unit"},
+        "estimated_crew_days": {"type": "number", "minimum": 0},
+        "cost": {"type": "number", "minimum": 0},
+        "cells": {"$ref": "common.schema.json#/$defs/cells"},
+        "flags": {
+          "type": "object",
+          "required": ["requires_crane", "requires_access", "inspection", "lead_time_weeks", "laydown_cells"],
+          "properties": {
+            "requires_crane": {"type": "boolean"},
+            "requires_access": {"type": "boolean"},
+            "inspection": {"type": "boolean"},
+            "inspection_type": {"type": ["string", "null"]},
+            "lead_time_weeks": {"type": "integer", "minimum": 0},
+            "laydown_cells": {"type": "integer", "minimum": 0},
+            "risk": {"type": "number"},
+            "weather_sensitive": {"type": "boolean"},
+            "noisy": {"type": "boolean"},
+            "dusty": {"type": "boolean"}
+          }
+        },
+        "predecessors": {
+          "type": "array",
+          "items": {
+            "type": "object", "required": ["task_id", "type", "lag_days"],
+            "properties": {
+              "task_id": {"$ref": "common.schema.json#/$defs/task_id"},
+              "type": {"$ref": "common.schema.json#/$defs/link_type"},
+              "lag_days": {"type": "integer"},
+              "reason": {"type": "string"}
+            }
+          }
+        },
+        "rule_id": {"type": "string"},
+        "planned_start_day": {"type": ["integer", "null"]},
+        "planned_finish_day": {"type": ["integer", "null"]},
+        "actual_start_day": {"type": ["integer", "null"]},
+        "actual_finish_day": {"type": ["integer", "null"]},
+        "is_critical": {"type": "boolean"},
+        "total_float_days": {"type": ["integer", "null"]}
+      }
+    }
+  }
+}

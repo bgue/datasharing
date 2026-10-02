@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sitebuilder.dev/schema/elements.schema.json",
+  "title": "Simplified BIM element list (output of IFC extraction or synthetic generation)",
+  "type": "object",
+  "required": ["schema_version", "project", "storeys", "zones", "elements"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "project": {"$ref": "common.schema.json#/$defs/project"},
+    "storeys": {"type": "array", "items": {"$ref": "common.schema.json#/$defs/storey"}, "minItems": 1},
+    "zones": {"type": "array", "items": {"$ref": "common.schema.json#/$defs/zone"}, "minItems": 1},
+    "systems": {"type": "array", "items": {"$ref": "common.schema.json#/$defs/system"}},
+    "elements": {"type": "array", "items": {"$ref": "common.schema.json#/$defs/element"}, "minItems": 1}
+  }
+}

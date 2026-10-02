@@ -1,0 +1,628 @@
+{
+ "schema_version": "1.0",
+ "project": {
+  "name": "Minimal block",
+  "sector": "healthcare",
+  "source": "synthetic",
+  "grid": {
+   "cell_size_m": 6,
+   "storey_height_m": 4,
+   "origin": [
+    0,
+    0,
+    0
+   ],
+   "width_cells": 8,
+   "depth_cells": 6
+  }
+ },
+ "sector": "healthcare",
+ "generated_at": "2026-10-02T00:00:00Z",
+ "generator": "hand",
+ "tasks": [
+  {
+   "task_id": "T000001",
+   "element_guid": "FOOT0",
+   "ifc_class": "IfcFooting",
+   "element_name": "Footing F1",
+   "storey_id": "L00",
+   "zone_id": "L00-Z1",
+   "system_id": null,
+   "step_id": "STR-FOOT-POUR",
+   "phase": "substructure",
+   "trade": "concrete",
+   "quantity": 2.4,
+   "unit": "m3",
+   "estimated_crew_days": 0.24,
+   "cost": 720.0,
+   "cells": [
+    [
+     2,
+     2
+    ]
+   ],
+   "flags": {
+    "requires_crane": false,
+    "requires_access": true,
+    "inspection": true,
+    "inspection_type": "structural",
+    "lead_time_weeks": 0,
+    "laydown_cells": 0,
+    "risk": 0.15,
+    "weather_sensitive": true,
+    "noisy": false,
+    "dusty": false
+   },
+   "predecessors": [],
+   "rule_id": "R-hand",
+   "planned_start_day": 0,
+   "planned_finish_day": 1,
+   "actual_start_day": null,
+   "actual_finish_day": null,
+   "is_critical": true,
+   "total_float_days": 0
+  },
+  {
+   "task_id": "T000002",
+   "element_guid": "FOOT1",
+   "ifc_class": "IfcFooting",
+   "element_name": "Footing F2",
+   "storey_id": "L00",
+   "zone_id": "L00-Z1",
+   "system_id": null,
+   "step_id": "STR-FOOT-POUR",
+   "phase": "substructure",
+   "trade": "concrete",
+   "quantity": 2.4,
+   "unit": "m3",
+   "estimated_crew_days": 0.24,
+   "cost": 720.0,
+   "cells": [
+    [
+     3,
+     2
+    ]
+   ],
+   "flags": {
+    "requires_crane": false,
+    "requires_access": true,
+    "inspection": true,
+    "inspection_type": "structural",
+    "lead_time_weeks": 0,
+    "laydown_cells": 0,
+    "risk": 0.15,
+    "weather_sensitive": true,
+    "noisy": false,
+    "dusty": false
+   },
+   "predecessors": [],
+   "rule_id": "R-hand",
+   "planned_start_day": 0,
+   "planned_finish_day": 1,
+   "actual_start_day": null,
+   "actual_finish_day": null,
+   "is_critical": true,
+   "total_float_days": 0
+  },
+  {
+   "task_id": "T000003",
+   "element_guid": "FOOT2",
+   "ifc_class": "IfcFooting",
+   "element_name": "Footing F3",
+   "storey_id": "L00",
+   "zone_id": "L00-Z1",
+   "system_id": null,
+   "step_id": "STR-FOOT-POUR",
+   "phase": "substructure",
+   "trade": "concrete",
+   "quantity": 2.4,
+   "unit": "m3",
+   "estimated_crew_days": 0.24,
+   "cost": 720.0,
+   "cells": [
+    [
+     2,
+     3
+    ]
+   ],
+   "flags": {
+    "requires_crane": false,
+    "requires_access": true,
+    "inspection": true,
+    "inspection_type": "structural",
+    "lead_time_weeks": 0,
+    "laydown_cells": 0,
+    "risk": 0.15,
+    "weather_sensitive": true,
+    "noisy": false,
+    "dusty": false
+   },
+   "predecessors": [],
+   "rule_id": "R-hand",
+   "planned_start_day": 0,
+   "planned_finish_day": 1,
+   "actual_start_day": null,
+   "actual_finish_day": null,
+   "is_critical": true,
+   "total_float_days": 0
+  },
+  {
+   "task_id": "T000004",
+   "element_guid": "FOOT3",
+   "ifc_class": "IfcFooting",
+   "element_name": "Footing F4",
+   "storey_id": "L00",
+   "zone_id": "L00-Z1",
+   "system_id": null,
+   "step_id": "STR-FOOT-POUR",
+   "phase": "substructure",
+   "trade": "concrete",
+   "quantity": 2.4,
+   "unit": "m3",
+   "estimated_crew_days": 0.24,
+   "cost": 720.0,
+   "cells": [
+    [
+     3,
+     3
+    ]
+   ],
+   "flags": {
+    "requires_crane": false,
+    "requires_access": true,
+    "inspection": true,
+    "inspection_type": "structural",
+    "lead_time_weeks": 0,
+    "laydown_cells": 0,
+    "risk": 0.15,
+    "weather_sensitive": true,
+    "noisy": false,
+    "dusty": false
+   },
+   "predecessors": [],
+   "rule_id": "R-hand",
+   "planned_start_day": 0,
+   "planned_finish_day": 1,
+   "actual_start_day": null,
+   "actual_finish_day": null,
+   "is_critical": true,
+   "total_float_days": 0
+  },
+  {
+   "task_id": "T000005",
+   "element_guid": "COL00",
+   "ifc_class": "IfcColumn",
+   "element_name": "Column C1 L00",
+   "storey_id": "L00",
+   "zone_id": "L00-Z1",
+   "system_id": null,
+   "step_id": "STR-COL-POUR",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "quantity": 1.0,
+   "unit": "m3",
+   "estimated_crew_days": 0.25,
+   "cost": 450.0,
+   "cells": [
+    [
+     2,
+     2
+    ]
+   ],
+   "flags": {
+    "requires_crane": true,
+    "requires_access": true,
+    "inspection": false,
+    "inspection_type": null,
+    "lead_time_weeks": 0,
+    "laydown_cells": 0,
+    "risk": 0.25,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false
+   },
+   "predecessors": [
+    {
+     "task_id": "T000001",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell_below:STR-FOOT-POUR"
+    }
+   ],
+   "rule_id": "R-hand",
+   "planned_start_day": 2,
+   "planned_finish_day": 3,
+   "actual_start_day": null,
+   "actual_finish_day": null,
+   "is_critical": true,
+   "total_float_days": 0
+  },
+  {
+   "task_id": "T000006",
+   "element_guid": "COL01",
+   "ifc_class": "IfcColumn",
+   "element_name": "Column C2 L00",
+   "storey_id": "L00",
+   "zone_id": "L00-Z1",
+   "system_id": null,
+   "step_id": "STR-COL-POUR",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "quantity": 1.0,
+   "unit": "m3",
+   "estimated_crew_days": 0.25,
+   "cost": 450.0,
+   "cells": [
+    [
+     3,
+     2
+    ]
+   ],
+   "flags": {
+    "requires_crane": true,
+    "requires_access": true,
+    "inspection": false,
+    "inspection_type": null,
+    "lead_time_weeks": 0,
+    "laydown_cells": 0,
+    "risk": 0.25,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false
+   },
+   "predecessors": [
+    {
+     "task_id": "T000002",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell_below:STR-FOOT-POUR"
+    }
+   ],
+   "rule_id": "R-hand",
+   "planned_start_day": 2,
+   "planned_finish_day": 3,
+   "actual_start_day": null,
+   "actual_finish_day": null,
+   "is_critical": true,
+   "total_float_days": 0
+  },
+  {
+   "task_id": "T000007",
+   "element_guid": "COL02",
+   "ifc_class": "IfcColumn",
+   "element_name": "Column C3 L00",
+   "storey_id": "L00",
+   "zone_id": "L00-Z1",
+   "system_id": null,
+   "step_id": "STR-COL-POUR",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "quantity": 1.0,
+   "unit": "m3",
+   "estimated_crew_days": 0.25,
+   "cost": 450.0,
+   "cells": [
+    [
+     2,
+     3
+    ]
+   ],
+   "flags": {
+    "requires_crane": true,
+    "requires_access": true,
+    "inspection": false,
+    "inspection_type": null,
+    "lead_time_weeks": 0,
+    "laydown_cells": 0,
+    "risk": 0.25,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false
+   },
+   "predecessors": [
+    {
+     "task_id": "T000003",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell_below:STR-FOOT-POUR"
+    }
+   ],
+   "rule_id": "R-hand",
+   "planned_start_day": 2,
+   "planned_finish_day": 3,
+   "actual_start_day": null,
+   "actual_finish_day": null,
+   "is_critical": true,
+   "total_float_days": 0
+  },
+  {
+   "task_id": "T000008",
+   "element_guid": "COL03",
+   "ifc_class": "IfcColumn",
+   "element_name": "Column C4 L00",
+   "storey_id": "L00",
+   "zone_id": "L00-Z1",
+   "system_id": null,
+   "step_id": "STR-COL-POUR",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "quantity": 1.0,
+   "unit": "m3",
+   "estimated_crew_days": 0.25,
+   "cost": 450.0,
+   "cells": [
+    [
+     3,
+     3
+    ]
+   ],
+   "flags": {
+    "requires_crane": true,
+    "requires_access": true,
+    "inspection": false,
+    "inspection_type": null,
+    "lead_time_weeks": 0,
+    "laydown_cells": 0,
+    "risk": 0.25,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false
+   },
+   "predecessors": [
+    {
+     "task_id": "T000004",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell_below:STR-FOOT-POUR"
+    }
+   ],
+   "rule_id": "R-hand",
+   "planned_start_day": 2,
+   "planned_finish_day": 3,
+   "actual_start_day": null,
+   "actual_finish_day": null,
+   "is_critical": true,
+   "total_float_days": 0
+  },
+  {
+   "task_id": "T000009",
+   "element_guid": "SLAB1",
+   "ifc_class": "IfcSlab",
+   "element_name": "Slab L01",
+   "storey_id": "L01",
+   "zone_id": "L01-Z1",
+   "system_id": null,
+   "step_id": "STR-SLAB-POUR",
+   "phase": "superstructure",
+   "trade": "concrete",
+   "quantity": 43.2,
+   "unit": "m3",
+   "estimated_crew_days": 3.6,
+   "cost": 15120.0,
+   "cells": [
+    [
+     2,
+     2
+    ],
+    [
+     3,
+     2
+    ],
+    [
+     2,
+     3
+    ],
+    [
+     3,
+     3
+    ]
+   ],
+   "flags": {
+    "requires_crane": false,
+    "requires_access": true,
+    "inspection": true,
+    "inspection_type": "structural",
+    "lead_time_weeks": 0,
+    "laydown_cells": 1,
+    "risk": 0.2,
+    "weather_sensitive": true,
+    "noisy": false,
+    "dusty": false
+   },
+   "predecessors": [
+    {
+     "task_id": "T000005",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell_below:STR-COL-POUR"
+    },
+    {
+     "task_id": "T000006",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell_below:STR-COL-POUR"
+    },
+    {
+     "task_id": "T000007",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell_below:STR-COL-POUR"
+    },
+    {
+     "task_id": "T000008",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell_below:STR-COL-POUR"
+    }
+   ],
+   "rule_id": "R-hand",
+   "planned_start_day": 4,
+   "planned_finish_day": 8,
+   "actual_start_day": null,
+   "actual_finish_day": null,
+   "is_critical": true,
+   "total_float_days": 0
+  },
+  {
+   "task_id": "T000010",
+   "element_guid": "DUCT1",
+   "ifc_class": "IfcDuctSegment",
+   "element_name": "Supply duct L00",
+   "storey_id": "L00",
+   "zone_id": "L00-Z1",
+   "system_id": "AHU-1",
+   "step_id": "MEP-DUCT-INSTALL",
+   "phase": "mep_roughin",
+   "trade": "mechanical",
+   "quantity": 12,
+   "unit": "m",
+   "estimated_crew_days": 0.6,
+   "cost": 1440,
+   "cells": [
+    [
+     2,
+     2
+    ],
+    [
+     3,
+     2
+    ]
+   ],
+   "flags": {
+    "requires_crane": false,
+    "requires_access": true,
+    "inspection": true,
+    "inspection_type": "mechanical",
+    "lead_time_weeks": 0,
+    "laydown_cells": 1,
+    "risk": 0.1,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false
+   },
+   "predecessors": [
+    {
+     "task_id": "T000009",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell_above:STR-SLAB-POUR"
+    }
+   ],
+   "rule_id": "R-hand",
+   "planned_start_day": 10,
+   "planned_finish_day": 11,
+   "actual_start_day": null,
+   "actual_finish_day": null,
+   "is_critical": true,
+   "total_float_days": 0
+  },
+  {
+   "task_id": "T000011",
+   "element_guid": "WALL1",
+   "ifc_class": "IfcWall",
+   "element_name": "Partition wall L00",
+   "storey_id": "L00",
+   "zone_id": "L00-Z1",
+   "system_id": null,
+   "step_id": "ARC-WALL-BUILD",
+   "phase": "interiors",
+   "trade": "finishes",
+   "quantity": 48,
+   "unit": "m2",
+   "estimated_crew_days": 1.6,
+   "cost": 3840,
+   "cells": [
+    [
+     2,
+     3
+    ],
+    [
+     3,
+     3
+    ]
+   ],
+   "flags": {
+    "requires_crane": false,
+    "requires_access": true,
+    "inspection": false,
+    "inspection_type": null,
+    "lead_time_weeks": 0,
+    "laydown_cells": 0,
+    "risk": 0.1,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": true
+   },
+   "predecessors": [
+    {
+     "task_id": "T000009",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_cell_above:STR-SLAB-POUR"
+    }
+   ],
+   "rule_id": "R-hand",
+   "planned_start_day": 10,
+   "planned_finish_day": 12,
+   "actual_start_day": null,
+   "actual_finish_day": null,
+   "is_critical": true,
+   "total_float_days": 0
+  },
+  {
+   "task_id": "T000012",
+   "element_guid": "DUCT1",
+   "ifc_class": "IfcDuctSegment",
+   "element_name": "Supply duct L00",
+   "storey_id": "L00",
+   "zone_id": "L00-Z1",
+   "system_id": "AHU-1",
+   "step_id": "CX-AIR-BALANCE",
+   "phase": "commissioning",
+   "trade": "commissioning",
+   "quantity": 1,
+   "unit": "ea",
+   "estimated_crew_days": 1.0,
+   "cost": 2000,
+   "cells": [
+    [
+     2,
+     2
+    ],
+    [
+     3,
+     2
+    ]
+   ],
+   "flags": {
+    "requires_crane": false,
+    "requires_access": false,
+    "inspection": false,
+    "inspection_type": null,
+    "lead_time_weeks": 0,
+    "laydown_cells": 0,
+    "risk": 0.1,
+    "weather_sensitive": false,
+    "noisy": false,
+    "dusty": false
+   },
+   "predecessors": [
+    {
+     "task_id": "T000010",
+     "type": "FS",
+     "lag_days": 0,
+     "reason": "rule:same_system:MEP-DUCT-INSTALL"
+    }
+   ],
+   "rule_id": "R-hand",
+   "planned_start_day": 12,
+   "planned_finish_day": 13,
+   "actual_start_day": null,
+   "actual_finish_day": null,
+   "is_critical": true,
+   "total_float_days": 0
+  }
+ ],
+ "unmapped_elements": [],
+ "sequencing_gaps": []
+}
