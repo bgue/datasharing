@@ -126,11 +126,37 @@ class SequenceBuild(unittest.TestCase):
         base = seq["baseline"]
         self.assertEqual((base["finish_day"], base["finish_week"]), (13, 3))
         self.assertEqual(base["total_cost"], 1100.0)
-        self.assertEqual(base["weekly_planned_cost"][-1], 1100.0)
+        self.assertEqual(base["total_labour_cost"], 2500.0)               # (2.5 + 10 crew-days) * 1000 / 5
+        self.assertEqual(base["weekly_planned_cost"][-1], 3600.0)         # materials + labour
         self.assertEqual(len(base["weekly_planned_cost"]), 4)
         self.assertEqual(base["weekly_planned_cost"], sorted(base["weekly_planned_cost"]))
         self.assertEqual(seq["scenario"]["contract_weeks"], math.ceil(3 * 1.1))           # 4, not float noise
-        self.assertEqual(seq["scenario"]["budget"], round(1100 * 1.15))
+        self.assertEqual(seq["scenario"]["budget"], round(3600 * 1.15 * 1.05))
+
+    def test_labour_start_cash_and_overdraft_rules(self):
+        steps = [step("TST-A-DO", min_duration_days=10, rate=1.0, trade="other"), step("TST-DEFAULT-DO")]
+        rl = [rule("R-1", 1, {}, [{"step": "TST-A-DO", "quantity": "length_m"}])]
+        els = [elem("e", "E", "G", "G-Z1", [(0, 0)], quantities={"length_m": 10.0})]
+        # 10 crew-days at trade weekly_cost 1000 -> 2000 labour; materials 10 * 10 = 100; 2 weeks
+        _, seq, warnings, _ = build(els, steps, rl)
+        b = seq["baseline"]
+        self.assertEqual((b["total_cost"], b["total_labour_cost"], b["finish_week"]), (100.0, 2000.0, 2))
+        self.assertEqual(seq["scenario"]["start_cash"], 8400)             # 8 weeks of (2100 / 2)
+        self.assertEqual(seq["scenario"]["overdraft_limit"], 4200)
+        self.assertEqual(sum(w.startswith("note:") for w in warnings), 2)
+        # generous values are kept, an explicit budget is not touched
+        _, seq, warnings, _ = build(els, steps, rl, budget=777, start_cash=50000, overdraft_limit=20000)
+        self.assertEqual((seq["scenario"]["budget"], seq["scenario"]["start_cash"],
+                          seq["scenario"]["overdraft_limit"]), (777, 50000, 20000))
+        self.assertFalse(any(w.startswith("note:") for w in warnings))
+
+    def test_unknown_trade_labour_defaults_to_8000_per_week(self):
+        from bimseq.model import Task
+        from bimseq.scheduler import labour_costs
+        lib = library([step("TST-A-DO")])
+        t = Task("T000001", "g", "IfcX", "n", "G", "Z", None, "TST-A-DO", "build", "ghost", 1, "ea", 5.0, 1.0,
+                 [(0, 0)], {}, [], "R-1")
+        self.assertEqual(labour_costs([t], lib), [8000.0])
 
     def test_contract_factor_float_noise(self):
         steps = [step("TST-A-DO", basis="count", rate=1.0, min_duration_days=50), step("TST-DEFAULT-DO")]

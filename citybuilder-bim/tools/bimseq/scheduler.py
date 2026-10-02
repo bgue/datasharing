@@ -324,16 +324,35 @@ def schedule_tasks(tasks: Seq[Task], library: StepLibrary, crews: Mapping[str, i
     return ScheduleResult(starts, finishes, res.total_float[:n_tasks], warnings, gaps)
 
 
-def weekly_cumulative_cost(tasks: Seq[Task]) -> list[float]:
-    """Cumulative planned cost at the end of each week 0..finish_week (accrued linearly)."""
+DEFAULT_TRADE_WEEKLY_COST = 8000.0
+MOBILISATION_ALLOWANCE = 0.05
+START_CASH_WEEKS = 8
+OVERDRAFT_WEEKS = 4
+
+
+def labour_costs(tasks: Seq[Task], library: StepLibrary) -> list[float]:
+    """Wages per task: ``estimated_crew_days * trade.weekly_cost / 5`` (8000/week if trade unknown)."""
+    out = []
+    for t in tasks:
+        trade = library.trades.get(t.trade)
+        weekly = trade.weekly_cost if trade is not None else DEFAULT_TRADE_WEEKLY_COST
+        out.append(t.estimated_crew_days * weekly / DAYS_PER_WEEK)
+    return out
+
+
+def weekly_cumulative_cost(tasks: Seq[Task], extra: Seq[float] | None = None) -> list[float]:
+    """Cumulative planned cost at the end of each week 0..finish_week (accrued linearly).
+
+    ``extra`` adds a per-task amount (e.g. labour) spread over the task duration like its cost.
+    """
     finish_day = max((t.planned_finish_day or 0 for t in tasks), default=0)
     weeks = math.ceil(finish_day / DAYS_PER_WEEK)
     daily = [0.0] * (weeks * DAYS_PER_WEEK + 1)
-    for t in tasks:
+    for i, t in enumerate(tasks):
         s, f = t.planned_start_day or 0, t.planned_finish_day or 0
         if f <= s:
             continue
-        per_day = t.cost / (f - s)
+        per_day = (t.cost + (extra[i] if extra else 0.0)) / (f - s)
         for d in range(s, f):
             daily[d] += per_day
     out, run = [], 0.0
@@ -393,16 +412,28 @@ def build_sequence(step_map: StepMap, library: StepLibrary, scenario: Scenario,
     finish_day = max(t.planned_finish_day for t in tasks)          # type: ignore[type-var]
     finish_week = _round_up(finish_day / DAYS_PER_WEEK)
     total_cost = round(sum(t.cost for t in tasks), 2)
+    labour = labour_costs(tasks, library)
+    total_labour = round(sum(labour), 2)
     baseline = {
         "finish_day": finish_day, "finish_week": finish_week, "total_cost": total_cost,
+        "total_labour_cost": total_labour,
         "total_crew_days": round(sum(t.estimated_crew_days for t in tasks), 2),
-        "critical_task_ids": critical, "weekly_planned_cost": weekly_cumulative_cost(tasks),
+        "critical_task_ids": critical, "weekly_planned_cost": weekly_cumulative_cost(tasks, labour),
     }
+    notes: list[str] = []
     scn = scenario.to_dict()
     if scn.get("contract_weeks") is None:
         scn["contract_weeks"] = _round_up(finish_week * float(scn.get("contract_factor", 1.1)))
+    spend = total_cost + total_labour
     if not scn.get("budget"):
-        scn["budget"] = round(total_cost * float(scn.get("budget_factor", 1.15)))
+        scn["budget"] = round(spend * float(scn.get("budget_factor", 1.15)) * (1 + MOBILISATION_ALLOWANCE))
+    weekly = spend / max(finish_week, 1)
+    for key, weeks in (("start_cash", START_CASH_WEEKS), ("overdraft_limit", OVERDRAFT_WEEKS)):
+        minimum = round(weekly * weeks)
+        if float(scn.get(key, 0)) < minimum:
+            notes.append(f"note: scenario {scn.get('id')}: {key} raised from {scn.get(key, 0)} to {minimum} "
+                         f"({weeks} weeks of average planned spend)")
+            scn[key] = minimum
 
     bundle: JSON = {
         "schema_version": "1.0",
@@ -418,4 +449,4 @@ def build_sequence(step_map: StepMap, library: StepLibrary, scenario: Scenario,
         "generated_at": generated_at or utc_now(),
         "generator": generator or GENERATOR,
     }
-    return bundle, res.warnings
+    return bundle, res.warnings + notes

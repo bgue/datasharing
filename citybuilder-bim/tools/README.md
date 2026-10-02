@@ -83,6 +83,14 @@ tasks costs a whole crew-day), which would make the derived `contract_weeks` unp
   from the levelled schedule. `weekly_planned_cost[w]` is the cumulative cost at the end of week `w`,
   `w = 0..finish_week`. `contract_weeks = ceil(finish_week * contract_factor)` and
   `budget = round(total_cost * budget_factor)` fill in when the scenario has `null` / `0`.
+* Money rules (applied to the scenario copy embedded in `sequence.json`). Labour is
+  `estimated_crew_days * trade.weekly_cost / 5` per task (8000/week for a trade missing from the library),
+  reported as `baseline.total_labour_cost`; `baseline.total_cost` stays material cost only, and
+  `weekly_planned_cost` accrues materials plus labour. With `budget == 0`:
+  `budget = round((total_cost + total_labour_cost) * budget_factor * 1.05)` (5% mobilisation allowance).
+  With `W = (total_cost + total_labour_cost) / finish_week`, `start_cash` is raised to at least `8 * W`
+  and `overdraft_limit` to at least `4 * W`; each raise prints a `note:` line. Explicit budgets and larger
+  cash values are left alone.
 * Levelling releases a task only after all its predecessors are placed, so FF successors never start
   before their predecessor starts.
 

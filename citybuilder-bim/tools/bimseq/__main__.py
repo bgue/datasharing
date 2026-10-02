@@ -42,7 +42,7 @@ def _cmd_map(args: argparse.Namespace) -> int:
 def _cmd_schedule(args: argparse.Namespace) -> int:
     for w in pipeline.run_schedule(args.map, args.library, args.scenario, args.elements, args.out,
                                    args.generated_at, args.crew_model == "fractional"):
-        print(f"warning: {w}", file=sys.stderr)
+        print(w if w.startswith("note:") else f"warning: {w}", file=sys.stderr)
     from .model import load_sequence
     b = load_sequence(args.out).baseline
     print(f"wrote {args.out}: finish day {b['finish_day']} (week {b['finish_week']}), "
@@ -69,7 +69,7 @@ def _cmd_build(args: argparse.Namespace) -> int:
         for note in s.notes:
             print(f"WARNING {sector}: using FALLBACK data ({note})", file=sys.stderr)
         for w in s.warnings:
-            print(f"warning {sector}: {w}", file=sys.stderr)
+            print(f"{sector}: {w}" if w.startswith("note:") else f"warning {sector}: {w}", file=sys.stderr)
         print(s.line())
     return rc
 
