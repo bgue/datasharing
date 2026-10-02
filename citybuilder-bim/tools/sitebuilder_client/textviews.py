@@ -7,6 +7,9 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 DAYS_PER_WEEK = 5
+# one-letter chips for task state counts (zone views): r ready, b blocked, a active, d done ...
+_STATE_ABBR = {"READY": "r", "BLOCKED": "b", "ACTIVE": "a", "DONE": "d", "NOT_STARTED": "n",
+               "AWAITING_INSPECTION": "i", "INSPECTED": "v", "REWORK": "w"}
 
 
 def _g(d: Any, key: str, default: Any = None) -> Any:
@@ -77,9 +80,13 @@ def summary_text(summary: dict | None) -> str:
         lines.insert(0, f"Scenario {name}")
     counts = _g(s, "counts") or _g(s, "counts_by_state") or _g(s, "packages_by_state")
     if isinstance(counts, dict) and counts:
-        lines.append("Packages: " + ", ".join(f"{k} {v}" for k, v in counts.items()))
+        lines.append("Counts: " + ", ".join(f"{k} {v}" for k, v in counts.items()))
     score = _g(s, "score")
-    if isinstance(score, dict):
+    if isinstance(score, dict) and "total" in score:
+        comps = score.get("components")
+        lines.append(f"Score: {_num(score['total'])}" + (f" (grade {score['grade']})" if score.get("grade") else "")
+                     + (", " + ", ".join(f"{k} {_num(v, 2)}" for k, v in comps.items()) if isinstance(comps, dict) else ""))
+    elif isinstance(score, dict):
         lines.append("Score: " + ", ".join(f"{k} {_num(v)}" for k, v in score.items()))
     elif score is not None:
         lines.append(f"Score: {_num(score)}")
@@ -95,7 +102,11 @@ def zones_table(zones: Iterable[dict] | None) -> str:
     rows = []
     for z in zones or []:
         counts = _g(z, "counts") or {}
-        cnt = " ".join(f"{k[:1]}{v}" for k, v in counts.items()) if isinstance(counts, dict) else ""
+        cnt = " ".join(f"{_STATE_ABBR.get(str(k).upper(), str(k)[:1].lower())}{v}"
+                       for k, v in counts.items() if v) if isinstance(counts, dict) else ""
+        if isinstance(counts, dict) and _g(z, "progress") is None and _g(z, "total"):
+            done_share = counts.get("DONE", counts.get("done", 0)) / max(z["total"], 1)
+            z = {**z, "progress": done_share}
         crews = _g(z, "crews", _g(z, "crews_now"))
         if isinstance(crews, list):
             crews = len(crews)
@@ -290,3 +301,176 @@ def gantt_text(gantt_bars: Iterable[dict] | None, from_week: int | None = None, 
         lines.append(f"{_trunc(label, label_width).ljust(label_width)} {flag} {''.join(cells)}".rstrip())
     lines.append("= planned  # done  - remaining  | current week  H held  ! understaffed")
     return "\n".join(lines)
+
+
+# ---- logic library and manual chains (docs/06 track A) -----------------------------------------
+
+STATUS_CHIPS = {"covered": "[x] covered", "virtual_present": "[v] virtual in place", "missing": "[ ] missing"}
+
+
+def _weeks(v: Any) -> str:
+    if isinstance(v, (list, tuple)) and v:
+        lo, hi = v[0], v[-1]
+        return _num(lo) if lo == hi else f"{_num(lo)}-{_num(hi)}"
+    return "-" if v in (None, [], "") else _num(v)
+
+
+def recipes_table(recipes: Iterable[dict] | None) -> str:
+    """Recipe index (logic.list): id, name, sector, typical weeks, steps, tags."""
+    rows = []
+    for r in recipes or []:
+        steps = _g(r, "steps")
+        rows.append([str(_g(r, "id", "?")), str(_g(r, "name", "")), str(_g(r, "sector", "")),
+                     _weeks(_g(r, "typical_duration_weeks")),
+                     str(len(steps) if isinstance(steps, list) else _num(steps)),
+                     ",".join(str(t) for t in _g(r, "tags", []) or [])])
+    if not rows:
+        return "(no recipes)"
+    return _table(["recipe", "name", "sector", "weeks", "steps", "tags"], rows, {1: 44, 5: 40})
+
+
+def explain_rows_table(rows: Iterable[dict] | None) -> str:
+    """Step coverage table of one recipe entry: step, status chip, task id."""
+    out = []
+    for r in rows or []:
+        chip = STATUS_CHIPS.get(_g(r, "status"), str(_g(r, "status", "?")))
+        flags = []
+        if _g(r, "virtual"):
+            flags.append("virtual")
+        if _g(r, "optional"):
+            flags.append("optional")
+        if _g(r, "hold_point"):
+            flags.append("hold:" + str(r["hold_point"]))
+        if _g(r, "frozen_task_ids"):
+            flags.append("frozen")
+        ids = _g(r, "task_ids") or ([r["task_id"]] if _g(r, "task_id") else [])
+        tid = str(ids[0]) if ids else "-"
+        if len(ids) > 1:
+            tid += f" +{len(ids) - 1}"
+        out.append([str(_g(r, "ref") or _g(r, "key", "?")), str(_g(r, "name", "")), chip, tid, " ".join(flags)])
+    if not out:
+        return "(no steps)"
+    return _table(["step", "name", "status", "task", "flags"], out, {1: 36})
+
+
+def explain_text(res: dict | None) -> str:
+    """Render logic.explain (element or zone scope): one coverage table per applicable recipe."""
+    res = res or {}
+    scope = _g(res, "scope", "zone")
+    target = _g(res, "element_guid") if scope == "element" else _g(res, "zone_id")
+    head = f"{scope} {target or '?'}" + (f" ({res['name']})" if _g(res, "name") else "")
+    if scope == "zone" and _g(res, "manual_mode"):
+        head += " [manual mode]"
+    if _g(res, "none") or not _g(res, "recipes"):
+        return f"{head}: no recipe applies."
+    lines = [f"What is needed for {head}:"]
+    for r in res["recipes"]:
+        cov = _g(r, "coverage") or {}
+        inplace = _g(cov, "covered", 0) + _g(cov, "virtual_present", 0)
+        lines.append("")
+        lines.append(f"* {r.get('recipe_id')} - {r.get('name', '')}: {inplace} of {cov.get('total', '?')} required steps in place"
+                     + (f" (matched by {', '.join(r['matched_by'])})" if _g(r, "matched_by") else "")
+                     + (f", {r['matching_elements']} matching elements" if _g(r, "matching_elements") else ""))
+        lines.append(explain_rows_table(r.get("steps")))
+    return "\n".join(lines)
+
+
+def recipe_text(r: dict | None) -> str:
+    """Render logic.get: summary, prerequisites, steps, ordering logic, checks, references."""
+    r = r or {}
+    lines = [f"{_g(r, 'id', '?')} - {_g(r, 'name', '')} [{_g(r, 'sector', '')}]"]
+    if _g(r, "typical_duration_weeks"):
+        lines[0] += f", typically {_weeks(r['typical_duration_weeks'])} weeks"
+    if _g(r, "summary"):
+        lines.append(str(r["summary"]))
+    pre = _g(r, "prerequisites") or {}
+    if pre:
+        lines.append("Prerequisites:")
+        for k, v in pre.items():
+            if v:
+                lines.append(f"  {k}: " + (", ".join(map(str, v)) if isinstance(v, list) else str(v)))
+    lines.append("Steps:")
+    for i, st in enumerate(_g(r, "steps", []) or [], 1):
+        if isinstance(st, str):
+            lines.append(f"  {i}. {st}")
+            continue
+        label = st.get("ref") or ("recipe " + str(st.get("recipe", "?")))
+        flags = []
+        for k in ("virtual", "optional"):
+            if st.get(k):
+                flags.append(k)
+        if st.get("hold_point"):
+            flags.append("hold point: " + str(st["hold_point"]))
+        if st.get("parallel_with"):
+            flags.append("parallel with " + str(st["parallel_with"]))
+        if st.get("from_element"):
+            flags.append("from " + str(st["from_element"]))
+        if st.get("duration_days"):
+            flags.append(f"{st['duration_days']} d")
+        if st.get("lag_days"):
+            flags.append(f"lag {st['lag_days']} d")
+        if st.get("key") and st.get("key") != label:
+            flags.append("key " + str(st["key"]))
+        note = f" - {st['note']}" if st.get("note") else ""
+        lines.append(f"  {i}. {label}" + (f" ({', '.join(flags)})" if flags else "") + note)
+    if _g(r, "logic"):
+        lines.append("Extra ordering logic:")
+        for lk in r["logic"]:
+            lines.append(f"  {lk.get('after')} -> {lk.get('before')}" + (f" ({lk.get('reason')})" if lk.get("reason") else "")
+                         + (f" lag {lk['lag_days']} d" if lk.get("lag_days") else ""))
+    for key, title in (("checks", "Checks"), ("references", "References")):
+        if _g(r, key):
+            lines.append(f"{title}:")
+            lines += [f"  - {x}" for x in r[key]]
+    return "\n".join(lines)
+
+
+def _chain_order(tasks: list[dict]) -> list[dict]:
+    """Order tasks so predecessors come first (stable: by planned start, then input order)."""
+    ids = {t.get("task_id"): t for t in tasks}
+    indeg = {t.get("task_id"): [p["task_id"] for p in (t.get("predecessors") or []) if p.get("task_id") in ids]
+             for t in tasks}
+    order, placed = [], set()
+    pending = sorted(range(len(tasks)), key=lambda i: (tasks[i].get("planned_start_day") or 0, i))
+    while pending:
+        progress = False
+        for i in list(pending):
+            tid = tasks[i].get("task_id")
+            if all(p in placed for p in indeg[tid]):
+                order.append(tasks[i])
+                placed.add(tid)
+                pending.remove(i)
+                progress = True
+        if not progress:  # cycle (should not happen): append the rest
+            order += [tasks[i] for i in pending]
+            break
+    return order
+
+
+def manual_chain_text(tasks: Iterable[dict] | None, zone_id: str | None = None) -> str:
+    """Ordered manual chain: id, step, bound elements ('virtual' or '3 el'), after (with link type and lag),
+    lag, duration, state, planned days."""
+    tasks = [t for t in (tasks or []) if isinstance(t, dict)]
+    if not tasks:
+        return f"(no manual tasks{' in ' + zone_id if zone_id else ''})"
+    rows = []
+    for t in _chain_order(tasks):
+        if _g(t, "virtual"):
+            bound = "virtual"
+        else:
+            n = len(t.get("element_guids") or ([t["element_guid"]] if t.get("element_guid") else []))
+            bound = f"{n} el"
+        preds = t.get("predecessors") or []
+        after = ",".join(str(p.get("task_id")) + ("" if p.get("type", "FS") == "FS" else f":{p['type']}") for p in preds) or "-"
+        lags = sorted({p.get("lag_days", 0) for p in preds if p.get("lag_days")})
+        hold = (t.get("flags") or {}).get("inspection_type")
+        step = str(_g(t, "step_id", _g(t, "step", "?"))) + (f" [hold:{hold}]" if hold else "")
+        tid = str(t.get("task_id", "?"))
+        if t.get("manual_id") and t["manual_id"] != tid:
+            tid += f" ({t['manual_id']})"
+        rows.append([tid, step, bound, after, ",".join(map(str, lags)) or "0",
+                     _num(t.get("duration_days")) if t.get("duration_days") else "-",
+                     str(t.get("state", "-")) + (" (frozen)" if t.get("frozen") else ""),
+                     f"{_num(t.get('planned_start_day'))}-{_num(t.get('planned_finish_day'))}"])
+    head = f"Manual chain{' for ' + zone_id if zone_id else ''} ({len(rows)} tasks):\n"
+    return head + _table(["task", "step", "bound", "after", "lag", "dur d", "state", "plan days"], rows, {1: 40})

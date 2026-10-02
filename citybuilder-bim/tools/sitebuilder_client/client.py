@@ -31,6 +31,10 @@ API_METHODS = (
     "zone_staff", "zone_clear_crews", "site_auto_layout", "procure_order_all_due",
     "sim_run_until", "sim_autopilot",
     "analysis_bottlenecks", "analysis_critical", "analysis_s_curve", "analysis_what_if_shift",
+    # manual sequencing and the construction logic library (docs/06 track A)
+    "manual_set_mode", "manual_add_task", "manual_update_task", "manual_remove_task", "manual_link",
+    "manual_unlink", "manual_apply_recipe", "manual_export", "manual_tasks",
+    "logic_list", "logic_get", "logic_explain", "logic_apply",
 )
 
 
@@ -308,3 +312,51 @@ class GameClient:
     def analysis_critical(self, top: int = 20): return self.call("analysis.critical", top=top)
     def analysis_s_curve(self): return self.call("analysis.s_curve")
     def analysis_what_if_shift(self, zone_id: str): return self.call("analysis.what_if_shift", zone_id=zone_id)
+
+    # ---- manual sequencing (docs/06 track A.3) ------------------------------------------
+    def manual_set_mode(self, zone_id: str, on: bool = True):
+        return self.call("manual.set_mode", zone_id=zone_id, on=on)
+
+    def manual_add_task(self, step=None, zone_id=None, elements=None, virtual=None, quantity=None, unit=None,
+                        duration_days=None, after=None, link_type=None, lag_days=None, marker=None, name=None,
+                        note=None, hold_point=None, step_def=None):
+        """Returns ``{ok, task_id, task}``. ``after`` is a list of task ids (or ``{task_id, type, lag_days}``)."""
+        return self.call("manual.add_task", **_clean({
+            "step": step, "zone_id": zone_id, "elements": elements, "virtual": virtual, "quantity": quantity,
+            "unit": unit, "duration_days": duration_days, "after": after, "link_type": link_type,
+            "lag_days": lag_days, "marker": marker, "name": name, "note": note, "hold_point": hold_point,
+            "step_def": step_def}))
+
+    def manual_update_task(self, task_id: str, fields: dict):
+        return self.call("manual.update_task", task_id=task_id, fields=fields)
+
+    def manual_remove_task(self, task_id: str, bridge: bool = True):
+        return self.call("manual.remove_task", task_id=task_id, bridge=bridge)
+
+    def manual_link(self, from_id: str, to_id: str, type: str = "FS", lag_days: int = 0):
+        return self.call("manual.link", from_id=from_id, to_id=to_id, type=type, lag_days=lag_days)
+
+    def manual_unlink(self, from_id: str, to_id: str):
+        return self.call("manual.unlink", from_id=from_id, to_id=to_id)
+
+    def manual_apply_recipe(self, recipe_id: str, zone_id=None, element_guid=None, include_optional: bool = False):
+        return self.call("manual.apply_recipe", **_clean({"recipe_id": recipe_id, "zone_id": zone_id,
+                                                          "element_guid": element_guid,
+                                                          "include_optional": include_optional}))
+
+    def manual_export(self, path=None): return self.call("manual.export", **_clean({"path": path}))
+    def manual_tasks(self, zone_id=None): return self.call("manual.tasks", **_clean({"zone_id": zone_id}))
+
+    # ---- construction logic library (docs/06 track A) -----------------------------------
+    def logic_list(self, sector=None): return self.call("logic.list", **_clean({"sector": sector}))
+    def logic_get(self, id: str): return self.call("logic.get", id=id)
+
+    def logic_explain(self, element_guid=None, zone_id=None):
+        """Give ``element_guid`` or ``zone_id`` (element wins when both are given)."""
+        return self.call("logic.explain", **_clean({"element_guid": element_guid, "zone_id": zone_id}))
+
+    def logic_apply(self, recipe_id: str, zone_id=None, element_guid=None, include_optional: bool = False):
+        """Alias of ``manual_apply_recipe`` on the wire name ``logic.apply``."""
+        return self.call("logic.apply", **_clean({"recipe_id": recipe_id, "zone_id": zone_id,
+                                                  "element_guid": element_guid,
+                                                  "include_optional": include_optional}))

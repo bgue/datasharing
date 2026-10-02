@@ -22,7 +22,11 @@ from test_client_fake_server import FakeServer  # noqa: E402
 SPEC_TOOLS = ["load_scenario", "get_summary", "list_zones", "list_packages", "list_bottlenecks", "staff_zone",
               "assign_crew", "hire_crews", "release_package", "hold_package", "apply_card", "apply_train",
               "set_shift", "order_due_procurement", "auto_layout_site", "advance_weeks", "run_until", "autopilot",
-              "resolve_event", "export_plan", "gantt_text"]
+              "resolve_event", "export_plan", "gantt_text",
+              # docs/06 track A
+              "explain_installation", "list_recipes", "get_recipe", "apply_recipe", "set_manual_mode",
+              "list_manual_chain", "add_manual_task", "link_manual_tasks", "remove_manual_task",
+              "export_manual_sequence", "author_manual_chain"]
 
 
 def run(coro):
@@ -44,11 +48,15 @@ class RegistryTests(unittest.TestCase):
 
     def test_resources_and_prompt(self):
         uris = {str(r.uri) for r in run(server.mcp.list_resources())}
-        self.assertEqual(uris, {"sitebuilder://summary", "sitebuilder://zones", "sitebuilder://gantt"})
+        self.assertEqual(uris, {"sitebuilder://summary", "sitebuilder://zones", "sitebuilder://gantt", "sitebuilder://logic"})
         tmpl = {r.uriTemplate for r in run(server.mcp.list_resource_templates())}
-        self.assertEqual(tmpl, {"sitebuilder://zone/{zone_id}", "sitebuilder://packages/{zone_id}"})
+        self.assertEqual(tmpl, {"sitebuilder://zone/{zone_id}", "sitebuilder://packages/{zone_id}",
+                                "sitebuilder://logic/{recipe_id}", "sitebuilder://manual/{zone_id}"})
         prompts = run(server.mcp.list_prompts())
-        self.assertEqual([p.name for p in prompts], ["plan_next_week"])
+        self.assertEqual(sorted(p.name for p in prompts), ["plan_installation", "plan_next_week"])
+        pi = run(server.mcp.get_prompt("plan_installation", {"zone_or_element": "L00-Z1"})).messages[0].content.text
+        for needle in ("explain_installation", "apply_recipe", "author_manual_chain", "staff_zone", "L00-Z1"):
+            self.assertIn(needle, pi)
         text = run(server.mcp.get_prompt("plan_next_week", {"focus": "cash"}))
         body = text.messages[0].content.text
         for needle in ("get_summary", "list_bottlenecks", "gantt_text", "Focus: cash"):
@@ -157,6 +165,160 @@ class FakeBackedTests(unittest.TestCase):
         server.load_scenario("minimal")
         server.get_client()._ws.close()  # simulate a dead connection
         self.assertIn("Week 0", server.get_summary())
+
+
+class ManualToolTests(unittest.TestCase):
+    def setUp(self):
+        self.fake = FakeServer().start()
+        self.addCleanup(self.fake.stop)
+        server.reset_client()
+        self.addCleanup(server.reset_client)
+        patcher = mock.patch.object(server, "_new_client", lambda: GameClient(self.fake.url, timeout=5))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.game = self.fake.game
+
+    def test_explain_installation(self):
+        t = server.explain_installation(zone_id="L00-Z1")
+        self.assertIn("rec_slab_on_grade", t)
+        self.assertIn("[ ] missing", t)
+        self.assertIn("Legend", t)
+        self.assertIn("element E1", server.explain_installation(element_guid="E1"))
+        with self.assertRaises(ToolError):
+            server.explain_installation()
+        with self.assertRaises(ToolError) as cm:
+            server.explain_installation(element_guid="nope")
+        self.assertIn("unknown element", str(cm.exception))
+
+    def test_recipes(self):
+        t = server.list_recipes()
+        self.assertIn("rec_slab_on_grade", t)
+        self.assertIn("rec_pump_on_plinth", t)
+        self.assertNotIn("rec_slab_on_grade", server.list_recipes("civil"))
+        g = server.get_recipe("rec_slab_on_grade")
+        self.assertIn("Prerequisites:", g)
+        self.assertIn("Cube tests", g)
+        with self.assertRaises(ToolError):
+            server.get_recipe("rec_missing")
+
+    def test_apply_recipe(self):
+        t = server.apply_recipe("rec_slab_on_grade", zone_id="L00-Z1")
+        self.assertIn("3 tasks created", t)
+        self.assertIn("2 links", t)
+        self.assertIn("STR-SLAB-POUR", t)
+        t2 = server.apply_recipe("rec_slab_on_grade", zone_id="L01-Z1", include_optional=True)
+        self.assertIn("4 tasks created", t2)
+        self.assertIn(("manual.apply_recipe", {"recipe_id": "rec_slab_on_grade", "include_optional": True,
+                                               "zone_id": "L01-Z1"}), self.game.calls)
+        with self.assertRaises(ToolError):
+            server.apply_recipe("rec_slab_on_grade")
+        with self.assertRaises(ToolError):
+            server.apply_recipe("rec_nope", zone_id="L00-Z1")
+        self.assertIn("[v] virtual in place", server.explain_installation(zone_id="L00-Z1"))
+
+    def test_manual_mode_add_link_remove_export(self):
+        self.assertIn("manual mode ON", server.set_manual_mode("L00-Z1", True))
+        a = server.add_manual_task("GEN-SURVEY-SETOUT", "L00-Z1")  # no elements -> virtual by default
+        self.assertIn("Added M000001 (GEN-SURVEY-SETOUT, virtual)", a)
+        self.assertTrue(self.game.tasks["M000001"]["virtual"])
+        b = server.add_manual_task("STR-SLAB-FORM", "L00-Z1", elements=["E1"], after=["M000001"], lag_days=2)
+        self.assertIn("1 elements", b)
+        self.assertFalse(self.game.tasks["M000002"]["virtual"])
+        self.assertEqual(self.game.tasks["M000002"]["predecessors"][0]["lag_days"], 2)
+        c = server.add_manual_task("STR-SLAB-POUR", "L00-Z1", elements=["E1"], hold_point="structural")
+        self.assertIn("M000003", c)
+        self.assertIn("Linked M000002 -FS+7-> M000003", server.link_manual_tasks("M000002", "M000003", "FS", 7))
+        self.assertIn("-SS->", server.link_manual_tasks("M000001", "M000003", "SS"))
+        chain = server.list_manual_chain("L00-Z1")
+        self.assertIn("manual mode ON", chain)
+        self.assertIn("3 tasks", chain)
+        self.assertIn("hold:structural", chain)
+        self.assertIn("chain bridged", server.remove_manual_task("M000002"))
+        self.assertNotIn("M000002", server.list_manual_chain("L00-Z1").split("\n", 1)[1])
+        self.assertEqual(len(self.game.tasks), 2)
+        ex = server.export_manual_sequence("/tmp/x.json")
+        self.assertIn("2 tasks", ex)
+        self.assertIn("L00-Z1", ex)
+        self.assertIn("/tmp/x.json", ex)
+        with self.assertRaises(ToolError):
+            server.add_manual_task("BAD-STEP", "L00-Z1")
+        with self.assertRaises(ToolError):
+            server.link_manual_tasks("M000001", "M999999")
+        self.assertIn("OFF", server.set_manual_mode("L00-Z1", False))
+        self.assertIn("(no manual tasks", server.list_manual_chain("L01-Z1"))
+
+    def test_author_manual_chain(self):
+        t = server.author_manual_chain("L01-Z1", [
+            {"step": "CIV-EARTH-CUT", "elements": ["E1"], "duration_days": 3},
+            {"step": "CIV-PILE-DRIVE", "elements": ["E2", "E3"]},
+            {"step": "GEN-SURVEY-SETOUT"},  # virtual by default
+            {"step": "STR-SLAB-FORM", "elements": ["E1"]},
+            {"step": "STR-SLAB-POUR", "elements": ["E1"], "lag_days": 7, "hold_point": "structural"},
+        ])
+        self.assertIn("Authored 5 tasks in L01-Z1: M000001, M000002, M000003, M000004, M000005", t)
+        self.assertIn("manual mode ON", t)
+        self.assertIn("staff_zone", t)
+        self.assertIn("virtual", t)
+        self.assertIn("hold:structural", t)
+        g = self.game.tasks
+        self.assertIn("L01-Z1", self.game.manual_zones)
+        self.assertEqual([g[f"M00000{i}"]["predecessors"] for i in (1, 2)],
+                         [[], [{"task_id": "M000001", "type": "FS", "lag_days": 0}]])
+        self.assertEqual(g["M000005"]["predecessors"], [{"task_id": "M000004", "type": "FS", "lag_days": 7}])
+        self.assertTrue(g["M000003"]["virtual"])
+        self.assertFalse(g["M000001"]["virtual"])
+        # the pour waits 7 days after the form: planned start reflects the lag
+        self.assertEqual(g["M000005"]["planned_start_day"], g["M000004"]["planned_finish_day"] + 7)
+        self.assertEqual(g["M000001"]["duration_days"], 3)
+
+    def test_author_manual_chain_no_autolink_and_existing_mode(self):
+        server.set_manual_mode("L00-Z1", True)
+        t = server.author_manual_chain("L00-Z1", [{"step": "GEN-PERMIT-WORK"}, {"step": "GEN-LIFT-PLAN"}],
+                                       manual_mode=False, auto_link=False)
+        self.assertIn("not linked", t)
+        self.assertTrue(all(not x["predecessors"] for x in self.game.tasks.values()))
+
+    def test_author_manual_chain_rolls_back_on_error(self):
+        with self.assertRaises(ToolError) as cm:
+            server.author_manual_chain("L00-Z1", [
+                {"step": "GEN-SURVEY-SETOUT"}, {"step": "STR-SLAB-FORM", "elements": ["E1"]},
+                {"step": "MADE-UP-STEP", "elements": ["E1"]}])
+        msg = str(cm.exception)
+        self.assertIn("step 3 (MADE-UP-STEP)", msg)
+        self.assertIn("unknown step: MADE-UP-STEP", msg)
+        self.assertIn("2 earlier step(s) rolled back", msg)
+        self.assertEqual(self.game.tasks, {})
+        self.assertNotIn("L00-Z1", self.game.manual_zones)  # mode restored
+
+    def test_author_manual_chain_validation(self):
+        for steps, needle in (([], "empty"), ([{"elements": ["E1"]}], "needs a 'step'"),
+                              ([{"step": "A", "bogus": 1}], "unknown keys"),
+                              ([{"step": "A", "elements": "E1"}], "list of GUIDs")):
+            with self.assertRaises(ToolError) as cm:
+                server.author_manual_chain("L00-Z1", steps)
+            self.assertIn(needle, str(cm.exception))
+        with self.assertRaises(ToolError) as cm:
+            server.author_manual_chain("NOPE", [{"step": "GEN-PERMIT-WORK"}])
+        self.assertIn("unknown zone", str(cm.exception))
+        self.assertEqual(self.game.tasks, {})
+
+    def test_resources(self):
+        server.author_manual_chain("L00-Z1", [{"step": "GEN-SURVEY-SETOUT"}, {"step": "STR-SLAB-FORM", "elements": ["E1"]}])
+        read = lambda uri: run(server.mcp.read_resource(uri))[0].content
+        self.assertIn("rec_slab_on_grade", read("sitebuilder://logic"))
+        self.assertIn("Slab on grade", read("sitebuilder://logic/rec_slab_on_grade"))
+        self.assertIn("STR-SLAB-FORM", read("sitebuilder://manual/L00-Z1"))
+
+    def test_call_through_registry(self):
+        content, _ = run(server.mcp.call_tool("author_manual_chain", {
+            "zone_id": "L00-Z1", "steps": [{"step": "GEN-SURVEY-SETOUT", "duration_days": 1}]}))
+        self.assertIn("Authored 1 tasks", content[0].text)
+        tools = {t.name: t for t in run(server.mcp.list_tools())}
+        props = tools["author_manual_chain"].inputSchema["properties"]
+        self.assertEqual(props["manual_mode"]["default"], True)
+        self.assertEqual(props["auto_link"]["default"], True)
+        self.assertEqual(tools["link_manual_tasks"].inputSchema["properties"]["type"]["enum"], ["FS", "SS", "FF"])
+        self.assertGreater(len(tools["author_manual_chain"].description), 600)
 
 
 class ConnectionFailureTests(unittest.TestCase):

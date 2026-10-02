@@ -45,6 +45,7 @@ class FakeGame:
     def reset(self):
         self.week, self.cash, self.loaded, self.pending = 0, 100000, None, None
         self.crews = []
+        self.tasks, self.manual_zones, self.next_id = {}, set(), 0
         self.packages = {
             "P00001": {"package_id": "P00001", "name": "L00-Z1 · Foundations · civil", "zone_id": "L00-Z1",
                        "state": "ready", "crews_now": 0, "crew_profile": {"min": 1, "ideal": 2, "max": 3},
@@ -79,8 +80,8 @@ class FakeGame:
         if method == "state.crews":
             return {"ok": True, "crews": self.crews, "caps": {"civil": 3}}
         if method == "state.zones":
-            return [{"zone_id": "L00-Z1", "name": "Ground zone", "max_crews": 2, "shift_mode": "single"},
-                    {"zone_id": "L01-Z1", "name": "Level 1 zone", "max_crews": 2, "shift_mode": "single"}]
+            return [{"zone_id": z, "name": n, "max_crews": 2, "shift_mode": "single", "manual_mode": z in self.manual_zones}
+                    for z, n in (("L00-Z1", "Ground zone"), ("L01-Z1", "Level 1 zone"))]
         if method == "state.packages":
             return [p for p in self.packages.values() if params.get("zone_id") in (None, p["zone_id"])]
         if method == "state.gantt":
@@ -133,6 +134,171 @@ class FakeGame:
             return {"ok": True}
         if method == "plan.export":
             return {"ok": True, "paths": ["/tmp/plan.json"]}
+        if method == "state.tasks":
+            return [t for t in self.tasks.values() if params.get("zone_id") in (None, t["zone_id"])]
+        if method.startswith(("manual.", "logic.")):
+            return self.handle_manual(method, params)
+        raise RpcError(-32601, f"Method not found: {method}")
+
+    # ---- manual sequencing and logic library (tiny in-memory version of docs/06 track A) ----------------
+    KNOWN_STEPS = {"CIV-EARTH-CUT", "CIV-PILE-DRIVE", "GEN-SURVEY-SETOUT", "GEN-SURVEY-ASBUILT", "STR-SLAB-FORM",
+                   "STR-SLAB-POUR", "GEN-PERMIT-WORK", "GEN-LIFT-PLAN"}
+    KNOWN_ELEMENTS = {"E1", "E2", "E3"}
+    ZONES = {"L00-Z1", "L01-Z1"}
+    RECIPES = {
+        "rec_slab_on_grade": {
+            "id": "rec_slab_on_grade", "name": "Slab on grade", "sector": "industrial", "tags": ["slab"],
+            "summary": "Set out, form, pour and cure a ground slab.", "typical_duration_weeks": [2, 6],
+            "prerequisites": {"equipment": ["concrete_pump"], "site": ["access_road"], "permits": []},
+            "steps": [{"ref": "GEN-SURVEY-SETOUT", "virtual": True}, {"ref": "STR-SLAB-FORM"},
+                      {"ref": "STR-SLAB-POUR", "hold_point": "structural"},
+                      {"ref": "GEN-SURVEY-ASBUILT", "virtual": True, "optional": True}],
+            "logic": [{"after": "STR-SLAB-POUR", "before": "GEN-SURVEY-ASBUILT", "reason": "cure first", "lag_days": 7}],
+            "checks": ["Cube tests"], "references": ["Concrete practice guidance"]},
+        "rec_pump_on_plinth": {
+            "id": "rec_pump_on_plinth", "name": "Pump set on grouted plinth", "sector": "civil", "tags": ["pump"],
+            "summary": "Pump.", "typical_duration_weeks": [3, 3], "steps": [{"ref": "GEN-LIFT-PLAN", "virtual": True}]},
+    }
+
+    def _task_view(self, t):
+        return dict(t)
+
+    def _new_task(self, params):
+        step = params.get("step")
+        if not step:
+            raise RpcError(-32000, "missing parameter: step")
+        if step not in self.KNOWN_STEPS:
+            raise RpcError(-32000, f"unknown step: {step}")
+        zone = params.get("zone_id", "")
+        if zone not in self.ZONES:
+            raise RpcError(-32000, f"no such zone: {zone}")
+        els = list(params.get("elements") or [])
+        for g in els:
+            if g not in self.KNOWN_ELEMENTS:
+                raise RpcError(-32000, f"unknown element: {g}")
+        if not els and not params.get("virtual"):
+            raise RpcError(-32000, "a task needs elements, or virtual=true")
+        preds = []
+        for a in params.get("after") or []:
+            if a not in self.tasks:
+                raise RpcError(-32000, f"unknown predecessor task: {a}")
+            preds.append({"task_id": a, "type": params.get("link_type", "FS"), "lag_days": int(params.get("lag_days", 0))})
+        self.next_id += 1
+        tid = "M%06d" % self.next_id
+        start = max([self.tasks[p["task_id"]]["planned_finish_day"] + p["lag_days"] for p in preds] or [0])
+        dur = int(params.get("duration_days") or 2)
+        t = {"task_id": tid, "manual_id": tid, "step_id": step, "zone_id": zone, "virtual": bool(params.get("virtual")),
+             "origin": "manual", "element_guids": els, "element_guid": els[0] if els else None, "predecessors": preds,
+             "state": "ready", "planned_start_day": start, "planned_finish_day": start + dur,
+             "duration_days": params.get("duration_days"), "marker": params.get("marker"), "recipe_id": None,
+             "frozen": False, "manual_zone": zone in self.manual_zones,
+             "flags": {"inspection_type": params.get("hold_point")}}
+        self.tasks[tid] = t
+        return t
+
+    def handle_manual(self, method, params):
+        if method == "manual.set_mode":
+            z = params.get("zone_id")
+            if z not in self.ZONES:
+                raise RpcError(-32000, f"no such zone: {z}")
+            (self.manual_zones.add if params.get("on", True) else self.manual_zones.discard)(z)
+            return {"ok": True, "zone_id": z, "manual_mode": z in self.manual_zones,
+                    "manual_zones": len(self.manual_zones)}
+        if method == "manual.add_task":
+            t = self._new_task(params)
+            return {"ok": True, "task_id": t["task_id"], "task": self._task_view(t)}
+        if method == "manual.remove_task":
+            tid = params.get("task_id")
+            t = self.tasks.pop(tid, None)
+            if t is None:
+                raise RpcError(-32000, f"no such task: {tid}")
+            for o in self.tasks.values():
+                for p in list(o["predecessors"]):
+                    if p["task_id"] == tid:
+                        o["predecessors"].remove(p)
+                        if params.get("bridge", True):
+                            o["predecessors"] += [dict(q) for q in t["predecessors"]]
+            return {"ok": True, "removed": tid}
+        if method == "manual.link":
+            f, to = params.get("from_id"), params.get("to_id")
+            if f not in self.tasks or to not in self.tasks:
+                raise RpcError(-32000, f"no such task: {f if f not in self.tasks else to}")
+            self.tasks[to]["predecessors"].append({"task_id": f, "type": params.get("type", "FS"),
+                                                   "lag_days": int(params.get("lag_days", 0))})
+            return {"ok": True, "task": self.tasks[to]}
+        if method == "manual.unlink":
+            to = params.get("to_id")
+            self.tasks[to]["predecessors"] = [p for p in self.tasks[to]["predecessors"] if p["task_id"] != params.get("from_id")]
+            return {"ok": True, "task": self.tasks[to]}
+        if method == "manual.update_task":
+            t = self.tasks.get(params.get("task_id"))
+            if t is None:
+                raise RpcError(-32000, f"no such task: {params.get('task_id')}")
+            t.update(params.get("fields") or {})
+            return {"ok": True, "task_id": t["task_id"], "task": t}
+        if method == "manual.tasks":
+            return [t for t in self.tasks.values() if params.get("zone_id") in (None, t["zone_id"])]
+        if method == "manual.export":
+            doc = {"schema_version": "1.0", "zones_in_manual_mode": sorted(self.manual_zones),
+                   "tasks": [{"id": t["task_id"], "step": t["step_id"], "zone_id": t["zone_id"],
+                              "after": [p["task_id"] for p in t["predecessors"]]} for t in self.tasks.values()]}
+            if params.get("path"):
+                doc["path"] = params["path"]
+            return doc
+        if method in ("manual.apply_recipe", "logic.apply"):
+            r = self.RECIPES.get(params.get("recipe_id"))
+            if r is None:
+                raise RpcError(-32000, f"unknown recipe: {params.get('recipe_id')}")
+            zone = params.get("zone_id") or "L00-Z1"
+            if zone not in self.ZONES:
+                raise RpcError(-32000, f"no such zone: {zone}")
+            created, rows, prev = [], [], None
+            for st in r["steps"]:
+                if st.get("optional") and not params.get("include_optional"):
+                    continue
+                t = self._new_task({"step": st["ref"], "zone_id": zone, "virtual": True,
+                                    "after": [prev] if prev else []})
+                t["origin"], t["recipe_id"] = "recipe", r["id"]
+                created.append(t["task_id"])
+                rows.append({"key": st["ref"], "ref": st["ref"], "virtual": True, "status": "created", "task_ids": [t["task_id"]]})
+                prev = t["task_id"]
+            return {"ok": True, "recipe_id": r["id"], "zone_id": zone, "element_guid": params.get("element_guid", ""),
+                    "created": created, "reused": [], "links": max(len(created) - 1, 0), "skipped_links": [], "steps": rows}
+        if method == "logic.list":
+            sec = params.get("sector")
+            return [{"id": r["id"], "name": r["name"], "summary": r["summary"], "sector": r["sector"], "tags": r["tags"],
+                     "steps": len(r["steps"]), "typical_duration_weeks": r["typical_duration_weeks"]}
+                    for r in self.RECIPES.values() if not sec or r["sector"] in (sec, "all")]
+        if method == "logic.get":
+            r = self.RECIPES.get(params.get("id"))
+            if r is None:
+                raise RpcError(-32000, f"unknown recipe: {params.get('id')}")
+            return r
+        if method == "logic.explain":
+            if params.get("element_guid"):
+                if params["element_guid"] not in self.KNOWN_ELEMENTS:
+                    raise RpcError(-32000, f"unknown element: {params['element_guid']}")
+                scope, zone = "element", "L00-Z1"
+            elif params.get("zone_id") in self.ZONES:
+                scope, zone = "zone", params["zone_id"]
+            else:
+                raise RpcError(-32602, "missing parameter: element_guid or zone_id")
+            have = {t["step_id"]: t["task_id"] for t in self.tasks.values() if t["zone_id"] == zone}
+            rows = []
+            for st in self.RECIPES["rec_slab_on_grade"]["steps"]:
+                tid = have.get(st["ref"])
+                rows.append({"key": st["ref"], "ref": st["ref"], "name": st["ref"].title(), "virtual": bool(st.get("virtual")),
+                             "optional": bool(st.get("optional")), "hold_point": st.get("hold_point"),
+                             "status": "missing" if tid is None else ("virtual_present" if st.get("virtual") else "covered"),
+                             "task_id": tid, "task_ids": [tid] if tid else []})
+            req = [r for r in rows if not (r["optional"] and r["status"] == "missing")]
+            cov = {"covered": sum(r["status"] == "covered" for r in req),
+                   "virtual_present": sum(r["status"] == "virtual_present" for r in req),
+                   "missing": sum(r["status"] == "missing" for r in req), "total": len(req)}
+            return {"scope": scope, "zone_id": zone, "element_guid": params.get("element_guid"), "name": "Fake",
+                    "none": False, "manual_mode": zone in self.manual_zones,
+                    "recipes": [{"recipe_id": "rec_slab_on_grade", "name": "Slab on grade", "matched_by": ["ifc_class"],
+                                 "steps": rows, "coverage": cov}]}
         raise RpcError(-32601, f"Method not found: {method}")
 
 
@@ -315,7 +481,9 @@ class ClientTests(unittest.TestCase):
                 "package_release package_hold package_priority zone_set_shift card_list card_get card_apply "
                 "card_clear card_save train_apply plan_export save_write save_read zone_staff zone_clear_crews "
                 "site_auto_layout procure_order_all_due sim_run_until sim_autopilot analysis_bottlenecks "
-                "analysis_critical analysis_s_curve analysis_what_if_shift").split()
+                "analysis_critical analysis_s_curve analysis_what_if_shift manual_set_mode manual_add_task "
+                "manual_update_task manual_remove_task manual_link manual_unlink manual_apply_recipe manual_export "
+                "manual_tasks logic_list logic_get logic_explain logic_apply").split()
         self.assertEqual(sorted(API_METHODS), sorted(spec))
         for name in spec:
             self.assertTrue(callable(getattr(GameClient, name)), name)
@@ -329,6 +497,124 @@ class ClientTests(unittest.TestCase):
             with contextlib.suppress(GameApiError):
                 fn(*args)
             self.assertEqual(self.server.game.calls[-1], expect)
+
+
+class ManualAndLogicClientTests(unittest.TestCase):
+    def setUp(self):
+        self.server = FakeServer().start()
+        self.addCleanup(self.server.stop)
+        self.c = GameClient(self.server.url, timeout=5)
+        self.addCleanup(self.c.close)
+
+    def last(self):
+        return self.server.game.calls[-1]
+
+    def test_manual_chain_roundtrip(self):
+        c = self.c
+        self.assertTrue(c.manual_set_mode("L00-Z1", True)["manual_mode"])
+        self.assertEqual(self.last(), ("manual.set_mode", {"zone_id": "L00-Z1", "on": True}))
+        a = c.manual_add_task("GEN-SURVEY-SETOUT", zone_id="L00-Z1", virtual=True, duration_days=2)
+        self.assertEqual(a["task_id"], "M000001")
+        self.assertEqual(self.last()[1], {"step": "GEN-SURVEY-SETOUT", "zone_id": "L00-Z1", "virtual": True, "duration_days": 2})
+        b = c.manual_add_task("STR-SLAB-FORM", zone_id="L00-Z1", elements=["E1", "E2"], after=["M000001"], lag_days=3)
+        self.assertEqual(b["task"]["predecessors"], [{"task_id": "M000001", "type": "FS", "lag_days": 3}])
+        self.assertEqual(b["task"]["planned_start_day"], 5)
+        self.assertEqual(len(c.manual_tasks("L00-Z1")), 2)
+        self.assertEqual(c.manual_tasks("L01-Z1"), [])
+        self.assertEqual(len(c.manual_tasks()), 2)
+        c.manual_link("M000001", "M000002", "SS", 1)
+        self.assertEqual(self.last(), ("manual.link", {"from_id": "M000001", "to_id": "M000002", "type": "SS", "lag_days": 1}))
+        c.manual_unlink("M000001", "M000002")
+        self.assertEqual(self.last()[0], "manual.unlink")
+        c.manual_update_task("M000002", {"note": "x"})
+        self.assertEqual(self.last(), ("manual.update_task", {"task_id": "M000002", "fields": {"note": "x"}}))
+        self.assertEqual(c.manual_export("/tmp/m.json")["path"], "/tmp/m.json")
+        self.assertEqual(c.manual_remove_task("M000001")["removed"], "M000001")
+        self.assertEqual(self.last(), ("manual.remove_task", {"task_id": "M000001", "bridge": True}))
+        self.assertEqual(c.state_zones()[0]["manual_mode"], True)
+
+    def test_manual_errors(self):
+        with self.assertRaises(GameApiError) as cm:
+            self.c.manual_add_task("NOPE-STEP", zone_id="L00-Z1", virtual=True)
+        self.assertEqual(cm.exception.message, "unknown step: NOPE-STEP")
+        with self.assertRaises(GameApiError):
+            self.c.manual_add_task("STR-SLAB-POUR", zone_id="L00-Z1")  # neither elements nor virtual
+        with self.assertRaises(GameApiError):
+            self.c.manual_set_mode("ZZ", True)
+
+    def test_logic_methods(self):
+        c = self.c
+        rows = c.logic_list()
+        self.assertEqual({r["id"] for r in rows}, {"rec_slab_on_grade", "rec_pump_on_plinth"})
+        self.assertEqual([r["id"] for r in c.logic_list(sector="civil")], ["rec_pump_on_plinth"])
+        self.assertEqual(self.last(), ("logic.list", {"sector": "civil"}))
+        self.assertEqual(c.logic_get("rec_slab_on_grade")["steps"][0]["ref"], "GEN-SURVEY-SETOUT")
+        ex = c.logic_explain(zone_id="L00-Z1")
+        self.assertEqual(ex["recipes"][0]["coverage"]["missing"], 3)
+        self.assertEqual(self.last(), ("logic.explain", {"zone_id": "L00-Z1"}))
+        self.assertEqual(c.logic_explain(element_guid="E1")["scope"], "element")
+        res = c.logic_apply("rec_slab_on_grade", zone_id="L00-Z1")
+        self.assertEqual(self.last()[0], "logic.apply")
+        self.assertEqual(len(res["created"]), 3)
+        res = c.manual_apply_recipe("rec_slab_on_grade", "L01-Z1", include_optional=True)
+        self.assertEqual(self.last()[0], "manual.apply_recipe")
+        self.assertEqual(len(res["created"]), 4)
+        with self.assertRaises(GameApiError):
+            c.logic_get("rec_nothing")
+        self.assertEqual(c.logic_explain(zone_id="L00-Z1")["recipes"][0]["coverage"]["virtual_present"], 1)
+
+
+class LogicTextViewTests(unittest.TestCase):
+    def setUp(self):
+        self.game = FakeGame()
+        self.game.manual_zones.add("L00-Z1")
+
+    def test_recipes_table(self):
+        t = tv.recipes_table(self.game.handle("logic.list", {}, None))
+        self.assertIn("rec_slab_on_grade", t)
+        self.assertIn("2-6", t)  # typical weeks
+        self.assertIn("slab", t)
+        self.assertEqual(tv.recipes_table([]), "(no recipes)")
+
+    def test_explain_text(self):
+        t = tv.explain_text(self.game.handle("logic.explain", {"zone_id": "L00-Z1"}, None))
+        self.assertIn("rec_slab_on_grade", t)
+        self.assertIn("0 of 3 required steps", t)
+        self.assertIn("[ ] missing", t)
+        self.assertIn("hold:structural", t)
+        self.assertIn("optional", t)
+        self.assertIn("[manual mode]", t)
+        self.game.handle("manual.add_task", {"step": "GEN-SURVEY-SETOUT", "zone_id": "L00-Z1", "virtual": True}, None)
+        t = tv.explain_text(self.game.handle("logic.explain", {"zone_id": "L00-Z1"}, None))
+        self.assertIn("[v] virtual in place", t)
+        self.assertIn("M000001", t)
+        self.assertIn("no recipe applies", tv.explain_text({"scope": "zone", "zone_id": "Z9", "none": True, "recipes": []}))
+        self.assertIsInstance(tv.explain_text(None), str)
+
+    def test_recipe_text(self):
+        t = tv.recipe_text(self.game.handle("logic.get", {"id": "rec_slab_on_grade"}, None))
+        for needle in ("Slab on grade", "Prerequisites:", "equipment: concrete_pump", "1. GEN-SURVEY-SETOUT (virtual)",
+                       "hold point: structural", "optional", "STR-SLAB-POUR -> GEN-SURVEY-ASBUILT", "lag 7 d",
+                       "Checks:", "Cube tests", "References:", "2-6 weeks"):
+            self.assertIn(needle, t)
+
+    def test_manual_chain_text_order_and_columns(self):
+        g = self.game
+        g.handle("manual.add_task", {"step": "GEN-SURVEY-SETOUT", "zone_id": "L00-Z1", "virtual": True, "duration_days": 2}, None)
+        g.handle("manual.add_task", {"step": "STR-SLAB-FORM", "zone_id": "L00-Z1", "elements": ["E1", "E2"],
+                                     "after": ["M000001"], "lag_days": 3, "hold_point": "structural"}, None)
+        tasks = g.handle("manual.tasks", {"zone_id": "L00-Z1"}, None)
+        t = tv.manual_chain_text(list(reversed(tasks)), "L00-Z1")  # order must not depend on input order
+        lines = t.split("\n")
+        self.assertIn("2 tasks", lines[0])
+        rows = [l for l in lines if l.startswith("M0")]
+        self.assertTrue(rows[0].startswith("M000001"))
+        self.assertIn("virtual", rows[0])
+        self.assertIn("2 el", rows[1])
+        self.assertIn("M000001", rows[1])
+        self.assertIn("hold:structural", rows[1])
+        self.assertRegex(rows[1], r"\b3\b")  # lag
+        self.assertIn("(no manual tasks in Z", tv.manual_chain_text([], "Z"))
 
 
 class TokenTests(unittest.TestCase):

@@ -390,6 +390,230 @@ def gantt_text(zone_ids: list[str] | None = None, from_week: int | None = None, 
     return "\n".join(lines)
 
 
+# ---- logic library and manual sequencing tools (docs/06 track A) ------------------------------
+
+def _zone_manual_mode(zone_id: str) -> bool | None:
+    for z in _list_of(_call("state.zones"), "zones"):
+        if z.get("zone_id", z.get("id")) == zone_id:
+            return bool(z.get("manual_mode", False))
+    return None
+
+
+def _chain_view(zone_id: str) -> str:
+    tasks = _list_of(_call("manual.tasks", zone_id=zone_id), "tasks")
+    mode = _zone_manual_mode(zone_id)
+    head = f"Zone {zone_id}: manual mode {'ON' if mode else 'OFF' if mode is not None else '?'}\n"
+    return head + tv.manual_chain_text(tasks, zone_id)
+
+
+@mcp.tool()
+def explain_installation(zone_id: str = "", element_guid: str = "") -> str:
+    """"What is needed?" for a zone or one BIM element: lists the construction recipes that apply (matched by
+    IFC class, visual kit, keywords or zone tags) and, for each, a step table showing which steps are already
+    covered by BIM tasks ([x]), present as virtual tasks ([v]) or still missing ([ ]), with task ids, hold
+    points and optional flags. Give zone_id or element_guid (element wins). Next: get_recipe for details, then
+    apply_recipe to add the missing steps, or author_manual_chain to write your own chain."""
+    if not zone_id and not element_guid:
+        raise ToolError("give zone_id or element_guid")
+    params = {"element_guid": element_guid} if element_guid else {"zone_id": zone_id}
+    res = _call("logic.explain", **params)
+    text = tv.explain_text(res)
+    if not (isinstance(res, dict) and res.get("none")):
+        text += "\n\nLegend: [x] covered by a BIM task, [v] virtual task present, [ ] missing. Optional steps are only added with include_optional=true."
+    return text
+
+
+@mcp.tool()
+def list_recipes(sector: str = "") -> str:
+    """Index of the construction logic library: recipe id, name, sector, typical duration in weeks, step count
+    and tags. Optional sector filter ('industrial', 'civil', 'healthcare'; recipes for 'all' sectors are
+    always included). Use get_recipe(id) for the full steps."""
+    res = _call("logic.list", **({"sector": sector} if sector else {}))
+    return tv.recipes_table(_list_of(res, "recipes"))
+
+
+@mcp.tool()
+def get_recipe(id: str) -> str:
+    """Full text of one recipe (e.g. 'rec_pressure_room'): summary, prerequisites (equipment, site, permits,
+    information), ordered steps with virtual/optional flags and hold points, extra ordering logic, checks and
+    references. Read it before applying a recipe to decide about optional steps."""
+    return tv.recipe_text(_call("logic.get", id=id))
+
+
+@mcp.tool()
+def apply_recipe(recipe_id: str, zone_id: str = "", element_guid: str = "", include_optional: bool = False) -> str:
+    """Expand a recipe into tasks in a zone (or around one element when element_guid is given): library steps are
+    bound to the matching elements, existing generated tasks are reused, virtual steps (survey, permits, lift
+    plan...) are created, and steps are chained FS with the recipe's lags and hold points. Optional steps are only
+    added with include_optional=true. Returns what was created or reused and how many links were made. Use
+    explain_installation first to see what is already covered."""
+    if not zone_id and not element_guid:
+        raise ToolError("give zone_id or element_guid")
+    params: dict[str, Any] = {"recipe_id": recipe_id, "include_optional": include_optional}
+    if zone_id:
+        params["zone_id"] = zone_id
+    if element_guid:
+        params["element_guid"] = element_guid
+    res = _call("manual.apply_recipe", **params)
+    created, reused = _list_of(res.get("created")), _list_of(res.get("reused"))
+    lines = [f"Applied {recipe_id} in {res.get('zone_id', zone_id)}: {len(created)} tasks created, "
+             f"{len(reused)} reused, {res.get('links', 0)} links."]
+    seen: set[str] = set()
+    for st in _list_of(res.get("steps")):  # one row per applied element: show each distinct row once
+        ids = ",".join(st.get("task_ids") or []) or "-"
+        row = (f"  {st.get('ref') or st.get('key')}{' (virtual)' if st.get('virtual') else ''}: "
+               f"{st.get('status') or '?'} {ids}")
+        if row not in seen:
+            seen.add(row)
+            lines.append(row)
+    if res.get("skipped_links"):
+        lines.append("Skipped links: " + _json(res["skipped_links"], 600))
+    return "\n".join(lines)
+
+
+@mcp.tool()
+def set_manual_mode(zone_id: str, on: bool = True) -> str:
+    """Switch a zone to (on=true) or from (on=false) manual mode. In manual mode the zone's generated packages are
+    frozen (held, no work) and only authored/recipe tasks run; switching off restores them. author_manual_chain
+    does this for you."""
+    res = _call("manual.set_mode", zone_id=zone_id, on=on)
+    return f"Zone {zone_id} manual mode {'ON' if res.get('manual_mode', on) else 'OFF'} ({res.get('manual_zones', '?')} manual zones)."
+
+
+@mcp.tool()
+def list_manual_chain(zone_id: str) -> str:
+    """The authored (manual and recipe) tasks of a zone as an ordered chain: task id, step, bound elements or
+    'virtual', predecessors (:SS/:FF when not finish-to-start), lag days, duration, state, planned days."""
+    return _chain_view(zone_id)
+
+
+@mcp.tool()
+def add_manual_task(step: str, zone_id: str, elements: list[str] | None = None, virtual: bool | None = None,
+                    duration_days: int | None = None, after: list[str] | None = None, link_type: Literal["FS", "SS", "FF"] = "FS",
+                    lag_days: int = 0, name: str | None = None, note: str | None = None, marker: str | None = None,
+                    hold_point: str | None = None, quantity: float | None = None) -> str:
+    """Add one task to a zone. step is a library step id (e.g. 'STR-SLAB-POUR', 'GEN-SURVEY-SETOUT'). Bind it to
+    BIM elements with elements=[guid,...]; with no elements it becomes a virtual task (survey, permit, curing...
+    work with no BIM element) and virtual defaults to true. duration_days sets a time-driven length.
+    after=[task ids] makes it follow those tasks with link_type (FS/SS/FF) and lag_days. hold_point names an
+    inspection that must pass after it (structural, fire, icra, ...). Returns the task id; the zone should be
+    in manual mode (set_manual_mode) for the task to replace generated work."""
+    spec: dict[str, Any] = {"step": step, "zone_id": zone_id}
+    if elements:
+        spec["elements"] = list(elements)
+    spec["virtual"] = (not elements) if virtual is None else virtual
+    for k, v in (("duration_days", duration_days), ("name", name), ("note", note), ("marker", marker),
+                 ("hold_point", hold_point), ("quantity", quantity)):
+        if v is not None:
+            spec[k] = v
+    if after:
+        spec.update({"after": list(after), "link_type": link_type, "lag_days": lag_days})
+    res = _call("manual.add_task", **spec)
+    t = res.get("task") or {}
+    return (f"Added {res.get('task_id')} ({step}, {'virtual' if spec['virtual'] else str(len(elements or [])) + ' elements'}) "
+            f"in {zone_id}; planned days {t.get('planned_start_day', '?')}-{t.get('planned_finish_day', '?')}.")
+
+
+@mcp.tool()
+def link_manual_tasks(from_id: str, to_id: str, type: Literal["FS", "SS", "FF"] = "FS", lag_days: int = 0) -> str:
+    """Make task to_id follow task from_id: FS (start after it finishes), SS (start together) or FF (finish
+    together), with an optional lag in working days (e.g. 7 for a concrete cure). Cycles are refused and
+    to_id must not have started."""
+    res = _call("manual.link", from_id=from_id, to_id=to_id, type=type, lag_days=lag_days)
+    return f"Linked {from_id} -{type}{'+' + str(lag_days) if lag_days else ''}-> {to_id}."
+
+
+@mcp.tool()
+def remove_manual_task(task_id: str, bridge: bool = True) -> str:
+    """Remove an authored (manual or recipe) task that has not started. With bridge=true its predecessors are
+    linked to its successors so the chain stays connected. Generated tasks cannot be removed."""
+    _call("manual.remove_task", task_id=task_id, bridge=bridge)
+    return f"Removed {task_id}" + (" (chain bridged)." if bridge else ".")
+
+
+@mcp.tool()
+def export_manual_sequence(path: str | None = None) -> str:
+    """Export the authored sequence as a manual_sequence.json document (zones in manual mode, tasks with
+    predecessors, overrides). With path it is written on the game host; always returns a summary and the JSON
+    (truncated when large)."""
+    doc = _call("manual.export", **({"path": path} if path else {}))
+    tasks = _list_of(doc.get("tasks") if isinstance(doc, dict) else None)
+    zones = doc.get("zones_in_manual_mode", []) if isinstance(doc, dict) else []
+    text = f"Manual sequence: {len(tasks)} tasks, manual zones {', '.join(zones) or '-'}"
+    if isinstance(doc, dict) and doc.get("path"):
+        text += f"; written to {doc['path']}"
+    return _with_json(text + ".", doc, 3500)
+
+
+_STEP_KEYS = {"step", "elements", "virtual", "duration_days", "lag_days", "hold_point", "name", "note", "marker",
+              "quantity", "unit", "link_type"}
+
+
+@mcp.tool()
+def author_manual_chain(zone_id: str, steps: list[dict], manual_mode: bool = True, auto_link: bool = True) -> str:
+    """Author a whole work sequence for one zone in one call: e.g. 'excavate, pile, survey, form, slab'.
+    steps is an ordered list of objects {step, elements?, virtual?, duration_days?, lag_days?, hold_point?}
+    (optional extras: name, note, marker, quantity, link_type). step is a library step id such as
+    'CIV-EARTH-CUT', 'CIV-PILE-DRIVE', 'GEN-SURVEY-SETOUT', 'STR-SLAB-FORM', 'STR-SLAB-POUR'; list_recipes /
+    get_recipe / explain_installation show valid ids per sector. elements are BIM element GUIDs (a step with none
+    is virtual unless virtual=false is forced and elements are given). lag_days delays a step after its
+    predecessor (e.g. 7 for a cure). With manual_mode=true the zone is switched to manual mode first (its
+    generated packages freeze); with auto_link=true each step follows the previous one finish-to-start. The
+    call is all-or-nothing: if the game rejects a step (unknown step id, unknown element, ...) the tasks already
+    added are removed, the previous mode is restored and the game's error is reported with the step number.
+    Returns the resulting chain."""
+    if not steps:
+        raise ToolError("steps is empty")
+    for i, st in enumerate(steps, 1):
+        if not isinstance(st, dict) or not str(st.get("step", "")).strip():
+            raise ToolError(f"step {i}: each entry needs a 'step' id, got {st!r}")
+        bad = set(st) - _STEP_KEYS
+        if bad:
+            raise ToolError(f"step {i} ({st['step']}): unknown keys {sorted(bad)}; allowed: {sorted(_STEP_KEYS)}")
+        if st.get("elements") is not None and not isinstance(st["elements"], list):
+            raise ToolError(f"step {i} ({st['step']}): elements must be a list of GUIDs")
+    was_manual = _zone_manual_mode(zone_id)
+    if was_manual is None:
+        raise ToolError(f"unknown zone {zone_id}; see list_zones")
+    if manual_mode and not was_manual:
+        _call("manual.set_mode", zone_id=zone_id, on=True)
+    added: list[str] = []
+    try:
+        prev: str | None = None
+        for i, st in enumerate(steps, 1):
+            elements = st.get("elements") or []
+            spec: dict[str, Any] = {"step": str(st["step"]).strip(), "zone_id": zone_id}
+            if elements:
+                spec["elements"] = list(elements)
+            spec["virtual"] = bool(st["virtual"]) if st.get("virtual") is not None else not elements
+            for k in ("duration_days", "hold_point", "name", "note", "marker", "quantity", "unit"):
+                if st.get(k) is not None:
+                    spec[k] = st[k]
+            if auto_link and prev:
+                spec.update({"after": [prev], "link_type": st.get("link_type", "FS"), "lag_days": int(st.get("lag_days") or 0)})
+            try:
+                res = _call("manual.add_task", **spec)
+            except ToolError as e:
+                raise ToolError(f"step {i} ({spec['step']}) rejected: {e}. {len(added)} earlier step(s) rolled back.") from e
+            prev = res.get("task_id")
+            added.append(prev)
+    except ToolError:
+        for tid in reversed(added):
+            try:
+                _call("manual.remove_task", task_id=tid, bridge=False)
+            except ToolError:
+                pass
+        if manual_mode and not was_manual:
+            try:
+                _call("manual.set_mode", zone_id=zone_id, on=False)
+            except ToolError:
+                pass
+        raise
+    head = (f"Authored {len(added)} tasks in {zone_id}: {', '.join(added)}"
+            + (" (linked FS in order)." if auto_link else " (not linked; use link_manual_tasks)."))
+    return head + "\n" + _chain_view(zone_id) + "\nNext: staff_zone to put crews on the chain, then advance_weeks."
+
+
 # ---- resources --------------------------------------------------------------------------------
 
 @mcp.resource("sitebuilder://summary", mime_type="text/plain")
@@ -425,6 +649,24 @@ def gantt_resource() -> str:
     return _gantt(None, None, None, 100, "zone")
 
 
+@mcp.resource("sitebuilder://logic", mime_type="text/plain")
+def logic_index_resource() -> str:
+    """Index of the construction logic library (recipes)."""
+    return tv.recipes_table(_list_of(_call("logic.list"), "recipes"))
+
+
+@mcp.resource("sitebuilder://logic/{recipe_id}", mime_type="text/plain")
+def logic_recipe_resource(recipe_id: str) -> str:
+    """One recipe: summary, prerequisites, steps, checks, references."""
+    return tv.recipe_text(_call("logic.get", id=recipe_id))
+
+
+@mcp.resource("sitebuilder://manual/{zone_id}", mime_type="text/plain")
+def manual_chain_resource(zone_id: str) -> str:
+    """The authored task chain of one zone."""
+    return _chain_view(zone_id)
+
+
 # ---- prompt -----------------------------------------------------------------------------------
 
 @mcp.prompt()
@@ -442,6 +684,25 @@ def plan_next_week(focus: str = "") -> str:
         "4. Apply the actions with the tools. Check cash against budget before hiring.\n"
         "5. Call advance_weeks(1) only if the user asked to continue, and report what changed."
         + (f"\n\nFocus: {focus}" if focus else "")
+    )
+
+
+@mcp.prompt()
+def plan_installation(zone_or_element: str) -> str:
+    """Work out what an installation needs and put it in the plan."""
+    return (
+        f"Plan the installation at '{zone_or_element}' in SiteBuilder (a zone id like L01-Z3, or a BIM element GUID).\n\n"
+        "1. Call explain_installation (zone_id=... for a zone, element_guid=... for an element). Note which steps "
+        "are covered [x], virtual in place [v] or missing [ ], and which are optional.\n"
+        "2. For the best-matching recipe call get_recipe; check prerequisites (cranes, access, permits, laydown) "
+        "against the site and list_bottlenecks.\n"
+        "3. Decide which optional steps are worth including (give a one-line reason each: risk, hold points, "
+        "lead times).\n"
+        "4. Either apply_recipe(recipe_id, zone_id, element_guid?, include_optional=...) for a standard job, or "
+        "author_manual_chain(zone_id, steps=[...]) when the user described a specific sequence or no recipe fits. "
+        "Use list_manual_chain to check the result; fix ordering with link_manual_tasks (add lag_days for cures).\n"
+        "5. Staff the zone (staff_zone), order long-lead items (order_due_procurement), then report the plan and "
+        "stop before advancing unless asked."
     )
 
 
