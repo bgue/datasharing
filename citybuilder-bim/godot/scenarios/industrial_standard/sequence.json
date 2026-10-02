@@ -64,7 +64,7 @@
      1
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 5,
    "tags": [
     "heavy_lift_area",
     "process_unit"
@@ -113,7 +113,7 @@
      1
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 5,
    "tags": [
     "heavy_lift_area",
     "process_unit"
@@ -162,7 +162,7 @@
      1
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 5,
    "tags": [
     "heavy_lift_area",
     "process_unit"
@@ -211,7 +211,7 @@
      3
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 5,
    "tags": [
     "heavy_lift_area",
     "process_unit"
@@ -260,7 +260,7 @@
      3
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 5,
    "tags": [
     "heavy_lift_area",
     "process_unit"
@@ -309,7 +309,7 @@
      3
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 5,
    "tags": [
     "heavy_lift_area",
     "process_unit"
@@ -358,7 +358,7 @@
      5
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 5,
    "tags": [
     "heavy_lift_area",
     "process_unit"
@@ -407,7 +407,7 @@
      5
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 5,
    "tags": [
     "heavy_lift_area",
     "process_unit"
@@ -456,7 +456,7 @@
      5
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 5,
    "tags": [
     "heavy_lift_area",
     "process_unit"
@@ -505,7 +505,7 @@
      7
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": []
   },
   {
@@ -546,7 +546,7 @@
      7
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": []
   },
   {
@@ -587,7 +587,7 @@
      7
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": []
   },
   {
@@ -628,9 +628,10 @@
      9
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 4,
    "tags": [
-    "pipe_rack"
+    "pipe_rack",
+    "equipment_yard"
    ],
    "faces": {
     "structure": 2,
@@ -676,9 +677,10 @@
      9
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 4,
    "tags": [
-    "pipe_rack"
+    "pipe_rack",
+    "equipment_yard"
    ],
    "faces": {
     "structure": 2,
@@ -724,7 +726,7 @@
      9
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "pipe_rack"
    ],
@@ -21127,7 +21129,7 @@
     "trade",
     "work_face"
    ],
-   "target_duration_days": 15,
+   "target_duration_days": 5,
    "max_crew_days_per_package": 80,
    "max_over_ideal": 1,
    "over_ideal_factor": 0.6
@@ -141663,7 +141665,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 3,
    "planned_finish_day": 9,
@@ -141688,7 +141690,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 18,
    "planned_finish_day": 21,
@@ -141714,7 +141716,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 16,
    "planned_finish_day": 24,
@@ -141743,8 +141745,8 @@
    "total_crew_days": 6.0,
    "crew_profile": {
     "min": 1,
-    "ideal": 1,
-    "max": 2
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 27,
    "planned_finish_day": 30,
@@ -141770,7 +141772,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 27,
    "planned_finish_day": 29,
@@ -141846,7 +141848,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 24,
    "planned_finish_day": 29,
@@ -141896,7 +141898,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 30,
    "planned_finish_day": 31,
@@ -141921,7 +141923,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 30,
    "planned_finish_day": 32,
@@ -142183,7 +142185,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 20,
    "planned_finish_day": 43,
@@ -142209,7 +142211,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 78,
    "planned_finish_day": 84,
@@ -142238,8 +142240,8 @@
    "total_crew_days": 6.0,
    "crew_profile": {
     "min": 1,
-    "ideal": 1,
-    "max": 2
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 87,
    "planned_finish_day": 89,
@@ -142265,7 +142267,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 88,
    "planned_finish_day": 90,
@@ -142329,7 +142331,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 84,
    "planned_finish_day": 87,
@@ -142381,7 +142383,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 90,
    "planned_finish_day": 91,
@@ -142794,7 +142796,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 22,
    "planned_finish_day": 45,
@@ -142820,7 +142822,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 82,
    "planned_finish_day": 88,
@@ -142874,7 +142876,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 91,
    "planned_finish_day": 92,
@@ -142938,7 +142940,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 88,
    "planned_finish_day": 91,
@@ -143389,7 +143391,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 24,
    "planned_finish_day": 47,
@@ -143415,7 +143417,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 86,
    "planned_finish_day": 92,
@@ -143444,8 +143446,8 @@
    "total_crew_days": 6.0,
    "crew_profile": {
     "min": 1,
-    "ideal": 1,
-    "max": 2
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 95,
    "planned_finish_day": 98,
@@ -143471,7 +143473,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 96,
    "planned_finish_day": 97,
@@ -143539,7 +143541,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 92,
    "planned_finish_day": 97,
@@ -143590,7 +143592,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 98,
    "planned_finish_day": 99,
@@ -143996,7 +143998,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 106,
    "planned_finish_day": 125,
@@ -144022,7 +144024,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 116,
    "planned_finish_day": 119,
@@ -144069,8 +144071,8 @@
    "total_crew_days": 5.143,
    "crew_profile": {
     "min": 1,
-    "ideal": 1,
-    "max": 2
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 127,
    "planned_finish_day": 130,
@@ -144126,7 +144128,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 125,
    "planned_finish_day": 127,
@@ -144152,7 +144154,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 125,
    "planned_finish_day": 126,
@@ -144178,7 +144180,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 125,
    "planned_finish_day": 126,
@@ -144397,8 +144399,8 @@
    "total_crew_days": 6.0,
    "crew_profile": {
     "min": 1,
-    "ideal": 1,
-    "max": 2
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 151,
    "planned_finish_day": 176,
@@ -144526,7 +144528,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 111,
    "planned_finish_day": 126,
@@ -144552,7 +144554,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 118,
    "planned_finish_day": 121,
@@ -144599,8 +144601,8 @@
    "total_crew_days": 5.143,
    "crew_profile": {
     "min": 1,
-    "ideal": 1,
-    "max": 2
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 129,
    "planned_finish_day": 132,
@@ -144656,7 +144658,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 126,
    "planned_finish_day": 128,
@@ -144684,7 +144686,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 126,
    "planned_finish_day": 130,
@@ -144929,8 +144931,8 @@
    "total_crew_days": 8.0,
    "crew_profile": {
     "min": 1,
-    "ideal": 1,
-    "max": 2
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 153,
    "planned_finish_day": 157,
@@ -145046,7 +145048,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 121,
    "planned_finish_day": 128,
@@ -145072,7 +145074,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 121,
    "planned_finish_day": 123,
@@ -145119,8 +145121,8 @@
    "total_crew_days": 5.143,
    "crew_profile": {
     "min": 1,
-    "ideal": 1,
-    "max": 2
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 131,
    "planned_finish_day": 134,
@@ -145176,7 +145178,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 128,
    "planned_finish_day": 130,
@@ -145201,7 +145203,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 130,
    "planned_finish_day": 131,
@@ -145516,7 +145518,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 8,
    "planned_finish_day": 28,
@@ -145542,7 +145544,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 46,
    "planned_finish_day": 50,
@@ -145568,7 +145570,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 47,
    "planned_finish_day": 54,
@@ -145622,7 +145624,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 57,
    "planned_finish_day": 59,
@@ -145694,7 +145696,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 54,
    "planned_finish_day": 57,
@@ -145720,7 +145722,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 59,
    "planned_finish_day": 112,
@@ -145958,7 +145960,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 88,
    "planned_finish_day": 106,
@@ -145984,7 +145986,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 106,
    "planned_finish_day": 111,
@@ -146013,8 +146015,8 @@
    "total_crew_days": 6.0,
    "crew_profile": {
     "min": 1,
-    "ideal": 1,
-    "max": 2
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 114,
    "planned_finish_day": 116,
@@ -146040,7 +146042,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 114,
    "planned_finish_day": 116,
@@ -146112,7 +146114,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 111,
    "planned_finish_day": 114,
@@ -146162,7 +146164,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 116,
    "planned_finish_day": 117,
@@ -146424,7 +146426,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 4,
    "planned_finish_day": 31,
@@ -146449,7 +146451,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 29,
    "planned_finish_day": 33,
@@ -146475,7 +146477,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 51,
    "planned_finish_day": 58,
@@ -146527,7 +146529,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 61,
    "planned_finish_day": 62,
@@ -146599,7 +146601,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 58,
    "planned_finish_day": 61,
@@ -146625,7 +146627,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 62,
    "planned_finish_day": 64,
@@ -147018,7 +147020,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 10,
    "planned_finish_day": 35,
@@ -147044,7 +147046,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 55,
    "planned_finish_day": 61,
@@ -147070,7 +147072,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 58,
    "planned_finish_day": 62,
@@ -147096,7 +147098,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 65,
    "planned_finish_day": 66,
@@ -147168,7 +147170,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 62,
    "planned_finish_day": 65,
@@ -147196,7 +147198,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 66,
    "planned_finish_day": 98,
@@ -147421,8 +147423,8 @@
    "total_crew_days": 8.0,
    "crew_profile": {
     "min": 1,
-    "ideal": 1,
-    "max": 2
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 161,
    "planned_finish_day": 165,
@@ -147575,7 +147577,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 13,
    "planned_finish_day": 66,
@@ -147600,7 +147602,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 63,
    "planned_finish_day": 67,
@@ -147626,7 +147628,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 92,
    "planned_finish_day": 96,
@@ -147678,7 +147680,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 99,
    "planned_finish_day": 100,
@@ -147750,7 +147752,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 96,
    "planned_finish_day": 99,
@@ -147775,7 +147777,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 100,
    "planned_finish_day": 102,
@@ -148034,7 +148036,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 13,
    "planned_finish_day": 70,
@@ -148059,7 +148061,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 67,
    "planned_finish_day": 71,
@@ -148085,7 +148087,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 96,
    "planned_finish_day": 100,
@@ -148137,7 +148139,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 103,
    "planned_finish_day": 104,
@@ -148209,7 +148211,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 100,
    "planned_finish_day": 103,
@@ -148235,7 +148237,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 104,
    "planned_finish_day": 106,
@@ -148606,7 +148608,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 13,
    "planned_finish_day": 40,
@@ -148631,7 +148633,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 71,
    "planned_finish_day": 74,
@@ -148657,7 +148659,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 70,
    "planned_finish_day": 75,
@@ -148683,7 +148685,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 78,
    "planned_finish_day": 79,
@@ -148759,7 +148761,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 75,
    "planned_finish_day": 80,
@@ -148786,7 +148788,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 80,
    "planned_finish_day": 82,
@@ -149021,8 +149023,8 @@
    "total_crew_days": 6.0,
    "crew_profile": {
     "min": 1,
-    "ideal": 1,
-    "max": 2
+    "ideal": 2,
+    "max": 3
    },
    "planned_start_day": 167,
    "planned_finish_day": 171,
@@ -149174,7 +149176,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 16,
    "planned_finish_day": 78,
@@ -149199,7 +149201,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 76,
    "planned_finish_day": 80,
@@ -149225,7 +149227,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 100,
    "planned_finish_day": 104,
@@ -149277,7 +149279,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 107,
    "planned_finish_day": 108,
@@ -149349,7 +149351,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 104,
    "planned_finish_day": 107,
@@ -149375,7 +149377,7 @@
    "crew_profile": {
     "min": 2,
     "ideal": 2,
-    "max": 2
+    "max": 3
    },
    "planned_start_day": 108,
    "planned_finish_day": 110,

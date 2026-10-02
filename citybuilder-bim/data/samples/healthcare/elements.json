@@ -76,7 +76,7 @@
      1
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "heavy_lift_area",
     "imaging"
@@ -125,7 +125,7 @@
      1
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 4,
    "tags": [
     "occupied_adjacent"
    ]
@@ -168,7 +168,7 @@
      3
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 4,
    "tags": []
   },
   {
@@ -209,7 +209,7 @@
      3
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 4,
    "tags": [
     "occupied_adjacent"
    ]
@@ -252,7 +252,7 @@
      5
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 4,
    "tags": []
   },
   {
@@ -293,7 +293,7 @@
      5
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 4,
    "tags": [
     "occupied_adjacent"
    ]
@@ -336,7 +336,7 @@
      1
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "pressure_room",
     "or_room"
@@ -428,7 +428,7 @@
      3
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "pressure_room",
     "or_room"
@@ -604,7 +604,7 @@
      1
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "pressure_room",
     "or_room"
@@ -696,7 +696,7 @@
      3
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "or_room"
    ],
@@ -828,7 +828,7 @@
      5
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 4,
    "tags": [
     "occupied_adjacent",
     "plant_room"

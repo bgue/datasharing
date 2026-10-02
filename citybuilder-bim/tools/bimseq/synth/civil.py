@@ -40,7 +40,11 @@ def generate(seed: int = 42) -> dict[str, Any]:
     def faces(x0: int, z0: int, x1: int, z1: int) -> dict[str, int]:
         return {"below_ground": 2, "structure": 2, "floor": 2}      # floor = pavement surface
 
-    b.tile_zones("L00", 0, 0, LEN, WID, 5, 2, tags, faces=faces)
+    def crews(x0: int, z0: int, x1: int, z1: int) -> int:
+        t = set(tags(x0, z0, x1, z1))
+        return 4 if "bridge" in t else 3                  # bridge 4; culvert and road segments 3
+
+    b.tile_zones("L00", 0, 0, LEN, WID, 5, 2, tags, faces=faces, crews=crews)
     b.tile_zones("UG1", 0, 0, LEN, WID, 5, 2, lambda x0, z0, x1, z1: ["live_traffic"] if z0 in LIVE_ROWS else [])
 
     b.add_system("DR-01", "Storm drainage", "civil")

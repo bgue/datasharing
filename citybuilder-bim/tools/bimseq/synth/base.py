@@ -10,6 +10,7 @@ Cell = tuple[int, int]
 GUID_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$"
 TagFn = Callable[[int, int, int, int], list[str]]
 FaceFn = Callable[[int, int, int, int], dict[str, int]]
+CrewFn = Callable[[int, int, int, int], int]
 
 
 def q(volume: float | None = None, area: float | None = None, length: float | None = None,
@@ -56,10 +57,12 @@ class SynthBuilder:
         self.storeys.append({"id": sid, "name": name, "index": index, "elevation_m": elev})
 
     def tile_zones(self, storey_id: str, x0: int, z0: int, w: int, d: int, bw: int, bd: int,
-                   tags: TagFn | None = None, max_crews: int = 2, faces: FaceFn | None = None) -> None:
+                   tags: TagFn | None = None, max_crews: int = 2, faces: FaceFn | None = None,
+                   crews: CrewFn | None = None) -> None:
         """Tile the rectangle with ``bw x bd`` blocks (edge blocks may be smaller) as zones.
 
-        ``tags`` and ``faces`` are callables ``(x0, z0, x1, z1) -> tags / per-face crew caps``.
+        ``tags``, ``faces`` and ``crews`` are callables ``(x0, z0, x1, z1) -> tags / per-face crew caps /
+        zone max_crews`` (``max_crews`` is the default); a face cap may not exceed the zone's max_crews.
         """
         n = len([z for z in self.zones if z["storey_id"] == storey_id])
         for bz in range(z0, z0 + d, bd):
@@ -68,9 +71,13 @@ class SynthBuilder:
                 n += 1
                 zid = f"{storey_id}-Z{n}"
                 ztags = tags(bx, bz, min(bx + bw, x0 + w) - 1, min(bz + bd, z0 + d) - 1) if tags else []
+                ex, ez = min(bx + bw, x0 + w) - 1, min(bz + bd, z0 + d) - 1
+                zcrews = crews(bx, bz, ex, ez) if crews else max_crews
                 zone = {"id": zid, "name": f"{storey_id} zone {n}", "storey_id": storey_id,
-                        "cells": cells, "max_crews": max_crews, "tags": ztags}
-                zfaces = faces(bx, bz, min(bx + bw, x0 + w) - 1, min(bz + bd, z0 + d) - 1) if faces else {}
+                        "cells": cells, "max_crews": zcrews, "tags": ztags}
+                zfaces = faces(bx, bz, ex, ez) if faces else {}
+                if any(v > zcrews for v in zfaces.values()):
+                    raise ValueError(f"{zid}: face cap exceeds max_crews {zcrews}: {zfaces}")
                 if zfaces:
                     zone["faces"] = zfaces
                 self.zones.append(zone)

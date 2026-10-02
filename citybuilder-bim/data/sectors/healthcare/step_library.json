@@ -2745,7 +2745,7 @@
    "trade",
    "work_face"
   ],
-  "target_duration_days": 10,
+  "target_duration_days": 5,
   "max_crew_days_per_package": 50,
   "max_over_ideal": 1,
   "over_ideal_factor": 0.6

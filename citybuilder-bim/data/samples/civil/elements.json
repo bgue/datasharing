@@ -78,7 +78,7 @@
      1
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "live_traffic",
     "segment"
@@ -135,7 +135,7 @@
      1
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "live_traffic",
     "segment"
@@ -192,7 +192,7 @@
      1
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 4,
    "tags": [
     "live_traffic",
     "bridge"
@@ -249,7 +249,7 @@
      1
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 4,
    "tags": [
     "live_traffic",
     "bridge"
@@ -306,7 +306,7 @@
      1
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "live_traffic",
     "segment"
@@ -363,7 +363,7 @@
      1
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "live_traffic",
     "segment"
@@ -420,7 +420,7 @@
      3
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "segment"
    ],
@@ -476,7 +476,7 @@
      3
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "segment"
    ],
@@ -532,7 +532,7 @@
      3
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 4,
    "tags": [
     "heavy_lift_area",
     "bridge"
@@ -589,7 +589,7 @@
      3
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 4,
    "tags": [
     "heavy_lift_area",
     "bridge"
@@ -646,7 +646,7 @@
      3
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "segment",
     "culvert"
@@ -703,7 +703,7 @@
      3
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "segment"
    ],
@@ -759,7 +759,7 @@
      5
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "segment"
    ],
@@ -815,7 +815,7 @@
      5
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "segment"
    ],
@@ -871,7 +871,7 @@
      5
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 4,
    "tags": [
     "heavy_lift_area",
     "bridge"
@@ -928,7 +928,7 @@
      5
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 4,
    "tags": [
     "heavy_lift_area",
     "bridge"
@@ -985,7 +985,7 @@
      5
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "segment",
     "culvert"
@@ -1042,7 +1042,7 @@
      5
     ]
    ],
-   "max_crews": 2,
+   "max_crews": 3,
    "tags": [
     "segment"
    ],

@@ -255,7 +255,19 @@ class SectorBundles(unittest.TestCase):
         self.assertTrue(bridge_elems <= bridge_zones)
         self.assertTrue(all(x["faces"] == {"below_ground": 2, "structure": 2, "floor": 2}
                             for x in tagged("civil", "bridge") + tagged("civil", "segment")))
-        self.assertTrue(all(x["max_crews"] == 2 for sec in z.values() for x in sec))
+        crews = lambda sector, tag: {x["max_crews"] for x in tagged(sector, tag)}
+        self.assertEqual((crews("healthcare", "or_room"), crews("healthcare", "imaging"), crews("healthcare", "plant_room")),
+                         ({3}, {3}, {4}))
+        self.assertEqual({x["max_crews"] for x in z["healthcare"] if x["storey_id"] == "L01" and not set(x["tags"]) & {"or_room"}}, {2})
+        self.assertEqual({x["max_crews"] for x in z["healthcare"] if x["storey_id"] == "L00" and "imaging" not in x["tags"]}, {4})
+        self.assertEqual((crews("industrial", "process_unit"), crews("industrial", "equipment_yard")), ({5}, {4}))
+        self.assertEqual({x["max_crews"] for x in z["industrial"] if "process_unit" not in x["tags"]
+                          and "equipment_yard" not in x["tags"]}, {3})
+        self.assertEqual((crews("civil", "bridge"), crews("civil", "culvert"), crews("civil", "segment") - {4}), ({4}, {3}, {3}))
+        self.assertEqual({x["max_crews"] for x in z["civil"] if x["storey_id"] == "UG1"}, {2})
+        for sec in z.values():
+            for x in sec:
+                self.assertTrue(all(v <= x["max_crews"] for v in x.get("faces", {}).values()), x["id"])
 
     def test_packages_cli(self):
         import io

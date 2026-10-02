@@ -28,14 +28,24 @@ def generate(seed: int = 42) -> dict[str, Any]:
             out.append("process_unit")
         if z0 == RACK_Z:
             out.append("pipe_rack")
+            if x0 < BAYS_X - 4:
+                out.append("equipment_yard")             # tanks, transformers and heaters in the yard row
         return out
+
+    def crews(x0: int, z0: int, x1: int, z1: int) -> int:
+        t = set(tags(x0, z0, x1, z1))
+        if "process_unit" in t:
+            return 5
+        if "equipment_yard" in t:
+            return 4                                      # equipment / laydown heavy
+        return 3                                          # pipe rack and building bays
 
     def faces(x0: int, z0: int, x1: int, z1: int) -> dict[str, int]:
         if set(tags(x0, z0, x1, z1)) & {"pipe_rack", "process_unit"}:
             return {"structure": 2, "plant_pad": 2, "ceiling_void": 1}
         return {}
 
-    b.tile_zones("L00", 0, 0, BAYS_X, BAYS_Z + 2, 4, 2, tags, faces=faces)
+    b.tile_zones("L00", 0, 0, BAYS_X, BAYS_Z + 2, 4, 2, tags, faces=faces, crews=crews)
 
     for i in range(1, 7):
         b.add_system(f"PR-{i:02d}", f"Pipe rack line {i}", "process")

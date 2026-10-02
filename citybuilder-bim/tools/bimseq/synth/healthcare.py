@@ -54,8 +54,20 @@ def generate(seed: int = 42) -> dict[str, Any]:
             return {}
         return faces
 
+    def make_crews(sid: str):
+        tags = make_tags(sid)
+
+        def crews(x0: int, z0: int, x1: int, z1: int) -> int:
+            t = set(tags(x0, z0, x1, z1))
+            if "plant_room" in t:
+                return 4
+            if t & {"or_room", "imaging"}:
+                return 3
+            return 4 if sid == "L00" else 2          # ground floor substructure zones 4, wards 2
+        return crews
+
     for sid, _, _ in STOREYS:
-        b.tile_zones(sid, 0, 0, NX, NZ, 4, 2, make_tags(sid), faces=make_faces(sid))
+        b.tile_zones(sid, 0, 0, NX, NZ, 4, 2, make_tags(sid), faces=make_faces(sid), crews=make_crews(sid))
 
     for i, sid in enumerate(("L00", "L01", "L02"), start=1):
         b.add_system(f"AHU-{i}", f"Air handling unit {i}", "mechanical")
