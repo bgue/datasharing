@@ -4,120 +4,598 @@
   "title": "SiteBuilder shared definitions",
   "$defs": {
     "cell": {
-      "type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2,
+      "type": "array",
+      "items": {
+        "type": "integer"
+      },
+      "minItems": 2,
+      "maxItems": 2,
       "description": "[x, z] grid cell on a storey"
     },
-    "cells": {"type": "array", "items": {"$ref": "#/$defs/cell"}, "minItems": 1},
-    "sector": {"type": "string", "enum": ["industrial", "civil", "healthcare"]},
-    "step_id": {"type": "string", "pattern": "^[A-Z]{2,5}(-[A-Z0-9]{2,12}){1,3}$"},
-    "task_id": {"type": "string", "pattern": "^T[0-9]{6}$"},
-    "quantity_basis": {"type": "string", "enum": ["volume_m3", "area_m2", "length_m", "count", "weight_t"]},
-    "unit": {"type": "string", "enum": ["m3", "m2", "m", "ea", "t"]},
-    "link_type": {"type": "string", "enum": ["FS", "SS", "FF"]},
+    "cells": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/cell"
+      },
+      "minItems": 1
+    },
+    "sector": {
+      "type": "string",
+      "enum": [
+        "industrial",
+        "civil",
+        "healthcare"
+      ]
+    },
+    "step_id": {
+      "type": "string",
+      "pattern": "^[A-Z]{2,5}(-[A-Z0-9]{2,12}){1,3}$"
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^T[0-9]{6}$"
+    },
+    "quantity_basis": {
+      "type": "string",
+      "enum": [
+        "volume_m3",
+        "area_m2",
+        "length_m",
+        "count",
+        "weight_t"
+      ]
+    },
+    "unit": {
+      "type": "string",
+      "enum": [
+        "m3",
+        "m2",
+        "m",
+        "ea",
+        "t"
+      ]
+    },
+    "link_type": {
+      "type": "string",
+      "enum": [
+        "FS",
+        "SS",
+        "FF"
+      ]
+    },
     "scope": {
       "type": "string",
-      "enum": ["same_element", "host", "same_cell", "same_cell_below", "same_cell_above",
-               "same_zone", "same_zone_below", "same_storey", "same_storey_below",
-               "same_system", "project"]
+      "enum": [
+        "same_element",
+        "host",
+        "same_cell",
+        "same_cell_below",
+        "same_cell_above",
+        "same_zone",
+        "same_zone_below",
+        "same_storey",
+        "same_storey_below",
+        "same_system",
+        "project"
+      ]
     },
     "discipline": {
       "type": "string",
-      "enum": ["general", "civil", "structure", "architecture", "mechanical", "electrical",
-               "plumbing", "fire", "process", "instrumentation", "medical", "commissioning"]
+      "enum": [
+        "general",
+        "civil",
+        "structure",
+        "architecture",
+        "mechanical",
+        "electrical",
+        "plumbing",
+        "fire",
+        "process",
+        "instrumentation",
+        "medical",
+        "commissioning"
+      ]
     },
     "quantities": {
       "type": "object",
       "properties": {
-        "volume_m3": {"type": "number", "minimum": 0},
-        "area_m2": {"type": "number", "minimum": 0},
-        "length_m": {"type": "number", "minimum": 0},
-        "count": {"type": "number", "minimum": 0},
-        "weight_t": {"type": "number", "minimum": 0}
+        "volume_m3": {
+          "type": "number",
+          "minimum": 0
+        },
+        "area_m2": {
+          "type": "number",
+          "minimum": 0
+        },
+        "length_m": {
+          "type": "number",
+          "minimum": 0
+        },
+        "count": {
+          "type": "number",
+          "minimum": 0
+        },
+        "weight_t": {
+          "type": "number",
+          "minimum": 0
+        }
       },
       "additionalProperties": false
     },
     "project": {
       "type": "object",
-      "required": ["name", "sector", "grid"],
+      "required": [
+        "name",
+        "sector",
+        "grid"
+      ],
       "properties": {
-        "name": {"type": "string"},
-        "sector": {"$ref": "#/$defs/sector"},
-        "description": {"type": "string"},
-        "source": {"type": "string", "description": "IFC file name or 'synthetic'"},
+        "name": {
+          "type": "string"
+        },
+        "sector": {
+          "$ref": "#/$defs/sector"
+        },
+        "description": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "description": "IFC file name or 'synthetic'"
+        },
         "grid": {
           "type": "object",
-          "required": ["cell_size_m", "storey_height_m", "width_cells", "depth_cells"],
+          "required": [
+            "cell_size_m",
+            "storey_height_m",
+            "width_cells",
+            "depth_cells"
+          ],
           "properties": {
-            "cell_size_m": {"type": "number", "exclusiveMinimum": 0},
-            "storey_height_m": {"type": "number", "exclusiveMinimum": 0},
-            "origin": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
-            "width_cells": {"type": "integer", "minimum": 1},
-            "depth_cells": {"type": "integer", "minimum": 1}
+            "cell_size_m": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "storey_height_m": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "origin": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "width_cells": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "depth_cells": {
+              "type": "integer",
+              "minimum": 1
+            }
           }
         }
       }
     },
     "storey": {
       "type": "object",
-      "required": ["id", "name", "index"],
+      "required": [
+        "id",
+        "name",
+        "index"
+      ],
       "properties": {
-        "id": {"type": "string"},
-        "name": {"type": "string"},
-        "index": {"type": "integer"},
-        "elevation_m": {"type": "number"}
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "index": {
+          "type": "integer"
+        },
+        "elevation_m": {
+          "type": "number"
+        }
       }
     },
     "zone": {
       "type": "object",
-      "required": ["id", "name", "storey_id", "cells", "max_crews"],
+      "required": [
+        "id",
+        "name",
+        "storey_id",
+        "cells",
+        "max_crews"
+      ],
       "properties": {
-        "id": {"type": "string"},
-        "name": {"type": "string"},
-        "storey_id": {"type": "string"},
-        "cells": {"$ref": "#/$defs/cells"},
-        "max_crews": {"type": "integer", "minimum": 1},
-        "tags": {"type": "array", "items": {"type": "string"}}
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "storey_id": {
+          "type": "string"
+        },
+        "cells": {
+          "$ref": "#/$defs/cells"
+        },
+        "max_crews": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "faces": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "propertyNames": {
+            "enum": [
+              "structure",
+              "below_ground",
+              "external",
+              "roof",
+              "ceiling_void",
+              "walls",
+              "floor",
+              "plant_pad"
+            ]
+          },
+          "description": "Per-face crew cap; missing face = no cap"
+        },
+        "shift_allowed": {
+          "type": "boolean",
+          "default": true
+        }
       }
     },
     "system": {
       "type": "object",
-      "required": ["id", "name", "discipline"],
+      "required": [
+        "id",
+        "name",
+        "discipline"
+      ],
       "properties": {
-        "id": {"type": "string"},
-        "name": {"type": "string"},
-        "discipline": {"$ref": "#/$defs/discipline"}
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "discipline": {
+          "$ref": "#/$defs/discipline"
+        }
       }
     },
     "element": {
       "type": "object",
-      "required": ["guid", "ifc_class", "name", "storey_id", "zone_id", "cells", "quantities"],
+      "required": [
+        "guid",
+        "ifc_class",
+        "name",
+        "storey_id",
+        "zone_id",
+        "cells",
+        "quantities"
+      ],
       "properties": {
-        "guid": {"type": "string", "minLength": 1},
-        "ifc_class": {"type": "string", "pattern": "^Ifc[A-Za-z0-9]+$"},
-        "predefined_type": {"type": ["string", "null"]},
-        "name": {"type": "string"},
-        "storey_id": {"type": "string"},
-        "zone_id": {"type": "string"},
-        "system_id": {"type": ["string", "null"]},
-        "host_guid": {"type": ["string", "null"]},
-        "cells": {"$ref": "#/$defs/cells"},
-        "quantities": {"$ref": "#/$defs/quantities"},
-        "material": {"type": ["string", "null"]},
-        "properties": {"type": "object"},
+        "guid": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ifc_class": {
+          "type": "string",
+          "pattern": "^Ifc[A-Za-z0-9]+$"
+        },
+        "predefined_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "storey_id": {
+          "type": "string"
+        },
+        "zone_id": {
+          "type": "string"
+        },
+        "system_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "host_guid": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cells": {
+          "$ref": "#/$defs/cells"
+        },
+        "quantities": {
+          "$ref": "#/$defs/quantities"
+        },
+        "material": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "properties": {
+          "type": "object"
+        },
         "bbox": {
           "type": "object",
           "properties": {
-            "min": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3},
-            "max": {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3}
+            "min": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "max": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            }
           }
         },
         "visual": {
           "type": "string",
-          "enum": ["slab", "wall", "column", "beam", "footing", "pile", "roof", "stair", "door",
-                   "window", "curtain_wall", "ceiling", "floor_finish", "duct", "pipe", "cable_tray",
-                   "equipment", "terminal", "tank", "earthwork", "pavement", "kerb", "barrier",
-                   "deck", "pier", "culvert", "sign", "generic"],
+          "enum": [
+            "slab",
+            "wall",
+            "column",
+            "beam",
+            "footing",
+            "pile",
+            "roof",
+            "stair",
+            "door",
+            "window",
+            "curtain_wall",
+            "ceiling",
+            "floor_finish",
+            "duct",
+            "pipe",
+            "cable_tray",
+            "equipment",
+            "terminal",
+            "tank",
+            "earthwork",
+            "pavement",
+            "kerb",
+            "barrier",
+            "deck",
+            "pier",
+            "culvert",
+            "sign",
+            "generic"
+          ],
           "description": "Hint for the game's procedural stand-in mesh"
+        }
+      }
+    },
+    "work_face": {
+      "type": "string",
+      "enum": [
+        "structure",
+        "below_ground",
+        "external",
+        "roof",
+        "ceiling_void",
+        "walls",
+        "floor",
+        "plant_pad",
+        "any"
+      ]
+    },
+    "crew_profile": {
+      "type": "object",
+      "required": [
+        "min",
+        "ideal",
+        "max"
+      ],
+      "properties": {
+        "min": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ideal": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "package_id": {
+      "type": "string",
+      "pattern": "^P[0-9]{5}$"
+    },
+    "station_select": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "phase": {
+          "type": "string"
+        },
+        "trade": {
+          "type": "string"
+        },
+        "discipline": {
+          "$ref": "#/$defs/discipline"
+        },
+        "work_face": {
+          "$ref": "#/$defs/work_face"
+        }
+      },
+      "additionalProperties": false
+    },
+    "sequence_card": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "stations"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^card_[a-z0-9_]+$"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "applies_to_zone_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "select"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "select": {
+                "$ref": "#/$defs/station_select"
+              },
+              "takt_weeks": {
+                "type": "integer",
+                "minimum": 1,
+                "default": 1
+              }
+            }
+          }
+        },
+        "auto_staff": {
+          "type": "string",
+          "enum": [
+            "off",
+            "min",
+            "ideal"
+          ],
+          "default": "ideal"
+        }
+      }
+    },
+    "package": {
+      "type": "object",
+      "required": [
+        "package_id",
+        "name",
+        "zone_id",
+        "storey_id",
+        "phase",
+        "trade",
+        "discipline",
+        "work_face",
+        "task_ids",
+        "total_crew_days",
+        "crew_profile"
+      ],
+      "properties": {
+        "package_id": {
+          "$ref": "#/$defs/package_id"
+        },
+        "name": {
+          "type": "string"
+        },
+        "zone_id": {
+          "type": "string"
+        },
+        "storey_id": {
+          "type": "string"
+        },
+        "phase": {
+          "type": "string"
+        },
+        "trade": {
+          "type": "string"
+        },
+        "discipline": {
+          "$ref": "#/$defs/discipline"
+        },
+        "work_face": {
+          "$ref": "#/$defs/work_face"
+        },
+        "task_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/task_id"
+          },
+          "minItems": 1
+        },
+        "total_crew_days": {
+          "type": "number",
+          "minimum": 0
+        },
+        "crew_profile": {
+          "$ref": "#/$defs/crew_profile"
+        },
+        "planned_start_day": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "planned_finish_day": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "requires_crane": {
+          "type": "boolean"
+        },
+        "lead_time_weeks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "laydown_cells": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cost": {
+          "type": "number",
+          "minimum": 0
         }
       }
     }

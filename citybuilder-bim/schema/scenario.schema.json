@@ -3,134 +3,464 @@
   "$id": "https://sitebuilder.dev/schema/scenario.schema.json",
   "title": "Playable level definition: budget, dates, crews, equipment, site, events",
   "type": "object",
-  "required": ["schema_version", "id", "name", "sector", "difficulty", "budget", "start_cash",
-               "crews_available", "equipment", "site", "events", "scoring"],
+  "required": [
+    "schema_version",
+    "id",
+    "name",
+    "sector",
+    "difficulty",
+    "budget",
+    "start_cash",
+    "crews_available",
+    "equipment",
+    "site",
+    "events",
+    "scoring"
+  ],
   "properties": {
-    "schema_version": {"const": "1.0"},
-    "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
-    "name": {"type": "string"},
-    "description": {"type": "string"},
-    "sector": {"$ref": "common.schema.json#/$defs/sector"},
-    "difficulty": {"type": "string", "enum": ["tutorial", "standard", "hard"]},
-    "contract_weeks": {"type": ["integer", "null"], "description": "null = baseline weeks * contract_factor"},
-    "contract_factor": {"type": "number", "default": 1.1},
-    "budget": {"type": "number", "minimum": 0, "description": "Total contract value; 0 = computed from tasks * budget_factor"},
-    "budget_factor": {"type": "number", "default": 1.15},
-    "start_cash": {"type": "number"},
-    "overdraft_limit": {"type": "number", "default": 0},
-    "progress_payment_every_weeks": {"type": "integer", "default": 4},
-    "retention_pct": {"type": "number", "default": 5},
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "sector": {
+      "$ref": "common.schema.json#/$defs/sector"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "tutorial",
+        "standard",
+        "hard"
+      ]
+    },
+    "contract_weeks": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "null = baseline weeks * contract_factor"
+    },
+    "contract_factor": {
+      "type": "number",
+      "default": 1.1
+    },
+    "budget": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Total contract value; 0 = computed from tasks * budget_factor"
+    },
+    "budget_factor": {
+      "type": "number",
+      "default": 1.15
+    },
+    "start_cash": {
+      "type": "number"
+    },
+    "overdraft_limit": {
+      "type": "number",
+      "default": 0
+    },
+    "progress_payment_every_weeks": {
+      "type": "integer",
+      "default": 4
+    },
+    "retention_pct": {
+      "type": "number",
+      "default": 5
+    },
     "weather": {
       "type": "object",
       "properties": {
-        "start_week_of_year": {"type": "integer", "minimum": 0, "maximum": 51},
-        "monthly_factor": {"type": "array", "items": {"type": "number", "minimum": 0, "maximum": 1}, "minItems": 12, "maxItems": 12,
-          "description": "Productivity multiplier for weather_sensitive steps, Jan..Dec"}
+        "start_week_of_year": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 51
+        },
+        "monthly_factor": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "minItems": 12,
+          "maxItems": 12,
+          "description": "Productivity multiplier for weather_sensitive steps, Jan..Dec"
+        }
       }
     },
     "crews_available": {
       "type": "object",
-      "additionalProperties": {"type": "integer", "minimum": 0},
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      },
       "description": "trade id -> max simultaneous crews on the project"
     },
     "equipment": {
       "type": "array",
       "items": {
-        "type": "object", "required": ["id", "type", "weekly_cost", "reach_cells", "footprint_cells"],
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "weekly_cost",
+          "reach_cells",
+          "footprint_cells"
+        ],
         "properties": {
-          "id": {"type": "string"},
-          "type": {"type": "string", "enum": ["tower_crane", "mobile_crane", "crawler_crane", "excavator", "concrete_pump", "piling_rig", "paver", "lift"]},
-          "name": {"type": "string"},
-          "weekly_cost": {"type": "number"},
-          "mobilisation_cost": {"type": "number", "default": 0},
-          "reach_cells": {"type": "integer", "minimum": 0},
-          "footprint_cells": {"type": "integer", "minimum": 1},
-          "max_count": {"type": "integer", "minimum": 0, "default": 1}
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "tower_crane",
+              "mobile_crane",
+              "crawler_crane",
+              "excavator",
+              "concrete_pump",
+              "piling_rig",
+              "paver",
+              "lift"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "weekly_cost": {
+            "type": "number"
+          },
+          "mobilisation_cost": {
+            "type": "number",
+            "default": 0
+          },
+          "reach_cells": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "footprint_cells": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "max_count": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 1
+          }
         }
       }
     },
     "site": {
-      "type": "object", "required": ["gates"],
+      "type": "object",
+      "required": [
+        "gates"
+      ],
       "properties": {
-        "gates": {"$ref": "common.schema.json#/$defs/cells", "description": "Site entrance cells on the perimeter"},
-        "occupied_cells": {"type": "array", "items": {"$ref": "common.schema.json#/$defs/cell"}, "description": "Live hospital / live traffic / existing plant; cannot be built on"},
-        "blocked_cells": {"type": "array", "items": {"$ref": "common.schema.json#/$defs/cell"}},
+        "gates": {
+          "$ref": "common.schema.json#/$defs/cells",
+          "description": "Site entrance cells on the perimeter"
+        },
+        "occupied_cells": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/cell"
+          },
+          "description": "Live hospital / live traffic / existing plant; cannot be built on"
+        },
+        "blocked_cells": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/cell"
+          }
+        },
         "initial_tiles": {
           "type": "array",
           "items": {
-            "type": "object", "required": ["tile", "cell"],
+            "type": "object",
+            "required": [
+              "tile",
+              "cell"
+            ],
             "properties": {
-              "tile": {"type": "string", "enum": ["haul_road", "laydown", "crane_pad", "welfare", "hoarding", "gate", "icra_barrier", "traffic_cones", "existing_building", "existing_road", "trees", "grass"]},
-              "cell": {"$ref": "common.schema.json#/$defs/cell"},
-              "orientation": {"type": "integer", "minimum": 0, "maximum": 3}
+              "tile": {
+                "type": "string",
+                "enum": [
+                  "haul_road",
+                  "laydown",
+                  "crane_pad",
+                  "welfare",
+                  "hoarding",
+                  "gate",
+                  "icra_barrier",
+                  "traffic_cones",
+                  "existing_building",
+                  "existing_road",
+                  "trees",
+                  "grass"
+                ]
+              },
+              "cell": {
+                "$ref": "common.schema.json#/$defs/cell"
+              },
+              "orientation": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 3
+              }
             }
           }
         },
         "tile_costs": {
           "type": "object",
-          "additionalProperties": {"type": "object", "properties": {"place": {"type": "number"}, "weekly": {"type": "number"}}}
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "place": {
+                "type": "number"
+              },
+              "weekly": {
+                "type": "number"
+              }
+            }
+          }
         }
       }
     },
     "events": {
       "type": "array",
       "items": {
-        "type": "object", "required": ["id", "name", "weight", "effect"],
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "weight",
+          "effect"
+        ],
         "properties": {
-          "id": {"type": "string"},
-          "name": {"type": "string"},
-          "text": {"type": "string"},
-          "weight": {"type": "number", "minimum": 0},
-          "min_week": {"type": "integer", "default": 0},
-          "max_week": {"type": ["integer", "null"]},
-          "once": {"type": "boolean", "default": false},
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "weight": {
+            "type": "number",
+            "minimum": 0
+          },
+          "min_week": {
+            "type": "integer",
+            "default": 0
+          },
+          "max_week": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "once": {
+            "type": "boolean",
+            "default": false
+          },
           "trigger": {
             "type": "object",
             "description": "All conditions must hold for the event to be eligible",
             "properties": {
-              "phase_active": {"type": "string"},
-              "step_active": {"type": "string"},
-              "zone_tag": {"type": "string"},
-              "missing_tile_adjacent_to_tag": {"type": "string", "description": "e.g. icra_barrier next to occupied_adjacent zones"},
-              "congestion_over": {"type": "number"},
-              "cash_below": {"type": "number"}
+              "phase_active": {
+                "type": "string"
+              },
+              "step_active": {
+                "type": "string"
+              },
+              "zone_tag": {
+                "type": "string"
+              },
+              "missing_tile_adjacent_to_tag": {
+                "type": "string",
+                "description": "e.g. icra_barrier next to occupied_adjacent zones"
+              },
+              "congestion_over": {
+                "type": "number"
+              },
+              "cash_below": {
+                "type": "number"
+              }
             }
           },
           "effect": {
             "type": "object",
             "properties": {
-              "productivity_factor": {"type": "number"},
-              "affects_steps_with_tag": {"type": "string"},
-              "affects_trade": {"type": "string"},
-              "affects_zone_tag": {"type": "string"},
-              "duration_weeks": {"type": "integer", "default": 1},
-              "cash_delta": {"type": "number"},
-              "delay_lead_time_weeks": {"type": "integer"},
-              "pause_zone_weeks": {"type": "integer"},
-              "incident": {"type": "boolean"},
-              "goodwill_delta": {"type": "number"},
-              "score_delta": {"type": "number"}
+              "productivity_factor": {
+                "type": "number"
+              },
+              "affects_steps_with_tag": {
+                "type": "string"
+              },
+              "affects_trade": {
+                "type": "string"
+              },
+              "affects_zone_tag": {
+                "type": "string"
+              },
+              "duration_weeks": {
+                "type": "integer",
+                "default": 1
+              },
+              "cash_delta": {
+                "type": "number"
+              },
+              "delay_lead_time_weeks": {
+                "type": "integer"
+              },
+              "pause_zone_weeks": {
+                "type": "integer"
+              },
+              "incident": {
+                "type": "boolean"
+              },
+              "goodwill_delta": {
+                "type": "number"
+              },
+              "score_delta": {
+                "type": "number"
+              }
             }
           },
           "choices": {
             "type": "array",
             "description": "Optional player decision; each choice overrides effect",
-            "items": {"type": "object", "required": ["label", "effect"], "properties": {"label": {"type": "string"}, "effect": {"type": "object"}}}
+            "items": {
+              "type": "object",
+              "required": [
+                "label",
+                "effect"
+              ],
+              "properties": {
+                "label": {
+                  "type": "string"
+                },
+                "effect": {
+                  "type": "object"
+                }
+              }
+            }
           }
         }
       }
     },
     "scoring": {
-      "type": "object", "required": ["weights"],
+      "type": "object",
+      "required": [
+        "weights"
+      ],
       "properties": {
         "weights": {
-          "type": "object", "required": ["time", "cost", "safety", "quality", "stability"],
-          "additionalProperties": {"type": "number"}
+          "type": "object",
+          "required": [
+            "time",
+            "cost",
+            "safety",
+            "quality",
+            "stability"
+          ],
+          "additionalProperties": {
+            "type": "number"
+          }
         },
-        "max_incidents_hard": {"type": "integer", "default": 3},
-        "grade_thresholds": {"type": "object", "properties": {"S": {"type": "number"}, "A": {"type": "number"}, "B": {"type": "number"}, "C": {"type": "number"}}}
+        "max_incidents_hard": {
+          "type": "integer",
+          "default": 3
+        },
+        "grade_thresholds": {
+          "type": "object",
+          "properties": {
+            "S": {
+              "type": "number"
+            },
+            "A": {
+              "type": "number"
+            },
+            "B": {
+              "type": "number"
+            },
+            "C": {
+              "type": "number"
+            }
+          }
+        }
       }
     },
-    "tutorial_hints": {"type": "array", "items": {"type": "object", "properties": {"week": {"type": "integer"}, "text": {"type": "string"}}}}
+    "tutorial_hints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "week": {
+            "type": "integer"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "sequence_cards": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/sequence_card"
+      },
+      "description": "Adds to or overrides (by id) the step library cards"
+    },
+    "shift": {
+      "type": "object",
+      "properties": {
+        "productivity_factor": {
+          "type": "number",
+          "default": 1.8
+        },
+        "cost_factor": {
+          "type": "number",
+          "default": 2.2
+        },
+        "risk_factor": {
+          "type": "number",
+          "default": 1.5
+        },
+        "inspection_fail_add": {
+          "type": "number",
+          "default": 0.05
+        },
+        "max_zones": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 2
+        },
+        "forbidden_zone_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "occupied_adjacent"
+          ]
+        }
+      }
+    },
+    "gantt_visible_default": {
+      "type": "boolean",
+      "default": true
+    }
   }
 }
