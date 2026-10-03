@@ -15,10 +15,10 @@ var _dirty: bool = true
 
 func setup(state: SimState) -> void:
     gs = state
-    custom_minimum_size = Vector2(270, 0)
+    custom_minimum_size = Vector2(250, 0)
     var scroll := ScrollContainer.new()
     scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-    scroll.custom_minimum_size = Vector2(260, 330)
+    scroll.custom_minimum_size = Vector2(260, 90)
     add_child(scroll)
     _body = VBoxContainer.new()
     _body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -55,6 +55,9 @@ func refresh() -> void:
         row.add_child(UiStyle.swatch(t.color))
         var name_l := UiStyle.label("%s  %d/%d" % [t.name, gs.crew_count(t.id), gs.crews_cap(t.id)], 14)
         name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        name_l.clip_text = true
+        name_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+        name_l.custom_minimum_size.x = 120
         name_l.tooltip_text = "%s per week, up to %d hires per week (%d left)" % [Fmt.money(t.weekly_cost), t.max_hire_per_week, gs.hires_left_this_week(t.id)]
         name_l.mouse_filter = Control.MOUSE_FILTER_PASS
         row.add_child(name_l)
@@ -69,9 +72,12 @@ func refresh() -> void:
         fire.pressed.connect(func() -> void: _fire_one(t.id))
         row.add_child(fire)
         _body.add_child(row)
-        _body.add_child(UiStyle.label("   %s / week" % Fmt.money(t.weekly_cost), 12, UiStyle.MUTED))
+        _body.add_child(UiStyle.label("   %s / week" % Fmt.money(t.weekly_cost), 13, UiStyle.MUTED))
     if not gs.crews.is_empty():
-        _body.add_child(UiStyle.label("Select a crew, then click a zone (Assign mode)", 12, UiStyle.MUTED))
+        var sel_hint := UiStyle.label("Select a crew, then click a zone (Assign mode)", 13, UiStyle.MUTED)
+        sel_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        sel_hint.custom_minimum_size.x = 200
+        _body.add_child(sel_hint)
     for c in gs.crews:
         var crew_id: int = int(c["id"])
         var td: TradeDef = gs.bundle.trades_by_id.get(str(c["trade"]), null)
@@ -103,6 +109,8 @@ func refresh() -> void:
             var rr := HBoxContainer.new()
             var l := UiStyle.label("%s at %s" % [def.name if def != null else str(pe["id"]), str(pe["cell"])], 13)
             l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            l.clip_text = true
+            l.custom_minimum_size.x = 100
             rr.add_child(l)
             var rb := UiStyle.button("x", "Demobilise")
             rb.pressed.connect(func() -> void: gs.remove_equipment(i))

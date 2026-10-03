@@ -82,7 +82,7 @@ var _elem_info: Label
 func setup(state: SimState, view: BimView = null) -> void:
     gs = state
     bim_view = view
-    custom_minimum_size = Vector2(860, 380)
+    custom_minimum_size = Vector2(860, 300)
     visible = false
     var root := VBoxContainer.new()
     add_child(root)
@@ -173,7 +173,7 @@ func _build_header(root: VBoxContainer) -> void:
 
 func _build_palette(body: HBoxContainer) -> void:
     var col := VBoxContainer.new()
-    col.custom_minimum_size = Vector2(230, 0)
+    col.custom_minimum_size = Vector2(190, 0)
     col.size_flags_stretch_ratio = 3.0
     col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     body.add_child(col)
@@ -203,8 +203,8 @@ func _build_palette(body: HBoxContainer) -> void:
 
 func _build_chain(body: HBoxContainer) -> void:
     var col := VBoxContainer.new()
-    col.custom_minimum_size = Vector2(400, 0)
-    col.size_flags_stretch_ratio = 5.0
+    col.custom_minimum_size = Vector2(440, 0)
+    col.size_flags_stretch_ratio = 5.2
     col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     body.add_child(col)
     col.add_child(UiStyle.label("Chain", 14, UiStyle.MUTED))
@@ -220,10 +220,11 @@ func _build_chain(body: HBoxContainer) -> void:
     _chain.set_column_expand(1, false)
     _chain.set_column_custom_minimum_width(1, 22)
     _chain.set_column_expand(2, true)
-    _chain.set_column_custom_minimum_width(2, 120)
-    for i in [3, 4, 5, 6, 7]:
+    _chain.set_column_custom_minimum_width(2, 100)
+    var widths: Dictionary = {3: 66, 4: 64, 5: 38, 6: 50, 7: 66}
+    for i in widths:
         _chain.set_column_expand(i, false)
-        _chain.set_column_custom_minimum_width(i, 64)
+        _chain.set_column_custom_minimum_width(i, int(widths[i]))
     _chain.size_flags_vertical = Control.SIZE_EXPAND_FILL
     _chain.drop_mode_flags = Tree.DROP_MODE_INBETWEEN
     _chain.set_drag_forwarding(_chain_drag, _chain_can_drop, _chain_drop)
@@ -322,8 +323,8 @@ func _build_chain(body: HBoxContainer) -> void:
 
 func _build_elements(body: HBoxContainer) -> void:
     var col := VBoxContainer.new()
-    col.custom_minimum_size = Vector2(220, 0)
-    col.size_flags_stretch_ratio = 3.0
+    col.custom_minimum_size = Vector2(200, 0)
+    col.size_flags_stretch_ratio = 2.8
     col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     body.add_child(col)
     col.add_child(UiStyle.label("Elements in the zone", 14, UiStyle.MUTED))

@@ -13,10 +13,11 @@ var _dirty: bool = true
 
 func setup(state: SimState) -> void:
     gs = state
-    custom_minimum_size = Vector2(310, 0)
+    custom_minimum_size = Vector2(300, 0)
     var scroll := ScrollContainer.new()
     scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-    scroll.custom_minimum_size = Vector2(300, 120)
+    scroll.custom_minimum_size = Vector2(280, 72)
+    scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
     add_child(scroll)
     _body = VBoxContainer.new()
     _body.size_flags_horizontal = Control.SIZE_EXPAND_FILL

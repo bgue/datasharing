@@ -6,6 +6,11 @@ enum Mode { BUILD, ASSIGN }
 
 const MENU_SCENE: String = "res://scenes/menu.tscn"
 const SECONDS_PER_WEEK: float = 3.0
+const MARGIN: float = 8.0
+const LEFT_W: float = 280.0
+const RIGHT_W: float = 318.0
+const EDITOR_W: float = 1100.0
+const INSTALLATIONS_W: float = 330.0
 
 @onready var view: Node3D = $View
 @onready var camera: Camera3D = $View/Camera
@@ -24,10 +29,22 @@ var procurement: ProcurementPanel = null
 var charts: ChartsPanel = null
 var gantt: GanttPanel = null
 var seq_editor: SequenceEditor = null
+var installations: InstallationsPanel = null
 var whats_needed: WhatsNeededDialog = null
 var toast: EventToast = null
 var report: Report = null
 var hint_bar: HintBar = null
+## HUD docks: crews + charts on the left, zone inspector + procurement on the right (children stack, never overlap).
+var left_dock: VBoxContainer = null
+var right_dock: VBoxContainer = null
+var focus_badge: PanelContainer = null
+var _focus_label: Label = null
+var _focus_plane: MeshInstance3D = null
+var _editor_hid_left: bool = false
+var _layout_pending: bool = false
+var _badge_wanted: bool = false
+var _editor_was_open: bool = false
+var _editor_hid_gantt: bool = false
 
 var mode: int = Mode.BUILD
 var pinned_zone: String = ""
@@ -56,6 +73,7 @@ func _ready() -> void:
     _set_mode(Mode.BUILD)
     _set_focus(0)
     _reflow_bottom()
+    view.call("frame_site", gs.bundle.site_rect)  # again, now that the HUD insets are known
 
 
 func _exit_tree() -> void:
@@ -123,27 +141,31 @@ func _build_ui() -> void:
     ui_root.add_child(top_bar)
     top_bar.setup(gs)
 
+    left_dock = _make_dock("LeftDock", LEFT_W)
+    ui_root.add_child(left_dock)
+    right_dock = _make_dock("RightDock", RIGHT_W)
+    ui_root.add_child(right_dock)
+
     crew_panel = _scene("res://scenes/ui/crew_panel.tscn") as CrewPanel
-    UiStyle.place(crew_panel, Rect2(0, 0, 0, 0), Vector4(8, 96, 8, 96))
-    ui_root.add_child(crew_panel)
+    crew_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    left_dock.add_child(crew_panel)
     crew_panel.setup(gs)
 
     inspector = _scene("res://scenes/ui/zone_inspector.tscn") as ZoneInspector
-    UiStyle.place(inspector, Rect2(1, 0, 1, 0), Vector4(-318, 96, -8, 96))
-    inspector.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-    ui_root.add_child(inspector)
+    inspector.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    right_dock.add_child(inspector)
     inspector.setup(gs)
 
     procurement = _scene("res://scenes/ui/procurement_panel.tscn") as ProcurementPanel
-    UiStyle.place(procurement, Rect2(1, 0, 1, 0), Vector4(-318, 500, -8, 500))
-    procurement.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-    ui_root.add_child(procurement)
+    # procurement takes what the inspector leaves: all of it while no zone is shown, a third of it otherwise
+    procurement.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    procurement.size_flags_stretch_ratio = 1.0
+    inspector.size_flags_stretch_ratio = 2.5
+    right_dock.add_child(procurement)
     procurement.setup(gs)
 
     charts = _scene("res://scenes/ui/charts_panel.tscn") as ChartsPanel
-    UiStyle.place(charts, Rect2(0, 1, 0, 1), Vector4(8, -8, 8, -8))
-    charts.grow_vertical = Control.GROW_DIRECTION_BEGIN
-    ui_root.add_child(charts)
+    left_dock.add_child(charts)
     charts.setup(gs)
 
     gantt = GanttPanel.new()
@@ -153,10 +175,10 @@ func _build_ui() -> void:
 
     seq_editor = SequenceEditor.new()
     seq_editor.name = "SequenceEditor"
-    UiStyle.place(seq_editor, Rect2(1, 0, 1, 1), Vector4(-1186, 96, -326, -8))
-    seq_editor.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+    UiStyle.place(seq_editor, Rect2(1, 0, 1, 1), Vector4(-EDITOR_W - RIGHT_W - 16, 74, -RIGHT_W - 16, -8))
     ui_root.add_child(seq_editor)
     seq_editor.setup(gs, bim_view)
+    installations = InstallationsPanel.create(ui_root, gs, bim_view, view, camera)  # kit installations list + picking (I)
     inspector.gs_kit_colours = bim_view != null and bim_view.marker_mesh_provider.is_valid()
 
     whats_needed = WhatsNeededDialog.new()
@@ -165,14 +187,21 @@ func _build_ui() -> void:
     whats_needed.setup(gs)
 
     hint_bar = _scene("res://scenes/ui/hint_bar.tscn") as HintBar
-    UiStyle.place(hint_bar, Rect2(0.5, 1, 0.5, 1), Vector4(-290, -8, 290, -8))
+    UiStyle.place(hint_bar, Rect2(0.5, 1, 0.5, 1), Vector4(-300, -8, 300, -8))
     hint_bar.grow_horizontal = Control.GROW_DIRECTION_BOTH
     hint_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
     ui_root.add_child(hint_bar)
     hint_bar.setup(gs)
 
+    focus_badge = PanelContainer.new()
+    focus_badge.name = "FocusBadge"
+    focus_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _focus_label = UiStyle.label("", 14, UiStyle.WARN)
+    focus_badge.add_child(_focus_label)
+    ui_root.add_child(focus_badge)
+
     toast = _scene("res://scenes/ui/event_toast.tscn") as EventToast
-    UiStyle.place(toast, Rect2(0.5, 0, 0.5, 0), Vector4(-210, 110, 210, 110))
+    UiStyle.place(toast, Rect2(0.5, 0, 0.5, 0), Vector4(-210, 82, 210, 82))
     toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
     ui_root.add_child(toast)
     toast.setup(gs)
@@ -184,6 +213,15 @@ func _build_ui() -> void:
 
 func _scene(path: String) -> Control:
     return (load(path) as PackedScene).instantiate() as Control
+
+
+func _make_dock(dock_name: String, width: float) -> VBoxContainer:
+    var d := VBoxContainer.new()
+    d.name = dock_name
+    d.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    d.custom_minimum_size = Vector2(width, 0)
+    d.add_theme_constant_override("separation", MARGIN as int)
+    return d
 
 
 func _wire() -> void:
@@ -207,9 +245,16 @@ func _wire() -> void:
             whats_needed.open_for_zone(zid))
     seq_editor.message.connect(hint_bar.show_message)
     seq_editor.closed.connect(_reflow_bottom)
+    seq_editor.visibility_changed.connect(_reflow_bottom)
+    for p in [crew_panel, inspector, procurement, charts, installations]:
+        (p as Control).visibility_changed.connect(_queue_layout)
     whats_needed.message.connect(hint_bar.show_message)
     gantt.layout_changed.connect(_reflow_bottom)
     get_viewport().size_changed.connect(_reflow_bottom)
+    top_bar.minimum_size_changed.connect(_queue_layout)
+    hint_bar.minimum_size_changed.connect(_queue_layout)
+    toast.minimum_size_changed.connect(_queue_layout)
+    toast.visibility_changed.connect(_queue_layout)
     crew_panel.crew_selected.connect(_on_crew_selected)
     crew_panel.equipment_arm_requested.connect(func(id: String) -> void:
         _set_mode(Mode.BUILD)
@@ -243,7 +288,7 @@ func _set_mode(m: int) -> void:
     mode = m
     builder.active = (m == Mode.BUILD)
     overlay.pick_enabled = (m == Mode.ASSIGN)
-    top_bar.set_mode_text("Mode: Build (Tab)" if m == Mode.BUILD else "Mode: Assign crews (Tab)")
+    top_bar.set_mode_text("Build mode" if m == Mode.BUILD else "Assign mode")
     _update_tool_text()
 
 
@@ -269,6 +314,7 @@ func _set_focus(idx: int) -> void:
     bim_view.set_focus_storey(idx)
     overlay.set_focus_storey(idx)
     view.call("set_focus_height", gs.bundle.storey_y_for_index(idx))
+    _update_focus_cue(idx)
     gs.focus_changed.emit(idx)
 
 
@@ -320,27 +366,177 @@ func _on_gantt_zone(zone_id: String) -> void:
         _set_focus((gs.bundle.storeys_by_id[z.storey_id] as StoreyData).index)
 
 
-## Reflows what sits at the bottom of the screen around the timeline: the bottom-anchored panels move up
-## by its height, and the 3D camera is shifted so the model stays centred in the remaining area.
+## Lays out the HUD around the timeline and the docks, and tells the camera which part of the screen is free:
+## top bar and docks keep their margins, the left dock yields to the sequence editor when the screen is too narrow,
+## the hint bar sits in the free middle, and the 3D camera is shifted so the model stays centred in what is left.
 func _reflow_bottom() -> void:
-    if gantt == null:
+    if gantt == null or left_dock == null:
         return
+    # On a screen shorter than 900 px the timeline steps aside while the editor is open (the editor has its own lane);
+    # it comes back when the editor closes. Pressing T while the editor is open still shows it.
+    var editor_open: bool = seq_editor != null and seq_editor.visible
+    if editor_open != _editor_was_open:
+        _editor_was_open = editor_open
+        var short_screen: bool = get_viewport().get_visible_rect().size.y < 900.0
+        if editor_open and gantt.visible and short_screen:
+            _editor_hid_gantt = true
+            gantt.set_open(false)
+        elif not editor_open and _editor_hid_gantt:
+            _editor_hid_gantt = false
+            gantt.set_open(true)
+    var vp: Vector2 = get_viewport().get_visible_rect().size
     var inset: float = gantt.bottom_inset()
-    for c in [charts, hint_bar]:
-        var p: Control = c
-        p.offset_top = -8.0 - inset
-        p.offset_bottom = -8.0 - inset
+    var top: float = top_bar.offset_top + maxf(top_bar.size.y, top_bar.get_combined_minimum_size().y) + MARGIN
+    var bottom: float = MARGIN + inset
+    charts.set_compact(vp.y - top - bottom < 540.0)
+    inspector.set_show_lane(not gantt.visible)
+    # the editor wants EDITOR_W px (at least its minimum); the left dock yields when both cannot fit
+    var right_used: bool = inspector.visible or procurement.visible
+    var right_w: float = (RIGHT_W + MARGIN) if right_used else 0.0
+    # the installations list (kits) is a third column left of the right dock
+    var inst: Control = ui_root.get_node_or_null("InstallationsPanel") as Control
+    var inst_w: float = (INSTALLATIONS_W + MARGIN) if inst != null and inst.visible else 0.0
+    right_w += inst_w
+    var left_used: bool = crew_panel.visible or charts.visible
+    var left_w: float = (LEFT_W + MARGIN) if left_used and not _editor_hid_left else 0.0
+    if seq_editor.visible:
+        var need: float = seq_editor.custom_minimum_size.x + MARGIN * 2.0
+        var room_with_left: float = vp.x - right_w - (LEFT_W + MARGIN) - MARGIN
+        if left_used and not _editor_hid_left and room_with_left < need:
+            _editor_hid_left = true
+            left_w = 0.0
+    elif _editor_hid_left:
+        _editor_hid_left = false
+        left_w = (LEFT_W + MARGIN) if left_used else 0.0
+    left_dock.visible = not _editor_hid_left
+    _set_rect(left_dock, Vector4(MARGIN, top, MARGIN + LEFT_W, -bottom), 0.0)
+    _set_rect(right_dock, Vector4(-MARGIN - RIGHT_W, top, -MARGIN, -bottom), 1.0)
+    # free area between the docks
+    var free_l: float = MARGIN + left_w
+    var free_r: float = vp.x - MARGIN - right_w
+    var free_cx: float = (free_l + free_r) * 0.5
+    # hint bar: bottom of the free area (explicit rect from its minimum size, it is re-laid out when that changes)
+    var hmin: Vector2 = hint_bar.get_combined_minimum_size()
+    var hw: float = clampf(maxf(hmin.x, 600.0), 0.0, maxf(free_r - free_l, 600.0))
+    var hint_h: float = hmin.y
+    _set_free_rect(hint_bar, vp, free_cx - hw * 0.5, vp.y - bottom - hint_h, hw, hint_h)
+    # sequence editor: right-aligned against the right dock
     if seq_editor != null:
-        seq_editor.offset_bottom = -8.0 - inset
-    _update_camera_inset(inset)
+        var ew: float = clampf(free_r - free_l, seq_editor.custom_minimum_size.x, EDITOR_W)
+        seq_editor.anchor_left = 0.0
+        seq_editor.anchor_right = 0.0
+        seq_editor.anchor_top = 0.0
+        seq_editor.anchor_bottom = 1.0
+        seq_editor.offset_left = free_r - ew
+        seq_editor.offset_right = free_r
+        seq_editor.offset_top = top
+        seq_editor.offset_bottom = -(bottom + hint_h + MARGIN)  # the hint bar stays visible under it
+    # installations list (kits agent): between the editor column and the right dock
+    if inst != null:
+        inst.anchor_left = 1.0
+        inst.anchor_right = 1.0
+        inst.offset_right = -MARGIN - (right_w - inst_w)
+        inst.offset_left = inst.offset_right - INSTALLATIONS_W
+        inst.offset_top = top
+        inst.offset_bottom = -bottom
+    # weekly report: right end of the free area, above the hint bar
+    report.dock_week_panel(vp.x - free_r, bottom + hint_h + MARGIN)
+    # focus badge: top-left of the free area (hidden under the editor); toast: centred under it
+    focus_badge.visible = _badge_wanted and not seq_editor.visible
+    var bmin: Vector2 = focus_badge.get_combined_minimum_size()
+    _set_free_rect(focus_badge, vp, free_l, top, bmin.x, bmin.y)
+    var tmin: Vector2 = toast.get_combined_minimum_size()
+    var tw: float = maxf(tmin.x, 420.0)
+    _set_free_rect(toast, vp, free_cx - tw * 0.5, top + bmin.y + MARGIN, tw, tmin.y)
+    view.call("set_insets", free_l, top, vp.x - free_r, maxf(bottom, hint_h + MARGIN * 2.0))
 
 
-func _update_camera_inset(inset: float) -> void:
-    var vh: float = get_viewport().get_visible_rect().size.y
-    var shift: float = 0.0
-    if inset > 0.0 and vh > 0.0:
-        shift = -(inset / vh) * absf(camera.position.z) * tan(deg_to_rad(camera.fov * 0.5))
-    camera.v_offset = shift
+## Places a control at an exact pixel rect (top-left anchored), independent of its previous size.
+func _set_free_rect(c: Control, vp: Vector2, x: float, y: float, w: float, h: float) -> void:
+    c.anchor_left = 0.0
+    c.anchor_right = 0.0
+    c.anchor_top = 0.0
+    c.anchor_bottom = 0.0
+    c.offset_left = x
+    c.offset_top = y
+    c.offset_right = x + w
+    c.offset_bottom = y + h
+    c.grow_horizontal = Control.GROW_DIRECTION_END
+    c.grow_vertical = Control.GROW_DIRECTION_END
+
+
+func _set_rect(c: Control, o: Vector4, anchor_x: float) -> void:
+    c.anchor_left = anchor_x
+    c.anchor_right = anchor_x
+    c.anchor_top = 0.0
+    c.anchor_bottom = 1.0
+    c.offset_left = o.x
+    c.offset_top = o.y
+    c.offset_right = o.z
+    c.offset_bottom = o.w
+
+
+## Layout after the current frame (panel visibility changes arrive in bursts).
+func _queue_layout() -> void:
+    if _layout_pending:
+        return
+    _layout_pending = true
+    _flush_layout.call_deferred()
+
+
+func _flush_layout() -> void:
+    _layout_pending = false
+    _reflow_bottom()
+
+
+## Storey focus cue: a badge naming the focused storey and, above ground level, a translucent plane at its floor.
+func _update_focus_cue(idx: int) -> void:
+    if _focus_label == null:
+        return
+    var st: StoreyData = null
+    for s in gs.bundle.storeys:
+        if s.index == idx:
+            st = s
+    var lo: int = gs.bundle.storeys[0].index
+    var hi: int = gs.bundle.storeys[gs.bundle.storeys.size() - 1].index
+    _focus_label.text = "Storey focus: %s   (PgUp / PgDn)" % (st.name if st != null else str(idx))
+    _badge_wanted = hi > lo
+    focus_badge.visible = _badge_wanted and not seq_editor.visible
+    if _focus_plane == null:
+        _focus_plane = MeshInstance3D.new()
+        _focus_plane.name = "FocusPlane"
+        var pm := PlaneMesh.new()
+        var r: Rect2i = gs.bundle.site_rect
+        pm.size = Vector2(r.size.x + 1.0, r.size.y + 1.0)
+        var mat := StandardMaterial3D.new()
+        mat.albedo_color = Color(0.35, 0.6, 1.0, 0.2)
+        mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+        mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+        pm.material = mat
+        _focus_plane.mesh = pm
+        _focus_plane.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        add_child(_focus_plane)
+        # a bright rim makes the floor level readable from any angle
+        var rim_mat := StandardMaterial3D.new()
+        rim_mat.albedo_color = Color(0.3, 0.6, 1.0, 0.9)
+        rim_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        var hx: float = pm.size.x * 0.5
+        var hz: float = pm.size.y * 0.5
+        for e in [[Vector3(pm.size.x, 0.06, 0.12), Vector3(0, 0, -hz)], [Vector3(pm.size.x, 0.06, 0.12), Vector3(0, 0, hz)],
+                [Vector3(0.12, 0.06, pm.size.y), Vector3(-hx, 0, 0)], [Vector3(0.12, 0.06, pm.size.y), Vector3(hx, 0, 0)]]:
+            var rim := MeshInstance3D.new()
+            var bm := BoxMesh.new()
+            bm.size = e[0]
+            bm.material = rim_mat
+            rim.mesh = bm
+            rim.position = e[1]
+            rim.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+            _focus_plane.add_child(rim)
+        _focus_plane.position = Vector3(r.position.x + (r.size.x - 1) * 0.5, 0.0, r.position.y + (r.size.y - 1) * 0.5)
+    var y: float = gs.bundle.storey_y_for_index(idx)
+    _focus_plane.visible = idx > lo
+    _focus_plane.position.y = y + 0.02
 
 
 func _on_crew_selected(crew_id: int) -> void:
@@ -381,8 +577,6 @@ func _to_menu() -> void:
 func _process(delta: float) -> void:
     if gs == null or gs.bundle == null:
         return
-    if gantt != null and gantt.visible:
-        _update_camera_inset(gantt.bottom_inset())  # follows the camera's zoom
     if gs.speed > 0 and not gs.finished and gs.pending_event.is_empty():
         _accum += delta * float(gs.speed)
         if _accum >= SECONDS_PER_WEEK:
@@ -407,6 +601,8 @@ func _unhandled_input(event: InputEvent) -> void:
         _set_focus(gs.focus_storey_index - 1)
     elif event.is_action_pressed("gantt_toggle"):
         gantt.toggle()
+    elif event.is_action_pressed("installations_toggle"):
+        installations.toggle()
     elif event.is_action_pressed("sequence_editor_toggle"):
         _toggle_sequence_editor()
     elif event.is_action_pressed("toggle_ghost"):

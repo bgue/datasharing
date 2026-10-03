@@ -46,15 +46,16 @@ func setup(state: SimState) -> void:
     gs = state
     title = "What's needed?"
     ok_button_text = "Close"
-    min_size = Vector2i(840, 560)
+    min_size = Vector2i(780, 440)
     exclusive = false
     var root := VBoxContainer.new()
-    root.custom_minimum_size = Vector2(820, 500)
+    root.custom_minimum_size = Vector2(760, 360)
     add_child(root)
     _heading = UiStyle.title("What's needed?")
     root.add_child(_heading)
     _info = UiStyle.label("", 13, UiStyle.MUTED)
     _info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _info.custom_minimum_size.x = 240  # an autowrap label with no width would report a huge height
     root.add_child(_info)
     _empty = UiStyle.label("No recipes available", 15, UiStyle.MUTED)
     _empty.visible = false
@@ -64,7 +65,7 @@ func setup(state: SimState) -> void:
     split.name = "Split"
     root.add_child(split)
     _recipes = ItemList.new()
-    _recipes.custom_minimum_size = Vector2(240, 0)
+    _recipes.custom_minimum_size = Vector2(210, 0)
     _recipes.select_mode = ItemList.SELECT_SINGLE
     _recipes.item_selected.connect(func(i: int) -> void: select_recipe_index(i))
     split.add_child(_recipes)
@@ -75,11 +76,13 @@ func setup(state: SimState) -> void:
     _detail.add_child(_title)
     _summary = UiStyle.label("", 13, UiStyle.MUTED)
     _summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _summary.custom_minimum_size.x = 240  # an autowrap label with no width would report a huge height
     _detail.add_child(_summary)
     _meta = UiStyle.label("", 13, UiStyle.TEXT)
     _detail.add_child(_meta)
     _prereq = UiStyle.label("", 13, UiStyle.MUTED)
     _prereq.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _prereq.custom_minimum_size.x = 240  # an autowrap label with no width would report a huge height
     _detail.add_child(_prereq)
     _steps = Tree.new()
     _steps.columns = 4
@@ -87,7 +90,7 @@ func setup(state: SimState) -> void:
     _steps.hide_root = true
     _steps.select_mode = Tree.SELECT_ROW
     _steps.size_flags_vertical = Control.SIZE_EXPAND_FILL
-    _steps.custom_minimum_size = Vector2(0, 200)
+    _steps.custom_minimum_size = Vector2(0, 150)
     _steps.set_column_title(0, "Step")
     _steps.set_column_title(1, "Status")
     _steps.set_column_title(2, "Task")
@@ -163,7 +166,8 @@ func open_for_element(guid: String) -> void:
 
 func _show() -> void:
     if is_inside_tree():
-        popup_centered()
+        # fits a 1280x720 screen: the dialog takes at most 92 % of it
+        popup_centered_clamped(Vector2i(900, 640), 0.92)
 
 
 ## Rebuilds the recipe list and the step table from LogicLib (keeps the selected recipe when it is still listed).

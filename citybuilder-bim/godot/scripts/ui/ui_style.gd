@@ -50,11 +50,26 @@ static func make_theme() -> Theme:
     th.default_font_size = 15
     th.set_stylebox("panel", "PanelContainer", box(BG))
     th.set_stylebox("panel", "Panel", box(BG))
-    th.set_stylebox("normal", "Button", box(Color(0.16, 0.2, 0.3, 0.95), BORDER, 4, 8))
-    th.set_stylebox("hover", "Button", box(Color(0.22, 0.3, 0.45, 0.95), ACCENT, 4, 8))
-    th.set_stylebox("pressed", "Button", box(Color(0.3, 0.45, 0.7, 0.98), ACCENT, 4, 8))
-    th.set_stylebox("disabled", "Button", box(Color(0.12, 0.13, 0.17, 0.8), Color(0.2, 0.22, 0.28), 4, 8))
+    th.set_stylebox("normal", "Button", box(Color(0.16, 0.2, 0.3, 0.95), BORDER, 4, 6))
+    th.set_stylebox("hover", "Button", box(Color(0.22, 0.3, 0.45, 0.95), ACCENT, 4, 6))
+    th.set_stylebox("pressed", "Button", box(Color(0.3, 0.45, 0.7, 0.98), ACCENT, 4, 6))
+    th.set_stylebox("disabled", "Button", box(Color(0.12, 0.13, 0.17, 0.8), Color(0.2, 0.22, 0.28), 4, 6))
     th.set_stylebox("focus", "Button", StyleBoxEmpty.new())
+    # lists and trees sit on an opaque dark ground so the 3D view never shows through the rows
+    var tree_bg: StyleBoxFlat = box(Color(0.05, 0.06, 0.09, 0.96), BORDER, 3, 4)
+    th.set_stylebox("panel", "Tree", tree_bg)
+    th.set_stylebox("panel", "ItemList", tree_bg)
+    th.set_stylebox("normal", "LineEdit", box(Color(0.05, 0.06, 0.09, 0.96), BORDER, 3, 6))
+    # embedded dialog windows (What's needed?, link popup): dark frame instead of the engine default grey
+    var win: StyleBoxFlat = box(Color(0.09, 0.1, 0.14, 0.98), BORDER, 6, 10)
+    win.expand_margin_top = 34.0
+    th.set_stylebox("panel", "AcceptDialog", box(Color(0.09, 0.1, 0.14, 0.98), BORDER, 4, 8))
+    th.set_stylebox("embedded_border", "Window", win)
+    th.set_stylebox("embedded_unfocused_border", "Window", win)
+    th.set_color("title_color", "Window", Color(0.75, 0.85, 1.0))
+    th.set_constant("title_height", "Window", 32)
+    th.set_color("font_color", "LineEdit", TEXT)
+    th.set_color("font_placeholder_color", "LineEdit", MUTED)
     th.set_color("font_color", "Button", TEXT)
     th.set_color("font_hover_color", "Button", Color.WHITE)
     th.set_color("font_disabled_color", "Button", Color(0.45, 0.48, 0.55))
@@ -101,12 +116,14 @@ static func clear_children(node: Node) -> void:
         c.queue_free()
 
 
-## Anchors a panel to a corner/edge with pixel offsets (left, top, right, bottom as in Control offsets).
+## Anchors a control: `anchors` holds (left, top, right, bottom) anchor fractions as Rect2(l, t, r, b), NOT a
+## position and size (a Rect2 `end` would add them up and push the right / bottom anchors off screen, which made panels
+## larger than the screen). `offsets` are the pixel offsets (left, top, right, bottom) as in Control offsets.
 static func place(c: Control, anchors: Rect2, offsets: Vector4) -> void:
     c.anchor_left = anchors.position.x
     c.anchor_top = anchors.position.y
-    c.anchor_right = anchors.end.x
-    c.anchor_bottom = anchors.end.y
+    c.anchor_right = anchors.size.x
+    c.anchor_bottom = anchors.size.y
     c.offset_left = offsets.x
     c.offset_top = offsets.y
     c.offset_right = offsets.z

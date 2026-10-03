@@ -63,6 +63,8 @@ Start with `docs/01-game-design.md`.
 | Schema validation (`python3 -m bimseq validate ../data`) | all files valid |
 | Godot headless tests (`godot --headless --path godot --script res://tests/run_tests.gd`) | 234 tests pass |
 
+Visual QA with real screenshots (`godot/tools/shots.sh`, images in `docs/img/`): `docs/07-visual-qa.md`.
+
 v3 adds the construction logic library (36 installation recipes in
 `data/logic/`), virtual non-BIM tasks (survey, dewatering, shoring, scaffold,
 lift plans, permits, tests) expanded from recipes attached to mapping rules,

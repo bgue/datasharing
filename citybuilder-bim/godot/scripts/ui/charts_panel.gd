@@ -5,24 +5,39 @@ extends PanelContainer
 var gs: SimState = null
 var _scurve: Control
 var _hist: Control
+var _hist_title: Label
+var compact: bool = false
 
 
 func setup(state: SimState) -> void:
     gs = state
     var box := VBoxContainer.new()
     add_child(box)
-    box.add_child(UiStyle.label("S-curve: planned (blue) vs actual spend (orange)", 13, UiStyle.MUTED))
+    box.add_child(UiStyle.label("Spend: planned (blue), actual (orange)", 13, UiStyle.MUTED))
     _scurve = Control.new()
-    _scurve.custom_minimum_size = Vector2(300, 110)
+    _scurve.custom_minimum_size = Vector2(250, 110)
     _scurve.draw.connect(_draw_scurve)
     box.add_child(_scurve)
-    box.add_child(UiStyle.label("Crews hired per week", 13, UiStyle.MUTED))
+    _hist_title = UiStyle.label("Crews hired per week", 13, UiStyle.MUTED)
+    box.add_child(_hist_title)
     _hist = Control.new()
-    _hist.custom_minimum_size = Vector2(300, 46)
+    _hist.custom_minimum_size = Vector2(250, 46)
     _hist.draw.connect(_draw_hist)
     box.add_child(_hist)
     gs.week_advanced.connect(func(_w: int) -> void: _redraw())
     gs.level_started.connect(func() -> void: _redraw())
+
+
+## Compact mode (little vertical room, e.g. the timeline is open on a small screen): only a short S-curve.
+func set_compact(on: bool) -> void:
+    if on == compact:
+        return
+    compact = on
+    _scurve.custom_minimum_size.y = 64.0 if on else 110.0
+    _hist.visible = not on
+    _hist_title.visible = not on
+    reset_size()
+    _redraw()
 
 
 func _redraw() -> void:

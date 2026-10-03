@@ -28,19 +28,21 @@ func setup(state: SimState) -> void:
     var row := HBoxContainer.new()
     root.add_child(row)
     _title = UiStyle.label("", 18, UiStyle.ACCENT)
-    _title.custom_minimum_size.x = 150
+    _title.custom_minimum_size.x = 200
     _title.clip_text = true
+    _title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
     row.add_child(_title)
     _week = UiStyle.label("")
-    _week.custom_minimum_size.x = 130
+    _week.custom_minimum_size.x = 108
     row.add_child(_week)
     _cash = UiStyle.label("")
-    _cash.custom_minimum_size.x = 250
+    _cash.custom_minimum_size.x = 190
     row.add_child(_cash)
     var spacer := Control.new()
     spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     row.add_child(spacer)
     _mode = UiStyle.label("", 14, UiStyle.WARN)
+    _mode.tooltip_text = "Tab toggles Build / Assign crews"
     row.add_child(_mode)
     var labels: Array = [["Pause", 0], ["1x", 1], ["2x", 2], ["4x", 4]]
     for l in labels:
@@ -89,7 +91,8 @@ func refresh() -> void:
     _title.text = gs.scenario.name
     _week.text = "Week %d / %d" % [gs.week, gs.bundle.contract_weeks()]
     _week.add_theme_color_override("font_color", UiStyle.BAD if gs.week > gs.bundle.contract_weeks() else UiStyle.TEXT)
-    _cash.text = "%s / budget %s" % [Fmt.money(gs.cash), Fmt.money(gs.bundle.contract_budget())]
+    _cash.text = "%s / %s" % [Fmt.money(gs.cash), Fmt.money(gs.bundle.contract_budget())]
+    _cash.tooltip_text = "Cash / contract budget"
     _cash.add_theme_color_override("font_color", UiStyle.BAD if gs.cash < 0.0 else UiStyle.TEXT)
     for sp in _speed_buttons:
         (_speed_buttons[sp] as Button).disabled = (int(sp) == gs.speed)

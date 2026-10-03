@@ -45,12 +45,17 @@ func refresh() -> void:
     box.add_theme_constant_override("separation", 2)
     add_child(box)
     box.add_child(UiStyle.label("Virtual task markers", 13, UiStyle.MUTED))
+    # chips wrap in rows: a short strip instead of a tall column (the editor has little spare height)
+    var flow := HFlowContainer.new()
+    flow.add_theme_constant_override("h_separation", 14)
+    flow.add_theme_constant_override("v_separation", 2)
+    box.add_child(flow)
     for id in IDS:
         var row := HBoxContainer.new()
-        row.add_theme_constant_override("separation", 6)
+        row.add_theme_constant_override("separation", 5)
         row.add_child(UiStyle.swatch(colour(id, kit_colours), Vector2(12, 14)))
         var g := UiStyle.label(glyph(id), 13, colour(id, kit_colours))
-        g.custom_minimum_size.x = 14
+        g.custom_minimum_size.x = 12
         row.add_child(g)
-        row.add_child(UiStyle.label(label_of(id), 12))
-        box.add_child(row)
+        row.add_child(UiStyle.label(label_of(id), 13))
+        flow.add_child(row)

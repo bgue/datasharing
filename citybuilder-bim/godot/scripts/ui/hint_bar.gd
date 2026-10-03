@@ -17,6 +17,7 @@ func setup(state: SimState) -> void:
     var box := VBoxContainer.new()
     add_child(box)
     _msg = UiStyle.label("", 15, UiStyle.BAD)
+    _msg.visible = false
     box.add_child(_msg)
     _hint = UiStyle.label("", 14, UiStyle.WARN)
     _hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -31,6 +32,7 @@ func setup(state: SimState) -> void:
 
 func show_message(text: String) -> void:
     _msg.text = text
+    _msg.visible = text != ""
     _msg_timer = MESSAGE_SECONDS
 
 
@@ -58,3 +60,4 @@ func _process(delta: float) -> void:
         _msg_timer -= delta
         if _msg_timer <= 0.0:
             _msg.text = ""
+            _msg.visible = false

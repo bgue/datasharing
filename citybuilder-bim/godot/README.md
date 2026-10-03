@@ -29,6 +29,7 @@ godot --path godot -- --scenario=minimal   # skip the menu
 | 1 / 2 / 3 | Speed 1x / 2x / 4x (3 s of real time per week at 1x) |
 | Page Up / Page Down | Focus storey up / down (overlay, ghost fading and camera plane follow) |
 | G | Toggle ghost (not-started) elements |
+| H | Toggle the per-cell progress heat overlay (see "Element progress visuals") |
 | F1 / F2 | Save / load `user://save_<scenario>.json` |
 | F5 | Export `user://plan_export_<scenario>.json` + `.csv` |
 | T | Show / hide the timeline (Gantt) panel (also the `T` button in the top bar) |
@@ -133,6 +134,33 @@ the rows inline.
 Code: `sequence_editor.gd` (panel, built in code), `whats_needed_dialog.gd`, `marker_legend.gd` (glyphs, colours, legend).
 Tests: `tests/test_seq_editor.gd`, `tests/test_whats_needed.gd`.
 
+## Element progress visuals and heat overlay (docs/06 B.3, WP-Q)
+
+Elements that no kit draws (`scripts/bim_view.gd`) show partial completion. `fill` is crew-days done over estimated
+crew-days of the element's tasks (virtual tasks excluded; finished tasks count in full):
+
+| Group (`visual`) | Partial look |
+| --- | --- |
+| grow height: wall, curtain_wall, column, pile, pier, footing, earthwork, barrier, culvert, tank, stair, generic | height scales with `fill` from its base (minimum 6 % once started) |
+| grow length: duct, pipe, cable_tray, kerb, beam | extends from the first cell along the dominant axis of its cell run |
+| flat: slab, roof, deck, pavement, floor_finish, ceiling | the pour front runs across the longer cell axis (a 0.3 m slab would not read as half-built by thickness) |
+| count: window, door, terminal, equipment, sign | ghost below `fill` 0.5, solid from there |
+
+Not started: ghost at full extent. In progress: the scaled part at 50 % alpha plus a thin outline box of the full
+extent. Complete: solid. Inspected: green tint (lerp 0.22, as in the kits). Rework: red tint, pulsing. Instances are
+rewritten only when `fill` moved by more than 2 % or the visual state changed (`BimView.refresh_progress()`, run every
+week and on `task_state_changed`; `transform_writes` counts the writes).
+
+* **Heat overlay** (`scripts/cell_heat_overlay.gd`, key H, `BimView.set_heat_visible(bool)`): one flat quad per cell,
+  coloured by the done share of every task whose cells include the cell: grey 0 %, amber 50 %, green 100 %, red tint
+  when any of them is in rework. Zone cells no task touches are hatched. The focused storey is drawn fully, lower
+  storeys faintly, upper ones not at all.
+* **Highlight**: `BimView.highlight_elements(guids, color)` draws a pulsing outline box around each element (kit
+  elements: around the kit instance footprint); `clear_highlight()` removes it. The sequence editor's "Select in 3D" uses it.
+* **API**: `view.highlight {guids[]}`, `view.clear_highlight`, `view.set_heat {on}`, `view.heat {storey_id?}` (per-cell
+  `share`, `tasks`, `rework`, plus `empty_cells`). The first three need the 3D view (they error when the game runs
+  without a scene); `view.heat` works headless.
+
 ## Control API (JSON-RPC 2.0 over WebSocket)
 
 ```
@@ -177,6 +205,48 @@ docs/05 section 6.2 is implemented (`ApiServer.method_names()` lists them), batc
   `state.tasks` carries `virtual` / `origin` / `marker` / `recipe_id` / `duration_days` / `manual_id`, `state.summary`
   `manual_zones`, `manual_tasks`, `virtual_tasks`.
 
+## Screenshots and visual QA (docs/07)
+
+`godot/tools/screenshot.gd` loads a scenario in the real game scene, optionally plays it for N weeks (`Planner.auto_layout` +
+`Planner.autopilot`, events resolved with choice 0), opens panels, frames the camera and saves the viewport as a PNG. It needs a
+rendering display: under Xvfb with the OpenGL 3 driver (software llvmpipe is fine; ALSA and V-Sync warnings are harmless).
+
+```
+xvfb-run -a -s "-screen 0 1280x720x24" godot --path godot --rendering-driver opengl3 \
+    --script res://tools/screenshot.gd -- --scenario=healthcare_standard --weeks=15 --view=overview \
+    --panels=gantt --size=1280x720 --out=/tmp/shot.png
+
+GODOT=/path/to/godot godot/tools/shots.sh            # the standard set into docs/img/ (about 6 minutes)
+GODOT=/path/to/godot godot/tools/shots.sh --quick    # only minimal_overview_w0 (CI smoke)
+GODOT=/path/to/godot godot/tools/shots.sh --only=gantt   # images whose name contains the text
+```
+
+| Argument | Meaning |
+| --- | --- |
+| `--scenario=<id>` | Bundle under `scenarios/<id>/` (default `minimal`) |
+| `--weeks=<n>` | Auto layout plus autopilot until week n; the weekly report and toast are hidden unless asked for |
+| `--view=` | `overview` (whole site), `zone:<id>`, `storey:<index>` (focus plane), `installation:<n>` (kit instance, see `Installations` panel) |
+| `--panels=` | Comma list: `gantt`, `editor`, `whats_needed`, `procurement`, `report` (weekly), `final` (score), `crews`, `heat`, `legend`, `charts`, `inspector`, `toast` |
+| `--hide=` | Comma list to close first: `crews`, `procurement`, `charts`, `inspector`, `gantt`, `editor` |
+| `--zone=<id>` | Zone for the inspector, editor and What's needed? (default: first manual zone, else the busiest zone) |
+| `--size=WxH` | Window size, default `1280x720`; `1920x1080` is the second supported layout |
+| `--scale=<f>` | Downscale the saved image (0.05..1) |
+| `--out=<path.png>` | Output file (required) |
+
+Bad arguments print the problem plus a usage line and exit with code 2; a render failure (unknown scenario or zone, no display)
+exits 1. `parse_args` of `screenshot.gd` (static) is unit-tested in `tests/test_screenshots.gd`; the test also renders one minimal
+overview when a display exists and prints `SKIP` under `--headless`. `shots.sh` writes `docs/img/<scenario>_<view>_w<weeks>[_<panels>].png`
+(`SHOTS_OUT` overrides the folder) and shrinks any PNG above 400 KB to a 256-colour palette. The images are inspected and the
+findings written up in `../docs/07-visual-qa.md`.
+
+HUD layout rules (main.gd `_reflow_bottom`): the top bar, the left dock (crews, charts) and the right dock (zone inspector,
+procurement) are containers, so panels never overlap; the timeline takes the bottom 30 % and everything bottom-anchored sits above
+it; the sequence editor fills the free middle and, on screens narrower than about 1500 px, hides the left dock while it is open
+(on screens shorter than 900 px it also folds the timeline away and restores both on close); the hint bar sits at the bottom of
+the free middle, the event toast under the storey badge, the weekly report above the hint bar. `view.gd` frames the camera into the
+free area (`set_insets`, `frame_site`, `frame_cells(cells, height, pad, snap)`) and picks the yaw (default or turned by 45 / 90 degrees)
+at which a long thin site fits best; rotating with the mouse keeps your yaw.
+
 ## Run the tests (headless)
 
 ```
@@ -213,7 +283,8 @@ files, otherwise the global class cache is stale and scripts fail to parse.
 | `scripts/zone_overlay.gd` | Zone quads, hover/click picking |
 | `scripts/ui/*.gd`, `scenes/ui/*.tscn` | HUD panels (theme built in code, Lilita One font); `gantt_*.gd` is the timeline (built in code, no scene); `sequence_editor.gd`, `whats_needed_dialog.gd`, `marker_legend.gd` author manual chains and explain recipes (built in code) |
 | `scripts/export/plan_export.gd`, `scripts/save_game.gd` | Plan export (element_step_map shape) and save/load |
-| `scripts/main.gd`, `scenes/main.tscn`, `scenes/menu.tscn` | Scene wiring; Kenney View/Camera/GridMap/Sun/CanvasLayer nodes are kept |
+| `scripts/main.gd`, `scenes/main.tscn`, `scenes/menu.tscn` | Scene wiring and HUD layout (docks, `_reflow_bottom`); Kenney View/Camera/GridMap/Sun/CanvasLayer nodes are kept |
+| `tools/screenshot.gd`, `tools/shots.sh` | Visual QA harness (see above) |
 
 ### Simulation rules in short
 

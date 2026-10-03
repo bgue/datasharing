@@ -770,11 +770,14 @@ func _draw_bar(bar: Dictionary, at: Rect2, font: Font, with_baseline: bool) -> v
     if _hover_pid != "" and str(bar.get("package_id", "")) == _hover_pid:
         draw_rect(main, Color(1, 1, 1, 0.9), false, 1.0)
     if w > 60.0 and mh >= 10.0:
-        var maxc: int = int((w - 6.0) / 6.0)
+        var maxc: int = int((w - 6.0) / 6.5)
         var txt: String = str(bar.get("name", ""))
         if txt.length() > maxc:
             txt = txt.substr(0, maxi(maxc - 1, 1)) + "."
-        draw_string(font, Vector2(main.position.x + 3.0, main.position.y + mh - 3.0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.05, 0.05, 0.08))
+        # light text on a dark outline reads on both the bright filled part and the dark unfilled part of the bar
+        var tp := Vector2(main.position.x + 3.0, main.position.y + mh - 3.0)
+        draw_string_outline(font, tp, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, 4, Color(0.03, 0.03, 0.06, 0.95))
+        draw_string(font, tp, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.97, 0.97, 1.0))
 
 
 ## Diagonal lines every 6 px, clipped to the rectangle, as one draw call.

@@ -6,7 +6,9 @@ signal export_requested()
 signal menu_requested()
 signal restart_requested()
 
-const MAX_LOG_LINES: int = 9
+const MAX_LOG_LINES: int = 6
+const MAX_LINE_CHARS: int = 50
+const WEEK_W: float = 340.0
 
 var gs: SimState = null
 var _week_panel: PanelContainer
@@ -22,8 +24,8 @@ func setup(state: SimState) -> void:
     set_anchors_preset(Control.PRESET_FULL_RECT)
 
     _week_panel = PanelContainer.new()
-    _week_panel.custom_minimum_size = Vector2(330, 0)
-    UiStyle.place(_week_panel, Rect2(1, 1, 0, 0), Vector4(-338, -250, -8, -64))
+    _week_panel.custom_minimum_size = Vector2(WEEK_W, 0)
+    dock_week_panel(8.0, 64.0)
     var wb := VBoxContainer.new()
     _week_panel.add_child(wb)
     var head := HBoxContainer.new()
@@ -36,14 +38,20 @@ func setup(state: SimState) -> void:
     wb.add_child(head)
     _week_text = RichTextLabel.new()
     _week_text.bbcode_enabled = true
-    _week_text.custom_minimum_size = Vector2(310, 140)
+    _week_text.custom_minimum_size = Vector2(WEEK_W - 20.0, 60)
+    _week_text.fit_content = true
+    _week_text.scroll_active = false
     wb.add_child(_week_text)
     _week_panel.visible = false
     add_child(_week_panel)
 
     _final_panel = PanelContainer.new()
     _final_panel.custom_minimum_size = Vector2(460, 0)
-    UiStyle.place(_final_panel, Rect2(0.5, 0.5, 0.5, 0.5), Vector4(-240, -230, 240, 230))
+    # centred, as tall as its content; a nearly opaque ground keeps the score table readable over the 3D view
+    UiStyle.place(_final_panel, Rect2(0.5, 0.5, 0.5, 0.5), Vector4(-240, 0, 240, 0))
+    _final_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+    _final_panel.grow_vertical = Control.GROW_DIRECTION_BOTH
+    _final_panel.add_theme_stylebox_override("panel", UiStyle.box(Color(0.07, 0.08, 0.11, 0.97), UiStyle.BORDER, 8, 14))
     _final_box = VBoxContainer.new()
     _final_panel.add_child(_final_box)
     _final_panel.visible = false
@@ -54,6 +62,24 @@ func setup(state: SimState) -> void:
     gs.level_started.connect(func() -> void:
         _final_panel.visible = false
         _week_panel.visible = false)
+
+
+## Places the weekly panel with its right edge `right_margin` px from the right screen edge and its bottom
+## `bottom_margin` px above the bottom edge (the panel grows upwards).
+func dock_week_panel(right_margin: float, bottom_margin: float) -> void:
+    _week_panel.anchor_left = 1.0
+    _week_panel.anchor_right = 1.0
+    _week_panel.anchor_top = 1.0
+    _week_panel.anchor_bottom = 1.0
+    _week_panel.offset_right = -right_margin
+    _week_panel.offset_left = -right_margin - WEEK_W
+    _week_panel.offset_bottom = -bottom_margin
+    _week_panel.offset_top = -bottom_margin
+    _week_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+
+
+func hide_week() -> void:
+    _week_panel.visible = false
 
 
 func show_week(r: Dictionary) -> void:
@@ -70,6 +96,8 @@ func show_week(r: Dictionary) -> void:
             break
         n += 1
         var s: String = str(l)
+        if s.length() > MAX_LINE_CHARS:
+            s = s.substr(0, MAX_LINE_CHARS - 1) + "..."
         if s.begins_with("INCIDENT") or s.contains("FAILED"):
             txt += "[color=#ff6a60]%s[/color]\n" % s
         elif s.begins_with("EVENT"):
@@ -90,7 +118,9 @@ func show_final(res: Dictionary) -> void:
     UiStyle.clear_children(_final_box)
     var won: bool = bool(res["won"])
     _final_box.add_child(UiStyle.label("Handover achieved" if won else "Level failed", 26, UiStyle.GOOD if won else UiStyle.BAD))
-    _final_box.add_child(UiStyle.label(str(res.get("reason", "")), 14, UiStyle.MUTED))
+    var reason: String = str(res.get("reason", ""))
+    if reason != "" and reason != "Handover achieved":
+        _final_box.add_child(UiStyle.label(reason, 14, UiStyle.MUTED))
     var grade := UiStyle.label("Grade %s   (%d / 100)" % [str(res["grade"]), int(round(float(res["total"])))], 30, UiStyle.WARN)
     _final_box.add_child(grade)
     var grid := GridContainer.new()

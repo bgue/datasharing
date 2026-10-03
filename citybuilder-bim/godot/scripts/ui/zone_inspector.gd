@@ -25,6 +25,8 @@ var _lane: GanttRenderer
 var _dirty: bool = true
 ## True when the 3D view draws marker kit meshes (set by main): the marker colours then follow the kit.
 var gs_kit_colours: bool = false
+## False hides the one-zone lane view (main hides it while the timeline panel, which shows the same bars, is open).
+var show_lane: bool = true
 ## Explain rows of "What's needed?" shown above the task list until the zone changes or the button is pressed again.
 var _explain_text: String = ""
 
@@ -45,7 +47,7 @@ func setup(state: SimState) -> void:
     _text.bbcode_enabled = true
     _text.fit_content = false
     _text.scroll_active = true
-    _text.custom_minimum_size = Vector2(290, 110)
+    _text.custom_minimum_size = Vector2(290, 70)
     _text.size_flags_vertical = Control.SIZE_EXPAND_FILL
     box.add_child(_text)
     # lane view: the timeline renderer squeezed into one zone row above the package list
@@ -61,7 +63,7 @@ func setup(state: SimState) -> void:
     box.add_child(_lane)
     var pkg_scroll := ScrollContainer.new()
     pkg_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-    pkg_scroll.custom_minimum_size = Vector2(290, 120)
+    pkg_scroll.custom_minimum_size = Vector2(290, 70)
     box.add_child(pkg_scroll)
     _packages = VBoxContainer.new()
     _packages.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -72,6 +74,13 @@ func setup(state: SimState) -> void:
     gs.week_advanced.connect(func(_w: int) -> void: _dirty = true)
     gs.tiles_changed.connect(func() -> void: _dirty = true)
     refresh()
+
+
+func set_show_lane(on: bool) -> void:
+    if on == show_lane:
+        return
+    show_lane = on
+    _dirty = true
 
 
 func show_zone(id: String) -> void:
@@ -96,9 +105,14 @@ func refresh() -> void:
         _title.text = "Zone inspector"
         _info.text = "Hover a zone on the map (Assign mode: click to pin)."
         _text.text = ""
+        _text.visible = false
         _lane.visible = false
+        size_flags_vertical = Control.SIZE_SHRINK_BEGIN  # an empty inspector does not fill the column
+        reset_size()
         return
-    _lane.visible = true
+    _text.visible = true
+    size_flags_vertical = Control.SIZE_EXPAND_FILL
+    _lane.visible = show_lane
     _lane.set_model(GanttModel.build(gs, {"zone_ids": [zone_id], "group": false}))
     var z: ZoneData = gs.bundle.zones_by_id[zone_id]
     var storey: StoreyData = gs.bundle.storeys_by_id.get(z.storey_id, null)
