@@ -55,45 +55,37 @@ python3 -m bimseq schedule element_step_map.json --sector healthcare --out seque
 
 Start with `docs/01-game-design.md`.
 
-## Status (v3, Phase 3)
+## Status (v4, Phase 4)
 
 | Check | Result |
 | --- | --- |
-| Pipeline, client and MCP tests (`cd tools && GODOT_BIN=... python3 -m unittest discover -s tests`) | 200 tests pass, including two real-game integration tests |
+| Pipeline, client and MCP tests (`cd tools && GODOT_BIN=... python3 -m unittest discover -s tests`) | 200 tests pass |
 | Schema validation (`python3 -m bimseq validate ../data`) | all files valid |
-| Godot headless tests (`godot --headless --path godot --script res://tests/run_tests.gd`) | 234 tests pass |
+| Godot headless tests (`godot --headless --path godot --script res://tests/run_tests.gd`) | 270 tests pass |
+| Reference screenshots (`GODOT=... bash godot/tools/shots.sh`, rendered under Xvfb) | 32 images in `docs/img/`, reviewed in `docs/07-visual-qa.md` |
 
-Visual QA with real screenshots (`godot/tools/shots.sh`, images in `docs/img/`): `docs/07-visual-qa.md`.
+v4 (visuals) adds progress-scaled geometry for ordinary elements (slabs grow
+across the bay, walls and piers grow in height, ducts and pipes grow along
+their run), thin outline ghosts instead of filled volumes, a per-cell heat
+overlay (H), element highlighting, an Installations panel (I) with hover
+tooltips showing per-discipline layer fills, Kenney-sampled kit palette with
+edge darkening and extra detail, a kit catalogue sheet
+(`docs/img/kits_catalogue.png`), a dock-based UI layout with site-fitting
+camera framing, and a screenshot harness so every later change can be
+checked against real renders.
 
-v3 adds the construction logic library (36 installation recipes in
-`data/logic/`), virtual non-BIM tasks (survey, dewatering, shoring, scaffold,
-lift plans, permits, tests) expanded from recipes attached to mapping rules,
-manual sequencing (per-zone manual mode, hand-authored chains, in-game
-sequence editor on N, "What's needed?" dialog), 18 procedural visual kits
-with per-discipline progress layers (racks with EI and MPEI variants, tanks,
-turbines, vessels, pumps, transformers, MRI, bridge piers, culverts, ...),
-aggregation v0 and auto grid detection v0 in the pipeline, and MCP tools to
-explain an installation or author a chain from a sentence. See
-`docs/06-roadmap-scale-visuals-manual-logic.md`, `data/logic/README.md`,
-`godot/kits/README.md` and `tools/sitebuilder_mcp/README.md`.
+Earlier status: v3 added the construction logic library (36 recipes),
+virtual non-BIM tasks, manual sequencing with an in-game editor (N), and
+MCP tools; v2 added work packages, faces, takt cards, second shift, the
+Gantt (T) and the JSON-RPC control API. Sample bundle sizes and baselines
+are unchanged from v3: industrial 2189 tasks / 39 weeks, civil 1755 / 24,
+healthcare 1526 / 35.
 
-Generated sample projects (synthetic BIM, seed 42, fractional crew model):
-
-| Sector | Elements | Tasks | Virtual | Packages | Baseline | Contract |
-| --- | --- | --- | --- | --- | --- | --- |
-| industrial | 855 | 2189 | 257 | 325 | 39 weeks | 43 weeks |
-| civil | 723 | 1755 | 167 | 255 | 24 weeks | 27 weeks |
-| healthcare | 834 | 1526 | 161 | 342 | 35 weeks | 39 weeks |
-| healthcare_manual_demo | 834 | 1413 | 157 | 324 | 35 weeks | 39 weeks |
-
-Funded autopilot at week 40: healthcare 93%, civil 84%, industrial 66%.
-Unfunded: healthcare and industrial survive; civil still goes bankrupt
-(low utilisation under staged traffic gating, known gap).
-
-Known gaps: no real IFC file has been run through the extractor; the UI,
-Gantt, sequence editor and kits have only been exercised headless (the kits
-agent rendered the industrial sample once under Xvfb and found the kits
-recognisable); economy balance has had one tuning pass; one civil chamber
-sits outside every crane pad's reach; recipe anchoring for linear runs uses
-synthetic-name regexes that need re-narrowing on real models (an "anchor
-once per system or zone" rule option is the planned fix).
+Known gaps: no real IFC file has been run through the extractor; the
+screenshots are software-rendered under Xvfb, not on a GPU; civil goes
+bankrupt unfunded; close-up framing of a selected installation is slightly
+off-centre; recipe anchoring for linear runs needs an "anchor once per
+system or zone" rule option before real models. Phase 5 (configurable grid,
+aggregation at scale, chunked rendering) and Phase 6 (schedule import and
+replay, true geometry) follow the roadmap in
+`docs/06-roadmap-scale-visuals-manual-logic.md`.

@@ -68,7 +68,8 @@ func test_grow_height_scales_y_with_min_clamp_and_keeps_base() -> void:
     var base_y: float = full.origin.y - full_h * 0.5
     # not started: the whole extent as a ghost
     near(v.instance_transform("COL00").basis.get_scale().y, full_h, "ghost column drawn at full height")
-    ok(not v.outline_visible("COL00"), "no outline before the work starts")
+    ok(v.outline_visible("COL00"), "not started: outline box of the full extent")
+    near(v.applied_outline_colour("COL00").a, BimView.GHOST_OUTLINE_ALPHA, "ghost outline at 35 % alpha")
     # started with no progress: the 6 % minimum
     _work(gs, "T000005", RS.ACTIVE, 0.0)
     var t0: Transform3D = v.instance_transform("COL00")
@@ -160,12 +161,122 @@ func test_count_kinds_flip_at_half() -> void:
     set_finished(gs, "T000010")  # fill 0.375
     near(v.instance_colour("DUCT1").a, BimView.GHOST_ALPHA, "still a ghost below half")
     near(v.instance_transform("DUCT1").basis.get_scale().x, full.basis.get_scale().x, "always drawn whole")
-    ok(not v.outline_visible("DUCT1"), "count kinds have no outline")
+    ok(v.outline_visible("DUCT1"), "a count kind below half keeps its ghost outline")
     _work(gs, "T000012", RS.ACTIVE, 0.4)  # 1.0 of 1.6 = 0.625
     v.refresh_progress()
     near(v.element_fill("DUCT1"), 0.625, "fill above half")
     near(v.instance_colour("DUCT1").a, 1.0, "solid from half")
+    ok(not v.outline_visible("DUCT1"), "no outline once the count kind is solid")
     _drop(v)
+
+
+# ------------------------------------------------------------------ ghost representation
+
+func test_ghost_is_an_outline_without_a_filled_volume() -> void:
+    var gs: SimState = new_state()
+    var v: BimView = _view(gs)
+    ok(BimView.GHOST_ALPHA <= 0.06, "ghost fill alpha is at most 6 %")
+    near(BimView.GHOST_OUTLINE_ALPHA, 0.35, "ghost outline alpha")
+    # focused storey (0): faint fill + outline in the discipline colour
+    near(v.instance_colour("COL00").a, BimView.GHOST_ALPHA, "faint fill on the focused storey")
+    var oc: Color = v.applied_outline_colour("COL00")
+    near(oc.a, 0.35, "outline alpha")
+    var base: Color = v.base_colour("COL00")
+    ok(absf(oc.r - base.r) < 0.01 and absf(oc.g - base.g) < 0.01 and absf(oc.b - base.b) < 0.01, "outline in the discipline colour")
+    near(v.outline_transform("COL00").basis.get_scale().y, v.element_transform(gs.bundle.elements_by_guid["COL00"]).basis.get_scale().y, "outline spans the full height")
+    # a ghost on another storey (slab on level 1, focus 0): no fill at all, and above the focus the outline fades
+    near(v.instance_colour("SLAB1").a, 0.0, "no fill off the focused storey")
+    ok(v.applied_outline_colour("SLAB1").a <= BimView.ABOVE_FOCUS_ALPHA + 0.001, "outline above the focus fades")
+    v.set_focus_storey(1)
+    v._apply_all()
+    near(v.instance_colour("COL00").a, 0.0, "ground ghosts lose the fill when the focus moves up")
+    near(v.applied_outline_colour("COL00").a, 0.35, "but keep the outline")
+    near(v.instance_colour("SLAB1").a, BimView.GHOST_ALPHA, "faint fill on the new focused storey")
+    # ghost toggle hides outlines entirely
+    v.set_ghost_visible(false)
+    v._apply_all()
+    near(v.applied_outline_colour("COL00").a, 0.0, "ghost toggle off hides the outline")
+    near(v.instance_colour("COL00").a, 0.0, "and the fill")
+    # started elements are unaffected by the toggle
+    _work(gs, "T000005", RS.ACTIVE, 0.1)
+    near(v.instance_colour("COL00").a, BimView.FRAMED_ALPHA, "in-progress part stays visible")
+    near(v.applied_outline_colour("COL00").a, BimView.OUTLINE_ALPHA, "outline around the remainder stays")
+    ok(BimView.FRAMED_ALPHA >= 0.85, "in-progress geometry is nearly opaque")
+    v.set_ghost_visible(true)
+    v._apply_all()
+    _drop(v)
+
+
+func test_ghost_materials_do_not_occlude_the_solids() -> void:
+    var gs: SimState = new_state()
+    var v: BimView = _view(gs)
+    var mm: MultiMeshInstance3D = v._outlines["column"]
+    var mat: StandardMaterial3D = mm.multimesh.mesh.surface_get_material(0) as StandardMaterial3D
+    eq(mat.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA, "outline lines are alpha blended (no depth write)")
+    ok(mat.render_priority > 0, "outlines are drawn after the solid parts")
+    var solid: StandardMaterial3D = v._get_material()
+    eq(solid.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS, "opaque parts write depth")
+    _drop(v)
+
+
+# ------------------------------------------------------------------ reach ring, zone rim
+
+func test_crane_reach_is_a_dashed_ring_with_faint_fill() -> void:
+    var sb := SiteBuilder.new()
+    var ring: Node3D = sb._make_reach_ring(4.0)
+    var rm: MeshInstance3D = ring.get_node("Ring")
+    var fm: MeshInstance3D = ring.get_node("Fill")
+    var rmat: StandardMaterial3D = rm.mesh.surface_get_material(0)
+    near(rmat.albedo_color.a, 0.4, "ring at 40 % alpha")
+    ok(rmat.albedo_color.r > 0.9 and rmat.albedo_color.b < 0.3, "amber")
+    var fmat: StandardMaterial3D = (fm.mesh as CylinderMesh).material as StandardMaterial3D
+    ok(fmat.albedo_color.a <= 0.08, "fill at most 8 %")
+    var verts: PackedVector3Array = (rm.mesh as ArrayMesh).surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+    eq(verts.size(), SiteBuilder.REACH_DASHES * 4, "one quad per dash")
+    for p in verts:
+        var r: float = Vector2(p.x, p.z).length()
+        ok(absf(r - 4.0) < 0.1, "dash on the reach radius")
+    ring.free()
+    sb.free()
+
+
+func test_zone_rim_for_pinned_and_hovered_zones() -> void:
+    var gs: SimState = new_state()
+    var ov := ZoneOverlay.new()
+    ov.gs = gs
+    ov._build()
+    ok(not ov.rim_visible(), "no rim before a zone is pinned")
+    ov.set_highlight_zone("L00-Z1")
+    ok(ov.rim_visible(), "pinned zone has a rim")
+    ov.set_highlight_zone("")
+    ok(not ov.rim_visible(), "cleared")
+    ov.set_highlight_zone("NOPE")
+    ok(not ov.rim_visible(), "unknown zone: no rim")
+    # the rim of a 2x2 block is 8 boundary edges
+    var cells: Array[Vector2i] = [Vector2i(2, 2), Vector2i(3, 2), Vector2i(2, 3), Vector2i(3, 3)]
+    var verts: PackedVector3Array = ZoneOverlay.rim_mesh(cells, 0.1).surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+    eq(verts.size(), 8 * 4, "eight boundary edges, four vertices each")
+    eq(ZoneOverlay.rim_mesh([Vector2i(0, 0)], 0.0).surface_get_arrays(0)[Mesh.ARRAY_VERTEX].size(), 16, "single cell: four edges")
+    ov.hovered_zone_id = "L00-Z1"
+    ov.set_highlight_zone("L01-Z1")
+    ok(ov.rim_visible() and ov.hover_rim_visible(), "hovered zone gets its own rim")
+    ov.free()
+
+
+func test_main_pinned_zone_drives_the_rim() -> void:
+    var sc: Node = Engine.get_main_loop().root.get_node("Scenarios")
+    ok(bool(sc.call("select", MINIMAL_PATH)), "select minimal")
+    var main: Node = (load("res://scenes/main.tscn") as PackedScene).instantiate()
+    Engine.get_main_loop().root.add_child(main)
+    var ov: ZoneOverlay = main.get("overlay")
+    main.set("pinned_zone", "L00-Z1")
+    eq(ov.highlight_zone_id, "L00-Z1", "pinning a zone sets the rim")
+    ok(ov.rim_visible(), "rim visible")
+    main.set("pinned_zone", "")
+    ok(not ov.rim_visible(), "unpinned: no rim")
+    Engine.get_main_loop().root.remove_child(main)
+    main.free()
+    sc.set("current_bundle", null)
 
 
 # ------------------------------------------------------------------ tints

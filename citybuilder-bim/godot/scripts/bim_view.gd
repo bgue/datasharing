@@ -32,8 +32,12 @@ const MARKER_COLORS: Dictionary = {
 }
 const MARKER_RADIUS: float = 0.12
 const MARKER_HEIGHT: float = 0.4
-const GHOST_ALPHA: float = 0.15
-const FRAMED_ALPHA: float = 0.5
+## Not-started elements are a thin outline box (GHOST_OUTLINE_ALPHA) with no filled volume; only on the focused storey
+## a very faint fill (GHOST_ALPHA) is added. Stacked ghost fills used to wash into a white fog over the work.
+const GHOST_ALPHA: float = 0.05
+const GHOST_OUTLINE_ALPHA: float = 0.35
+## In-progress and framed parts stay (almost) opaque so that the work under way is the most prominent thing.
+const FRAMED_ALPHA: float = 0.9
 const ABOVE_FOCUS_ALPHA: float = 0.07
 ## Progress visuals (WP-Q). Same tint amounts as the kits (KitBuilder: inspected 0.22, rework 0.45 on average).
 const INSPECTED_TINT: Color = Color(0.2, 0.9, 0.35)
@@ -54,6 +58,9 @@ const LENGTH_KINDS: Array[String] = ["duct", "pipe", "cable_tray", "kerb", "beam
 const LINEAR_KINDS: Array[String] = ["duct", "pipe", "cable_tray", "kerb", "beam"]
 ## Kinds that appear as a whole: ghost below COUNT_THRESHOLD, solid from there.
 const COUNT_KINDS: Array[String] = ["window", "door", "terminal", "equipment", "sign"]
+const OUTLINE_NONE: int = 0
+const OUTLINE_GHOST: int = 1  # whole extent of a not-started element
+const OUTLINE_REMAINING: int = 2  # full extent around the part still to build
 const HIGHLIGHT_COLOR: Color = Color(1, 0.9, 0.2)
 
 var gs: SimState = null
@@ -86,6 +93,8 @@ var _vis_applied: Dictionary = {}  # guid -> SimState.Visual the instance was la
 var _xf_written: Dictionary = {}  # guid -> Transform3D of the solid part
 var _outline_written: Dictionary = {}  # guid -> Transform3D of the outline box (zero scale when hidden)
 var _col_written: Dictionary = {}  # guid -> Color of the solid part
+var _outline_mode: Dictionary = {}  # guid -> OUTLINE_NONE / OUTLINE_GHOST / OUTLINE_REMAINING
+var _outline_col_written: Dictionary = {}  # guid -> Color of the outline box
 var _heat: CellHeatOverlay = null
 var _hl_root: Node3D = null
 var _hl_lines: MultiMeshInstance3D = null
@@ -347,7 +356,8 @@ func _get_material() -> StandardMaterial3D:
     if _material == null:
         _material = StandardMaterial3D.new()
         _material.vertex_color_use_as_albedo = true
-        _material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+        # fully opaque fragments write depth (pre-pass), so the outline boxes drawn afterwards are hidden behind them
+        _material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
         _material.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
         _material.roughness = 0.8
     return _material
@@ -384,6 +394,8 @@ func _build() -> void:
     _xf_written.clear()
     _outline_written.clear()
     _col_written.clear()
+    _outline_mode.clear()
+    _outline_col_written.clear()
     clear_highlight()
     _slots.clear()
     _kind_elements.clear()
@@ -417,8 +429,7 @@ func _build() -> void:
         mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         add_child(mmi)
         _instances[kind] = mmi
-        if grow_mode(kind) != "count":
-            _outlines[kind] = _make_outline_instance(kind, list.size())
+        _outlines[kind] = _make_outline_instance(kind, list.size())
     _dirty = true
     for guid in _slots:
         _apply_element(guid, true)
@@ -440,7 +451,7 @@ func compute_colour(guid: String, pulse: float = 1.0) -> Color:
     var a: float = 1.0
     match vis:
         SimState.Visual.GHOST:
-            a = GHOST_ALPHA
+            a = GHOST_ALPHA if int(_storey_index.get(guid, 0)) == focus_storey_index else 0.0
         SimState.Visual.FRAMED:
             a = FRAMED_ALPHA
         SimState.Visual.SOLID:
@@ -454,7 +465,8 @@ func compute_colour(guid: String, pulse: float = 1.0) -> Color:
     # count kinds (windows, doors, equipment...) are ghosts until half of their work is done, then solid
     if (vis == SimState.Visual.FRAMED or vis == SimState.Visual.SOLID) and _geo.has(guid) \
             and str((_geo[guid] as Dictionary)["mode"]) == "count":
-        a = GHOST_ALPHA if float(_fill_applied.get(guid, 0.0)) < COUNT_THRESHOLD else 1.0
+        a = (GHOST_ALPHA if int(_storey_index.get(guid, 0)) == focus_storey_index else 0.0) \
+                if float(_fill_applied.get(guid, 0.0)) < COUNT_THRESHOLD else 1.0
     if int(_storey_index.get(guid, 0)) > focus_storey_index:
         a = minf(a, ABOVE_FOCUS_ALPHA)
     if vis == SimState.Visual.GHOST and not show_ghost:
@@ -472,7 +484,9 @@ func _apply_color(guid: String) -> void:
     _col_written[guid] = col
     mm.set_instance_color(int(s["slot"]), col)
     if _outlines.has(s["kind"]):
-        (_outlines[s["kind"]] as MultiMeshInstance3D).multimesh.set_instance_color(int(s["slot"]), outline_colour(guid))
+        var oc: Color = outline_colour(guid)
+        _outline_col_written[guid] = oc
+        (_outlines[s["kind"]] as MultiMeshInstance3D).multimesh.set_instance_color(int(s["slot"]), oc)
     if gs.element_visual(guid) == SimState.Visual.REWORK:
         _rework_guids[guid] = true
     else:
@@ -628,15 +642,27 @@ func applied_fill(guid: String) -> float:
     return float(_fill_applied.get(guid, 0.0))
 
 
+## Colour of the outline box: discipline colour at GHOST_OUTLINE_ALPHA for not-started elements, OUTLINE_ALPHA around
+## the remainder of a part-built one; transparent when the ghost toggle hides ghosts or the outline is off.
 func outline_colour(guid: String) -> Color:
-    var vis: int = gs.element_visual(guid)
+    var mode: int = int(_outline_mode.get(guid, OUTLINE_NONE))
     var col: Color = base_colour(guid)
-    if vis == SimState.Visual.REWORK:
+    if gs.element_visual(guid) == SimState.Visual.REWORK:
         col = col.lerp(REWORK_TINT, 0.45)
-    col.a = OUTLINE_ALPHA
+    if mode == OUTLINE_NONE:
+        col.a = 0.0
+    elif mode == OUTLINE_GHOST:
+        col.a = GHOST_OUTLINE_ALPHA if show_ghost else 0.0
+    else:
+        col.a = OUTLINE_ALPHA
     if int(_storey_index.get(guid, 0)) > focus_storey_index:
-        col.a = ABOVE_FOCUS_ALPHA
+        col.a = minf(col.a, ABOVE_FOCUS_ALPHA)
     return col
+
+
+## Outline written for an element (tests): the colour including the ghost toggle and the storey fade.
+func applied_outline_colour(guid: String) -> Color:
+    return _outline_col_written.get(guid, Color(1, 1, 1, 0))
 
 
 static var _line_box: ArrayMesh = null
@@ -677,7 +703,9 @@ func _make_outline_instance(kind: String, count: int) -> MultiMeshInstance3D:
     mm.transform_format = MultiMesh.TRANSFORM_3D
     mm.use_colors = true
     var mesh: ArrayMesh = line_box_mesh().duplicate() as ArrayMesh
-    mesh.surface_set_material(0, _line_material(true))
+    var omat: StandardMaterial3D = _line_material(true)
+    omat.render_priority = 1  # after the solid parts; alpha materials write no depth, so the lines never occlude them
+    mesh.surface_set_material(0, omat)
     mm.mesh = mesh
     mm.instance_count = count
     var mmi := MultiMeshInstance3D.new()
@@ -712,8 +740,16 @@ func _apply_element(guid: String, force: bool = false) -> bool:
     if _outlines.has(s["kind"]):
         var omm: MultiMesh = (_outlines[s["kind"]] as MultiMeshInstance3D).multimesh
         var geo: Dictionary = _geo[guid]
+        var omode: int = OUTLINE_NONE
+        if vis == SimState.Visual.GHOST:
+            omode = OUTLINE_GHOST
+        elif str(geo["mode"]) == "count":
+            omode = OUTLINE_GHOST if f < COUNT_THRESHOLD else OUTLINE_NONE
+        elif f < 1.0 - 0.001:
+            omode = OUTLINE_REMAINING
+        _outline_mode[guid] = omode
         var oxf: Transform3D
-        if vis != SimState.Visual.GHOST and f < 1.0 - 0.001 and str(geo["mode"]) != "count":
+        if omode != OUTLINE_NONE:
             oxf = _fill_transform(geo, 1.0)
         else:
             oxf = Transform3D(Basis.from_scale(Vector3.ZERO), (geo["centre"] as Vector3))

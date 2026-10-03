@@ -194,18 +194,69 @@ func _make_crane_visual(reach_cells: float) -> Node3D:
     jib.position = Vector3(0.4, 1.6, 0)
     root.add_child(jib)
     if reach_cells > 1.0:
-        var disk := MeshInstance3D.new()
-        var dm := CylinderMesh.new()
-        dm.top_radius = reach_cells
-        dm.bottom_radius = reach_cells
-        dm.height = 0.01
-        var dmat := StandardMaterial3D.new()
-        dmat.albedo_color = Color(1.0, 0.85, 0.2, 0.18)
-        dmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-        dm.material = dmat
-        disk.mesh = dm
-        disk.position = Vector3(0, 0.03, 0)
-        root.add_child(disk)
+        root.add_child(_make_reach_ring(reach_cells))
+    return root
+
+
+const REACH_COLOR: Color = Color(1.0, 0.72, 0.15)
+const REACH_RING_ALPHA: float = 0.4
+const REACH_FILL_ALPHA: float = 0.06
+const REACH_DASHES: int = 64
+const REACH_RING_WIDTH: float = 0.07
+
+
+## Crane reach: a dashed amber ring (40 % alpha) with a very faint fill, so the zone colours under it stay readable.
+func _make_reach_ring(reach_cells: float) -> Node3D:
+    var root := Node3D.new()
+    root.name = "ReachRing"
+    root.position = Vector3(0, 0.03, 0)
+    var verts := PackedVector3Array()
+    var idx := PackedInt32Array()
+    var r0: float = reach_cells - REACH_RING_WIDTH * 0.5
+    var r1: float = reach_cells + REACH_RING_WIDTH * 0.5
+    var step: float = TAU / float(REACH_DASHES)
+    for i in REACH_DASHES:
+        var a0: float = float(i) * step
+        var a1: float = a0 + step * 0.58
+        var base: int = verts.size()
+        verts.append(Vector3(cos(a0) * r0, 0, sin(a0) * r0))
+        verts.append(Vector3(cos(a0) * r1, 0, sin(a0) * r1))
+        verts.append(Vector3(cos(a1) * r1, 0, sin(a1) * r1))
+        verts.append(Vector3(cos(a1) * r0, 0, sin(a1) * r0))
+        idx.append_array(PackedInt32Array([base, base + 1, base + 2, base, base + 2, base + 3]))
+    var arrays: Array = []
+    arrays.resize(Mesh.ARRAY_MAX)
+    arrays[Mesh.ARRAY_VERTEX] = verts
+    arrays[Mesh.ARRAY_INDEX] = idx
+    var ring_mesh := ArrayMesh.new()
+    ring_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+    var rmat := StandardMaterial3D.new()
+    rmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    rmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    rmat.cull_mode = BaseMaterial3D.CULL_DISABLED
+    rmat.albedo_color = Color(REACH_COLOR.r, REACH_COLOR.g, REACH_COLOR.b, REACH_RING_ALPHA)
+    ring_mesh.surface_set_material(0, rmat)
+    var ring := MeshInstance3D.new()
+    ring.name = "Ring"
+    ring.mesh = ring_mesh
+    ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    root.add_child(ring)
+    var dm := CylinderMesh.new()
+    dm.top_radius = reach_cells
+    dm.bottom_radius = reach_cells
+    dm.height = 0.01
+    dm.radial_segments = 64
+    dm.rings = 1
+    var fmat := StandardMaterial3D.new()
+    fmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    fmat.albedo_color = Color(REACH_COLOR.r, REACH_COLOR.g, REACH_COLOR.b, REACH_FILL_ALPHA)
+    fmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    dm.material = fmat
+    var fill := MeshInstance3D.new()
+    fill.name = "Fill"
+    fill.mesh = dm
+    fill.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    root.add_child(fill)
     return root
 
 

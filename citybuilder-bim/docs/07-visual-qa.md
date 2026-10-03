@@ -83,14 +83,19 @@ storey badge top left of the 3D area, whole site visible inside the free middle.
 
 ## Handed over
 
-Not in the write paths of this work package (element visuals, site builder, kits).
+Fixed in the scene-level pass (WP-Q2, `bim_view.gd`, `site_builder.gd`, `zone_overlay.gd`, `main.gd` ground, `main-environment.tres`):
+
+| Item | Status |
+| --- | --- |
+| Ghost fog | Fixed: not-started elements are a thin line-box outline (35 % alpha, discipline colour) with no filled volume; only the focused storey adds a fill of at most 5 %. The G toggle hides the outlines; in-progress parts are 90 % opaque and the opaque parts write depth (pre-pass) while the outlines are drawn after them. |
+| Crane reach discs | Fixed: dashed amber ring at 40 % alpha plus an 6 % fill. |
+| No highlight of the pinned / framed zone | Fixed: `ZoneOverlay.set_highlight_zone` draws a pulsing light rim along the zone boundary; `main.gd` calls it whenever `pinned_zone` changes (hovered zones get a steady rim). |
+| Lime ground and flat sky | Fixed: sage terrain, a darker base plate under the site, exposure 0.72 and a gradient sky in the environment. |
+
+Still open:
 
 | Item | Image | For |
 | --- | --- | --- |
-| Not-started (ghost) elements render as a white fog: tall columns and slabs wash out the whole zone and hide in-progress parts (worst on industrial overviews and every close-up) | `industrial_standard_overview_w30`, `healthcare_standard_zone-L00-Z3_w15`, `industrial_standard_installation-24_w20` | element visuals (`bim_view.gd`): lower ghost alpha or tint ghost with the category colour, keep the outline |
-| Crane reach discs are large and saturated yellow, bigger than the building and they hide the zone colours underneath | `healthcare_standard_overview_w15` | `site_builder.gd`: lower alpha, ring outline instead of a filled disc |
-| No visible highlight of the framed or selected zone in the 3D view (the zone view and the inspector pinning have no 3D echo) | `healthcare_standard_zone-L00-Z3_w15` | `zone_overlay.gd`: outline for the pinned zone |
-| Ground is a saturated lime plane with a flat pale-blue sky: low contrast against pale ghost elements | all overviews | environment / ground colour |
 | Kit close-ups need `ghost` kits to show an outline of the final shape at low alpha | `industrial_standard_installation-31_w20` | kits |
 | The `Installations` panel (kits) was moved into the shared layout (third column left of the right dock); its look was not part of this set | none yet | kits: add `--panels=installations` to the harness when the panel stabilises |
 

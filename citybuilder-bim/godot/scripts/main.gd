@@ -47,7 +47,11 @@ var _editor_was_open: bool = false
 var _editor_hid_gantt: bool = false
 
 var mode: int = Mode.BUILD
-var pinned_zone: String = ""
+var pinned_zone: String = "":
+    set(v):
+        pinned_zone = v
+        if overlay != null:
+            overlay.set_highlight_zone(v)  # pulsing rim in the 3D view
 var _accum: float = 0.0
 var _last_speed: int = 1
 var _ground: Node3D = null
@@ -101,19 +105,39 @@ func _build_world() -> void:
     overlay.setup(gs, camera)
 
 
+## Desaturated sage terrain: a large outer plane, a darker base plate under the site footprint and a thin lighter
+## edge, so pale elements and the Kenney tiles keep their contrast.
+const GROUND_OUTER_COLOR: Color = Color(0.52, 0.57, 0.46)
+const GROUND_PLATE_COLOR: Color = Color(0.40, 0.46, 0.36)
+
+
 func _build_ground(b: SequenceBundle) -> void:
     _ground = Node3D.new()
     _ground.name = "Ground"
     add_child(_ground)
+    var centre := Vector3(b.site_rect.position.x + (b.site_rect.size.x - 1) * 0.5, 0.0,
+            b.site_rect.position.y + (b.site_rect.size.y - 1) * 0.5)
+    var outer := MeshInstance3D.new()
+    outer.name = "Terrain"
+    var om := PlaneMesh.new()
+    om.size = Vector2(b.site_rect.size.x + 1.0 + 40.0, b.site_rect.size.y + 1.0 + 40.0)
+    var omat := StandardMaterial3D.new()
+    omat.albedo_color = GROUND_OUTER_COLOR
+    omat.roughness = 1.0
+    om.material = omat
+    outer.mesh = om
+    outer.position = centre + Vector3(0, -0.05, 0)
+    _ground.add_child(outer)
     var plane := MeshInstance3D.new()
+    plane.name = "BasePlate"
     var pm := PlaneMesh.new()
     pm.size = Vector2(b.site_rect.size.x + 1.0, b.site_rect.size.y + 1.0)
     var mat := StandardMaterial3D.new()
-    mat.albedo_color = Color(0.42, 0.62, 0.36)
+    mat.albedo_color = GROUND_PLATE_COLOR
+    mat.roughness = 1.0
     pm.material = mat
     plane.mesh = pm
-    plane.position = Vector3(b.site_rect.position.x + (b.site_rect.size.x - 1) * 0.5, -0.02,
-            b.site_rect.position.y + (b.site_rect.size.y - 1) * 0.5)
+    plane.position = centre + Vector3(0, -0.02, 0)
     _ground.add_child(plane)
     # blocked cells read as dark pads
     for c in gs.scenario.blocked_cells:
