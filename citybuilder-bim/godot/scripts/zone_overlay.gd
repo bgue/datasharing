@@ -39,6 +39,18 @@ var _pulse: float = 0.0
 var _nodes: Dictionary = {}  # zone_id -> MultiMeshInstance3D
 var _materials: Dictionary = {}  # zone_id -> StandardMaterial3D
 var _dirty: bool = true
+## The weekly / crew / tile changes recolour every zone of the focused storey; a task change only its own zone (found
+## through the TaskStore change log). Zones of other storeys are hidden and catch up when the focus reaches them.
+var _all_dirty: bool = true
+var _extra: Dictionary = {}  # zone ids to recolour besides the changed ones (hover moved)
+var _crews_dirty: bool = false  # crews changed: only the zones whose crew count moved are recoloured
+var _week_dirty: bool = false  # a week passed: only zones that are or were paused can change on their own
+var _crew_snapshot: Dictionary = {}  # zone id -> crews at the last refresh
+var _paused_snapshot: Dictionary = {}  # zone id -> true for the zones paused at the last refresh
+var _log_cursor: int = -1
+var _log_epoch: int = -1
+## Zones recoloured by the last refresh (tests / profiling).
+var last_refreshed: int = 0
 
 
 func setup(state: SimState, cam: Camera3D) -> void:
@@ -46,17 +58,24 @@ func setup(state: SimState, cam: Camera3D) -> void:
     view_camera = cam
     _build()
     gs.task_state_changed.connect(func(_a: String, _b: int, _c: int) -> void: _dirty = true)
-    gs.crews_changed.connect(func() -> void: _dirty = true)
-    gs.tiles_changed.connect(func() -> void: _dirty = true)
-    gs.week_advanced.connect(func(_w: int) -> void: _dirty = true)
+    gs.crews_changed.connect(func() -> void:
+        _crews_dirty = true
+        _dirty = true)
+    gs.tiles_changed.connect(func() -> void: _mark_all())
+    gs.week_advanced.connect(func(_w: int) -> void: _mark_all())
     gs.level_started.connect(func() -> void:
         _rim_ids = ["", ""]
         _build())
 
 
+func _mark_all() -> void:
+    _dirty = true
+    _all_dirty = true
+
+
 func set_focus_storey(idx: int) -> void:
     focus_storey_index = idx
-    _dirty = true
+    _mark_all()
 
 
 ## Pins a pulsing light rim around a zone ("" clears it): the zone selected in the inspector or framed by the camera.
@@ -199,23 +218,93 @@ func _build() -> void:
         add_child(mmi)
         _nodes[z.id] = mmi
         _materials[z.id] = mat
-    _dirty = true
+    _log_cursor = -1
+    _mark_all()
 
 
 func zone_color_key(zone_id: String) -> String:
     return str(gs.zone_status(zone_id)["color"])
 
 
+## Recolours every zone of the focused storey (and hides the others).
 func refresh() -> void:
-    for z in gs.bundle.zones:
+    _refresh(true)
+
+
+func _refresh(full: bool) -> void:
+    var st: TaskStore = gs.runtime
+    var zones: Array[ZoneData] = []
+    var by_id: Dictionary = gs.bundle.zones_by_id
+    if not full and not _all_dirty and _log_cursor >= 0 and st.log_epoch == _log_epoch:
+        var changed: Variant = st.changed_set_since(_log_cursor)
+        if changed != null:
+            var seen: Dictionary = {}
+            for slot in (changed as Dictionary):
+                var task: TaskData = st.task_refs[slot]
+                if task != null and not seen.has(task.zone_id) and by_id.has(task.zone_id):
+                    seen[task.zone_id] = true
+                    zones.append(by_id[task.zone_id])
+            for zid in _extra:
+                if not seen.has(zid) and by_id.has(zid):
+                    zones.append(by_id[zid])
+        else:
+            full = true
+    else:
+        full = true
+    if not full:
+        if _crews_dirty:
+            var counts: Dictionary = {}
+            for c in gs.crews:
+                var cz: String = str(c["zone_id"])
+                counts[cz] = int(counts.get(cz, 0)) + 1
+            for zid in counts:
+                if int(_crew_snapshot.get(zid, 0)) != int(counts[zid]) and by_id.has(zid):
+                    zones.append(by_id[zid])
+            for zid in _crew_snapshot:
+                if not counts.has(zid) and by_id.has(zid):
+                    zones.append(by_id[zid])
+            _crew_snapshot = counts
+        if _week_dirty:
+            var paused: Dictionary = {}
+            for zid in gs.zone_paused_until:
+                paused[zid] = true
+                if by_id.has(zid):
+                    zones.append(by_id[zid])
+            for zid in _paused_snapshot:
+                if not paused.has(zid) and by_id.has(zid):
+                    zones.append(by_id[zid])
+            _paused_snapshot = paused
+    if full:
+        zones = gs.bundle.zones
+        _crew_snapshot = {}
+        for c in gs.crews:
+            var cz2: String = str(c["zone_id"])
+            _crew_snapshot[cz2] = int(_crew_snapshot.get(cz2, 0)) + 1
+        _paused_snapshot = {}
+        for zid in gs.zone_paused_until:
+            _paused_snapshot[zid] = true
+    _crews_dirty = false
+    _week_dirty = false
+    _log_cursor = st.log_end()
+    _log_epoch = st.log_epoch
+    _extra.clear()
+    var n: int = 0
+    for z in zones:
         var node: MultiMeshInstance3D = _nodes[z.id]
         var storey_idx: int = int(gs.bundle.storey_index_by_id.get(z.storey_id, 0))
-        node.visible = storey_idx == focus_storey_index
+        var on_focus: bool = storey_idx == focus_storey_index
+        if node.visible != on_focus:
+            node.visible = on_focus
+        if not on_focus:
+            continue
         var c: Color = COLORS[zone_color_key(z.id)]
         if z.id == hovered_zone_id:
             c.a = minf(1.0, c.a + 0.25)
         (_materials[z.id] as StandardMaterial3D).albedo_color = c
+        n += 1
+    last_refreshed = n
     _dirty = false
+    _all_dirty = false
 
 
 func zone_at_cell(cell: Vector2i) -> String:
@@ -240,6 +329,8 @@ func _process(delta: float) -> void:
         var wp: Vector3 = hit
         zid = zone_at_cell(Vector2i(roundi(wp.x), roundi(wp.z)))
     if zid != hovered_zone_id:
+        _extra[hovered_zone_id] = true
+        _extra[zid] = true
         hovered_zone_id = zid
         _dirty = true
         zone_hovered.emit(zid)
@@ -248,7 +339,7 @@ func _process(delta: float) -> void:
         _pulse += delta * 4.0
         _pulse_rims()
     if _dirty:
-        refresh()
+        _refresh(false)
 
 
 func _unhandled_input(event: InputEvent) -> void:

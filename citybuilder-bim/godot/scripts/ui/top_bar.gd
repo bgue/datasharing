@@ -10,6 +10,7 @@ signal export_requested()
 signal menu_requested()
 signal gantt_toggled()
 signal sequence_toggled()
+signal areas_toggled()
 
 var gs: SimState = null
 var _title: Label
@@ -63,6 +64,9 @@ func setup(state: SimState) -> void:
     var sq := UiStyle.button("N", "Sequence editor for the selected zone")
     sq.pressed.connect(func() -> void: sequence_toggled.emit())
     row.add_child(sq)
+    var ab := UiStyle.button("B", "Areas: camera bookmarks and whole site (B)")
+    ab.pressed.connect(func() -> void: areas_toggled.emit())
+    row.add_child(ab)
     var ex := UiStyle.button("Export", "Export the executed plan (F5)")
     ex.pressed.connect(func() -> void: export_requested.emit())
     row.add_child(ex)

@@ -51,10 +51,10 @@ static func payment_factor(gs: SimState) -> float:
 ## Gross value of finished-but-unpaid tasks.
 static func unpaid_earned_value(gs: SimState) -> float:
     var s: float = 0.0
-    for t in gs.bundle.tasks:
-        var rt: TaskRuntime = gs.runtime[t.task_id]
-        if TaskRuntime.is_finished(rt.state) and not rt.paid:
-            s += t.cost
+    var slots: Array = gs.runtime.unpaid.keys()
+    slots.sort()
+    for i in slots:
+        s += gs.runtime.task_refs[i].cost
     return s * payment_factor(gs)
 
 
@@ -65,10 +65,8 @@ static func is_payment_week(gs: SimState) -> bool:
 ## Pays out finished tasks now (minus retention). Returns net cash received.
 static func pay_progress(gs: SimState) -> float:
     var gross: float = unpaid_earned_value(gs)
-    for t in gs.bundle.tasks:
-        var rt: TaskRuntime = gs.runtime[t.task_id]
-        if TaskRuntime.is_finished(rt.state) and not rt.paid:
-            rt.paid = true
+    for i in gs.runtime.unpaid.keys():
+        gs.runtime.set_flag(i, TaskStore.F_PAID, true)
     if gross <= 0.0:
         return 0.0
     var retention: float = gross * gs.scenario.retention_pct / 100.0

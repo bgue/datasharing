@@ -155,51 +155,56 @@ static func procurement(gs: SimState) -> Array:
     return out
 
 
-## Bars in the shape the Gantt panel draws (docs/05 section 5), plus markers.
-static func gantt(gs: SimState, zone_ids: Array = [], from_week: int = -1, to_week: int = -1) -> Dictionary:
-    var zone_filter: Dictionary = {}
-    for z in zone_ids:
-        zone_filter[str(z)] = true
-    var bars: Array = []
-    for p in gs.bundle.packages:
-        if not zone_filter.is_empty() and not zone_filter.has(p.zone_id):
-            continue
-        var rt: PackageRuntime = gs.package_runtime[p.package_id]
-        var a_start: int = 1 << 30
-        var a_finish: int = -1
-        for t in p.tasks:
-            var trt: TaskRuntime = gs.runtime[t.task_id]
-            if trt.actual_start_day >= 0:
-                a_start = mini(a_start, trt.actual_start_day)
-            if TaskRuntime.is_finished(trt.state):
-                a_finish = maxi(a_finish, trt.actual_finish_day)
-        var done: bool = rt.state == "done"
-        var s_day: int = a_start if a_start < (1 << 30) else p.planned_start_day
-        var f_day: int = a_finish if (done and a_finish >= 0) else maxi(p.planned_finish_day, gs.current_day() if a_start < (1 << 30) else 0)
-        if from_week >= 0 and f_day < from_week * 5 and p.planned_finish_day < from_week * 5:
-            continue
-        if to_week >= 0 and s_day > to_week * 5 and p.planned_start_day > to_week * 5:
-            continue
-        var zr: ZoneRuntime = gs.zone_runtime[p.zone_id]
-        bars.append({
-            "package_id": p.package_id, "zone_id": p.zone_id, "storey_id": p.storey_id, "name": p.name,
-            "phase": p.phase, "trade": p.trade, "work_face": p.work_face,
-            "planned_start_day": p.planned_start_day, "planned_finish_day": p.planned_finish_day,
-            "actual_start_day": a_start if a_start < (1 << 30) else null,
-            "actual_finish_day": a_finish if (done and a_finish >= 0) else null,
-            "progress": clampf(rt.crew_days_done / maxf(p.total_crew_days, 0.0001), 0.0, 1.0) if not done else 1.0,
-            "state": rt.state, "discipline": p.discipline,
-            "understaffed": rt.state == "understaffed", "held": rt.state == "held",
-            "behind_takt": zr.behind_takt and rt.station_index == zr.station_index,
-            "crews_now": rt.crews_now, "crew_min": p.crew_min, "crew_ideal": p.crew_ideal, "crew_max": p.crew_max,
-            "remaining_crew_days": maxf(p.total_crew_days - rt.crew_days_done, 0.0),
-            "blocked_reason": rt.blocked_reason, "station_index": rt.station_index,
-        })
-    var deliveries: Array = []
-    for t in gs.bundle.tasks:
-        var rt2: TaskRuntime = gs.runtime[t.task_id]
-        if t.lead_time_weeks > 0 and rt2.ordered and (zone_filter.is_empty() or zone_filter.has(t.zone_id)):
-            deliveries.append({"zone_id": t.zone_id, "task_id": t.task_id, "week": rt2.delivery_week})
+## One package as a Gantt bar ({} when it lies outside the week window).
+static func gantt_bar(gs: SimState, p: PackageData, from_week: int = -1, to_week: int = -1) -> Dictionary:
+    var rt: PackageRuntime = gs.package_runtime[p.package_id]
+    var st: TaskStore = gs.runtime
+    var a_start: int = 1 << 30
+    var a_finish: int = -1
+    for i in Packages.slots_of(gs, p):
+        var asd: int = st.actual_start_day[i]
+        if asd >= 0:
+            a_start = mini(a_start, asd)
+        if st.is_finished_at(i):
+            a_finish = maxi(a_finish, st.actual_finish_day[i])
+    var done: bool = rt.state == "done"
+    var s_day: int = a_start if a_start < (1 << 30) else p.planned_start_day
+    var f_day: int = a_finish if (done and a_finish >= 0) else maxi(p.planned_finish_day, gs.current_day() if a_start < (1 << 30) else 0)
+    if from_week >= 0 and f_day < from_week * 5 and p.planned_finish_day < from_week * 5:
+        return {}
+    if to_week >= 0 and s_day > to_week * 5 and p.planned_start_day > to_week * 5:
+        return {}
+    var zr: ZoneRuntime = gs.zone_runtime[p.zone_id]
+    return {
+        "package_id": p.package_id, "zone_id": p.zone_id, "storey_id": p.storey_id, "name": p.name,
+        "phase": p.phase, "trade": p.trade, "work_face": p.work_face,
+        "planned_start_day": p.planned_start_day, "planned_finish_day": p.planned_finish_day,
+        "actual_start_day": a_start if a_start < (1 << 30) else null,
+        "actual_finish_day": a_finish if (done and a_finish >= 0) else null,
+        "progress": clampf(rt.crew_days_done / maxf(p.total_crew_days, 0.0001), 0.0, 1.0) if not done else 1.0,
+        "state": rt.state, "discipline": p.discipline,
+        "understaffed": rt.state == "understaffed", "held": rt.state == "held",
+        "behind_takt": zr.behind_takt and rt.station_index == zr.station_index,
+        "crews_now": rt.crews_now, "crew_min": p.crew_min, "crew_ideal": p.crew_ideal, "crew_max": p.crew_max,
+        "remaining_crew_days": maxf(p.total_crew_days - rt.crew_days_done, 0.0),
+        "blocked_reason": rt.blocked_reason, "station_index": rt.station_index,
+    }
+
+
+## Delivery markers {zone_id, task_id, week} of the ordered long-lead tasks (optionally of some zones only).
+static func gantt_deliveries(gs: SimState, zone_filter: Dictionary = {}) -> Array:
+    var out: Array = []
+    var slots: Array = gs.runtime.ordered.keys()
+    slots.sort()
+    for i in slots:
+        var t: TaskData = gs.runtime.task_refs[i]
+        if t.lead_time_weeks > 0 and (zone_filter.is_empty() or zone_filter.has(t.zone_id)):
+            out.append({"zone_id": t.zone_id, "task_id": t.task_id, "week": gs.runtime.delivery_week[i]})
+    return out
+
+
+## Station layout of the zones that run a sequence card.
+static func gantt_stations(gs: SimState, zone_filter: Dictionary = {}) -> Array:
     var stations: Array = []
     for zid in gs.card_zones():
         if not zone_filter.is_empty() and not zone_filter.has(zid):
@@ -212,8 +217,23 @@ static func gantt(gs: SimState, zone_ids: Array = [], from_week: int = -1, to_we
         stations.append({"zone_id": zid, "card_id": zr2.card_id, "current": zr2.station_index, "stations": list,
                 "behind_takt": zr2.behind_takt, "station_start_week": zr2.station_start_week,
                 "hold_until_week": zr2.hold_until_week})
-    return {"bars": bars, "current_day": gs.current_day(), "week": gs.week, "deliveries": deliveries,
-            "incidents": gs.incident_log.duplicate(true), "stations": stations}
+    return stations
+
+
+## Bars in the shape the Gantt panel draws (docs/05 section 5), plus markers.
+static func gantt(gs: SimState, zone_ids: Array = [], from_week: int = -1, to_week: int = -1) -> Dictionary:
+    var zone_filter: Dictionary = {}
+    for z in zone_ids:
+        zone_filter[str(z)] = true
+    var bars: Array = []
+    for p in gs.bundle.packages:
+        if not zone_filter.is_empty() and not zone_filter.has(p.zone_id):
+            continue
+        var bar: Dictionary = gantt_bar(gs, p, from_week, to_week)
+        if not bar.is_empty():
+            bars.append(bar)
+    return {"bars": bars, "current_day": gs.current_day(), "week": gs.week, "deliveries": gantt_deliveries(gs, zone_filter),
+            "incidents": gs.incident_log.duplicate(true), "stations": gantt_stations(gs, zone_filter)}
 
 
 ## Per-cell progress of a storey for view.heat: cells a task touches with their done share (crew-day weighted),

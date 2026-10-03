@@ -23,6 +23,8 @@ var _methods: Dictionary = {}
 var bim_view: Node = null
 ## Camera jump to a kit instance (WP-S): Callable(index: int) -> bool, set by the Installations panel.
 var jump_handler: Callable = Callable()
+## Camera jump to an area: Callable(area_id: String) -> bool, set by the Areas panel.
+var area_handler: Callable = Callable()
 var _kit_instances: KitInstances = null
 
 
@@ -234,6 +236,8 @@ func _register() -> void:
     _reg("state.tiles", func(_p: Dictionary) -> Variant: return ApiViews.tiles(gs))
     _reg("state.procurement", func(_p: Dictionary) -> Variant: return ApiViews.procurement(gs))
     _reg("state.gantt", _m_state_gantt)
+    _reg("state.areas", _m_state_areas)
+    _reg("view.jump_to_area", _m_view_jump_to_area)
     # simulation
     _reg("sim.advance", _m_sim_advance)
     _reg("sim.resolve_event", _m_sim_resolve_event)
@@ -428,10 +432,31 @@ func _m_scenario_load(p: Dictionary) -> Variant:
     return _summary()
 
 
+## project.areas with their status (tasks, done share, crews); `with_cells: true` adds the cell lists.
+func _m_state_areas(p: Dictionary) -> Variant:
+    return Areas.list(gs, bool(p.get("with_cells", false)))
+
+
+## Frames the camera on an area ("" or "site": the whole site) and moves the storey focus; {framed: false} without a view.
+func _m_view_jump_to_area(p: Dictionary) -> Variant:
+    var id: String = str(p.get("id", ""))
+    var tgt: Dictionary = Areas.target(gs, id)
+    if tgt.is_empty():
+        return _err("no such area: %s" % id)
+    var framed: bool = area_handler.is_valid() and bool(area_handler.call(str(tgt["id"])))
+    return {"id": tgt["id"], "name": tgt["name"], "framed": framed, "storey_index": tgt["storey_index"]}
+
+
 func _m_state_zones(p: Dictionary) -> Variant:
     var out: Array = []
+    var area_zones: Dictionary = {}
+    if p.has("area_id") and str(p["area_id"]) != "":
+        for zid in (gs.bundle.areas_by_id.get(str(p["area_id"]), {}) as Dictionary).get("zone_ids", []):
+            area_zones[str(zid)] = true
     for z in gs.bundle.zones:
         if p.has("storey_id") and z.storey_id != str(p["storey_id"]):
+            continue
+        if p.has("area_id") and str(p["area_id"]) != "" and not area_zones.has(z.id):
             continue
         out.append(ApiViews.zone_view(gs, z))
     return out
@@ -451,6 +476,8 @@ func _m_state_packages(p: Dictionary) -> Variant:
 
 func _m_state_tasks(p: Dictionary) -> Variant:
     var out: Array = []
+    if p.has("zone_id"):
+        gs.ensure_zone_detail(str(p["zone_id"]))  # lazy per-zone detail of split bundles
     for t in gs.bundle.tasks:
         if p.has("zone_id") and t.zone_id != str(p["zone_id"]):
             continue
@@ -462,6 +489,12 @@ func _m_state_tasks(p: Dictionary) -> Variant:
 
 func _m_state_gantt(p: Dictionary) -> Variant:
     var zones: Array = p.get("zone_ids", []) if p.get("zone_ids", []) is Array else []
+    if p.has("area_id") and str(p["area_id"]) != "":
+        var area: Dictionary = gs.bundle.areas_by_id.get(str(p["area_id"]), {})
+        var members: Array = (area.get("zone_ids", []) as Array).duplicate()
+        zones = members if zones.is_empty() else zones.filter(func(z: Variant) -> bool: return members.has(str(z)))
+        if zones.is_empty():
+            zones = [""]  # an unknown or empty area has no bars
     return ApiViews.gantt(gs, zones, int(p.get("from_week", -1)), int(p.get("to_week", -1)))
 
 

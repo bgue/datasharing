@@ -28,6 +28,8 @@ func _bundle_paths() -> Array[String]:
         return out
     var names: PackedStringArray = dir.get_directories()
     for n in names:
+        if n.begins_with("stress"):
+            continue  # big models are covered by test_scale_big
         var p: String = "res://scenarios/%s/sequence.json" % n
         if FileAccess.file_exists(p):
             out.append(p)

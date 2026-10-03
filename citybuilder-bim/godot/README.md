@@ -30,6 +30,7 @@ godot --path godot -- --scenario=minimal   # skip the menu
 | Page Up / Page Down | Focus storey up / down (overlay, ghost fading and camera plane follow) |
 | G | Toggle ghost (not-started) elements |
 | H | Toggle the per-cell progress heat overlay (see "Element progress visuals") |
+| B | Show / hide the **Areas** panel: camera bookmarks (whole site and every `project.areas` entry), also the `B` button in the top bar (see "Large models") |
 | F1 / F2 | Save / load `user://save_<scenario>.json` |
 | F5 | Export `user://plan_export_<scenario>.json` + `.csv` |
 | T | Show / hide the timeline (Gantt) panel (also the `T` button in the top bar) |
@@ -247,6 +248,83 @@ the free middle, the event toast under the storey badge, the weekly report above
 free area (`set_insets`, `frame_site`, `frame_cells(cells, height, pad, snap)`) and picks the yaw (default or turned by 45 / 90 degrees)
 at which a long thin site fits best; rotating with the mouse keeps your yaw.
 
+## Large models (docs/06 C.3, WP-U)
+
+Built for a 150k-element / 20k-task / 2k-package model: the pipeline's stress bundle plays at about 20 to 70 ms per simulated week
+and refreshes its views in a few milliseconds (numbers below; `tests/test_scale_big.gd` asserts them).
+
+**Bundle formats.** `SequenceBundle.load_from_path` reads `sequence.json` or `sequence.json.gz` (gzip is detected by the magic bytes and
+unpacked with `PackedByteArray.decompress_dynamic(-1, FileAccess.COMPRESSION_GZIP)`; `FileAccess.open_compressed` only reads files
+written by Godot itself). `Scenarios` finds `res://scenarios/<folder>/sequence.json` or `sequence.json.gz`; the scenario is identified by
+`scenario.id` inside the bundle, not by the folder (`Scenarios.path_for` accepts either; the menu list is cached in
+`user://scenario_index.json` by file size and modification time, so the first start parses big bundles once). Exports need `*.gz` in the
+export filters. `bundle_format` (schema `sequence.schema.json`) selects the layout:
+
+| Key | Meaning |
+| --- | --- |
+| `compressed` | informational; the gzip magic decides |
+| `task_parts` | task files relative to the bundle folder, read in order; each is a JSON array of tasks or `{"schema_version", "part", "tasks": [...]}`. `tasks[]` of the main file may be empty |
+| `zone_detail_dir` | folder of `<zone_id>.json` / `.json.gz` read the first time a zone is looked at (`SimState.ensure_zone_detail`, called by the zone inspector, the timeline's task rows and the API). Content: `members` (aggregate element guid -> member guids, merged into `ElementData.member_guids`) and optionally `tasks` rows with the descriptive fields a light task row leaves out (`ifc_class`, `element_name`, `system_id`, `quantity`, `unit`, `rule_id`, `note`, predecessor `reason`s). `task_ids` / `package_ids` in the file are informational |
+| `task_count` | optional, the menu shows it without reading the parts |
+
+A task, element or zone row may give `cell_rects: [[x, z, width, depth], ...]` instead of `cells` (a zone-wide slab is one rectangle instead
+of 200 pairs; the JSON parse is the dominant load cost). Task cells are decoded on first use. Bundles with more than 4000 tasks drop the
+per-task JSON dictionaries and the source dictionary after parsing (exports are rebuilt from the typed fields, `pristine_copy()` re-reads
+the file). `bundle.load_stats` reports `read_ms`, `parse_ms`, `part_ms`, `part_json_ms`, `build_ms`, `total_ms`; the pipeline's 12k-task
+stress bundle loads in about 2.7 s, a 20k-task synthetic one parses from a dictionary in about 1.3 s.
+
+**Runtime state.** `SimState.runtime` is a `TaskStore` (`scripts/data/task_store.gd`): the state of every task lives in PackedArrays
+indexed by task slot (state, progress, required, start / finish days, inspection due day, delivery week, flags, blocked reason) with an
+id -> slot Dictionary. `runtime[task_id]` still returns a `TaskRuntime` view with the old field names (cached, so identity is stable),
+`runtime.has / size / erase / get_rt` and `for id in runtime` work; hot code reads the arrays through `runtime.index[id]`. The store keeps
+what the day loop needs without scanning tasks: state counts and per-zone / per-(storey, phase) counters, the sets of ACTIVE /
+AWAITING_INSPECTION / READY / ordered / unpaid tasks, and a change log (`changes_since`) that BimView, KitLayer, the heat overlay and the
+zone overlay read with their own cursor. Writing `rt.state` directly behaves like `set_task_state` (the store calls back into `SimState`).
+
+**Weekly loop.** The weekly loop has no pass over all tasks: readiness is incremental (`Readiness.refresh_incremental`: tasks queued by
+`note_changed`, the watch list of time / delivery blockers, impediments of the READY set; `blocker` slots skip successors held by another
+predecessor, tasks held by a gate wait for the gate to open and read its count live), packages recompute only when one of their tasks, crew
+count, `released` or `frozen` changed, `has_work` and the priority-sorted (zone, trade) lists are cached, crews per zone are counted once
+per day, inspections, deliveries, payments and the safety roll walk the store's sets. `refresh_states()` (full) stays the default for tests
+and tools; `refresh_states(false)` is the incremental one used by `advance_week`, tile / equipment / order actions and event choices.
+`SimState.debug_full_refresh` turns the incremental pass into a full one (`tests/test_incremental.gd` compares both over 18 weeks).
+`SimState.last_week_profile_us` splits the last week into events / release / days / economy / end. One difference from the old full pass:
+a tile or crane change in the middle of a week no longer sends tasks released that week back to BLOCKED (the full pass re-evaluated them at
+the start-of-week day).
+
+**Rendering.** `BimView` draws the non-kit elements with one MultiMesh per (storey, 8 x 8 cell chunk, visual kind) plus an outline
+MultiMesh beside it; per-element state lives in PackedArrays (`_slots` maps guid -> element index). `update_culling(camera)` (from
+`_process` every 0.1 s, only when the camera, focus or ghost toggle changed) hides chunks outside the frustum (two-level test: tiles of
+4 x 4 chunks first), hides the storeys above the focus on models with more than 30000 elements (`cull_above_focus`), and swaps chunks
+farther than `lod_far_distance` (100 cells) for **cell cubes** tinted by the mean done share of the tasked elements on the cell through the
+heat palette (hysteresis 0.9, at most 96 cube sets built per pass). The weekly `refresh_progress()` touches only the elements of tasks that
+changed (change log), the first colouring of a big model is spread over frames, and a fresh model (nothing started) is written to the
+MultiMeshes in bulk. `KitLayer` keeps one node per installation: frustum culling with bounding spheres (out-of-view full meshes are not
+rebuilt), LOD collapse beyond `lod_collapse_distance`, fills refreshed only for installations whose tasks changed, at most
+`FRAME_BUDGET_MS` of mesh builds per frame, and models with more than 300 installations build their first meshes from `_process`.
+The heat overlay (H) is built the first time it is shown, keeps per-cell sums current from the change log, and creates quads per
+(storey, chunk) only for chunks BimView draws in full. The zone overlay recolours only the focused storey and, between weeks, only the
+zones whose tasks or crews changed (per-zone counters in the store make `zone_status` O(1)).
+
+**Areas and bookmarks.** `project.areas[]` (`id`, `name`, `cells`, `storey_ids`, `camera_bookmark`) is parsed into `bundle.areas`
+(`zone_ids` = zones whose centre cell is in the area and on its storeys; an area without cells is its storeys). Key **B** (or the top bar
+`B` button) shows the Areas panel in the left dock: "Whole site" and every area with its zone count and done share; a click sets the storey
+focus and calls `view.frame_cells` on the area's cells (`camera_bookmark` may carry `yaw` and `zoom`). API: `state.areas {with_cells?}` ->
+list of `{id, name, storey_ids, zone_ids, zones, cell_count, bounds, tasks, tasks_done, active, done_share, crews[, cells]}`;
+`view.jump_to_area {id}` (`""` / `"site"` = whole site) -> `{id, name, framed, storey_index}` (`framed` is false without a 3D view);
+`state.zones` and `state.gantt` accept `area_id`; the timeline header shows an **Area** filter when the bundle has areas.
+
+**Timeline.** `GanttRenderer` only draws the rows in view. Above 150 zones or 1500 packages `GanttModel.build` is lazy: zone rows carry
+just the layout data (lane count from the planned spans, cached in `SimState.gantt_lanes`; stations) and `GanttModel.fill_row` adds the
+bars and markers of a row when it is drawn or hit-tested (`GanttRenderer.ensure_row`, `built_row_count`). 600 zones: model in about 5 ms
+instead of 200 ms, about 5 rows built per screen.
+
+**Measured** (headless CPU, this build machine; `test_scale_big` prints them): 19.3k tasks / 4.4k packages / 234 zones / 10.8k elements
+synthetic campus: advance_week mean 63 ms (worst 91 ms, planner excluded), BimView + KitLayer + zone overlay refresh 3 to 5 ms per
+week, culling pass 0.2 ms, Gantt model 28 ms cold. Pipeline stress bundle (12k tasks, 1.5k packages, 5.9k elements, 720 kit
+installations, 684 chunks): load 2.7 s, advance_week mean 54 ms, refresh 5 to 15 ms. `StressGen` (`tests/stress_gen.gd`) builds the synthetic
+bundles (`generate(wings)` replicates healthcare_standard, `zone_heavy(n)` many small zones) and writes `.json.gz` / split / detail variants.
+
 ## Run the tests (headless)
 
 ```
@@ -256,7 +334,7 @@ godot --headless --path godot --script res://tests/run_tests.gd -- readiness   #
 ```
 
 Prints `PASS`/`FAIL` per test and a `SUMMARY:` line; exit code 1 if anything failed.
-Tests use only `scenarios/minimal`. Always run `--import` first when adding new `class_name`
+Tests mostly use `scenarios/minimal`; the scale tests also play the shipped bundles and the stress bundles (`test_scale_big` takes about a minute). Always run `--import` first when adding new `class_name`
 files, otherwise the global class cache is stale and scripts fail to parse.
 `--check-only` cannot resolve autoload names (`Audio`, `GameState`, `Scenarios`); the test
 `test_scene_smoke::test_scripts_compile` loads every script with the real compiler instead.
@@ -265,7 +343,7 @@ files, otherwise the global class cache is stale and scripts fail to parse.
 
 1. Produce a `sequence.json` (see `../schema/sequence.schema.json`; the Python pipeline's
    `sync-godot` command does this).
-2. Copy it to `godot/scenarios/<scenario id>/sequence.json`.
+2. Copy it to `godot/scenarios/<scenario id>/sequence.json` (or `sequence.json.gz`, plus its `tasks.part-N.json.gz` and zone detail folder when it is split).
 3. Run `--import` (not required for plain JSON, but harmless). The menu lists every
    `res://scenarios/*/sequence.json`; discovery uses `DirAccess`, so exported builds must
    include the `scenarios/` folder via export filters (`*.json`).
@@ -276,11 +354,12 @@ files, otherwise the global class cache is stale and scripts fail to parse.
 | --- | --- |
 | `scripts/game_state.gd` (autoload `GameState`, class `SimState`) | The simulation: bundle, task states, week loop, crews, equipment, tiles, procurement, events, score, `snapshot()`, save data |
 | `scripts/scenarios.gd` (autoload `Scenarios`) | Bundle discovery and selection |
-| `scripts/sequence_bundle.gd`, `scripts/data/*.gd` | Typed parse of `sequence.json` plus indices |
+| `scripts/sequence_bundle.gd`, `scripts/data/*.gd` | Typed parse of `sequence.json` / `.json.gz` (split parts, lazy zone detail, areas) plus indices; `task_store.gd` is the PackedArray task runtime |
 | `scripts/sim/*.gd` | `readiness`, `productivity`, `logistics`, `economy`, `events`, `inspections`, `safety`, `scoring`: static helpers over `SimState`, unit-testable; `manual` (manual mode, authored tasks, recipe expansion, manual export) and `logic_lib` (recipe matcher, explain) |
 | `scripts/site_builder.gd`, `site_tile*.gd`, `road_autotile.gd` | Kenney builder adapted: logistics tiles on the GridMap, road auto-tiling |
-| `scripts/bim_view.gd` | MultiMesh stand-ins per `visual` kind, state tint and storey filter |
+| `scripts/bim_view.gd` | Chunked MultiMesh stand-ins (storey, 8 x 8 chunk, kind), state tint, storey filter, frustum culling and far LOD cell cubes |
 | `scripts/zone_overlay.gd` | Zone quads, hover/click picking |
+| `scripts/sim/areas.gd`, `scripts/ui/areas_panel.gd` | `project.areas` summaries, camera targets; the Areas panel (key B) |
 | `scripts/ui/*.gd`, `scenes/ui/*.tscn` | HUD panels (theme built in code, Lilita One font); `gantt_*.gd` is the timeline (built in code, no scene); `sequence_editor.gd`, `whats_needed_dialog.gd`, `marker_legend.gd` author manual chains and explain recipes (built in code) |
 | `scripts/export/plan_export.gd`, `scripts/save_game.gd` | Plan export (element_step_map shape) and save/load |
 | `scripts/main.gd`, `scenes/main.tscn`, `scenes/menu.tscn` | Scene wiring and HUD layout (docks, `_reflow_bottom`); Kenney View/Camera/GridMap/Sun/CanvasLayer nodes are kept |

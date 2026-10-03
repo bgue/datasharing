@@ -10,32 +10,74 @@ static func _is_work_state(st: int) -> bool:
     return st == TaskRuntime.State.ACTIVE or st == TaskRuntime.State.REWORK
 
 
-## Tasks of the package that a crew could work today: READY ones only while the package is released,
-## and not held back by a standing impediment (no access, out of crane reach, zone paused). A full
-## laydown yard is transient (tasks finishing free it), so it does not count as an impediment here.
+## Store slots of a package's tasks (cached per SimState; reset by SimState.graph_changed / start).
+static func slots_of(gs: SimState, p: PackageData) -> PackedInt32Array:
+    var c: Variant = gs.pkg_slots.get(p.package_id, null)
+    if c != null:
+        return c
+    var out := PackedInt32Array()
+    for t in p.tasks:
+        var i: int = gs.runtime.idx_of(t.task_id)
+        if i >= 0:
+            out.append(i)
+    gs.pkg_slots[p.package_id] = out
+    return out
+
+
+const W_ACTIVE: int = 1
+const W_READY: int = 2
+
+
+## Cached (TaskStore.work_cache, dropped whenever a task of the package changes) bit mask: W_ACTIVE when a task is
+## ACTIVE / REWORK, W_READY when a READY task is not held back by a standing impediment (no access, out of crane
+## reach, zone paused). A full laydown yard is transient (tasks finishing free it), so it does not count as one.
+static func _work_flags(gs: SimState, p: PackageData) -> int:
+    var cache: Dictionary = gs.runtime.work_cache
+    var c: int = int(cache.get(p.package_id, -1))
+    if c >= 0:
+        return c
+    var m: int = 0
+    var st: TaskStore = gs.runtime
+    for i in slots_of(gs, p):
+        var s: int = st.state[i]
+        if s == TaskRuntime.State.ACTIVE or s == TaskRuntime.State.REWORK:
+            m |= W_ACTIVE
+        elif s == TaskRuntime.State.READY:
+            var r: String = st.reason[i]
+            if r == "" or r.begins_with("No free laydown"):
+                m |= W_READY
+        if m == (W_ACTIVE | W_READY):
+            break
+    cache[p.package_id] = m
+    return m
+
+
+## Tasks of the package that a crew could work today: READY ones only while the package is released.
 static func has_work(gs: SimState, p: PackageData) -> bool:
     var rt: PackageRuntime = gs.package_runtime[p.package_id]
     if rt.frozen:
         return false
-    for t in p.tasks:
-        var trt: TaskRuntime = gs.runtime[t.task_id]
-        if _is_work_state(trt.state):
-            return true
-        if trt.state == TaskRuntime.State.READY and rt.released \
-                and (trt.blocked_reason == "" or trt.blocked_reason.begins_with("No free laydown")):
-            return true
-    return false
+    var m: int = _work_flags(gs, p)
+    return (m & W_ACTIVE) != 0 or ((m & W_READY) != 0 and rt.released)
 
 
 static func is_done(gs: SimState, p: PackageData) -> bool:
-    for t in p.tasks:
-        if not TaskRuntime.is_finished((gs.runtime[t.task_id] as TaskRuntime).state):
+    var st: TaskStore = gs.runtime
+    for i in slots_of(gs, p):
+        if not st.is_finished_at(i):
             return false
     return true
 
 
-## Packages of a trade in a zone, lowest priority value first.
+## Packages of a trade in a zone, lowest priority value first (cached until a priority or the package list changes).
 static func zone_trade_packages(gs: SimState, zone_id: String, trade: String) -> Array[PackageData]:
+    if gs.zt_cache_gen != PackageRuntime.priority_gen:
+        gs.zt_cache.clear()
+        gs.zt_cache_gen = PackageRuntime.priority_gen
+    var key: String = zone_id + "|" + trade
+    var hit: Variant = gs.zt_cache.get(key, null)
+    if hit != null:
+        return hit
     var out: Array[PackageData] = []
     for p in gs.bundle.packages_by_zone.get(zone_id, []):
         if (p as PackageData).trade == trade:
@@ -46,6 +88,7 @@ static func zone_trade_packages(gs: SimState, zone_id: String, trade: String) ->
         if pa != pb:
             return pa < pb
         return a.package_id < b.package_id)
+    gs.zt_cache[key] = out
     return out
 
 
@@ -161,11 +204,11 @@ static func _excl_active(gs: SimState, counts: Dictionary) -> bool:
 # ----------------------------------------------------------------- state for the player
 
 static func crew_days_done(gs: SimState, p: PackageData) -> float:
-    var s: float = 0.0
-    for t in p.tasks:
-        var rt: TaskRuntime = gs.runtime[t.task_id]
-        s += minf(rt.progress, rt.required) if not TaskRuntime.is_finished(rt.state) else rt.required
-    return s
+    var sum: float = 0.0
+    var st: TaskStore = gs.runtime
+    for i in slots_of(gs, p):
+        sum += minf(st.progress[i], st.required[i]) if not st.is_finished_at(i) else st.required[i]
+    return sum
 
 
 ## Player-facing state (docs/05 section 1.3) and reason for the given crews now on the package.
@@ -177,33 +220,34 @@ static func compute_state(gs: SimState, p: PackageData, crews_now: int) -> Dicti
         return {"state": "held", "reason": "zone in manual mode"}
     if not rt.released:
         return {"state": "held", "reason": "held"}
+    var st: TaskStore = gs.runtime
+    var slots: PackedInt32Array = slots_of(gs, p)
     var ready: bool = has_work(gs, p)
     if not ready:
         # released READY tasks held back by a standing impediment: ready, with the reason
-        for t in p.tasks:
-            var itr: TaskRuntime = gs.runtime[t.task_id]
-            if itr.state == TaskRuntime.State.READY and itr.blocked_reason != "":
-                return {"state": "ready" if crews_now <= 0 else "active", "reason": itr.blocked_reason}
+        for i in slots:
+            if st.state[i] == TaskRuntime.State.READY and st.reason[i] != "":
+                return {"state": "ready" if crews_now <= 0 else "active", "reason": st.reason[i]}
         var reason: String = ""
-        for t in p.tasks:
-            var trt: TaskRuntime = gs.runtime[t.task_id]
-            if trt.state == TaskRuntime.State.BLOCKED or trt.state == TaskRuntime.State.NOT_STARTED:
-                reason = trt.blocked_reason
+        for i in slots:
+            var s: int = st.state[i]
+            if s == TaskRuntime.State.BLOCKED or s == TaskRuntime.State.NOT_STARTED:
+                reason = st.reason[i]
                 break
-            if trt.state == TaskRuntime.State.AWAITING_INSPECTION:
+            if s == TaskRuntime.State.AWAITING_INSPECTION:
                 reason = "awaiting inspection"
         return {"state": "waiting", "reason": reason}
     # impeded?
     var impeded: String = ""
     var all_impeded: bool = true
-    for t in p.tasks:
-        var trt2: TaskRuntime = gs.runtime[t.task_id]
-        if trt2.state == TaskRuntime.State.READY:
-            if trt2.blocked_reason == "":
+    for i in slots:
+        var s2: int = st.state[i]
+        if s2 == TaskRuntime.State.READY:
+            if st.reason[i] == "":
                 all_impeded = false
             elif impeded == "":
-                impeded = trt2.blocked_reason
-        elif _is_work_state(trt2.state):
+                impeded = st.reason[i]
+        elif _is_work_state(s2):
             all_impeded = false
     if crews_now <= 0:
         return {"state": "ready", "reason": impeded if all_impeded and impeded != "" else ""}
@@ -214,15 +258,39 @@ static func compute_state(gs: SimState, p: PackageData, crews_now: int) -> Dicti
     return {"state": "active", "reason": impeded if all_impeded and impeded != "" else ""}
 
 
-## Recomputes state / crews_now / crew_days_done of every package (prospective crew counts from the
-## current assignments) and emits package_state_changed for changes.
-static func refresh_states(gs: SimState) -> void:
+## Recomputes state / crews_now / crew_days_done of the packages that may have changed (a task of the package changed,
+## its crew count, `released` or `frozen` moved; `force` = all) from the current assignments, and emits
+## package_state_changed for changes.
+static func refresh_states(gs: SimState, force: bool = false) -> void:
     var alloc: Dictionary = allocate(gs)
-    for p in gs.bundle.packages:
+    var by_package: Dictionary = alloc["by_package"]
+    for pid in gs.crewed_pkgs:  # packages that lost all their crews
+        if not by_package.has(pid):
+            var old: PackageRuntime = gs.package_runtime.get(pid, null)
+            if old != null:
+                old.crews_now = 0
+    gs.crewed_pkgs = {}
+    for pid in by_package:
+        var prt: PackageRuntime = gs.package_runtime.get(pid, null)
+        if prt != null:
+            prt.crews_now = (by_package[pid] as Array).size()
+            gs.crewed_pkgs[pid] = true
+    var touched: Dictionary = gs.runtime.touched_pkgs
+    gs.runtime.touched_pkgs = {}
+    var todo: Array = []
+    if force:
+        todo = gs.bundle.packages.duplicate()
+    else:
+        var order: Dictionary = gs.package_order()
+        var ids: Array = touched.keys()
+        ids.sort_custom(func(a: String, b: String) -> bool: return int(order.get(a, 0)) < int(order.get(b, 0)))
+        for pid in ids:
+            var p0: PackageData = gs.bundle.packages_by_id.get(pid, null)
+            if p0 != null:
+                todo.append(p0)
+    for p in todo:
         var rt: PackageRuntime = gs.package_runtime[p.package_id]
-        var n: int = (alloc["by_package"].get(p.package_id, []) as Array).size()
-        rt.crews_now = n
-        var st: Dictionary = compute_state(gs, p, n)
+        var st: Dictionary = compute_state(gs, p, rt.crews_now)
         rt.blocked_reason = str(st["reason"])
         rt.crew_days_done = crew_days_done(gs, p)
         if rt.state != st["state"]:

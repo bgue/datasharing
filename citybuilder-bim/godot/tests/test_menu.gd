@@ -17,6 +17,8 @@ func test_every_bundle_loads() -> void:
     var sc: Node = Engine.get_main_loop().root.get_node("Scenarios")
     for info in sc.call("list_bundles"):
         var d: Dictionary = info
+        if str(d["id"]).begins_with("stress"):
+            continue  # the stress bundles are loaded and timed by test_scale_big
         var b := SequenceBundle.load_from_path(str(d["path"]))
         ok(b.valid, "%s loads: %s" % [d["id"], ", ".join(b.errors)])
         if b.valid:

@@ -100,6 +100,11 @@ var _card_ids: Array[String] = []
 var _prio_popup: PopupPanel = null
 var _prio_spin: SpinBox = null
 var _ctx_bar: Dictionary = {}
+## Lazy models (GanttModel._build_lazy): fills the bars of a zone row when it is first drawn or hit-tested.
+var detail: Callable = Callable()
+var _zone_row: Dictionary = {}  # zone id -> index into rows
+## Rows whose bars were filled since the model was set (tests: only the visible rows are built).
+var detail_built: int = 0
 
 
 func _init() -> void:
@@ -119,6 +124,11 @@ func _init() -> void:
 
 func set_model(model: Dictionary) -> void:
     rows = model.get("rows", [])
+    detail = model.get("detail", Callable()) if model.get("detail", null) is Callable else Callable()
+    _zone_row.clear()
+    for i in rows.size():
+        if str((rows[i] as Dictionary)["kind"]) == "zone":
+            _zone_row[str((rows[i] as Dictionary)["zone_id"])] = i
     current_day = int(model.get("current_day", 0))
     week = int(model.get("week", 0))
     max_day = int(model.get("max_day", 0))
@@ -308,6 +318,29 @@ func _first_visible(content_y: float) -> int:
     return lo
 
 
+## Builds the bars of a lazy zone row (a no-op for other rows). Returns the row.
+func ensure_row(r: Dictionary) -> Dictionary:
+    if detail.is_valid() and bool(r.get("lazy", false)) and not bool(r.get("built", false)):
+        detail.call(r)
+        detail_built += 1
+    return r
+
+
+## Builds every lazy row (tests, exports).
+func ensure_all_rows() -> void:
+    for r in rows:
+        ensure_row(r)
+
+
+## Number of zone rows whose bars exist.
+func built_row_count() -> int:
+    var n: int = 0
+    for r in rows:
+        if str(r["kind"]) == "zone" and (not bool(r.get("lazy", false)) or bool(r.get("built", false))):
+            n += 1
+    return n
+
+
 ## Row dictionaries in display order (rows of collapsed groups excluded).
 func display_rows() -> Array:
     var out: Array = []
@@ -426,6 +459,10 @@ func _bar_rect(vi: int, r: Dictionary, bar: Dictionary) -> Rect2:
 
 ## Rectangle of the package's bar in control coordinates (empty when its group is collapsed).
 func bar_rect(package_id: String) -> Rect2:
+    if detail.is_valid() and gs != null and gs.bundle.packages_by_id.has(package_id):
+        var zi: int = int(_zone_row.get(gs.bundle.packages_by_id[package_id].zone_id, -1))
+        if zi >= 0:
+            ensure_row(rows[zi])
     for vi in _vis.size():
         var r: Dictionary = rows[_vis[vi]]
         if str(r["kind"]) != "zone":
@@ -449,7 +486,7 @@ func _vis_at(point: Vector2) -> int:
 
 func row_at(point: Vector2) -> Dictionary:
     var vi: int = _vis_at(point)
-    return rows[_vis[vi]] if vi >= 0 else {}
+    return ensure_row(rows[_vis[vi]]) if vi >= 0 else {}
 
 
 ## The bar under a control-space point ({} when none): a package bar in a zone row (planned or drawn extent)
@@ -458,7 +495,7 @@ func bar_at(point: Vector2) -> Dictionary:
     var vi: int = _vis_at(point)
     if vi < 0 or point.x < _label_w():
         return {}
-    var r: Dictionary = rows[_vis[vi]]
+    var r: Dictionary = ensure_row(rows[_vis[vi]])
     var kind: String = str(r["kind"])
     if kind == "group":
         return {}
@@ -696,7 +733,7 @@ func _paint(canvas: bool) -> void:
             break
         last = vi + 1
         drawn_rows += 1
-        var r: Dictionary = rows[_vis[vi]]
+        var r: Dictionary = ensure_row(rows[_vis[vi]])
         var rh: float = _row_h[vi]
         var kind: String = str(r["kind"])
         if kind == "group":

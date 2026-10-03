@@ -27,7 +27,7 @@ static func from_dict(d: Dictionary) -> ElementData:
     e.zone_id = str(d.get("zone_id", ""))
     var sys: Variant = d.get("system_id", null)
     e.system_id = "" if sys == null else str(sys)
-    e.cells = ZoneData.cells_from_variant(d.get("cells", []))
+    e.cells = ZoneData.cells_of_row(d)
     e.visual = str(d.get("visual", "generic"))
     var sh: Variant = d.get("size_hint", null)
     if sh is Array and (sh as Array).size() == 3:

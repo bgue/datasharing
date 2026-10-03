@@ -6,6 +6,48 @@ extends RefCounted
 var valid: bool = false
 var errors: Array[String] = []
 var source_path: String = ""
+## Task descriptions a light row may leave out; the per-zone detail files of a split bundle carry them
+## (`{"zone_id": id, "tasks": [{"task_id": ..., <these keys>}]}`, merged by `ensure_zone_detail`).
+const DETAIL_FIELDS: Array[String] = ["ifc_class", "element_name", "system_id", "quantity", "unit", "rule_id", "note"]
+## Task part files are read and parsed on worker threads (one per part) while the main thread builds the rest of the bundle.
+static var parallel_parts: bool = true
+
+
+## What a worker thread leaves behind for one part file.
+class PartResult extends RefCounted:
+    var data: Variant = null
+    var ms: float = 0.0
+    var task_id: int = -1
+
+
+## Worker thread body: reads (and gunzips) a JSON file and parses it with a private JSON instance.
+static func _load_part(path: String, res: PartResult) -> void:
+    var t0: int = Time.get_ticks_usec()
+    if FileAccess.file_exists(path):
+        var raw: PackedByteArray = FileAccess.get_file_as_bytes(path)
+        if raw.size() > 2 and raw[0] == 0x1f and raw[1] == 0x8b:
+            raw = raw.decompress_dynamic(-1, FileAccess.COMPRESSION_GZIP)
+        var j := JSON.new()
+        if j.parse(raw.get_string_from_utf8()) == OK:
+            res.data = j.data
+    res.ms = float(Time.get_ticks_usec() - t0) / 1000.0
+
+
+## Light task rows (a bundle with `zone_detail_dir` whose parts omit DETAIL_FIELDS) are marked `detail_loaded = false`
+## only when they really lack those fields: the check is the `ifc_class` key of the row.
+## Bundles with more tasks than this drop the per-task raw JSON dictionaries and the source dictionary after parsing
+## (memory); exports are then built from the typed fields and `pristine_copy` re-reads the file.
+const KEEP_RAW_MAX_TASKS: int = 4000
+## `bundle_format` of the file (compressed, task_parts, zone_detail_dir) and the directory it was loaded from.
+var format: Dictionary = {}
+var base_dir: String = ""
+var keep_raw: bool = true
+## Load timing: {read_ms, parse_ms (JSON), build_ms (typed objects + indices), parts, tasks, bytes}.
+var load_stats: Dictionary = {}
+## project.areas: [{id, name, cells: Array[Vector2i], zone_ids: Array[String], storey_ids: Array[String], camera: Dictionary}].
+var areas: Array[Dictionary] = []
+var areas_by_id: Dictionary = {}
+var _detail_loaded: Dictionary = {}  # zone id -> true
 
 var project_raw: Dictionary = {}
 var project_name: String = ""
@@ -84,22 +126,60 @@ var zones_by_cell: Dictionary = {}
 var site_rect: Rect2i = Rect2i(0, 0, 1, 1)
 ## Every cell covered by any zone (Vector2i -> true): the interior vehicles can circulate through.
 var zone_cell_set: Dictionary = {}
-var _gate_scope_cache: Dictionary = {}  # "gate|scope key" -> Array[TaskData]
+var _gate_scope_cache: Dictionary = {}
+var _start_links: Dictionary = {}  # task id -> Array[String]: successors linked SS / FF (they care when it starts)
+var _start_links_valid: bool = false
+var _cost_cache: float = -1.0
+var _cost_cache_n: int = -1  # "gate|scope key" -> Array[TaskData]
 
 
+## Loads a bundle from `.json` or `.json.gz` (gzip detected by the magic bytes): split task parts and the lazy
+## per-zone detail directory named by `bundle_format` are resolved relative to the bundle's directory.
 static func load_from_path(path: String) -> SequenceBundle:
     var b := SequenceBundle.new()
     b.source_path = path
+    b.base_dir = path.get_base_dir()
     if not FileAccess.file_exists(path):
         b.errors.append("file not found: %s" % path)
         return b
-    var text: String = FileAccess.get_file_as_string(path)
-    var parsed: Variant = JSON.parse_string(text)
+    var t0: int = Time.get_ticks_usec()
+    var raw: PackedByteArray = FileAccess.get_file_as_bytes(path)
+    var t1: int = Time.get_ticks_usec()
+    var parsed: Variant = parse_bytes(raw)
+    var t2: int = Time.get_ticks_usec()
     if not (parsed is Dictionary):
         b.errors.append("not a JSON object: %s" % path)
         return b
+    b.load_stats = {"bytes": raw.size(), "read_ms": float(t1 - t0) / 1000.0, "parse_ms": float(t2 - t1) / 1000.0,
+            "parts": 0, "tasks": 0}
     b.parse(parsed)
+    b.load_stats["build_ms"] = float(Time.get_ticks_usec() - t2) / 1000.0 - float(b.load_stats.get("part_ms", 0.0))
+    b.load_stats["total_ms"] = float(Time.get_ticks_usec() - t0) / 1000.0
+    b.load_stats["tasks"] = b.tasks.size()
     return b
+
+
+## JSON text or gzip-compressed JSON bytes -> Variant (null when the content is not JSON).
+static func parse_bytes(raw: PackedByteArray) -> Variant:
+    if raw.size() > 2 and raw[0] == 0x1f and raw[1] == 0x8b:
+        raw = raw.decompress_dynamic(-1, FileAccess.COMPRESSION_GZIP)
+    return JSON.parse_string(raw.get_string_from_utf8())
+
+
+## Reads a `.json` / `.json.gz` file (null when missing or not JSON).
+static func read_json(path: String) -> Variant:
+    if not FileAccess.file_exists(path):
+        return null
+    return parse_bytes(FileAccess.get_file_as_bytes(path))
+
+
+## Path of a bundle file inside a scenario folder: sequence.json, else sequence.json.gz ("" when neither exists).
+static func find_in_dir(dir: String) -> String:
+    for n in ["sequence.json", "sequence.json.gz"]:
+        var p: String = dir.path_join(n)
+        if FileAccess.file_exists(p):
+            return p
+    return ""
 
 
 static func from_dictionary(d: Dictionary) -> SequenceBundle:
@@ -116,6 +196,18 @@ func parse(d: Dictionary) -> void:
         return
 
     source_dict = d
+    var bf: Variant = d.get("bundle_format", {})
+    format = bf if bf is Dictionary else {}
+    var part_files: Array = format.get("task_parts", [])
+    var part_jobs: Array[PartResult] = []
+    for pf in part_files:  # start reading the parts now: they parse while the elements, zones and steps are built below
+        var job := PartResult.new()
+        var path: String = base_dir.path_join(str(pf))
+        if parallel_parts and part_files.size() > 1:
+            job.task_id = WorkerThreadPool.add_task(Callable(SequenceBundle, "_load_part").bind(path, job), false, "bundle part")
+        part_jobs.append(job)
+    var inline_tasks: Array = d["tasks"]
+    keep_raw = inline_tasks.size() <= KEEP_RAW_MAX_TASKS and part_files.is_empty()
     var proj: Dictionary = d["project"]
     project_raw = proj
     project_name = str(proj.get("name", ""))
@@ -194,18 +286,34 @@ func parse(d: Dictionary) -> void:
     if mn is Dictionary:
         manual = ManualSequenceData.from_dict(mn)
 
-    for t in d["tasks"]:
-        var task := TaskData.from_dict(t)
-        if manual != null and task.origin == "manual" and task.manual_id != "" and not task.is_virtual:
-            # a manual task binds to every element of its manual-block entry (the task row names the first one)
-            var els: Array = manual.task_by_id(task.manual_id).get("elements", [])
-            if not els.is_empty():
-                task.element_guids.clear()
-                for g in els:
-                    task.element_guids.append(str(g))
-                task.element_guid = task.element_guids[0]
-        tasks.append(task)
-        _index_task(task)
+    _ingest_tasks(inline_tasks)
+    var tp0: int = Time.get_ticks_usec()
+    var part_wait_us: int = 0
+    var part_cpu_ms: float = 0.0
+    for k in part_files.size():
+        var job: PartResult = part_jobs[k]
+        var tj: int = Time.get_ticks_usec()
+        if job.task_id >= 0:
+            WorkerThreadPool.wait_for_task_completion(job.task_id)
+        else:
+            _load_part(base_dir.path_join(str(part_files[k])), job)
+        part_wait_us += Time.get_ticks_usec() - tj
+        part_cpu_ms += job.ms
+        var rows: Variant = job.data
+        job.data = null
+        if rows is Dictionary:  # {"schema_version", "part", "tasks": [...]} as the pipeline writes them
+            rows = (rows as Dictionary).get("tasks", null)
+        if not (rows is Array):
+            errors.append("task part missing or not an array: %s" % str(part_files[k]))
+            continue
+        _ingest_tasks(rows)
+        load_stats["parts"] = int(load_stats.get("parts", 0)) + 1
+    load_stats["part_ms"] = float(Time.get_ticks_usec() - tp0) / 1000.0
+    load_stats["part_wait_ms"] = float(part_wait_us) / 1000.0  # main thread waiting for part files to parse
+    load_stats["part_json_ms"] = part_cpu_ms  # CPU time of the part reads (all threads together)
+    if str(format.get("zone_detail_dir", "")) != "":
+        for task in tasks:
+            task.detail_loaded = task.ifc_class != ""
     for task in tasks:
         for p in task.predecessors:
             var pid: String = p["task_id"]
@@ -235,7 +343,119 @@ func parse(d: Dictionary) -> void:
         task.work_face = st.work_face if st != null else "any"
     _build_packages(d.get("packages", []))
     _compute_site_rect()
+    _parse_areas(proj)
+    if not keep_raw and source_path != "":
+        source_dict = {}  # pristine_copy() re-reads source_path
     valid = errors.is_empty()
+
+
+## Typed TaskData rows for a list of task dictionaries (the inline `tasks` or one part file).
+func _ingest_tasks(rows: Array) -> void:
+    for t in rows:
+        var task := TaskData.from_dict(t, keep_raw)
+        if manual != null and task.origin == "manual" and task.manual_id != "" and not task.is_virtual:
+            # a manual task binds to every element of its manual-block entry (the task row names the first one)
+            var els: Array = manual.task_by_id(task.manual_id).get("elements", [])
+            if not els.is_empty():
+                task.element_guids.clear()
+                for g in els:
+                    task.element_guids.append(str(g))
+                task.element_guid = task.element_guids[0]
+        tasks.append(task)
+        _index_task(task)
+
+
+func _parse_areas(proj: Dictionary) -> void:
+    areas.clear()
+    areas_by_id.clear()
+    var raw_areas: Variant = proj.get("areas", [])
+    if not (raw_areas is Array):
+        return
+    for a in raw_areas:
+        if not (a is Dictionary):
+            continue
+        var ad: Dictionary = a
+        var id: String = str(ad.get("id", ""))
+        if id == "":
+            continue
+        var area: Dictionary = {"id": id, "name": str(ad.get("name", id)), "cells": ZoneData.cells_from_variant(ad.get("cells", [])),
+                "zone_ids": [] as Array[String], "storey_ids": [] as Array[String], "camera": {}}
+        for sid in ad.get("storey_ids", []):
+            (area["storey_ids"] as Array[String]).append(str(sid))
+        var cam: Variant = ad.get("camera_bookmark", {})
+        if cam is Dictionary:
+            area["camera"] = cam
+        var explicit: Variant = ad.get("zone_ids", null)
+        if explicit is Array:  # the bundle names the zones of the area: use them as given
+            for zid in explicit:
+                if zones_by_id.has(str(zid)):
+                    (area["zone_ids"] as Array[String]).append(str(zid))
+            if (area["cells"] as Array).is_empty():
+                for zid in area["zone_ids"]:
+                    (area["cells"] as Array).append_array((zones_by_id[zid] as ZoneData).cells)
+        else:
+            # the zones whose centre cell lies in the area (on its storeys)
+            var cell_set: Dictionary = {}
+            for c in area["cells"]:
+                cell_set[c] = true
+            for z in zones:
+                if not (area["storey_ids"] as Array).is_empty() and not (area["storey_ids"] as Array).has(z.storey_id):
+                    continue
+                if not cell_set.is_empty() and cell_set.has(z.centre_cell()):
+                    (area["zone_ids"] as Array[String]).append(z.id)
+            if (area["cells"] as Array).is_empty():  # no cells given: the area is its storeys (or the whole site)
+                for z in zones:
+                    if (area["storey_ids"] as Array).is_empty() or (area["storey_ids"] as Array).has(z.storey_id):
+                        (area["zone_ids"] as Array[String]).append(z.id)
+                for z in zones:
+                    if (area["zone_ids"] as Array).has(z.id):
+                        (area["cells"] as Array).append_array(z.cells)
+        areas.append(area)
+        areas_by_id[id] = area
+
+
+## True when the bundle keeps per-zone task detail in separate files that are merged on first access.
+func has_lazy_detail() -> bool:
+    return str(format.get("zone_detail_dir", "")) != ""
+
+
+## Merges the detail file of a zone the first time the zone is asked for: descriptive fields of its tasks (`tasks`
+## rows, see DETAIL_FIELDS) and the member guid lists of its aggregate elements (`members`); returns the number of
+## tasks / aggregates updated. A no-op for bundles without `zone_detail_dir` or when the zone was loaded already.
+func ensure_zone_detail(zone_id: String) -> int:
+    if _detail_loaded.has(zone_id) or not has_lazy_detail():
+        return 0
+    _detail_loaded[zone_id] = true
+    var dir: String = base_dir.path_join(str(format["zone_detail_dir"]))
+    var doc: Variant = null
+    for ext in [".json.gz", ".json"]:
+        var p: String = dir.path_join(zone_id + ext)
+        if FileAccess.file_exists(p):
+            doc = read_json(p)
+            break
+    var n: int = 0
+    if doc is Dictionary:
+        for row in (doc as Dictionary).get("tasks", []):
+            var t: TaskData = tasks_by_id.get(str((row as Dictionary).get("task_id", "")), null)
+            if t != null:
+                t.merge_detail(row)
+                n += 1
+        # aggregate elements: member guid lists (`members`: element guid -> [guid, ...])
+        var members: Variant = (doc as Dictionary).get("members", {})
+        if members is Dictionary:
+            for agg in members:
+                var el: ElementData = elements_by_guid.get(str(agg), null)
+                if el != null and el.member_guids.is_empty():
+                    for g in members[agg]:
+                        el.member_guids.append(str(g))
+                    n += 1
+    for t in tasks_by_zone.get(zone_id, []):
+        (t as TaskData).detail_loaded = true
+    return n
+
+
+func zone_detail_loaded(zone_id: String) -> bool:
+    return _detail_loaded.has(zone_id) or not has_lazy_detail()
 
 
 ## Adds a task to every lookup index (not to `tasks`). Virtual tasks have no element and are not indexed by element.
@@ -262,6 +482,27 @@ func _index_task(task: TaskData) -> void:
     successors_by_task[task.task_id] = [] as Array[String]
 
 
+## Successors of a task that depend on its start (an SS or FF link): the only ones a task starting can release.
+## Built on first use from the predecessor lists; dropped by invalidate_start_links() (edits, full readiness passes).
+func start_successors(task_id: String) -> Array:
+    if not _start_links_valid:
+        _start_links.clear()
+        for t in tasks:
+            for p in t.predecessors:
+                var ty: String = str(p["type"])
+                if ty == "SS" or ty == "FF":
+                    var pid: String = str(p["task_id"])
+                    if not _start_links.has(pid):
+                        _start_links[pid] = []
+                    (_start_links[pid] as Array).append(t.task_id)
+        _start_links_valid = true
+    return _start_links.get(task_id, [])
+
+
+func invalidate_start_links() -> void:
+    _start_links_valid = false
+
+
 ## Resolves a task id or a manual id (M0001) to the task id, "" when unknown.
 func resolve_task_id(id: String) -> String:
     if tasks_by_id.has(id):
@@ -271,8 +512,11 @@ func resolve_task_id(id: String) -> String:
 
 ## A pristine copy of this bundle re-parsed from the source dictionary (drops every runtime edit).
 func pristine_copy() -> SequenceBundle:
+    if source_dict.is_empty() and source_path != "":
+        return SequenceBundle.load_from_path(source_path)
     var b := SequenceBundle.from_dictionary(source_dict)
     b.source_path = source_path
+    b.base_dir = base_dir
     return b
 
 
@@ -286,7 +530,9 @@ func add_step(st: StepDef, raw_def: Dictionary = {}) -> void:
 
 
 func invalidate_gate_caches() -> void:
+    _start_links_valid = false
     _gate_scope_cache.clear()
+    _cost_cache = -1.0
 
 
 ## Adds a task at runtime: appends it, updates every index, links it as successor of its predecessors and
@@ -736,10 +982,13 @@ func in_site(c: Vector2i) -> bool:
 # ---------------------------------------------------------------- derived values
 
 func total_task_cost() -> float:
-    var s: float = 0.0
-    for t in tasks:
-        s += t.cost
-    return s
+    if _cost_cache_n != tasks.size() or _cost_cache < 0.0:
+        var s: float = 0.0
+        for t in tasks:
+            s += t.cost
+        _cost_cache = s
+        _cost_cache_n = tasks.size()
+    return _cost_cache
 
 
 ## Contract date in weeks (scenario.contract_weeks, or baseline weeks * contract_factor).

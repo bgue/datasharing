@@ -21,10 +21,14 @@ static func fail_chance(gs: SimState, rt: TaskRuntime = null) -> float:
 static func run_day(gs: SimState, d: int) -> int:
     var end_of_day: int = gs.week * 5 + d + 1
     var resolved: int = 0
-    for t in gs.bundle.tasks:
-        var rt: TaskRuntime = gs.runtime[t.task_id]
-        if rt.state != TaskRuntime.State.AWAITING_INSPECTION or rt.inspection_due_day > end_of_day:
-            continue
+    var due: Array = []
+    for i in gs.runtime.awaiting:
+        if gs.runtime.inspection_due_day[i] <= end_of_day:
+            due.append(i)
+    due.sort()  # task order: the random draws must come in the same order as a full scan
+    for i in due:
+        var t: TaskData = gs.runtime.task_refs[i]
+        var rt: TaskRuntime = gs.runtime.view_at(i)
         resolved += 1
         var first_attempt: bool = rt.inspection_failures == 0
         if gs.rng.randf() < fail_chance(gs, rt):

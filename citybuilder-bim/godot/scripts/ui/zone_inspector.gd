@@ -89,6 +89,8 @@ func show_zone(id: String) -> void:
     zone_id = id
     _explain_text = ""
     _dirty = true
+    if gs != null and id != "":
+        gs.ensure_zone_detail(id)  # lazy per-zone detail of split bundles
 
 
 func _hex(c: Color) -> String:

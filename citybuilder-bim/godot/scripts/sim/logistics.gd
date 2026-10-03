@@ -50,6 +50,42 @@ static func bfs_access(tiles: Dictionary, gates: Array[Vector2i], zone_cells: Ar
     return false
 
 
+## Every cell the access BFS can stand on: gates, road tiles and the interior (building footprint) cells reachable
+## from the gates. A zone is reachable when one of its cells, or a cell next to it, is in this set (one flood fill
+## serves all zones; `bfs_access` is the single-zone version).
+static func access_set(tiles: Dictionary, gates: Array[Vector2i], interior: Dictionary = {}) -> Dictionary:
+    var gate_set: Dictionary = {}
+    var visited: Dictionary = {}
+    var queue: Array[Vector2i] = []
+    for g in gates:
+        gate_set[g] = true
+        if not visited.has(g):
+            visited[g] = true
+            queue.append(g)
+    var head: int = 0
+    while head < queue.size():
+        var cur: Vector2i = queue[head]
+        head += 1
+        for d in DIRS4:
+            var n: Vector2i = cur + d
+            if visited.has(n):
+                continue
+            if SiteTiles.is_road(tile_at(tiles, n)) or gate_set.has(n) or interior.has(n):
+                visited[n] = true
+                queue.append(n)
+    return visited
+
+
+static func set_reaches_zone(reach: Dictionary, zone_cells: Array[Vector2i]) -> bool:
+    for c in zone_cells:
+        if reach.has(c):
+            return true
+        for d in DIRS4:
+            if reach.has(c + d):
+                return true
+    return false
+
+
 ## Cells reachable from the gates over road tiles (for debugging / overlay).
 static func reachable_road_cells(tiles: Dictionary, gates: Array[Vector2i]) -> Dictionary:
     var visited: Dictionary = {}
@@ -91,16 +127,35 @@ static func cranes_cover(cranes: Array[Dictionary], cells: Array[Vector2i]) -> b
 
 
 static func crane_list(gs: SimState) -> Array[Dictionary]:
+    var key: String = "%d|%d|%d" % [gs.equipment_placed.size(), gs.equipment_version, gs.tiles_version]
+    if gs.crane_cache_key == key:
+        return gs.crane_cache
     var out: Array[Dictionary] = []
     for e in gs.equipment_placed:
         var def: EquipmentDef = gs.equipment_def(str(e["id"]))
         if def != null and def.is_crane():
             out.append({"cell": e["cell"], "reach": float(def.reach_cells)})
+    gs.crane_cache = out
+    gs.crane_cache_key = key
     return out
 
 
 static func crane_covers(gs: SimState, cells: Array[Vector2i]) -> bool:
     return cranes_cover(crane_list(gs), cells)
+
+
+## crane_covers for a task's cells, memoised per task until the cranes or tiles change.
+static func task_crane_covered(gs: SimState, task: TaskData) -> bool:
+    var cl: Array[Dictionary] = crane_list(gs)  # refreshes gs.crane_cache_key
+    if gs.task_crane_key != gs.crane_cache_key:
+        gs.task_crane_memo.clear()
+        gs.task_crane_key = gs.crane_cache_key
+    var hit: Variant = gs.task_crane_memo.get(task.task_id, null)
+    if hit != null:
+        return bool(hit)
+    var ok: bool = cranes_cover(cl, task.cells)
+    gs.task_crane_memo[task.task_id] = ok
+    return ok
 
 
 static func laydown_capacity(gs: SimState) -> int:
@@ -113,10 +168,8 @@ static func laydown_capacity(gs: SimState) -> int:
 
 static func laydown_used(gs: SimState) -> int:
     var n: int = 0
-    for tid in gs.runtime:
-        var rt: TaskRuntime = gs.runtime[tid]
-        if rt.state == TaskRuntime.State.ACTIVE or rt.state == TaskRuntime.State.REWORK:
-            n += (gs.bundle.tasks_by_id[tid] as TaskData).laydown_cells
+    for i in gs.runtime.active:  # ACTIVE / REWORK tasks only
+        n += gs.runtime.task_refs[i].laydown_cells
     return n
 
 
@@ -136,6 +189,32 @@ static func ring_cells(zone_cells: Array[Vector2i]) -> Array[Vector2i]:
                 seen[n] = true
                 out.append(n)
     return out
+
+
+## Cells that hold the tile `tile_id`.
+static func tile_cells(tiles: Dictionary, tile_id: String) -> Array[Vector2i]:
+    var out: Array[Vector2i] = []
+    for c in tiles:
+        if str((tiles[c] as Dictionary).get("tile", "")) == tile_id:
+            out.append(c)
+    return out
+
+
+## True when one of `cells` (tile positions) lies in the 8-neighbourhood ring of the zone (next to it, not inside it).
+static func ring_touches(cells: Array[Vector2i], zone_cells: Array[Vector2i]) -> bool:
+    if cells.is_empty():
+        return false
+    var zone_set: Dictionary = {}
+    for c in zone_cells:
+        zone_set[c] = true
+    for h in cells:
+        if zone_set.has(h):
+            continue
+        for dx in range(-1, 2):
+            for dz in range(-1, 2):
+                if (dx != 0 or dz != 0) and zone_set.has(Vector2i(h.x + dx, h.y + dz)):
+                    return true
+    return false
 
 
 static func has_tile_adjacent(tiles: Dictionary, zone_cells: Array[Vector2i], tile_id: String) -> bool:

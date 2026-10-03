@@ -30,6 +30,7 @@ var charts: ChartsPanel = null
 var gantt: GanttPanel = null
 var seq_editor: SequenceEditor = null
 var installations: InstallationsPanel = null
+var areas_panel: AreasPanel = null
 var whats_needed: WhatsNeededDialog = null
 var toast: EventToast = null
 var report: Report = null
@@ -63,7 +64,9 @@ func _ready() -> void:
     if scenarios.current_bundle == null:
         for a in OS.get_cmdline_user_args():
             if a.begins_with("--scenario="):
-                scenarios.call("select", "res://scenarios/%s/sequence.json" % a.substr(11))
+                var spath: String = str(scenarios.call("path_for", a.substr(11)))
+                if spath != "":
+                    scenarios.call("select", spath)
     if scenarios.current_bundle == null:
         get_tree().change_scene_to_file.call_deferred(MENU_SCENE)
         return
@@ -203,6 +206,7 @@ func _build_ui() -> void:
     ui_root.add_child(seq_editor)
     seq_editor.setup(gs, bim_view)
     installations = InstallationsPanel.create(ui_root, gs, bim_view, view, camera)  # kit installations list + picking (I)
+    areas_panel = AreasPanel.create(left_dock, gs, view, Callable(self, "_set_focus"))  # areas / camera bookmarks (B)
     inspector.gs_kit_colours = bim_view != null and bim_view.marker_mesh_provider.is_valid()
 
     whats_needed = WhatsNeededDialog.new()
@@ -257,6 +261,7 @@ func _wire() -> void:
     top_bar.gantt_toggled.connect(func() -> void: gantt.toggle())
     gantt.zone_selected.connect(_on_gantt_zone)
     top_bar.sequence_toggled.connect(_toggle_sequence_editor)
+    top_bar.areas_toggled.connect(func() -> void: areas_panel.toggle())
     inspector.sequence_editor_requested.connect(func(zid: String) -> void:
         pinned_zone = zid
         seq_editor.open_for_zone(zid)
@@ -270,7 +275,7 @@ func _wire() -> void:
     seq_editor.message.connect(hint_bar.show_message)
     seq_editor.closed.connect(_reflow_bottom)
     seq_editor.visibility_changed.connect(_reflow_bottom)
-    for p in [crew_panel, inspector, procurement, charts, installations]:
+    for p in [crew_panel, inspector, procurement, charts, installations, areas_panel]:
         (p as Control).visibility_changed.connect(_queue_layout)
     whats_needed.message.connect(hint_bar.show_message)
     gantt.layout_changed.connect(_reflow_bottom)
@@ -421,7 +426,7 @@ func _reflow_bottom() -> void:
     var inst: Control = ui_root.get_node_or_null("InstallationsPanel") as Control
     var inst_w: float = (INSTALLATIONS_W + MARGIN) if inst != null and inst.visible else 0.0
     right_w += inst_w
-    var left_used: bool = crew_panel.visible or charts.visible
+    var left_used: bool = crew_panel.visible or charts.visible or (areas_panel != null and areas_panel.visible)
     var left_w: float = (LEFT_W + MARGIN) if left_used and not _editor_hid_left else 0.0
     if seq_editor.visible:
         var need: float = seq_editor.custom_minimum_size.x + MARGIN * 2.0
@@ -627,6 +632,8 @@ func _unhandled_input(event: InputEvent) -> void:
         gantt.toggle()
     elif event.is_action_pressed("installations_toggle"):
         installations.toggle()
+    elif event.is_action_pressed("areas_toggle"):
+        areas_panel.toggle()
     elif event.is_action_pressed("sequence_editor_toggle"):
         _toggle_sequence_editor()
     elif event.is_action_pressed("toggle_ghost"):

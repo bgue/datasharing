@@ -22,12 +22,13 @@ static func _is_active(rt: TaskRuntime) -> bool:
 ## Zones with the tag that have unfinished work and no `tile_id` tile adjacent.
 static func zones_missing_tile(gs: SimState, tag: String, tile_id: String = DEFAULT_MISSING_TILE) -> Array[String]:
     var out: Array[String] = []
+    var tile_cells: Array[Vector2i] = Logistics.tile_cells(gs.tiles, tile_id)  # once, not a ring per zone
     for z in gs.bundle.zones:
         if not z.tags.has(tag):
             continue
         if not _zone_has_unfinished(gs, z.id):
             continue
-        if not Logistics.has_tile_adjacent(gs.tiles, z.cells, tile_id):
+        if not Logistics.ring_touches(tile_cells, z.cells):
             out.append(z.id)
     return out
 
@@ -38,9 +39,10 @@ static func check_trigger(gs: SimState, ev: EventDef) -> Dictionary:
     var zones: Array[String] = []
     if tr.has("phase_active"):
         var found: bool = false
-        for t in gs.bundle.tasks_by_phase.get(str(tr["phase_active"]), []):
-            var task: TaskData = t
-            if _is_active(gs.runtime[task.task_id]):
+        var ph: String = str(tr["phase_active"])
+        for i in gs.runtime.active_sorted():
+            var task: TaskData = gs.runtime.task_refs[i]
+            if task.phase == ph:
                 found = true
                 if not zones.has(task.zone_id):
                     zones.append(task.zone_id)
@@ -48,8 +50,9 @@ static func check_trigger(gs: SimState, ev: EventDef) -> Dictionary:
             return {"ok": false, "zones": zones}
     if tr.has("step_active"):
         var found2: bool = false
-        for task in gs.bundle.tasks:
-            if task.step_id == str(tr["step_active"]) and _is_active(gs.runtime[task.task_id]):
+        for i in gs.runtime.active_sorted():
+            var task: TaskData = gs.runtime.task_refs[i]
+            if task.step_id == str(tr["step_active"]):
                 found2 = true
                 if not zones.has(task.zone_id):
                     zones.append(task.zone_id)
@@ -58,15 +61,16 @@ static func check_trigger(gs: SimState, ev: EventDef) -> Dictionary:
     if tr.has("zone_tag"):
         var tag: String = str(tr["zone_tag"])
         var found3: bool = false
+        var active_zones: Dictionary = {}
+        for i in gs.runtime.active:
+            active_zones[gs.runtime.task_refs[i].zone_id] = true
         for z in gs.bundle.zones:
             if not z.tags.has(tag):
                 continue
-            for t in gs.bundle.tasks_by_zone.get(z.id, []):
-                if _is_active(gs.runtime[(t as TaskData).task_id]):
-                    found3 = true
-                    if not zones.has(z.id):
-                        zones.append(z.id)
-                    break
+            if active_zones.has(z.id):
+                found3 = true
+                if not zones.has(z.id):
+                    zones.append(z.id)
         if not found3:
             return {"ok": false, "zones": zones}
     if tr.has("missing_tile_adjacent_to_tag"):
@@ -173,10 +177,9 @@ static func apply_effect(gs: SimState, eff: Dictionary, trigger_zones: Array[Str
             gs.cash_changed.emit(gs.cash)
     if eff.has("delay_lead_time_weeks"):
         var delay: int = int(eff["delay_lead_time_weeks"])
-        for tid in gs.runtime:
-            var rt: TaskRuntime = gs.runtime[tid]
-            if rt.ordered and rt.delivery_week > gs.week:
-                rt.delivery_week += delay
+        for i in gs.runtime.ordered:
+            if gs.runtime.delivery_week[i] > gs.week:
+                gs.runtime.delivery_week[i] += delay
     if eff.has("pause_zone_weeks"):
         var weeks: int = int(eff["pause_zone_weeks"])
         for zid in _target_zones(gs, eff, trigger_zones):
@@ -203,9 +206,10 @@ static func _target_zones(gs: SimState, eff: Dictionary, trigger_zones: Array[St
     if not trigger_zones.is_empty():
         return trigger_zones
     var active: Array[String] = []
-    for t in gs.bundle.tasks:
-        if _is_active(gs.runtime[t.task_id]) and not active.has(t.zone_id):
-            active.append(t.zone_id)
+    for i in gs.runtime.active_sorted():
+        var az: String = gs.runtime.task_refs[i].zone_id
+        if not active.has(az):
+            active.append(az)
     if active.is_empty():
         return out
     out.append(active[gs.rng.randi() % active.size()])

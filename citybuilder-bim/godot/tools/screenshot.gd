@@ -133,9 +133,9 @@ static func render(tree: SceneTree, opts: Dictionary) -> Dictionary:
     var scenarios: Node = root.get_node_or_null("Scenarios")
     if scenarios == null:
         return fail.call("autoload Scenarios missing (run with --path godot)")
-    var path: String = "res://scenarios/%s/sequence.json" % str(opts["scenario"])
-    if not FileAccess.file_exists(path):
-        return fail.call("scenario '%s' not found (%s)" % [str(opts["scenario"]), path])
+    var path: String = str(scenarios.call("path_for", str(opts["scenario"])))
+    if path == "" or not FileAccess.file_exists(path):
+        return fail.call("scenario '%s' not found (res://scenarios/%s/sequence.json[.gz])" % [str(opts["scenario"]), str(opts["scenario"])])
     if not bool(scenarios.call("select", path)):
         return fail.call("scenario '%s' failed to load" % str(opts["scenario"]))
     var size: Vector2i = opts["size"]

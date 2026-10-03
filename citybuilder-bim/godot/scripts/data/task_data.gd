@@ -16,7 +16,20 @@ var quantity: float = 0.0
 var unit: String = ""
 var estimated_crew_days: float = 0.0
 var cost: float = 0.0
-var cells: Array[Vector2i] = []
+## Cells of the task. Rows of big bundles carry hundreds of cells each, so they are decoded on first access
+## (`cells` or the compact `cell_rects` of the row).
+var cells: Array[Vector2i]:
+    get:
+        if _cells_src != null:
+            _cells = ZoneData.cells_from_rects(_cells_src) if _cells_rects else ZoneData.cells_from_variant(_cells_src)
+            _cells_src = null
+        return _cells
+    set(v):
+        _cells = v
+        _cells_src = null
+var _cells: Array[Vector2i] = []
+var _cells_src: Variant = null
+var _cells_rects: bool = false
 var requires_crane: bool = false
 var requires_access: bool = true
 var inspection: bool = false
@@ -49,13 +62,16 @@ var element_guids: Array[String] = []
 ## Created at runtime (manual.add_task / recipes), not part of the loaded bundle.
 var runtime_added: bool = false
 var note: String = ""
-## The original JSON dictionary (kept for lossless export).
+## The original JSON dictionary (kept for lossless export; dropped for big bundles, see SequenceBundle.keep_raw).
 var raw: Dictionary = {}
+## False for a light row of a split bundle until its zone's detail file has been merged.
+var detail_loaded: bool = true
 
 
-static func from_dict(d: Dictionary) -> TaskData:
+static func from_dict(d: Dictionary, keep_raw: bool = true) -> TaskData:
     var t := TaskData.new()
-    t.raw = d
+    if keep_raw:
+        t.raw = d
     t.task_id = str(d.get("task_id", ""))
     var eg: Variant = d.get("element_guid", null)
     t.element_guid = "" if eg == null else str(eg)
@@ -72,7 +88,11 @@ static func from_dict(d: Dictionary) -> TaskData:
     t.unit = str(d.get("unit", ""))
     t.estimated_crew_days = float(d.get("estimated_crew_days", 0.0))
     t.cost = float(d.get("cost", 0.0))
-    t.cells = ZoneData.cells_from_variant(d.get("cells", []))
+    if d.has("cells"):
+        t._cells_src = d["cells"]
+    elif d.has("cell_rects"):
+        t._cells_src = d["cell_rects"]
+        t._cells_rects = true
     var f: Dictionary = d.get("flags", {})
     t.requires_crane = bool(f.get("requires_crane", false))
     t.requires_access = bool(f.get("requires_access", true))
@@ -87,16 +107,21 @@ static func from_dict(d: Dictionary) -> TaskData:
     t.dusty = bool(f.get("dusty", false))
     var preds: Variant = d.get("predecessors", [])
     if preds is Array:
-        for p in preds:
-            var pd: Dictionary = p
-            var pr: Dictionary = {
-                "task_id": str(pd.get("task_id", "")),
-                "type": str(pd.get("type", "FS")),
-                "lag_days": int(pd.get("lag_days", 0)),
-            }
-            if pd.has("reason"):
-                pr["reason"] = str(pd["reason"])
-            t.predecessors.append(pr)
+        if keep_raw:
+            for p in preds:
+                var pd: Dictionary = p
+                var pr: Dictionary = {
+                    "task_id": str(pd.get("task_id", "")),
+                    "type": str(pd.get("type", "FS")),
+                    "lag_days": int(pd.get("lag_days", 0)),
+                }
+                if pd.has("reason"):
+                    pr["reason"] = str(pd["reason"])
+                t.predecessors.append(pr)
+        else:
+            # big bundles: the parsed link dictionaries are used as they are (task_id, type, lag_days[, reason]; nothing else
+            # keeps them), saving an allocation per link
+            t.predecessors.assign(preds)
     t.rule_id = str(d.get("rule_id", ""))
     t.package_id = str(d.get("package_id", ""))
     var ps: Variant = d.get("planned_start_day", null)
@@ -210,3 +235,31 @@ func has_tag(tag: String, step_tags: Array[String] = []) -> bool:
         "inspection":
             return inspection
     return step_tags.has(tag) or tag == phase or tag == trade or tag == step_id
+
+
+## Merges a per-zone detail row (descriptive fields the light row of a split bundle leaves out, see
+## SequenceBundle.DETAIL_FIELDS): only the keys present in `d` are applied. `predecessors` rows may carry `reason`s.
+func merge_detail(d: Dictionary) -> void:
+    if d.has("ifc_class"):
+        ifc_class = str(d["ifc_class"])
+    if d.has("element_name"):
+        element_name = str(d["element_name"])
+    if d.has("system_id"):
+        var sys: Variant = d["system_id"]
+        system_id = "" if sys == null else str(sys)
+    if d.has("quantity"):
+        quantity = float(d["quantity"])
+    if d.has("unit"):
+        unit = str(d["unit"])
+    if d.has("rule_id"):
+        rule_id = str(d["rule_id"])
+    if d.has("note"):
+        note = str(d["note"])
+    var preds: Variant = d.get("predecessors", null)
+    if preds is Array:
+        for pr in preds:
+            if pr is Dictionary and (pr as Dictionary).has("reason"):
+                for mine in predecessors:
+                    if mine["task_id"] == str((pr as Dictionary).get("task_id", "")):
+                        mine["reason"] = str((pr as Dictionary)["reason"])
+    detail_loaded = true

@@ -81,14 +81,19 @@ static func auto_layout(gs: SimState, laydown: int = 4) -> Dictionary:
     return summary
 
 
-## Each crane goes on the free cell covering the most still-uncovered crane tasks, up to max_count.
+## Each crane goes on the free cell covering the most still-uncovered crane tasks, up to max_count. Coverage counts per
+## candidate cell are kept in a Dictionary (every crane cell adds one to the cells within reach) and updated as cells
+## get covered, so the cost is crane cells x reach area, not site cells x crane cells. Ties go to the first cell in
+## (x, y) order, as the exhaustive scan did.
 static func _place_cranes(gs: SimState) -> int:
     var b: SequenceBundle = gs.bundle
+    var crane_set: Dictionary = {}
     var crane_cells: Array[Vector2i] = []
     for t in b.tasks:
         if t.requires_crane:
             for c in t.cells:
-                if not crane_cells.has(c):
+                if not crane_set.has(c):
+                    crane_set[c] = true
                     crane_cells.append(c)
     if crane_cells.is_empty():
         return 0
@@ -96,21 +101,31 @@ static func _place_cranes(gs: SimState) -> int:
     for e in b.scenario.equipment:
         if not e.is_crane():
             continue
+        var reach: float = float(e.reach_cells)
+        var offsets: Array[Vector2i] = []
+        var r: int = int(ceil(reach))
+        for dx in range(-r, r + 1):
+            for dy in range(-r, r + 1):
+                if Vector2(dx, dy).length() <= reach:
+                    offsets.append(Vector2i(dx, dy))
+        var cover: Dictionary = {}  # candidate cell -> number of still-uncovered crane cells within reach
+        for c in crane_cells:
+            for o in offsets:
+                var cand: Vector2i = c + o
+                cover[cand] = int(cover.get(cand, 0)) + 1
         for n in e.max_count:
             var best: Vector2i = Vector2i.ZERO
             var best_cover: int = 0
-            for x in range(b.site_rect.position.x, b.site_rect.end.x):
-                for y in range(b.site_rect.position.y, b.site_rect.end.y):
-                    var cand := Vector2i(x, y)
-                    if gs.tile_at(cand) != "" or gs.placement_error(cand, SiteTiles.CRANE_PAD) != "":
-                        continue
-                    var cover: int = 0
-                    for c in crane_cells:
-                        if Vector2(c - cand).length() <= float(e.reach_cells):
-                            cover += 1
-                    if cover > best_cover:
-                        best_cover = cover
-                        best = cand
+            for cand in cover:
+                var cv: int = int(cover[cand])
+                if cv < best_cover or not b.in_site(cand):
+                    continue
+                if cv == best_cover and not (cand.x < best.x or (cand.x == best.x and cand.y < best.y)):
+                    continue
+                if gs.tile_at(cand) != "" or gs.placement_error(cand, SiteTiles.CRANE_PAD) != "":
+                    continue
+                best_cover = cv
+                best = cand
             if best_cover == 0 or not gs.place_tile(best, SiteTiles.CRANE_PAD):
                 break
             if not gs.place_equipment(e.id, best):
@@ -118,8 +133,11 @@ static func _place_cranes(gs: SimState) -> int:
             placed += 1
             var remaining: Array[Vector2i] = []
             for c in crane_cells:
-                if Vector2(c - best).length() > float(e.reach_cells):
+                if Vector2(c - best).length() > reach:
                     remaining.append(c)
+                else:  # covered: it no longer counts for any candidate
+                    for o in offsets:
+                        cover[c + o] = int(cover[c + o]) - 1
             crane_cells = remaining
             if crane_cells.is_empty():
                 return placed
@@ -134,10 +152,8 @@ static func manage_cranes(gs: SimState) -> Array[int]:
     var placed: int = 0
     var soon: Array[TaskData] = []
     var horizon_day: int = (gs.week + 2) * 5
-    for t in gs.bundle.tasks:
-        if not t.requires_crane:
-            continue
-        var st: int = (gs.runtime[t.task_id] as TaskRuntime).state
+    for t in gs.crane_tasks():
+        var st: int = gs.runtime.state[gs.runtime.index[t.task_id]]
         if TaskRuntime.is_finished(st):
             continue
         if st == TaskRuntime.State.READY or st == TaskRuntime.State.ACTIVE or st == TaskRuntime.State.REWORK \
@@ -229,9 +245,7 @@ static func _uncovered_count(tasks: Array[TaskData], cranes: Array[Dictionary]) 
 ## Returns the ordered task ids.
 static func order_all_due(gs: SimState, horizon_weeks: int = 8) -> Array[String]:
     var ordered: Array[String] = []
-    for t in gs.bundle.tasks:
-        if t.lead_time_weeks <= 0:
-            continue
+    for t in gs.long_lead_tasks():
         var rt: TaskRuntime = gs.runtime[t.task_id]
         if rt.ordered or TaskRuntime.is_finished(rt.state):
             continue

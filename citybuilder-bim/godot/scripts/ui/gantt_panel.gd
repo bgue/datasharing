@@ -18,6 +18,8 @@ var renderer: GanttRenderer = null
 var height_fraction: float = 0.3
 var storey_filter: String = ""
 var discipline_filter: String = ""
+## Area filter (project.areas): only the zones of the area; "" = all. The control exists only when the bundle has areas.
+var area_filter: String = ""
 var mine_only: bool = false
 ## Wall-clock cost of the last model rebuild, milliseconds.
 var model_build_ms: float = 0.0
@@ -28,6 +30,8 @@ var _handle: Control = null
 var _dragging: bool = false
 var _storey_opt: OptionButton = null
 var _disc_opt: OptionButton = null
+var _area_opt: OptionButton = null
+var _area_ids: Array[String] = []
 var _mine_box: CheckBox = null
 var _zoom_buttons: Dictionary = {}
 var _storey_ids: Array[String] = []
@@ -72,6 +76,11 @@ func setup(state: SimState, open: bool) -> void:
     _disc_opt.tooltip_text = "Filter by discipline"
     _disc_opt.item_selected.connect(func(i: int) -> void: set_discipline_filter(_disc_ids[i]))
     head.add_child(_disc_opt)
+    _area_opt = OptionButton.new()
+    _area_opt.focus_mode = Control.FOCUS_NONE
+    _area_opt.tooltip_text = "Filter by area (B: areas panel)"
+    _area_opt.item_selected.connect(func(i: int) -> void: set_area_filter(_area_ids[i]))
+    head.add_child(_area_opt)
     _mine_box = CheckBox.new()
     _mine_box.text = "My crews only"
     _mine_box.focus_mode = Control.FOCUS_NONE
@@ -110,6 +119,7 @@ func setup(state: SimState, open: bool) -> void:
 func _on_level_started() -> void:
     storey_filter = ""
     discipline_filter = ""
+    area_filter = ""
     mine_only = false
     renderer.collapsed.clear()
     renderer.expanded.clear()
@@ -188,8 +198,17 @@ func _fill_filters() -> void:
     for d in names:
         _disc_opt.add_item(str(d).capitalize())
         _disc_ids.append(str(d))
+    _area_ids.clear()
+    _area_opt.clear()
+    _area_opt.add_item("All areas")
+    _area_ids.append("")
+    for a in gs.bundle.areas:
+        _area_opt.add_item(str(a["name"]))
+        _area_ids.append(str(a["id"]))
+    _area_opt.visible = not gs.bundle.areas.is_empty()
     _storey_opt.select(maxi(_storey_ids.find(storey_filter), 0))
     _disc_opt.select(maxi(_disc_ids.find(discipline_filter), 0))
+    _area_opt.select(maxi(_area_ids.find(area_filter), 0))
     _mine_box.set_pressed_no_signal(mine_only)
 
 
@@ -202,6 +221,12 @@ func set_storey_filter(storey_id: String) -> void:
 func set_discipline_filter(discipline: String) -> void:
     discipline_filter = discipline
     _disc_opt.select(maxi(_disc_ids.find(discipline), 0))
+    rebuild()
+
+
+func set_area_filter(area_id: String) -> void:
+    area_filter = area_id
+    _area_opt.select(maxi(_area_ids.find(area_id), 0))
     rebuild()
 
 
@@ -241,7 +266,7 @@ func rebuild() -> void:
         return
     var t0: int = Time.get_ticks_usec()
     var model: Dictionary = GanttModel.build(gs, {"storey_id": storey_filter, "discipline": discipline_filter,
-            "mine": mine_only, "expanded": renderer.expanded})
+            "mine": mine_only, "expanded": renderer.expanded, "area_id": area_filter})
     renderer.set_model(model)
     model_build_ms = float(Time.get_ticks_usec() - t0) / 1000.0
     rebuild_count += 1

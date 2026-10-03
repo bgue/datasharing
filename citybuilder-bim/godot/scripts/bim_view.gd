@@ -63,6 +63,28 @@ const OUTLINE_GHOST: int = 1  # whole extent of a not-started element
 const OUTLINE_REMAINING: int = 2  # full extent around the part still to build
 const HIGHLIGHT_COLOR: Color = Color(1, 0.9, 0.2)
 
+## Chunked rendering (docs/06 C.3): the non-kit elements are drawn by one MultiMesh per (storey, CHUNK_CELLS x CHUNK_CELLS
+## cell chunk, visual kind) plus one outline MultiMesh next to it. Per-element state lives in PackedArrays indexed by the
+## element index (`_slots` maps a guid to it). `update_culling()` hides chunks outside the camera frustum (and, on big
+## models, above the focused storey) and swaps chunks beyond `lod_far_distance` for per-cell cubes tinted by the done
+## share of the cell.
+const CHUNK_CELLS: int = 8
+const TILE_CHUNKS: int = 4
+## Chunks farther than this from the camera (grid cells) draw per-cell cubes instead of their elements.
+const LOD_FAR_DISTANCE: float = 100.0
+const LOD_HYSTERESIS: float = 0.9
+const CULL_INTERVAL_S: float = 0.1
+## Models with more elements than this cull the storeys above the focus instead of drawing them faintly, and recolour
+## in time slices.
+const BIG_MODEL_ELEMENTS: int = 30000
+const RECOLOUR_BUDGET_MS: float = 4.0
+## Cell-cube MultiMeshes created per culling pass (the first pass over a big model spreads them over a few passes).
+const FAR_BUILDS_PER_PASS: int = 96
+const FAR_GHOST: Color = Color(0.62, 0.62, 0.66, 0.12)
+const GROW_HEIGHT: int = 0
+const GROW_LENGTH: int = 1
+const GROW_COUNT: int = 2
+
 var gs: SimState = null
 ## Optional hook for a marker kit: `func(marker: String) -> Mesh`; a null result falls back to the placeholder cylinder.
 var marker_mesh_provider: Callable = Callable()
@@ -72,29 +94,70 @@ var _kit_layer: KitLayer = null
 # <<< visual kits
 var show_ghost: bool = true
 var focus_storey_index: int = 0
+## Distance (grid cells) beyond which a chunk draws cell cubes; `cull_enabled` off keeps every chunk drawn in full.
+var lod_far_distance: float = LOD_FAR_DISTANCE
+var cull_enabled: bool = true
+## -1 automatic (on for big models), 0 draw the storeys above the focus faintly, 1 hide their chunks.
+var cull_above_focus: int = -1
 
-var _instances: Dictionary = {}  # kind -> MultiMeshInstance3D
-var _slots: Dictionary = {}  # guid -> {kind, slot}
-var _kind_elements: Dictionary = {}  # kind -> Array[ElementData]
-var _storey_index: Dictionary = {}  # guid -> int
-var _rework_guids: Dictionary = {}
+# element data (non-kit elements), indexed by element index
+var _elems: Array[ElementData] = []
+var _slots: Dictionary = {}  # guid -> element index
+var _e_kind: PackedInt32Array = PackedInt32Array()
+var _e_group: PackedInt32Array = PackedInt32Array()
+var _e_slot: PackedInt32Array = PackedInt32Array()
+var _e_storey: PackedInt32Array = PackedInt32Array()
+var _g_centre: PackedVector3Array = PackedVector3Array()  # full extent: centre and size (grid units)
+var _g_scale: PackedVector3Array = PackedVector3Array()
+var _g_mode: PackedByteArray = PackedByteArray()  # GROW_HEIGHT / GROW_LENGTH / GROW_COUNT
+var _g_axis: PackedByteArray = PackedByteArray()  # 0 = x, 2 = z (length mode)
+var _a_fill: PackedFloat32Array = PackedFloat32Array()  # fill the instance was last written with (-1: never)
+var _a_vis: PackedByteArray = PackedByteArray()  # SimState.Visual the instance was last written with (255: never)
+var _a_omode: PackedByteArray = PackedByteArray()
+var _a_col: PackedColorArray = PackedColorArray()  # last written colours (the headless renderer keeps no instance data)
+var _a_ocol: PackedColorArray = PackedColorArray()
+var _e_cell_off: PackedInt32Array = PackedInt32Array()  # element -> range in _e_cells
+var _e_cells: PackedInt32Array = PackedInt32Array()
+var _e_tasked: PackedByteArray = PackedByteArray()  # 1 when the element has a non-virtual task
+var _kinds: Array[String] = []
+var _kind_index: Dictionary = {}
+var _kind_mesh: Array = []
+var _outline_mesh: Mesh = null
+var _far_mesh: BoxMesh = null
+var _far_material: StandardMaterial3D = null
+# chunks / groups / tiles
+var _chunk_root: Node3D = null
+var _groups: Array[Dictionary] = []  # {chunk, kind, mmi, omi, elems}
+var _chunks: Array[Dictionary] = []
+var _chunk_index: Dictionary = {}  # chunk key -> chunk index
+var _tiles: Array[Dictionary] = []
+var _storey_chunks: Dictionary = {}  # storey index -> Array of chunk indices
+# cells (far LOD cubes): per cell the sum of the fills of the elements covering it
+var _cell_index: Dictionary = {}
+var _c_x: PackedInt32Array = PackedInt32Array()
+var _c_z: PackedInt32Array = PackedInt32Array()
+var _c_storey: PackedInt32Array = PackedInt32Array()
+var _c_sum: PackedFloat32Array = PackedFloat32Array()
+var _c_n: PackedInt32Array = PackedInt32Array()  # tasked elements covering the cell
+var _c_chunk: PackedInt32Array = PackedInt32Array()  # cell -> chunk drawing its far cube
+var _c_slot: PackedInt32Array = PackedInt32Array()  # cell -> instance index in that cube MultiMesh
+var _far_dirty: Dictionary = {}  # cell -> true: its far cube colour is out of date
+var _storey_index: Dictionary = {}  # guid -> storey index of kit elements (the others use _e_storey)
+var _rework: Dictionary = {}  # element index -> true while REWORK (pulses)
 var _dirty: bool = true
 var _pulse: float = 0.0
 var _material: StandardMaterial3D = null
 var _marker_root: Node3D = null
 var _marker_nodes: Dictionary = {}  # task_id -> MeshInstance3D
 var _marker_default_mesh: CylinderMesh = null
-# progress visuals (WP-Q)
-var _outlines: Dictionary = {}  # kind -> MultiMeshInstance3D (thin box outline of the full extent, same slots)
-var _geo: Dictionary = {}  # guid -> {mode, scale, centre, axis}
-var _fill_applied: Dictionary = {}  # guid -> fill the instance was last written with
-var _vis_applied: Dictionary = {}  # guid -> SimState.Visual the instance was last written with
-# CPU-side copies of what was written to the MultiMeshes (the headless renderer keeps no instance data)
-var _xf_written: Dictionary = {}  # guid -> Transform3D of the solid part
-var _outline_written: Dictionary = {}  # guid -> Transform3D of the outline box (zero scale when hidden)
-var _col_written: Dictionary = {}  # guid -> Color of the solid part
-var _outline_mode: Dictionary = {}  # guid -> OUTLINE_NONE / OUTLINE_GHOST / OUTLINE_REMAINING
-var _outline_col_written: Dictionary = {}  # guid -> Color of the outline box
+var _color_epoch: int = 0
+var _recolour_queue: Array[int] = []
+var _log_cursor: int = 0
+var _log_epoch: int = -1
+var _cull_dirty: bool = true
+var _cull_timer: float = 0.0
+var _last_cam_xf: Transform3D = Transform3D()
+var _last_cam_fov: float = -1.0
 var _heat: CellHeatOverlay = null
 var _hl_root: Node3D = null
 var _hl_lines: MultiMeshInstance3D = null
@@ -113,6 +176,15 @@ var last_refresh_writes: int = 0
 ## the refresh itself (the cost of a week for this view).
 var last_week_ms: float = 0.0
 var _signal_us: int = 0
+## Result of the last update_culling(): {chunks, visible, near, far, hidden, ms}.
+var last_cull: Dictionary = {}
+## Milliseconds of the last _build() (tests / profiling).
+var last_build_ms: float = 0.0
+var last_build_phases: Dictionary = {}
+# bulk buffers used while building: 16 floats (3x4 transform, colour) per instance, groups at _g_base
+var _xbuf: PackedFloat32Array = PackedFloat32Array()
+var _obuf: PackedFloat32Array = PackedFloat32Array()
+var _bulk: bool = false
 
 
 func setup(state: SimState) -> void:
@@ -135,18 +207,25 @@ func setup(state: SimState) -> void:
 
 func set_ghost_visible(v: bool) -> void:
     show_ghost = v
-    _dirty = true
+    _mark_recolour()
     if _kit_layer != null:  # visual kits (WP-O)
         _kit_layer.set_ghost_visible(v)
 
 
 func set_focus_storey(idx: int) -> void:
     focus_storey_index = idx
-    _dirty = true
+    _mark_recolour()
+    _cull_dirty = true
     if _heat != null:
         _heat.set_focus_storey(idx)
     if _kit_layer != null:  # visual kits (WP-O)
         _kit_layer.set_focus_storey(idx)
+
+
+## Every instance colour depends on the focus / ghost toggle: recolour (chunks recolour lazily when they become visible).
+func _mark_recolour() -> void:
+    _dirty = true
+    _color_epoch += 1
 
 
 func _on_task_state_changed(task_id: String, _old: int, _new: int) -> void:
@@ -158,7 +237,9 @@ func _on_task_state_changed(task_id: String, _old: int, _new: int) -> void:
         return
     var t0: int = Time.get_ticks_usec()
     for g in t.element_guids:
-        _apply_element(g)
+        var ei: int = int(_slots.get(g, -1))
+        if ei >= 0:
+            _apply_element(ei)
     _signal_us += Time.get_ticks_usec() - t0
 
 
@@ -241,7 +322,7 @@ func _apply_marker_state(task_id: String) -> void:
     var node: MeshInstance3D = _marker_nodes.get(task_id, null)
     if node == null or gs == null:
         return
-    var rt: TaskRuntime = gs.runtime.get(task_id, null)
+    var rt: TaskRuntime = gs.runtime.get_rt(task_id)
     var t: TaskData = gs.bundle.tasks_by_id.get(task_id, null)
     if rt == null or t == null:
         return
@@ -336,7 +417,8 @@ static func vertical_centre(kind: String, size: Vector3, storey_h: float) -> flo
     return size.y * 0.5
 
 
-func element_transform(e: ElementData) -> Transform3D:
+## Size (grid units) and centre of the stand-in of an element before progress scaling.
+func _base_extent(e: ElementData) -> Array:
     var b: SequenceBundle = gs.bundle
     var size_m: Vector3 = e.size_hint if e.has_size_hint else default_size(e.visual, e.cells, b.cell_size_m, b.storey_height_m)
     var size_u: Vector3 = size_m / b.cell_size_m
@@ -348,8 +430,55 @@ func element_transform(e: ElementData) -> Transform3D:
     var n: float = float(maxi(1, e.cells.size()))
     var storey_idx: int = int(b.storey_index_by_id.get(e.storey_id, 0))
     var y: float = b.storey_y_for_index(storey_idx) + vertical_centre(e.visual, size_m, b.storey_height_m) / b.cell_size_m
+    return [size_u, Vector3(cx / n, y, cz / n), size_m]
+
+
+func element_transform(e: ElementData) -> Transform3D:
+    var ext: Array = _base_extent(e)
     # grid cells are centred on integer coordinates (Kenney GridMap, cell_center = false)
-    return Transform3D(Basis.from_scale(size_u), Vector3(cx / n, y, cz / n))
+    return Transform3D(Basis.from_scale(ext[0]), ext[1])
+
+
+## [mode (GROW_*), full-extent scale, centre, axis] of a non-kit element: linear kinds are oriented along the dominant axis
+## of their cells, flat kinds extend along the longer cell axis.
+func _geometry(e: ElementData) -> Array:
+    var ext: Array = _base_extent(e)
+    var sc: Vector3 = ext[0]
+    var centre: Vector3 = ext[1]
+    var mode: int = GROW_HEIGHT
+    var kind: String = e.visual
+    if COUNT_KINDS.has(kind):
+        mode = GROW_COUNT
+    elif LENGTH_KINDS.has(kind):
+        mode = GROW_LENGTH
+    if mode != GROW_LENGTH:
+        return [mode, sc, centre, 0]
+    var b: SequenceBundle = gs.bundle
+    var minx: int = 1 << 30
+    var maxx: int = -(1 << 30)
+    var minz: int = 1 << 30
+    var maxz: int = -(1 << 30)
+    for c in e.cells:
+        minx = mini(minx, c.x)
+        maxx = maxi(maxx, c.x)
+        minz = mini(minz, c.y)
+        maxz = maxi(maxz, c.y)
+    var w: int = maxx - minx + 1 if not e.cells.is_empty() else 1
+    var d: int = maxz - minz + 1 if not e.cells.is_empty() else 1
+    var axis: int = 0
+    if d > w:
+        axis = 2
+    elif d == w and LINEAR_KINDS.has(kind):
+        axis = 2 if sc.z > sc.x else 0
+    if LINEAR_KINDS.has(kind):
+        var size_m: Vector3 = ext[2]
+        var len_u: float = maxf(size_m.x, size_m.z) / b.cell_size_m
+        var thick_u: float = minf(size_m.x, size_m.z) / b.cell_size_m
+        if not e.has_size_hint:  # default sizes carry the x extent only: use the cell run
+            len_u = float(maxi(w, d))
+            thick_u = size_m.z / b.cell_size_m
+        sc = Vector3(len_u, sc.y, thick_u) if axis == 0 else Vector3(thick_u, sc.y, len_u)
+    return [mode, sc, centre, axis]
 
 
 func _get_material() -> StandardMaterial3D:
@@ -381,60 +510,315 @@ func _make_mesh(kind: String) -> Mesh:
     return m
 
 
-func _build() -> void:
-    for k in _instances:
-        (_instances[k] as Node).queue_free()
-    _instances.clear()
-    for k in _outlines:
-        (_outlines[k] as Node).queue_free()
-    _outlines.clear()
-    _geo.clear()
-    _fill_applied.clear()
-    _vis_applied.clear()
-    _xf_written.clear()
-    _outline_written.clear()
-    _col_written.clear()
-    _outline_mode.clear()
-    _outline_col_written.clear()
-    clear_highlight()
+## Key of a chunk (storey index, chunk column / row) and of a grid cell, as Dictionary keys.
+static func chunk_key(storey: int, cx: int, cz: int) -> int:
+    return ((storey + 1024) << 42) | ((cx + 524288) << 21) | (cz + 524288)
+
+
+static func cell_key(storey: int, x: int, z: int) -> int:
+    return ((storey + 1024) << 42) | ((x + 1048576) << 21) | (z + 1048576)
+
+
+func _chunk_for(storey: int, cx: int, cz: int) -> int:
+    var key: int = chunk_key(storey, cx, cz)
+    var ci: int = int(_chunk_index.get(key, -1))
+    if ci >= 0:
+        return ci
+    ci = _chunks.size()
+    _chunk_index[key] = ci
+    _chunks.append({"key": key, "storey": storey, "cx": cx, "cz": cz, "groups": [] as Array[int],
+            "lo": Vector3(INF, INF, INF), "hi": Vector3(-INF, -INF, -INF), "centre": Vector3.ZERO, "radius": 0.0,
+            "visible": true, "lod": 0, "col_epoch": -1, "far": null, "far_epoch": -1, "cells": [] as Array[int],
+            "tile": -1, "node_visible": true})
+    if not _storey_chunks.has(storey):
+        _storey_chunks[storey] = [] as Array[int]
+    (_storey_chunks[storey] as Array[int]).append(ci)
+    return ci
+
+
+func _free_nodes() -> void:
+    if _chunk_root != null:
+        _chunk_root.queue_free()
+        _chunk_root = null
+    _groups.clear()
+    _chunks.clear()
+    _chunk_index.clear()
+    _tiles.clear()
+    _storey_chunks.clear()
+    _cell_index.clear()
+    _elems.clear()
     _slots.clear()
-    _kind_elements.clear()
     _storey_index.clear()
-    _rework_guids.clear()
+    _rework.clear()
+    _recolour_queue.clear()
+    _e_kind = PackedInt32Array()
+    _e_group = PackedInt32Array()
+    _e_slot = PackedInt32Array()
+    _e_storey = PackedInt32Array()
+    _g_centre = PackedVector3Array()
+    _g_scale = PackedVector3Array()
+    _g_mode = PackedByteArray()
+    _g_axis = PackedByteArray()
+    _a_fill = PackedFloat32Array()
+    _a_vis = PackedByteArray()
+    _a_omode = PackedByteArray()
+    _a_col = PackedColorArray()
+    _a_ocol = PackedColorArray()
+    _e_cell_off = PackedInt32Array()
+    _e_cells = PackedInt32Array()
+    _e_tasked = PackedByteArray()
+    _c_x = PackedInt32Array()
+    _c_z = PackedInt32Array()
+    _c_storey = PackedInt32Array()
+    _c_sum = PackedFloat32Array()
+    _c_n = PackedInt32Array()
+    _c_chunk = PackedInt32Array()
+    _c_slot = PackedInt32Array()
+    _far_dirty.clear()
+
+
+func _build() -> void:
+    var t0: int = Time.get_ticks_usec()
+    _free_nodes()
+    clear_highlight()
     if gs == null or gs.bundle == null:
         return
     _kits_rebuild()  # visual kits (WP-O)
-    for e in gs.bundle.elements:
+    var t_kits: int = Time.get_ticks_usec()
+    var b: SequenceBundle = gs.bundle
+    # pass 1: geometry, chunk and group of every non-kit element
+    var group_of: Dictionary = {}  # chunk * 256 + kind -> group index
+    var group_lists: Array = []  # per group: Array of element indices
+    var elems_with_cells: int = 0
+    _e_cell_off.append(0)
+    for e in b.elements:
+        var storey: int = int(b.storey_index_by_id.get(e.storey_id, 0))
         if _kit_layer != null and _kit_layer.handles(e.guid):  # visual kits (WP-O): drawn by KitLayer
-            _storey_index[e.guid] = int(gs.bundle.storey_index_by_id.get(e.storey_id, 0))
+            _storey_index[e.guid] = storey
             continue
-        if not _kind_elements.has(e.visual):
-            _kind_elements[e.visual] = [] as Array[ElementData]
-        (_kind_elements[e.visual] as Array[ElementData]).append(e)
-        _storey_index[e.guid] = int(gs.bundle.storey_index_by_id.get(e.storey_id, 0))
-    for kind in _kind_elements:
-        var list: Array[ElementData] = _kind_elements[kind]
+        var ei: int = _elems.size()
+        _elems.append(e)
+        _slots[e.guid] = ei
+        var kind: int = int(_kind_index.get(e.visual, -1))
+        if kind < 0:
+            kind = _kinds.size()
+            _kind_index[e.visual] = kind
+            _kinds.append(e.visual)
+            _kind_mesh.append(_make_mesh(e.visual))
+        _e_kind.append(kind)
+        _e_storey.append(storey)
+        var geo: Array = _geometry(e)
+        var centre: Vector3 = geo[2]
+        var scale: Vector3 = geo[1]
+        _g_mode.append(int(geo[0]))
+        _g_scale.append(scale)
+        _g_centre.append(centre)
+        _g_axis.append(int(geo[3]))
+        var ci: int = _chunk_for(storey, roundi(centre.x) >> 3, roundi(centre.z) >> 3)
+        var ch: Dictionary = _chunks[ci]
+        ch["lo"] = (ch["lo"] as Vector3).min(centre - scale * 0.5)
+        ch["hi"] = (ch["hi"] as Vector3).max(centre + scale * 0.5)
+        var gk: int = ci * 256 + kind
+        var gi: int = int(group_of.get(gk, -1))
+        if gi < 0:
+            gi = _groups.size()
+            group_of[gk] = gi
+            _groups.append({"chunk": ci, "kind": kind, "mmi": null, "omi": null, "elems": [] as Array[int]})
+            (ch["groups"] as Array[int]).append(gi)
+        var g: Dictionary = _groups[gi]
+        _e_group.append(gi)
+        _e_slot.append((g["elems"] as Array[int]).size())
+        (g["elems"] as Array[int]).append(ei)
+        _a_fill.append(-1.0)
+        _a_vis.append(255)
+        _a_omode.append(0)
+        _a_col.append(Color(1, 1, 1, 1))
+        _a_ocol.append(Color(1, 1, 1, 0))
+        # cells covered (far LOD cubes): the shade of a cell is the mean fill of the tasked elements covering it
+        var tasked: bool = _has_tasks(e.guid)
+        _e_tasked.append(1 if tasked else 0)
+        for c in e.cells:
+            var ck: int = cell_key(storey, c.x, c.y)
+            var cid: int = int(_cell_index.get(ck, -1))
+            if cid < 0:
+                cid = _c_x.size()
+                _cell_index[ck] = cid
+                _c_x.append(c.x)
+                _c_z.append(c.y)
+                _c_storey.append(storey)
+                _c_sum.append(0.0)
+                _c_n.append(0)
+                var cc: int = _chunk_for(storey, c.x >> 3, c.y >> 3)
+                var carr: Array[int] = _chunks[cc]["cells"]
+                _c_chunk.append(cc)
+                _c_slot.append(carr.size())
+                carr.append(cid)
+            _e_cells.append(cid)
+            if tasked:
+                _c_n[cid] += 1
+        elems_with_cells += e.cells.size()
+        _e_cell_off.append(_e_cells.size())
+    var tp1: int = Time.get_ticks_usec()
+    # pass 2: nodes (the instance data is written in bulk below)
+    _chunk_root = Node3D.new()
+    _chunk_root.name = "Chunks"
+    add_child(_chunk_root)
+    var total: int = 0
+    for gi in _groups.size():
+        var g2: Dictionary = _groups[gi]
+        var ch2: Dictionary = _chunks[int(g2["chunk"])]
+        var list: Array[int] = g2["elems"]
+        var kind2: int = int(g2["kind"])
         var mm := MultiMesh.new()
         mm.transform_format = MultiMesh.TRANSFORM_3D
         mm.use_colors = true
-        mm.mesh = _make_mesh(kind)
+        mm.mesh = _kind_mesh[kind2]
         mm.instance_count = list.size()
-        for i in list.size():
-            mm.set_instance_transform(i, element_transform(list[i]))
-            _slots[list[i].guid] = {"kind": kind, "slot": i}
-            _geo[list[i].guid] = element_extent(list[i])
         var mmi := MultiMeshInstance3D.new()
-        mmi.name = "Kind_%s" % kind
+        mmi.name = "C%d_%d_%d_%s" % [int(ch2["storey"]), int(ch2["cx"]), int(ch2["cz"]), _kinds[kind2]]
         mmi.multimesh = mm
         mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-        add_child(mmi)
-        _instances[kind] = mmi
-        _outlines[kind] = _make_outline_instance(kind, list.size())
+        _chunk_root.add_child(mmi)
+        g2["mmi"] = mmi
+        g2["omi"] = _make_outline_instance(mmi.name, list.size())
+        _chunk_root.add_child(g2["omi"])
+        g2["base"] = total
+        total += list.size()
+    _xbuf.resize(total * 16)
+    _obuf.resize(total * 16)
+    _bulk = true
+    var tp2: int = Time.get_ticks_usec()
+    _finish_chunks()
+    _a_cell_reset()
     _dirty = true
-    for guid in _slots:
-        _apply_element(guid, true)
-    _apply_all()
+    _color_epoch += 1
+    _log_cursor = gs.runtime.log_end()
+    _log_epoch = gs.runtime.log_epoch
+    if _is_fresh():
+        _fast_init()
+    else:
+        for ei3 in _elems.size():
+            _apply_element(ei3, true)
+    _bulk = false
+    for g3 in _groups:
+        var n3: int = (g3["elems"] as Array[int]).size()
+        var b3: int = int(g3["base"]) * 16
+        (g3["mmi"] as MultiMeshInstance3D).multimesh.buffer = _xbuf.slice(b3, b3 + n3 * 16)
+        (g3["omi"] as MultiMeshInstance3D).multimesh.buffer = _obuf.slice(b3, b3 + n3 * 16)
+    _xbuf = PackedFloat32Array()
+    _obuf = PackedFloat32Array()
+    for ch3 in _chunks:
+        ch3["col_epoch"] = _color_epoch
+    var tp3: int = Time.get_ticks_usec()
+    _far_dirty.clear()
+    _dirty = false
     _rebuild_markers()
+    _cull_dirty = true
+    last_build_ms = float(Time.get_ticks_usec() - t0) / 1000.0
+    last_build_phases = {"kits": float(t_kits - t0) / 1000.0, "pass1": float(tp1 - t_kits) / 1000.0, "nodes": float(tp2 - tp1) / 1000.0, "apply": float(tp3 - tp2) / 1000.0}
+
+
+## True while no task has started: every element is a ghost at full extent (the common start of a level).
+func _is_fresh() -> bool:
+    var c: PackedInt32Array = gs.runtime.counts
+    return c[TaskRuntime.State.ACTIVE] + c[TaskRuntime.State.AWAITING_INSPECTION] + c[TaskRuntime.State.REWORK] \
+            + c[TaskRuntime.State.DONE] + c[TaskRuntime.State.INSPECTED] == 0
+
+
+## _apply_element(force) for a fresh model without the per-element lookups: ghost transforms and the colours cached per
+## (discipline, storey).
+func _fast_init() -> void:
+    var b: SequenceBundle = gs.bundle
+    var col_cache: Dictionary = {}
+    var disc_cache: Dictionary = {}  # step id -> discipline
+    for ei in _elems.size():
+        var e: ElementData = _elems[ei]
+        var storey: int = _e_storey[ei]
+        var list: Array = b.tasks_by_element.get(e.guid, [])
+        var disc: String = "general"
+        if not list.is_empty():
+            var step_id: String = (list[0] as TaskData).step_id
+            if not disc_cache.has(step_id):
+                var st: StepDef = b.steps_by_id.get(step_id, null)
+                disc_cache[step_id] = st.discipline if st != null else "general"
+            disc = disc_cache[step_id]
+        var key: String = "%s|%d" % [disc, storey]
+        if not col_cache.has(key):
+            var base: Color = DISCIPLINE_COLORS.get(disc, DISCIPLINE_COLORS["general"])
+            col_cache[key] = [_colour_from(base, SimState.Visual.GHOST, -1, storey, 1.0),
+                    _outline_col_from(base, SimState.Visual.GHOST, -1, storey, OUTLINE_GHOST)]
+        var cols: Array = col_cache[key]
+        var g: Dictionary = _groups[_e_group[ei]]
+        var o: int = (int(g["base"]) + _e_slot[ei]) * 16
+        var xf := Transform3D(Basis.from_scale(_g_scale[ei]), _g_centre[ei])
+        _put_xf(_xbuf, o, xf)
+        _put_xf(_obuf, o, xf)
+        var col: Color = cols[0]
+        var oc: Color = cols[1]
+        _a_col[ei] = col
+        _a_ocol[ei] = oc
+        _xbuf[o + 12] = col.r
+        _xbuf[o + 13] = col.g
+        _xbuf[o + 14] = col.b
+        _xbuf[o + 15] = col.a
+        _obuf[o + 12] = oc.r
+        _obuf[o + 13] = oc.g
+        _obuf[o + 14] = oc.b
+        _obuf[o + 15] = oc.a
+        _a_vis[ei] = SimState.Visual.GHOST
+        _a_fill[ei] = 0.0
+        _a_omode[ei] = OUTLINE_GHOST
+    transform_writes += _elems.size()
+
+
+func _a_cell_reset() -> void:
+    _c_sum.fill(0.0)
+
+
+func _has_tasks(guid: String) -> bool:
+    for t in gs.bundle.tasks_by_element.get(guid, []):
+        if not (t as TaskData).is_virtual:
+            return true
+    return false
+
+
+## Bounds, bounding spheres and tiles of the chunks.
+func _finish_chunks() -> void:
+    var h_grid: float = gs.bundle.storey_height_m / gs.bundle.cell_size_m
+    var tile_index: Dictionary = {}
+    for ci in _chunks.size():
+        var ch: Dictionary = _chunks[ci]
+        var lo: Vector3 = ch["lo"]
+        var hi: Vector3 = ch["hi"]
+        if lo.x > hi.x:  # a chunk of far cubes only: its cell rectangle and one storey of height
+            var y0: float = gs.bundle.storey_y_for_index(int(ch["storey"]))
+            lo = Vector3(float(int(ch["cx"]) * CHUNK_CELLS) - 0.5, y0, float(int(ch["cz"]) * CHUNK_CELLS) - 0.5)
+            hi = Vector3(lo.x + CHUNK_CELLS, y0 + h_grid, lo.z + CHUNK_CELLS)
+        else:
+            # far cubes of the chunk's cells extend the box
+            var cells: Array[int] = ch["cells"]
+            for cid in cells:
+                lo = lo.min(Vector3(float(_c_x[cid]) - 0.5, lo.y, float(_c_z[cid]) - 0.5))
+                hi = hi.max(Vector3(float(_c_x[cid]) + 0.5, hi.y, float(_c_z[cid]) + 0.5))
+            hi.y = maxf(hi.y, gs.bundle.storey_y_for_index(int(ch["storey"])) + h_grid)
+        ch["lo"] = lo
+        ch["hi"] = hi
+        ch["centre"] = (lo + hi) * 0.5
+        ch["radius"] = (hi - lo).length() * 0.5
+        var tk: int = chunk_key(int(ch["storey"]), int(ch["cx"]) >> 2, int(ch["cz"]) >> 2)
+        var ti: int = int(tile_index.get(tk, -1))
+        if ti < 0:
+            ti = _tiles.size()
+            tile_index[tk] = ti
+            _tiles.append({"chunks": [] as Array[int], "lo": lo, "hi": hi, "centre": Vector3.ZERO, "radius": 0.0})
+        var tile: Dictionary = _tiles[ti]
+        (tile["chunks"] as Array[int]).append(ci)
+        tile["lo"] = (tile["lo"] as Vector3).min(lo)
+        tile["hi"] = (tile["hi"] as Vector3).max(hi)
+        ch["tile"] = ti
+    for tile in _tiles:
+        tile["centre"] = ((tile["lo"] as Vector3) + (tile["hi"] as Vector3)) * 0.5
+        tile["radius"] = ((tile["hi"] as Vector3) - (tile["lo"] as Vector3)).length() * 0.5
 
 
 # ------------------------------------------------------------------ colours
@@ -444,14 +828,29 @@ func base_colour(guid: String) -> Color:
     return DISCIPLINE_COLORS.get(disc, DISCIPLINE_COLORS["general"])
 
 
+func _storey_of(guid: String) -> int:
+    var ei: int = int(_slots.get(guid, -1))
+    if ei >= 0:
+        return _e_storey[ei]
+    return int(_storey_index.get(guid, 0))
+
+
 ## Final instance colour (alpha included) for an element.
 func compute_colour(guid: String, pulse: float = 1.0) -> Color:
-    var col: Color = base_colour(guid)
-    var vis: int = gs.element_visual(guid)
+    var ei: int = int(_slots.get(guid, -1))
+    return _colour(guid, ei, _storey_of(guid), pulse)
+
+
+func _colour(guid: String, ei: int, storey: int, pulse: float) -> Color:
+    return _colour_from(base_colour(guid), gs.element_visual(guid), ei, storey, pulse)
+
+
+func _colour_from(base: Color, vis: int, ei: int, storey: int, pulse: float) -> Color:
+    var col: Color = base
     var a: float = 1.0
     match vis:
         SimState.Visual.GHOST:
-            a = GHOST_ALPHA if int(_storey_index.get(guid, 0)) == focus_storey_index else 0.0
+            a = GHOST_ALPHA if storey == focus_storey_index else 0.0
         SimState.Visual.FRAMED:
             a = FRAMED_ALPHA
         SimState.Visual.SOLID:
@@ -463,11 +862,9 @@ func compute_colour(guid: String, pulse: float = 1.0) -> Color:
             a = 1.0
             col = col.lerp(REWORK_TINT, 0.3 + 0.3 * pulse)
     # count kinds (windows, doors, equipment...) are ghosts until half of their work is done, then solid
-    if (vis == SimState.Visual.FRAMED or vis == SimState.Visual.SOLID) and _geo.has(guid) \
-            and str((_geo[guid] as Dictionary)["mode"]) == "count":
-        a = (GHOST_ALPHA if int(_storey_index.get(guid, 0)) == focus_storey_index else 0.0) \
-                if float(_fill_applied.get(guid, 0.0)) < COUNT_THRESHOLD else 1.0
-    if int(_storey_index.get(guid, 0)) > focus_storey_index:
+    if (vis == SimState.Visual.FRAMED or vis == SimState.Visual.SOLID) and ei >= 0 and _g_mode[ei] == GROW_COUNT:
+        a = (GHOST_ALPHA if storey == focus_storey_index else 0.0) if maxf(_a_fill[ei], 0.0) < COUNT_THRESHOLD else 1.0
+    if storey > focus_storey_index:
         a = minf(a, ABOVE_FOCUS_ALPHA)
     if vis == SimState.Visual.GHOST and not show_ghost:
         a = 0.0
@@ -475,56 +872,112 @@ func compute_colour(guid: String, pulse: float = 1.0) -> Color:
     return col
 
 
-func _apply_color(guid: String) -> void:
-    if not _slots.has(guid):
-        return
-    var s: Dictionary = _slots[guid]
-    var mm: MultiMesh = (_instances[s["kind"]] as MultiMeshInstance3D).multimesh
-    var col: Color = compute_colour(guid, 0.5 + 0.5 * sin(_pulse))
-    _col_written[guid] = col
-    mm.set_instance_color(int(s["slot"]), col)
-    if _outlines.has(s["kind"]):
-        var oc: Color = outline_colour(guid)
-        _outline_col_written[guid] = oc
-        (_outlines[s["kind"]] as MultiMeshInstance3D).multimesh.set_instance_color(int(s["slot"]), oc)
-    if gs.element_visual(guid) == SimState.Visual.REWORK:
-        _rework_guids[guid] = true
+## Writes the colour (and outline colour) of one element to its MultiMeshes.
+func _apply_color(ei: int) -> void:
+    var guid: String = _elems[ei].guid
+    var g: Dictionary = _groups[_e_group[ei]]
+    var slot: int = _e_slot[ei]
+    var base: Color = base_colour(guid)
+    var vis: int = gs.element_visual(guid)
+    var col: Color = _colour_from(base, vis, ei, _e_storey[ei], 0.5 + 0.5 * sin(_pulse))
+    _a_col[ei] = col
+    var oc: Color = _outline_col_from(base, vis, ei, _e_storey[ei])
+    _a_ocol[ei] = oc
+    if _bulk:
+        var o: int = (int(g["base"]) + slot) * 16 + 12
+        _xbuf[o] = col.r
+        _xbuf[o + 1] = col.g
+        _xbuf[o + 2] = col.b
+        _xbuf[o + 3] = col.a
+        _obuf[o] = oc.r
+        _obuf[o + 1] = oc.g
+        _obuf[o + 2] = oc.b
+        _obuf[o + 3] = oc.a
     else:
-        _rework_guids.erase(guid)
+        (g["mmi"] as MultiMeshInstance3D).multimesh.set_instance_color(slot, col)
+        (g["omi"] as MultiMeshInstance3D).multimesh.set_instance_color(slot, oc)
+    if vis == SimState.Visual.REWORK:
+        _rework[ei] = true
+    else:
+        _rework.erase(ei)
 
 
+func _is_big() -> bool:
+    return _elems.size() > BIG_MODEL_ELEMENTS
+
+
+func _recolour_chunk(ci: int) -> void:
+    var ch: Dictionary = _chunks[ci]
+    for gi in ch["groups"]:
+        for ei in (_groups[gi]["elems"] as Array[int]):
+            _apply_color(ei)
+    ch["col_epoch"] = _color_epoch
+
+
+## Recolours the chunks (all of them on small models; on big ones the chunks being drawn now, over the next frames:
+## the others recolour when they become visible).
 func _apply_all() -> void:
     if gs == null or gs.bundle == null:
         return
-    for guid in _slots:
-        _apply_color(guid)
     _dirty = false
+    if _is_big():
+        _recolour_queue.clear()
+        for ci in _chunks.size():
+            var ch: Dictionary = _chunks[ci]
+            if (ch["groups"] as Array).is_empty() or int(ch["col_epoch"]) == _color_epoch:
+                continue
+            if bool(ch["visible"]) and int(ch["lod"]) == 0:
+                _recolour_queue.append(ci)
+        return
+    for ci in _chunks.size():
+        if not (_chunks[ci]["groups"] as Array).is_empty():
+            _recolour_chunk(ci)
+
+
+## Recolours queued chunks until the time budget is used up.
+func _run_recolour_queue(budget_ms: float) -> void:
+    var t0: int = Time.get_ticks_usec()
+    while not _recolour_queue.is_empty():
+        var ci: int = _recolour_queue.pop_back()
+        if int(_chunks[ci]["col_epoch"]) != _color_epoch:
+            _recolour_chunk(ci)
+        if float(Time.get_ticks_usec() - t0) / 1000.0 > budget_ms:
+            break
 
 
 func _process(delta: float) -> void:
     if _dirty:
         _apply_all()
+    if not _recolour_queue.is_empty():
+        _run_recolour_queue(RECOLOUR_BUDGET_MS)
+    if cull_enabled:
+        _cull_timer += delta
+        if _cull_timer >= CULL_INTERVAL_S:
+            _cull_timer = 0.0
+            update_culling()
     if not _hl_boxes.is_empty():
         _hl_time += delta
         _pulse_highlight()
-    if not _rework_guids.is_empty():
+    if not _rework.is_empty():
         _pulse += delta * 5.0
-        for guid in _rework_guids:
-            var s: Dictionary = _slots[guid]
-            (_instances[s["kind"]] as MultiMeshInstance3D).multimesh.set_instance_color(
-                    int(s["slot"]), compute_colour(guid, 0.5 + 0.5 * sin(_pulse)))
+        for ei in _rework:
+            var g: Dictionary = _groups[_e_group[ei]]
+            (g["mmi"] as MultiMeshInstance3D).multimesh.set_instance_color(_e_slot[ei],
+                    _colour(_elems[ei].guid, ei, _e_storey[ei], 0.5 + 0.5 * sin(_pulse)))
 
 
-## For tests / UI: kind -> instance count.
+## For tests / UI: kind -> instance count (over all chunks).
 func instance_counts() -> Dictionary:
     var out: Dictionary = {}
-    for k in _instances:
-        out[k] = (_instances[k] as MultiMeshInstance3D).multimesh.instance_count
+    for g in _groups:
+        var k: String = _kinds[int(g["kind"])]
+        out[k] = int(out.get(k, 0)) + (g["elems"] as Array[int]).size()
     return out
 
 
 func instance_colour(guid: String) -> Color:
-    return _col_written.get(guid, Color(1, 1, 1, 1))
+    var ei: int = int(_slots.get(guid, -1))
+    return _a_col[ei] if ei >= 0 else Color(1, 1, 1, 1)
 
 
 # ------------------------------------------------------------------ progress visuals (WP-Q)
@@ -539,74 +992,56 @@ static func grow_mode(kind: String) -> String:
     return "height"
 
 
+static func _mode_name(m: int) -> String:
+    return "count" if m == GROW_COUNT else ("length" if m == GROW_LENGTH else "height")
+
+
 ## Done share of an element: crew-days done / estimated crew-days over its (non-virtual) tasks, 0..1. Finished tasks
 ## count in full (like the kits' layer fills).
 func element_fill(guid: String) -> float:
     var done: float = 0.0
     var total: float = 0.0
+    var st: TaskStore = gs.runtime
     for t in gs.bundle.tasks_by_element.get(guid, []):
         var task: TaskData = t
         if task.is_virtual:
             continue
         var est: float = maxf(task.estimated_crew_days, 0.01)
         total += est
-        done += CellHeatOverlay.task_done(gs, task)
+        var i: int = int(st.index.get(task.task_id, -1))
+        if i < 0:
+            continue
+        var s: int = st.state[i]
+        if s == TaskRuntime.State.AWAITING_INSPECTION or s == TaskRuntime.State.DONE or s == TaskRuntime.State.INSPECTED:
+            done += task.estimated_crew_days
+        else:
+            done += minf(st.progress[i], task.estimated_crew_days)
     return clampf(done / total, 0.0, 1.0) if total > 0.0 else 0.0
 
 
 ## Full extent of a non-kit element: {mode, scale (grid units), centre (world), axis (0 = x, 2 = z; length mode)}.
-## Linear kinds are oriented along the dominant axis of their cells, flat kinds extend along the longer cell axis.
 func element_extent(e: ElementData) -> Dictionary:
-    var base: Transform3D = element_transform(e)
-    var mode: String = grow_mode(e.visual)
-    var out: Dictionary = {"mode": mode, "scale": base.basis.get_scale(), "centre": base.origin, "axis": 0}
-    if mode != "length":
-        return out
-    var b: SequenceBundle = gs.bundle
-    var minx: int = 1 << 30
-    var maxx: int = -(1 << 30)
-    var minz: int = 1 << 30
-    var maxz: int = -(1 << 30)
-    for c in e.cells:
-        minx = mini(minx, c.x)
-        maxx = maxi(maxx, c.x)
-        minz = mini(minz, c.y)
-        maxz = maxi(maxz, c.y)
-    var w: int = maxx - minx + 1 if not e.cells.is_empty() else 1
-    var d: int = maxz - minz + 1 if not e.cells.is_empty() else 1
-    var sc: Vector3 = out["scale"]
-    var axis: int = 0
-    if d > w:
-        axis = 2
-    elif d == w and LINEAR_KINDS.has(e.visual):
-        axis = 2 if sc.z > sc.x else 0
-    if LINEAR_KINDS.has(e.visual):
-        var size_m: Vector3 = e.size_hint if e.has_size_hint else default_size(e.visual, e.cells, b.cell_size_m, b.storey_height_m)
-        var len_u: float = maxf(size_m.x, size_m.z) / b.cell_size_m
-        var thick_u: float = minf(size_m.x, size_m.z) / b.cell_size_m
-        if not e.has_size_hint:  # default sizes carry the x extent only: use the cell run
-            len_u = float(maxi(w, d))
-            thick_u = size_m.z / b.cell_size_m
-        sc = Vector3(len_u, sc.y, thick_u) if axis == 0 else Vector3(thick_u, sc.y, len_u)
-    out["scale"] = sc
-    out["axis"] = axis
-    return out
+    var geo: Array = _geometry(e)
+    return {"mode": _mode_name(int(geo[0])), "scale": geo[1], "centre": geo[2], "axis": int(geo[3])}
+
+
+static func _fill_xf(mode: int, centre: Vector3, scale: Vector3, axis: int, f: float) -> Transform3D:
+    var sc: Vector3 = scale
+    var c: Vector3 = centre
+    if mode == GROW_HEIGHT:
+        var base_y: float = c.y - sc.y * 0.5
+        sc.y *= f
+        c.y = base_y + sc.y * 0.5
+    elif mode == GROW_LENGTH:
+        var start: float = c[axis] - sc[axis] * 0.5
+        sc[axis] *= f
+        c[axis] = start + sc[axis] * 0.5
+    return Transform3D(Basis.from_scale(sc), c)
 
 
 static func _fill_transform(geo: Dictionary, f: float) -> Transform3D:
-    var sc: Vector3 = geo["scale"]
-    var c: Vector3 = geo["centre"]
-    match str(geo["mode"]):
-        "height":
-            var base_y: float = c.y - sc.y * 0.5
-            sc.y *= f
-            c.y = base_y + sc.y * 0.5
-        "length":
-            var ax: int = int(geo["axis"])
-            var start: float = c[ax] - sc[ax] * 0.5
-            sc[ax] *= f
-            c[ax] = start + sc[ax] * 0.5
-    return Transform3D(Basis.from_scale(sc), c)
+    var mode: int = GROW_COUNT if str(geo["mode"]) == "count" else (GROW_LENGTH if str(geo["mode"]) == "length" else GROW_HEIGHT)
+    return _fill_xf(mode, geo["centre"], geo["scale"], int(geo["axis"]), f)
 
 
 ## Fill an instance is drawn with: the full extent as a ghost when not started, else the clamped fill.
@@ -616,21 +1051,36 @@ static func drawn_fill(fill: float, vis: int) -> float:
     return clampf(maxf(fill, MIN_FILL), MIN_FILL, 1.0)
 
 
-## Transform of the solid part of a non-kit element at `fill` for a visual state (null-safe for unknown guids).
+func _progress_xf(ei: int, fill: float, vis: int) -> Transform3D:
+    if _g_mode[ei] == GROW_COUNT:
+        return _fill_xf(GROW_COUNT, _g_centre[ei], _g_scale[ei], _g_axis[ei], 1.0)
+    return _fill_xf(_g_mode[ei], _g_centre[ei], _g_scale[ei], _g_axis[ei], drawn_fill(fill, vis))
+
+
+## Transform of the solid part of a non-kit element at `fill` for a visual state.
 func progress_transform(guid: String, fill: float, vis: int) -> Transform3D:
-    var geo: Dictionary = _geo[guid]
-    if str(geo["mode"]) == "count":
-        return _fill_transform(geo, 1.0)
-    return _fill_transform(geo, drawn_fill(fill, vis))
+    return _progress_xf(int(_slots[guid]), fill, vis)
 
 
 ## Transform of the instance of `guid` as last written (tests / UI); identity for unknown guids.
 func instance_transform(guid: String) -> Transform3D:
-    return _xf_written.get(guid, Transform3D())
+    var ei: int = int(_slots.get(guid, -1))
+    if ei < 0 or _a_vis[ei] == 255:
+        return Transform3D()
+    return _progress_xf(ei, _a_fill[ei], _a_vis[ei])
 
 
 func outline_transform(guid: String) -> Transform3D:
-    return _outline_written.get(guid, Transform3D(Basis.from_scale(Vector3.ZERO), Vector3.ZERO))
+    var ei: int = int(_slots.get(guid, -1))
+    if ei < 0:
+        return Transform3D(Basis.from_scale(Vector3.ZERO), Vector3.ZERO)
+    return _outline_xf(ei)
+
+
+func _outline_xf(ei: int) -> Transform3D:
+    if _a_omode[ei] != OUTLINE_NONE:
+        return _fill_xf(_g_mode[ei], _g_centre[ei], _g_scale[ei], _g_axis[ei], 1.0)
+    return Transform3D(Basis.from_scale(Vector3.ZERO), _g_centre[ei])
 
 
 ## True while the thin outline box of the full extent is shown for an element.
@@ -639,15 +1089,25 @@ func outline_visible(guid: String) -> bool:
 
 
 func applied_fill(guid: String) -> float:
-    return float(_fill_applied.get(guid, 0.0))
+    var ei: int = int(_slots.get(guid, -1))
+    return maxf(_a_fill[ei], 0.0) if ei >= 0 else 0.0
 
 
 ## Colour of the outline box: discipline colour at GHOST_OUTLINE_ALPHA for not-started elements, OUTLINE_ALPHA around
 ## the remainder of a part-built one; transparent when the ghost toggle hides ghosts or the outline is off.
 func outline_colour(guid: String) -> Color:
-    var mode: int = int(_outline_mode.get(guid, OUTLINE_NONE))
-    var col: Color = base_colour(guid)
-    if gs.element_visual(guid) == SimState.Visual.REWORK:
+    var ei: int = int(_slots.get(guid, -1))
+    return _outline_col(guid, ei, _storey_of(guid))
+
+
+func _outline_col(guid: String, ei: int, storey: int) -> Color:
+    return _outline_col_from(base_colour(guid), gs.element_visual(guid), ei, storey)
+
+
+func _outline_col_from(base: Color, vis: int, ei: int, storey: int, mode_override: int = -1) -> Color:
+    var mode: int = mode_override if mode_override >= 0 else (int(_a_omode[ei]) if ei >= 0 else OUTLINE_NONE)
+    var col: Color = base
+    if vis == SimState.Visual.REWORK:
         col = col.lerp(REWORK_TINT, 0.45)
     if mode == OUTLINE_NONE:
         col.a = 0.0
@@ -655,14 +1115,148 @@ func outline_colour(guid: String) -> Color:
         col.a = GHOST_OUTLINE_ALPHA if show_ghost else 0.0
     else:
         col.a = OUTLINE_ALPHA
-    if int(_storey_index.get(guid, 0)) > focus_storey_index:
+    if storey > focus_storey_index:
         col.a = minf(col.a, ABOVE_FOCUS_ALPHA)
     return col
 
 
 ## Outline written for an element (tests): the colour including the ghost toggle and the storey fade.
 func applied_outline_colour(guid: String) -> Color:
-    return _outline_col_written.get(guid, Color(1, 1, 1, 0))
+    var ei: int = int(_slots.get(guid, -1))
+    return _a_ocol[ei] if ei >= 0 else Color(1, 1, 1, 0)
+
+
+func _make_outline_instance(node_name: String, count: int) -> MultiMeshInstance3D:
+    if _outline_mesh == null:
+        var mesh: ArrayMesh = line_box_mesh().duplicate() as ArrayMesh
+        var omat: StandardMaterial3D = _line_material(true)
+        omat.render_priority = 1  # after the solid parts; alpha materials write no depth, so the lines never occlude them
+        mesh.surface_set_material(0, omat)
+        _outline_mesh = mesh
+    var mm := MultiMesh.new()
+    mm.transform_format = MultiMesh.TRANSFORM_3D
+    mm.use_colors = true
+    mm.mesh = _outline_mesh
+    mm.instance_count = count
+    var mmi := MultiMeshInstance3D.new()
+    mmi.name = "O" + node_name
+    mmi.multimesh = mm
+    mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    return mmi
+
+
+## Outline MultiMeshInstance3D of the first chunk drawing `kind` (tests: material checks); null when none.
+func outline_node(kind: String) -> MultiMeshInstance3D:
+    for g in _groups:
+        if _kinds[int(g["kind"])] == kind:
+            return g["omi"]
+    return null
+
+
+## Writes the transform and colour of one non-kit element when its fill moved by more than FILL_EPS or its state
+## changed (or `force`). Returns true when the instance was rewritten.
+func _apply_element(ei: int, force: bool = false) -> bool:
+    var guid: String = _elems[ei].guid
+    var vis: int = gs.element_visual(guid)
+    var f: float = _fill_of(ei)
+    var old_vis: int = _a_vis[ei] if _a_vis[ei] != 255 else -1
+    var old_f: float = _a_fill[ei]
+    var moved: bool = absf(f - old_f) > FILL_EPS or (f >= 1.0 and old_f < 1.0) or (f <= 0.0 and old_f > 0.0)
+    if not force and vis == old_vis and not moved:
+        return false
+    _a_vis[ei] = vis
+    _a_fill[ei] = f
+    var g: Dictionary = _groups[_e_group[ei]]
+    var slot: int = _e_slot[ei]
+    var xf: Transform3D = _progress_xf(ei, f, vis)
+    if not _bulk:
+        (g["mmi"] as MultiMeshInstance3D).multimesh.set_instance_transform(slot, xf)
+    transform_writes += 1
+    var omode: int = OUTLINE_NONE
+    if vis == SimState.Visual.GHOST:
+        omode = OUTLINE_GHOST
+    elif _g_mode[ei] == GROW_COUNT:
+        omode = OUTLINE_GHOST if f < COUNT_THRESHOLD else OUTLINE_NONE
+    elif f < 1.0 - 0.001:
+        omode = OUTLINE_REMAINING
+    _a_omode[ei] = omode
+    var oxf: Transform3D = _outline_xf(ei)
+    if _bulk:
+        var ob: int = (int(g["base"]) + slot) * 16
+        _put_xf(_xbuf, ob, xf)
+        _put_xf(_obuf, ob, oxf)
+    else:
+        (g["omi"] as MultiMeshInstance3D).multimesh.set_instance_transform(slot, oxf)
+    _apply_color(ei)
+    # far LOD: the cells it covers carry the change
+    if _e_tasked[ei] != 0:
+        var delta: float = f - maxf(old_f, 0.0)
+        if delta != 0.0:
+            for k in range(_e_cell_off[ei], _e_cell_off[ei + 1]):
+                var cid: int = _e_cells[k]
+                _c_sum[cid] += delta
+                _far_dirty[cid] = true
+    return true
+
+
+## 3x4 row-major transform floats of a MultiMesh buffer.
+static func _put_xf(buf: PackedFloat32Array, o: int, xf: Transform3D) -> void:
+    var b: Basis = xf.basis
+    buf[o] = b.x.x
+    buf[o + 1] = b.y.x
+    buf[o + 2] = b.z.x
+    buf[o + 3] = xf.origin.x
+    buf[o + 4] = b.x.y
+    buf[o + 5] = b.y.y
+    buf[o + 6] = b.z.y
+    buf[o + 7] = xf.origin.y
+    buf[o + 8] = b.x.z
+    buf[o + 9] = b.y.z
+    buf[o + 10] = b.z.z
+    buf[o + 11] = xf.origin.z
+
+
+## Done share of a non-kit element by element index (see element_fill).
+func _fill_of(ei: int) -> float:
+    return element_fill(_elems[ei].guid)
+
+
+## Recomputes the fill of the elements whose tasks changed since the last call (the TaskStore change log) and rewrites
+## the instances that moved (called every week and after a task-list change). Returns the number of instances rewritten.
+func refresh_progress() -> int:
+    if gs == null or gs.bundle == null:
+        return 0
+    var t0: int = Time.get_ticks_usec()
+    var n: int = 0
+    var st: TaskStore = gs.runtime
+    var changed: Variant = null
+    if st.log_epoch == _log_epoch:
+        changed = st.changed_set_since(_log_cursor)
+    _log_cursor = st.log_end()
+    _log_epoch = st.log_epoch
+    if changed == null:  # the log was cut or the store reset: look at every element
+        for ei in _elems.size():
+            if _apply_element(ei):
+                n += 1
+    else:
+        var dirty: Dictionary = {}
+        for slot in (changed as Dictionary):
+            var task: TaskData = st.task_refs[slot]
+            if task == null or task.is_virtual:
+                continue
+            for g in task.element_guids:
+                var ei2: int = int(_slots.get(g, -1))
+                if ei2 >= 0:
+                    dirty[ei2] = true
+        for ei3 in dirty:
+            if _apply_element(ei3):
+                n += 1
+    _flush_far()
+    last_refresh_writes = n
+    last_refresh_ms = float(Time.get_ticks_usec() - t0) / 1000.0
+    last_week_ms = last_refresh_ms + float(_signal_us) / 1000.0
+    _signal_us = 0
+    return n
 
 
 static var _line_box: ArrayMesh = null
@@ -698,82 +1292,239 @@ func _line_material(vertex_colours: bool) -> StandardMaterial3D:
     return m
 
 
-func _make_outline_instance(kind: String, count: int) -> MultiMeshInstance3D:
+# ------------------------------------------------------------------ far LOD cubes
+
+func _far_box() -> BoxMesh:
+    if _far_mesh == null:
+        _far_mesh = BoxMesh.new()
+        _far_mesh.size = Vector3.ONE
+        _far_material = StandardMaterial3D.new()
+        _far_material.vertex_color_use_as_albedo = true
+        _far_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
+        _far_material.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+        _far_material.roughness = 0.9
+        _far_mesh.surface_set_material(0, _far_material)
+    return _far_mesh
+
+
+## Tint of a cell cube: the mean fill of the tasked elements on the cell through the heat palette (grey 0 %, amber, green
+## 100 %); cells without tasked elements stay a faint ghost.
+func far_cell_colour(cid: int) -> Color:
+    var n: int = _c_n[cid]
+    if n <= 0:
+        var g: Color = FAR_GHOST
+        if not show_ghost:
+            g.a = 0.0
+        return g
+    var share: float = clampf(_c_sum[cid] / float(n), 0.0, 1.0)
+    var col: Color = CellHeatOverlay.heat_colour(share)
+    col.a = lerpf(0.35, 0.95, share)
+    if share <= 0.0 and not show_ghost:
+        col.a = 0.0
+    return col
+
+
+func _ensure_far(ci: int) -> void:
+    var ch: Dictionary = _chunks[ci]
+    if ch["far"] != null:
+        return
+    var cells: Array[int] = ch["cells"]
     var mm := MultiMesh.new()
     mm.transform_format = MultiMesh.TRANSFORM_3D
     mm.use_colors = true
-    var mesh: ArrayMesh = line_box_mesh().duplicate() as ArrayMesh
-    var omat: StandardMaterial3D = _line_material(true)
-    omat.render_priority = 1  # after the solid parts; alpha materials write no depth, so the lines never occlude them
-    mesh.surface_set_material(0, omat)
-    mm.mesh = mesh
-    mm.instance_count = count
+    mm.mesh = _far_box()
+    mm.instance_count = cells.size()
+    var h: float = gs.bundle.storey_height_m / gs.bundle.cell_size_m * 0.9
+    var y0: float = gs.bundle.storey_y_for_index(int(ch["storey"]))
+    for k in cells.size():
+        var cid: int = cells[k]
+        mm.set_instance_transform(k, Transform3D(Basis.from_scale(Vector3(0.94, h, 0.94)),
+                Vector3(float(_c_x[cid]), y0 + h * 0.5, float(_c_z[cid]))))
     var mmi := MultiMeshInstance3D.new()
-    mmi.name = "Outline_%s" % kind
+    mmi.name = "Far_%d_%d_%d" % [int(ch["storey"]), int(ch["cx"]), int(ch["cz"])]
     mmi.multimesh = mm
     mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-    add_child(mmi)
-    return mmi
+    mmi.visible = false
+    _chunk_root.add_child(mmi)
+    ch["far"] = mmi
+    ch["far_epoch"] = -1
 
 
-## Writes the transform and colour of one non-kit element when its fill moved by more than FILL_EPS or its state
-## changed (or `force`). Returns true when the instance was rewritten.
-func _apply_element(guid: String, force: bool = false) -> bool:
-    if not _slots.has(guid):
-        return false
-    var vis: int = gs.element_visual(guid)
-    var f: float = element_fill(guid)
-    var old_vis: int = int(_vis_applied.get(guid, -1))
-    var old_f: float = float(_fill_applied.get(guid, -1.0))
-    var moved: bool = absf(f - old_f) > FILL_EPS or (f >= 1.0 and old_f < 1.0) or (f <= 0.0 and old_f > 0.0)
-    if not force and vis == old_vis and not moved:
-        return false
-    _vis_applied[guid] = vis
-    _fill_applied[guid] = f
-    var s: Dictionary = _slots[guid]
-    var slot: int = int(s["slot"])
-    var mm: MultiMesh = (_instances[s["kind"]] as MultiMeshInstance3D).multimesh
-    var xf: Transform3D = progress_transform(guid, f, vis)
-    _xf_written[guid] = xf
-    mm.set_instance_transform(slot, xf)
-    transform_writes += 1
-    if _outlines.has(s["kind"]):
-        var omm: MultiMesh = (_outlines[s["kind"]] as MultiMeshInstance3D).multimesh
-        var geo: Dictionary = _geo[guid]
-        var omode: int = OUTLINE_NONE
-        if vis == SimState.Visual.GHOST:
-            omode = OUTLINE_GHOST
-        elif str(geo["mode"]) == "count":
-            omode = OUTLINE_GHOST if f < COUNT_THRESHOLD else OUTLINE_NONE
-        elif f < 1.0 - 0.001:
-            omode = OUTLINE_REMAINING
-        _outline_mode[guid] = omode
-        var oxf: Transform3D
-        if omode != OUTLINE_NONE:
-            oxf = _fill_transform(geo, 1.0)
+func _recolour_far(ci: int) -> void:
+    var ch: Dictionary = _chunks[ci]
+    var mm: MultiMesh = (ch["far"] as MultiMeshInstance3D).multimesh
+    var cells: Array[int] = ch["cells"]
+    for k in cells.size():
+        mm.set_instance_color(k, far_cell_colour(cells[k]))
+    ch["far_epoch"] = _color_epoch
+
+
+## Pushes the cells whose share changed to the cube MultiMeshes that exist (chunks without one catch up when drawn).
+func _flush_far() -> void:
+    if _far_dirty.is_empty():
+        return
+    for cid in _far_dirty:
+        var ch: Dictionary = _chunks[_c_chunk[cid]]
+        if ch["far"] != null and int(ch["far_epoch"]) == _color_epoch:
+            ((ch["far"] as MultiMeshInstance3D).multimesh).set_instance_color(_c_slot[cid], far_cell_colour(cid))
         else:
-            oxf = Transform3D(Basis.from_scale(Vector3.ZERO), (geo["centre"] as Vector3))
-        _outline_written[guid] = oxf
-        omm.set_instance_transform(slot, oxf)
-    _apply_color(guid)
-    return true
+            ch["far_epoch"] = -1
+    _far_dirty.clear()
 
 
-## Recomputes the fill of every non-kit element and rewrites the instances that changed (called every week, after
-## a task or task-list change). Returns the number of instances rewritten.
-func refresh_progress() -> int:
-    if gs == null or gs.bundle == null:
-        return 0
-    var t0: int = Time.get_ticks_usec()
+# ------------------------------------------------------------------ culling and LOD
+
+## Number of chunks / MultiMesh groups / far cube sets built.
+func chunk_count() -> int:
+    return _chunks.size()
+
+
+func group_count() -> int:
+    return _groups.size()
+
+
+func tile_count() -> int:
+    return _tiles.size()
+
+
+func far_node_count() -> int:
     var n: int = 0
-    for guid in _slots:
-        if _apply_element(guid):
+    for ch in _chunks:
+        if ch["far"] != null:
             n += 1
-    last_refresh_writes = n
-    last_refresh_ms = float(Time.get_ticks_usec() - t0) / 1000.0
-    last_week_ms = last_refresh_ms + float(_signal_us) / 1000.0
-    _signal_us = 0
     return n
+
+
+## State of a chunk: {visible, far (bool), storey, instances}.
+func chunk_state(ci: int) -> Dictionary:
+    var ch: Dictionary = _chunks[ci]
+    var n: int = 0
+    for gi in ch["groups"]:
+        n += (_groups[gi]["elems"] as Array[int]).size()
+    return {"visible": bool(ch["visible"]), "far": int(ch["lod"]) == 1, "storey": int(ch["storey"]), "instances": n,
+            "cells": (ch["cells"] as Array[int]).size()}
+
+
+## Index of the chunk holding the element (-1 for kit elements and unknown guids).
+func chunk_of(guid: String) -> int:
+    var ei: int = int(_slots.get(guid, -1))
+    return int(_groups[_e_group[ei]]["chunk"]) if ei >= 0 else -1
+
+
+func _set_chunk(ci: int, visible: bool, lod: int) -> void:
+    var ch: Dictionary = _chunks[ci]
+    var was_visible: bool = bool(ch["visible"])
+    var was_lod: int = int(ch["lod"])
+    if was_visible == visible and was_lod == lod:
+        return
+    ch["visible"] = visible
+    ch["lod"] = lod
+    var near: bool = visible and lod == 0
+    var far: bool = visible and lod == 1
+    if near != (was_visible and was_lod == 0):
+        if _heat != null:
+            _heat.chunk_changed(int(ch["storey"]), int(ch["cx"]), int(ch["cz"]), near)
+        for gi in ch["groups"]:
+            var g: Dictionary = _groups[gi]
+            (g["mmi"] as MultiMeshInstance3D).visible = near
+            (g["omi"] as MultiMeshInstance3D).visible = near
+    if near and int(ch["col_epoch"]) != _color_epoch and not (ch["groups"] as Array).is_empty():
+        if _is_big():
+            _recolour_queue.append(ci)
+        else:
+            _recolour_chunk(ci)
+    if far:
+        _ensure_far(ci)
+        if int(ch["far_epoch"]) != _color_epoch:
+            _recolour_far(ci)
+        (ch["far"] as MultiMeshInstance3D).visible = true
+    elif ch["far"] != null and was_visible and was_lod == 1:
+        (ch["far"] as MultiMeshInstance3D).visible = false
+
+
+## Show / hide and LOD pass over the chunks for the camera: hides chunks outside the frustum (a two-level test: tiles of
+## TILE_CHUNKS x TILE_CHUNKS chunks first), the storeys above the focus on big models, and swaps chunks beyond
+## `lod_far_distance` for cell cubes. Does nothing when the camera did not move and nothing else changed unless `force`.
+## Returns / stores {chunks, visible, near, far, hidden, ms}.
+func update_culling(cam: Camera3D = null, force: bool = false) -> Dictionary:
+    if _chunks.is_empty():
+        return {}
+    if cam == null and is_inside_tree():
+        cam = get_viewport().get_camera_3d()
+    if cam == null:
+        return {}
+    var t0: int = Time.get_ticks_usec()
+    var in_tree: bool = cam.is_inside_tree()
+    var xf: Transform3D = cam.global_transform if in_tree else cam.transform
+    if not cull_enabled:
+        if force or _cull_dirty:
+            for ci in _chunks.size():
+                _set_chunk(ci, true, 0)
+            _cull_dirty = false
+        return last_cull
+    if not force and not _cull_dirty and xf.is_equal_approx(_last_cam_xf) and is_equal_approx(cam.fov, _last_cam_fov):
+        return last_cull
+    _last_cam_xf = xf
+    _last_cam_fov = cam.fov
+    _cull_dirty = false
+    var planes: Array = cam.get_frustum() if in_tree else []
+    var pos: Vector3 = xf.origin
+    var hide_above: bool = cull_above_focus == 1 or (cull_above_focus == -1 and _is_big())
+    var far_d: float = lod_far_distance
+    var visible_n: int = 0
+    var near_n: int = 0
+    var far_n: int = 0
+    var far_builds: int = 0
+    for tile in _tiles:
+        var tc: Vector3 = tile["centre"]
+        var tr: float = float(tile["radius"])
+        var state: int = _sphere_vs_frustum(planes, tc, tr)  # 0 outside, 1 inside, 2 partial
+        var list: Array[int] = tile["chunks"]
+        if state == 0:
+            for ci in list:
+                _set_chunk(ci, false, int(_chunks[ci]["lod"]))
+            continue
+        for ci in list:
+            var ch: Dictionary = _chunks[ci]
+            var vis: bool = true
+            if hide_above and int(ch["storey"]) > focus_storey_index:
+                vis = false
+            elif state == 2 and _sphere_vs_frustum(planes, ch["centre"], float(ch["radius"])) == 0:
+                vis = false
+            var lod: int = int(ch["lod"])
+            if vis:
+                var d: float = pos.distance_to(ch["centre"])
+                if lod == 1:
+                    lod = 1 if d > far_d * LOD_HYSTERESIS else 0
+                else:
+                    lod = 1 if d > far_d else 0
+                if lod == 1 and ch["far"] == null:
+                    if far_builds >= FAR_BUILDS_PER_PASS:
+                        lod = 0  # keep drawing the elements until the cubes are built (next pass)
+                        _cull_dirty = true
+                    else:
+                        far_builds += 1
+                visible_n += 1
+                if lod == 1:
+                    far_n += 1
+                else:
+                    near_n += 1
+            _set_chunk(ci, vis, lod)
+    last_cull = {"chunks": _chunks.size(), "visible": visible_n, "near": near_n, "far": far_n,
+            "hidden": _chunks.size() - visible_n, "ms": float(Time.get_ticks_usec() - t0) / 1000.0}
+    return last_cull
+
+
+## 0 = the sphere is outside the frustum, 1 = fully inside, 2 = straddles a plane (no planes: inside).
+static func _sphere_vs_frustum(planes: Array, centre: Vector3, radius: float) -> int:
+    var inside: bool = true
+    for p in planes:
+        var d: float = (p as Plane).distance_to(centre)
+        if d > radius:
+            return 0
+        if d > -radius:
+            inside = false
+    return 1 if inside else 2
 
 
 # ------------------------------------------------------------------ heat overlay
@@ -802,10 +1553,9 @@ func _unhandled_input(event: InputEvent) -> void:
 ## World-space box (centre, size in grid units) around an element, or around the kit instance that draws it.
 ## Returns an empty dictionary for an unknown element. `key` identifies the box (kit instances are shared).
 func element_box(guid: String) -> Dictionary:
-    if _geo.has(guid):
-        var g: Dictionary = _geo[guid]
-        var sc: Vector3 = g["scale"]
-        return {"key": guid, "centre": g["centre"], "size": sc}
+    if _slots.has(guid):
+        var gi: int = int(_slots[guid])
+        return {"key": guid, "centre": _g_centre[gi], "size": _g_scale[gi]}
     if _kit_layer != null and _kit_layer.handles(guid):
         var ki: KitInstances = _kit_layer.kit_instances
         var i: int = ki.instance_of(guid)

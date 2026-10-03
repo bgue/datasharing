@@ -31,7 +31,8 @@ var bundle: SequenceBundle = null
 var scenario: ScenarioData = null
 var running: bool = false
 
-var runtime: Dictionary = {}  # task_id -> TaskRuntime
+## Per-task runtime state (PackedArray store); `runtime[task_id]` returns the TaskRuntime view, see task_store.gd.
+var runtime: TaskStore = TaskStore.new()
 var week: int = 0
 var cash: float = 0.0
 var speed: int = 0  # 0 = paused, 1, 2, 4
@@ -70,6 +71,7 @@ var week_crew_days_worked: float = 0.0
 var week_crew_days_idle: float = 0.0
 var crew_idle_days: Dictionary = {}  # crew id -> consecutive working days without productive work
 var worked_this_week: Array[String] = []
+var worked_set: Dictionary = {}  # task id -> true, the same tasks as worked_this_week (dedupe)
 var week_log: Array[String] = []
 var last_report: Dictionary = {}
 var finished: bool = false
@@ -82,9 +84,25 @@ var day_in_week: int = 0
 ## Tasks whose readiness must be re-evaluated at the next work day (successors of tasks that
 ## started or finished, tasks held by a gate that just opened).
 var dirty_tasks: Array[String] = []
+## BLOCKED tasks that only time, a delivery or a gate can release (see Readiness._apply): re-checked every week.
+var readiness_watch: Dictionary = {}  # slot -> true
+## BLOCKED by a gate: released by note_changed when the gate opens, re-checked by the end-of-week pass (counts in reasons).
+var readiness_gate_watch: Dictionary = {}
+## Readiness evaluations since start (diagnostics).
+var stat_evals: int = 0
+var last_gate_gi: int = -1
+var last_gate_n: int = 0
+## Microseconds per section of the last advance_week() (events, release, days, economy_safety, report, refresh_end).
+var last_week_profile_us: Dictionary = {}
+## Microseconds spent per part of the work days of the current / last week (ready, hook, work, inspect).
+var day_profile_us: Dictionary = {}
 ## Optional hook called with the day index before each work day (auto-planners, tests).
 var before_work_day: Callable = Callable()
 
+## Caches of the package code (Packages): task slots per package and priority-sorted (zone, trade) package lists.
+var pkg_slots: Dictionary = {}
+var zt_cache: Dictionary = {}
+var zt_cache_gen: int = -1
 ## Work packages and zones (docs/05).
 var package_runtime: Dictionary = {}  # package_id -> PackageRuntime
 var zone_runtime: Dictionary = {}  # zone_id -> ZoneRuntime
@@ -97,6 +115,35 @@ var element_visuals: Dictionary = {}  # guid -> Visual
 var gate_cache: Dictionary = {}
 var _access_cache: Dictionary = {}
 var _access_cache_version: int = -1
+var _access_reach: Dictionary = {}
+var _hoarding_cache: Dictionary = {}
+var _hoarding_version: int = -1
+var _hoarding_cells: Array[Vector2i] = []
+## Crews per zone while the day's work pass runs (Productivity.run_day), null otherwise.
+var zone_crews_cache: Variant = null
+var _pkg_order: Dictionary = {}
+var _gate_after: PackedInt32Array = PackedInt32Array()
+var _gate_before: PackedInt32Array = PackedInt32Array()
+var _gate_orders_n: int = -1
+var _gate_orders_stale: bool = true
+var _gate_orders_bundle: SequenceBundle = null
+## Task id -> display label for blocked reasons (Readiness.pred_label).
+var label_cache: Dictionary = {}
+var _crane_tasks: Array[TaskData] = []
+var _long_lead_tasks: Array[TaskData] = []
+var _task_lists_n: int = -1
+var _task_lists_bundle: SequenceBundle = null
+## Zone id -> lane count of its Gantt row from the planned spans (GanttModel lazy mode).
+var gantt_lanes: Dictionary = {}
+var crane_cache: Array[Dictionary] = []
+var crane_cache_key: String = ""
+var equipment_version: int = 0
+var task_crane_memo: Dictionary = {}
+var task_crane_key: String = ""
+## Tests: make every refresh_states(false) a full pass (reference behaviour for the incremental readiness).
+var debug_full_refresh: bool = false
+## Packages that had crews at the last Packages.refresh_states.
+var crewed_pkgs: Dictionary = {}
 var _footprint: Dictionary = {}
 
 ## Manual sequencing (docs/06 A.3): zones in manual mode (zone id -> true; their generated packages are frozen),
@@ -113,6 +160,24 @@ var _recipe_fallback_loaded: bool = false
 # ----------------------------------------------------------------- lifecycle
 
 var api: ApiServer = null
+
+
+func _init() -> void:
+    runtime.listener = Callable(self, "_on_state_set")
+    runtime.gate_live = Callable(self, "_live_gate_reason")
+
+
+## Reason text of a task held by a gate, with the gate's current count (see TaskStore.gate_live).
+func _live_gate_reason(i: int, stored: String) -> String:
+    var gi: int = runtime.gate_idx[i]
+    var gates: Array[GateDef] = bundle.gates
+    if gi < 0 or gi >= gates.size():
+        return stored
+    var per: Variant = gate_cache.get(gi, null)
+    if per == null:
+        return stored
+    var n: int = int((per as Dictionary).get(SequenceBundle.gate_scope_key(gates[gi], runtime.task_refs[i]), -1))
+    return Readiness.gate_reason(gates[gi], n) if n > 0 else stored
 
 
 func _ready() -> void:
@@ -154,9 +219,16 @@ func start(b: SequenceBundle) -> bool:
     running = true
     runtime.clear()
     for t in b.tasks:
-        var rt := TaskRuntime.new()
-        rt.required = t.estimated_crew_days
-        runtime[t.task_id] = rt
+        runtime.add_task(t)
+    readiness_watch.clear()
+    readiness_gate_watch.clear()
+    dirty_tasks.clear()
+    gate_cache = {}
+    pkg_slots.clear()
+    zt_cache.clear()
+    _pkg_order.clear()
+    label_cache.clear()
+    gantt_lanes.clear()
     manual_zones.clear()
     manual_touched.clear()
     manual_removed.clear()
@@ -165,8 +237,10 @@ func start(b: SequenceBundle) -> bool:
     _recipe_fallback.clear()
     _recipe_fallback_loaded = false
     package_runtime.clear()
+    crewed_pkgs.clear()
     for p in b.packages:
         var prt := PackageRuntime.new()
+        prt.bind(runtime, p.package_id)
         prt.priority = p.planned_start_day
         package_runtime[p.package_id] = prt
     zone_runtime.clear()
@@ -184,6 +258,7 @@ func start(b: SequenceBundle) -> bool:
     crews.clear()
     _next_crew_id = 1
     equipment_placed.clear()
+    equipment_version += 1
     hired_this_week.clear()
     learning_counts.clear()
     modifiers.clear()
@@ -213,6 +288,7 @@ func start(b: SequenceBundle) -> bool:
     week_crew_days_worked = 0.0
     week_crew_days_idle = 0.0
     worked_this_week.clear()
+    worked_set.clear()
     week_log.clear()
     last_report = {}
     finished = false
@@ -245,6 +321,42 @@ func _load_initial_tiles() -> void:
     tiles_version += 1
 
 
+## Loads the per-zone detail file of a split bundle (bundle_format.zone_detail_dir) the first time the zone is looked at:
+## task descriptions and aggregate member lists. Clears the label cache when something was merged.
+func ensure_zone_detail(zone_id: String) -> int:
+    if bundle == null:
+        return 0
+    var n: int = bundle.ensure_zone_detail(zone_id)
+    if n > 0:
+        label_cache.clear()
+    return n
+
+
+## Tasks that need a crane / have a lead time (cached; the planner asks for them every working day).
+func crane_tasks() -> Array[TaskData]:
+    _ensure_task_lists()
+    return _crane_tasks
+
+
+func long_lead_tasks() -> Array[TaskData]:
+    _ensure_task_lists()
+    return _long_lead_tasks
+
+
+func _ensure_task_lists() -> void:
+    if _task_lists_n == bundle.tasks.size() and _task_lists_bundle == bundle:
+        return
+    _crane_tasks = []
+    _long_lead_tasks = []
+    for t in bundle.tasks:
+        if t.requires_crane:
+            _crane_tasks.append(t)
+        if t.lead_time_weeks > 0:
+            _long_lead_tasks.append(t)
+    _task_lists_n = bundle.tasks.size()
+    _task_lists_bundle = bundle
+
+
 func current_day() -> int:
     return week * WEEK_DAYS + day_in_week
 
@@ -271,25 +383,36 @@ func spend(amount: float, what: String = "") -> void:
 
 
 func set_task_state(task_id: String, new_state: int) -> void:
-    var rt: TaskRuntime = runtime[task_id]
-    if rt.state == new_state:
+    runtime.set_state(runtime.idx_of(task_id), new_state)
+
+
+## Store listener: every task state change (set_task_state or a direct `rt.state = x`) updates the element visual,
+## queues the successors / gate holders for the next readiness pass and emits task_state_changed.
+func _on_state_set(i: int, old_state: int, new_state: int) -> void:
+    var task: TaskData = runtime.task_refs[i]
+    if old_state <= TaskRuntime.State.BLOCKED and new_state <= TaskRuntime.State.BLOCKED:
+        # NOT_STARTED / READY / BLOCKED flips change neither the element visual nor any successor
+        task_state_changed.emit(task.task_id, old_state, new_state)
         return
-    var old_state: int = rt.state
-    rt.state = new_state
-    var task: TaskData = bundle.tasks_by_id[task_id]
     if not task.is_virtual:  # virtual tasks have no element: they show as markers (virtual_markers)
         for g in task.element_guids:
             _update_element_visual(g)
     if new_state == TaskRuntime.State.ACTIVE or TaskRuntime.is_finished(new_state):
-        Readiness.note_changed(self, task_id, new_state)
-    task_state_changed.emit(task_id, old_state, new_state)
+        Readiness.note_changed(self, task.task_id, new_state)
+    task_state_changed.emit(task.task_id, old_state, new_state)
 
 
-func refresh_states() -> void:
-    Readiness.refresh(self)
+## `full` re-evaluates every task that has not started (the safe default: tests and tools that edit task state directly
+## rely on it); `full = false` is the incremental pass of the weekly loop and of tile / equipment / order actions.
+func refresh_states(full: bool = true, include_gates: bool = true) -> void:
+    if full or debug_full_refresh:
+        full = true
+        Readiness.refresh(self)
+    else:
+        Readiness.refresh_incremental(self, include_gates)
     for zid in card_zones():
         Cards.sync_zone(self, zid)
-    Packages.refresh_states(self)
+    Packages.refresh_states(self, full)
 
 
 # ----------------------------------------------------------------- packages, cards, shifts
@@ -416,9 +539,7 @@ func register_task(task: TaskData, refresh: bool = true, package_id: String = ""
     task.runtime_added = true
     bundle.add_task(task)
     bundle.assign_package(task, package_id)
-    var rt := TaskRuntime.new()
-    rt.required = task.estimated_crew_days
-    runtime[task.task_id] = rt
+    runtime.add_task(task)
     manual_touched[task.task_id] = true
     if refresh:
         graph_changed()
@@ -432,6 +553,7 @@ func unregister_task(task: TaskData) -> void:
     runtime.erase(task.task_id)
     dirty_tasks.erase(task.task_id)
     worked_this_week.erase(task.task_id)
+    worked_set.erase(task.task_id)
     manual_touched.erase(task.task_id)
     if not task.runtime_added:
         manual_removed[task.task_id] = true
@@ -442,11 +564,48 @@ func unregister_task(task: TaskData) -> void:
 
 ## Brings the runtime structures in line with the (edited) task graph: package runtimes, gate caches, readiness,
 ## package states. Emits tasks_changed.
+## Drops the cached gate phase orders (the full readiness pass calls this: tests and tools may edit bundle.gates).
+func invalidate_gate_orders() -> void:
+    _gate_orders_stale = true
+
+
+## Phase orders of the bundle's gates: `after` (phase up to which the gate counts) or `before` (first phase it holds).
+func gate_orders(after: bool) -> PackedInt32Array:
+    if _gate_orders_n != bundle.gates.size() or _gate_orders_bundle != bundle or _gate_orders_stale:
+        _gate_orders_stale = false
+        _gate_after = PackedInt32Array()
+        _gate_before = PackedInt32Array()
+        for g in bundle.gates:
+            _gate_after.append(bundle.order_of_phase(g.after_phase))
+            _gate_before.append(bundle.order_of_phase(g.before_phase))
+        _gate_orders_n = bundle.gates.size()
+        _gate_orders_bundle = bundle
+    return _gate_after if after else _gate_before
+
+
+## Package id -> position in bundle.packages (cached until the package list changes).
+func package_order() -> Dictionary:
+    if _pkg_order.size() != bundle.packages.size():
+        _pkg_order.clear()
+        for i in bundle.packages.size():
+            _pkg_order[bundle.packages[i].package_id] = i
+    return _pkg_order
+
+
 func graph_changed() -> void:
+    _task_lists_n = -1
+    gantt_lanes.clear()
+    task_crane_memo.clear()
+    _pkg_order.clear()
+    label_cache.clear()
     bundle.invalidate_gate_caches()
+    pkg_slots.clear()
+    zt_cache.clear()
+    runtime.work_cache.clear()
     for p in bundle.packages:
         if not package_runtime.has(p.package_id):
             var prt := PackageRuntime.new()
+            prt.bind(runtime, p.package_id)
             prt.priority = p.planned_start_day
             package_runtime[p.package_id] = prt
     for id in package_runtime.keys():
@@ -482,7 +641,7 @@ func virtual_markers() -> Array[Dictionary]:
         var zone: ZoneData = bundle.zones_by_id.get(t.zone_id, null)
         if zone == null:
             continue
-        var rt: TaskRuntime = runtime.get(t.task_id, null)
+        var rt: TaskRuntime = runtime.get_rt(t.task_id)
         var idx: int = int(per_zone.get(t.zone_id, 0))
         per_zone[t.zone_id] = idx + 1
         out.append({"task_id": t.task_id, "marker": marker_of(t), "zone_id": t.zone_id, "cell": zone.centre_cell(),
@@ -539,8 +698,9 @@ func _update_element_visual(guid: String) -> void:
     var best_visual: int = Visual.GHOST
     for t in list:
         var task: TaskData = t
-        var rt: TaskRuntime = runtime[task.task_id]
-        match rt.state:
+        var ti: int = runtime.index[task.task_id]
+        var s: int = runtime.state[ti]
+        match s:
             TaskRuntime.State.REWORK:
                 any_rework = true
                 all_finished = false
@@ -553,7 +713,7 @@ func _update_element_visual(guid: String) -> void:
                 best_visual = maxi(best_visual, Visual.SOLID)
             TaskRuntime.State.DONE, TaskRuntime.State.INSPECTED:
                 any_finished = true
-                if rt.state == TaskRuntime.State.INSPECTED:
+                if s == TaskRuntime.State.INSPECTED:
                     any_inspected = true
                 var st: StepDef = bundle.step_of(task)
                 var pv: String = st.progress_visual if st != null else "solid"
@@ -713,7 +873,7 @@ func place_tile(cell: Vector2i, tile: String, orientation: int = 0) -> bool:
     tiles[cell] = {"tile": tile, "orientation": orientation}
     tiles_version += 1
     tiles_changed.emit()
-    refresh_states()
+    refresh_states(false, false)
     return true
 
 
@@ -732,10 +892,41 @@ func remove_tile(cell: Vector2i) -> bool:
     for i in range(equipment_placed.size() - 1, -1, -1):
         if equipment_placed[i]["cell"] == cell:
             equipment_placed.remove_at(i)
+    equipment_version += 1
     tiles_version += 1
     tiles_changed.emit()
-    refresh_states()
+    refresh_states(false, false)
     return true
+
+
+## True when a hoarding tile stands next to the zone (cached per tile layer version; used by the safety roll). Checks the
+## hoarding tiles against the zone's cells instead of building the ring around every zone.
+func zone_has_hoarding(zone: ZoneData) -> bool:
+    if _hoarding_version != tiles_version:
+        _hoarding_cache.clear()
+        _hoarding_cells.clear()
+        for c in tiles:
+            if str((tiles[c] as Dictionary).get("tile", "")) == SiteTiles.HOARDING:
+                _hoarding_cells.append(c)
+        _hoarding_version = tiles_version
+    if not _hoarding_cache.has(zone.id):
+        var found: bool = false
+        if not _hoarding_cells.is_empty():
+            var set: Dictionary = {}
+            for c in zone.cells:
+                set[c] = true
+            for h in _hoarding_cells:
+                for dx in range(-1, 2):
+                    for dz in range(-1, 2):
+                        if (dx != 0 or dz != 0) and set.has(Vector2i(h.x + dx, h.y + dz)) and not set.has(h):
+                            found = true
+                            break
+                    if found:
+                        break
+                if found:
+                    break
+        _hoarding_cache[zone.id] = found
+    return bool(_hoarding_cache[zone.id])
 
 
 func tile_at(cell: Vector2i) -> String:
@@ -746,10 +937,16 @@ func tile_at(cell: Vector2i) -> String:
 func zone_access(zone_id: String) -> bool:
     if _access_cache_version != tiles_version:
         _access_cache.clear()
+        _access_reach = {}
         _access_cache_version = tiles_version
     if not _access_cache.has(zone_id):
         var z: ZoneData = bundle.zones_by_id.get(zone_id, null)
-        _access_cache[zone_id] = z != null and Logistics.bfs_access(tiles, scenario.gates, z.cells, bundle.zone_cell_set)
+        var ok: bool = false
+        if z != null and not z.cells.is_empty() and not scenario.gates.is_empty():
+            if _access_reach.is_empty():  # one flood fill from the gates per tile layer, shared by all zones
+                _access_reach = Logistics.access_set(tiles, scenario.gates, bundle.zone_cell_set)
+            ok = Logistics.set_reaches_zone(_access_reach, z.cells)
+        _access_cache[zone_id] = ok
     return bool(_access_cache[zone_id])
 
 
@@ -781,8 +978,9 @@ func place_equipment(equipment_id: String, cell: Vector2i) -> bool:
         return false
     spend(def.mobilisation_cost, "mobilise " + def.name)
     equipment_placed.append({"id": equipment_id, "cell": cell})
+    equipment_version += 1
     tiles_changed.emit()
-    refresh_states()
+    refresh_states(false, false)
     return true
 
 
@@ -790,8 +988,9 @@ func remove_equipment(index: int) -> bool:
     if index < 0 or index >= equipment_placed.size():
         return false
     equipment_placed.remove_at(index)
+    equipment_version += 1
     tiles_changed.emit()
-    refresh_states()
+    refresh_states(false, false)
     return true
 
 
@@ -809,7 +1008,8 @@ func order(task_id: String) -> bool:
         return false
     rt.ordered = true
     rt.delivery_week = week + task.lead_time_weeks
-    refresh_states()
+    dirty_tasks.append(task_id)  # only this task's procurement block changed
+    refresh_states(false, false)
     return true
 
 
@@ -824,10 +1024,13 @@ func order_is_late(task_id: String) -> bool:
 
 
 func _land_deliveries() -> void:
-    for t in bundle.tasks:
-        var rt: TaskRuntime = runtime[t.task_id]
-        if rt.ordered and rt.delivery_week == week:
-            log_event("Delivery landed: %s" % Readiness.pred_label(self, t.task_id))
+    var landed: Array[int] = []
+    for i in runtime.ordered:
+        if runtime.delivery_week[i] == week:
+            landed.append(i)
+    landed.sort()  # task order, as the full scan had
+    for i in landed:
+        log_event("Delivery landed: %s" % Readiness.pred_label(self, runtime.ids[i]))
 
 
 # ----------------------------------------------------------------- weekly loop
@@ -841,23 +1044,39 @@ func advance_week() -> bool:
     week_crew_days_worked = 0.0
     week_crew_days_idle = 0.0
     worked_this_week.clear()
+    worked_set.clear()
     hired_this_week.clear()
     var cash_before: float = cash
     var finished_before: int = finished_task_count()
+    var prof: Dictionary = {}
+    day_profile_us = {}
+    var t0: int = Time.get_ticks_usec()
     # 1 deliveries land
     _land_deliveries()
     # 2 events draw
     Events.draw(self)
+    prof["events"] = Time.get_ticks_usec() - t0
+    t0 = Time.get_ticks_usec()
     # 3 release pass (states current for the crews' work)
-    refresh_states()
+    refresh_states(false, false)
+    prof["release"] = Time.get_ticks_usec() - t0
+    t0 = Time.get_ticks_usec()
     # 4 + 5 progress and inspections at day resolution (5 working days)
     for d in WEEK_DAYS:
         run_work_day(d)
     day_in_week = 0
+    prof["days"] = Time.get_ticks_usec() - t0
+    prof["days_ready"] = int(day_profile_us.get("ready", 0))
+    prof["days_hook"] = int(day_profile_us.get("hook", 0))
+    prof["days_work"] = int(day_profile_us.get("work", 0))
+    prof["days_inspect"] = int(day_profile_us.get("inspect", 0))
+    t0 = Time.get_ticks_usec()
     # 6 economy
     Economy.run_week(self)
     # 7 safety
     Safety.run_week(self)
+    prof["economy_safety"] = Time.get_ticks_usec() - t0
+    t0 = Time.get_ticks_usec()
     # 8 score snapshot
     double_shift_zone_weeks += double_shift_zones().size()
     cumulative_spend_by_week.append(spent_total)
@@ -875,7 +1094,11 @@ func advance_week() -> bool:
     }
     week += 1
     _expire_modifiers()
-    refresh_states()
+    prof["report"] = Time.get_ticks_usec() - t0
+    t0 = Time.get_ticks_usec()
+    refresh_states(false)
+    prof["refresh_end"] = Time.get_ticks_usec() - t0
+    last_week_profile_us = prof
     last_report = report
     week_advanced.emit(week)
     _check_finish()
@@ -886,14 +1109,24 @@ func advance_week() -> bool:
 ## spends one crew-day, inspections due at the end of the day resolve.
 func run_work_day(d: int) -> void:
     day_in_week = d
+    var t0: int = Time.get_ticks_usec()
     if d > 0:
         Readiness.process_dirty(self, week * WEEK_DAYS + d)
     Cards.update(self)
+    var t1: int = Time.get_ticks_usec()
     if before_work_day.is_valid():
         before_work_day.call(d)
+    var t2: int = Time.get_ticks_usec()
     Productivity.run_day(self, d)
+    var t3: int = Time.get_ticks_usec()
     Inspections.run_day(self, d)
+    var t4: int = Time.get_ticks_usec()
     day_in_week = 0
+    var dp: Dictionary = day_profile_us
+    dp["ready"] = int(dp.get("ready", 0)) + t1 - t0
+    dp["hook"] = int(dp.get("hook", 0)) + t2 - t1
+    dp["work"] = int(dp.get("work", 0)) + t3 - t2
+    dp["inspect"] = int(dp.get("inspect", 0)) + t4 - t3
 
 
 func _expire_modifiers() -> void:
@@ -904,7 +1137,7 @@ func _expire_modifiers() -> void:
 
 func resolve_event(choice_index: int) -> void:
     Events.resolve(self, choice_index)
-    refresh_states()
+    refresh_states(false, false)
 
 
 static func utilisation_of(worked: float, idle: float) -> float:
@@ -918,11 +1151,7 @@ func crew_utilisation() -> float:
 
 
 func finished_task_count() -> int:
-    var n: int = 0
-    for tid in runtime:
-        if TaskRuntime.is_finished((runtime[tid] as TaskRuntime).state):
-            n += 1
-    return n
+    return runtime.finished_count()
 
 
 func all_tasks_finished() -> bool:
@@ -979,23 +1208,21 @@ func finish_level(win: bool, reason: String) -> void:
 # ----------------------------------------------------------------- queries
 
 func zone_status(zone_id: String) -> Dictionary:
-    ## Aggregated zone info for overlay/inspector: counts per state and a colour category.
+    ## Aggregated zone info for overlay/inspector: counts per state and a colour category (from the TaskStore's per-zone
+    ## counters, no task scan).
     var counts: Dictionary = {}
-    for s in TaskRuntime.STATE_NAMES:
-        counts[s] = 0
     var impeded: int = 0
     var blocked_gate_proc: int = 0
     var total: int = 0
-    for t in bundle.tasks_by_zone.get(zone_id, []):
-        var task: TaskData = t
-        var rt: TaskRuntime = runtime[task.task_id]
-        counts[TaskRuntime.state_name(rt.state)] = int(counts[TaskRuntime.state_name(rt.state)]) + 1
-        total += 1
-        if rt.state == TaskRuntime.State.READY and rt.blocked_reason != "":
-            impeded += 1
-        if rt.state == TaskRuntime.State.BLOCKED and (rt.blocked_reason.begins_with("Gate") \
-                or rt.blocked_reason.begins_with("Long-lead") or rt.blocked_reason.begins_with("Delivery")):
-            blocked_gate_proc += 1
+    var st: TaskStore = runtime
+    var zi: int = int(st.zone_index.get(zone_id, -1))
+    for k in TaskRuntime.STATE_NAMES.size():
+        var n: int = st.zone_counts[zi * 8 + k] if zi >= 0 else 0
+        counts[TaskRuntime.STATE_NAMES[k]] = n
+        total += n
+    if zi >= 0:
+        impeded = st.zone_impeded[zi]
+        blocked_gate_proc = st.zone_gate[zi]
     var zone: ZoneData = bundle.zones_by_id[zone_id]
     var n_crews: int = Productivity.zone_crew_count(self, zone_id)
     var color_key: String = "idle"
@@ -1024,20 +1251,14 @@ func zone_status(zone_id: String) -> Dictionary:
 func storey_phase_status() -> Array[Dictionary]:
     # one pass over the tasks: storey_id -> phase -> [total, done, started]
     var acc: Dictionary = {}
-    for task in bundle.tasks:
-        if not acc.has(task.storey_id):
-            acc[task.storey_id] = {}
-        var per_phase: Dictionary = acc[task.storey_id]
-        if not per_phase.has(task.phase):
-            per_phase[task.phase] = [0, 0, 0]
-        var c: Array = per_phase[task.phase]
-        c[0] += 1
-        var st: int = (runtime[task.task_id] as TaskRuntime).state
-        if TaskRuntime.is_finished(st):
-            c[1] += 1
-        elif st == TaskRuntime.State.ACTIVE or st == TaskRuntime.State.AWAITING_INSPECTION \
-                or st == TaskRuntime.State.REWORK:
-            c[2] += 1
+    for g in runtime.group_keys.size():
+        var gk: PackedStringArray = runtime.group_keys[g]
+        if runtime.group_counts[g * 3] <= 0:
+            continue
+        if not acc.has(gk[0]):
+            acc[gk[0]] = {}
+        (acc[gk[0]] as Dictionary)[gk[1]] = [runtime.group_counts[g * 3], runtime.group_counts[g * 3 + 1],
+                runtime.group_counts[g * 3 + 2]]
     var out: Array[Dictionary] = []
     for s in bundle.storeys:
         var phases: Array[Dictionary] = []
@@ -1052,11 +1273,8 @@ func storey_phase_status() -> Array[Dictionary]:
 
 func state_counts() -> Dictionary:
     var counts: Dictionary = {}
-    for s in TaskRuntime.STATE_NAMES:
-        counts[s] = 0
-    for tid in runtime:
-        var n: String = TaskRuntime.state_name((runtime[tid] as TaskRuntime).state)
-        counts[n] = int(counts[n]) + 1
+    for s in TaskRuntime.STATE_NAMES.size():
+        counts[TaskRuntime.STATE_NAMES[s]] = runtime.counts[s]
     return counts
 
 
@@ -1186,10 +1404,13 @@ func deserialize(d: Dictionary) -> bool:
     for e in d["equipment"]:
         var ea: Array = e
         equipment_placed.append({"id": str(ea[0]), "cell": Vector2i(int(ea[1]), int(ea[2]))})
+    equipment_version += 1
     var rts: Dictionary = d["tasks"]
+    runtime.silent = true  # bulk load: visuals and readiness are rebuilt below
     for tid in rts:
         if runtime.has(tid):
             (runtime[tid] as TaskRuntime).from_dict(rts[tid])
+    runtime.silent = false
     rng.seed = int(str(d["rng_seed"]))
     rng.state = int(str(d["rng_state"]))
     learning_counts = {}

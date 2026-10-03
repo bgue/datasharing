@@ -21,9 +21,39 @@ static func cell_from_variant(v: Variant) -> Vector2i:
 static func cells_from_variant(v: Variant) -> Array[Vector2i]:
     var out: Array[Vector2i] = []
     if v is Array:
-        for c in v:
-            out.append(cell_from_variant(c))
+        var src: Array = v
+        out.resize(src.size())
+        var i: int = 0
+        for c in src:
+            var a: Array = c
+            out[i] = Vector2i(int(a[0]), int(a[1]))
+            i += 1
     return out
+
+
+## Cells of `rects`: [[x, z, width, depth], ...] (the compact form of `cells`; `cell_rects` in bundle rows).
+static func cells_from_rects(rects: Variant) -> Array[Vector2i]:
+    var out: Array[Vector2i] = []
+    if rects is Array:
+        for r in rects:
+            var a: Array = r
+            var x0: int = int(a[0])
+            var z0: int = int(a[1])
+            var w: int = int(a[2])
+            var d: int = int(a[3])
+            for dz in d:
+                for dx in w:
+                    out.append(Vector2i(x0 + dx, z0 + dz))
+    return out
+
+
+## `cells` (list of [x, z]) or, when the row has no `cells`, `cell_rects` of a bundle row.
+static func cells_of_row(d: Dictionary) -> Array[Vector2i]:
+    if d.has("cells"):
+        return cells_from_variant(d["cells"])
+    if d.has("cell_rects"):
+        return cells_from_rects(d["cell_rects"])
+    return [] as Array[Vector2i]
 
 
 static func from_dict(d: Dictionary) -> ZoneData:
@@ -31,7 +61,7 @@ static func from_dict(d: Dictionary) -> ZoneData:
     z.id = str(d.get("id", ""))
     z.name = str(d.get("name", z.id))
     z.storey_id = str(d.get("storey_id", ""))
-    z.cells = cells_from_variant(d.get("cells", []))
+    z.cells = cells_of_row(d)
     z.max_crews = int(d.get("max_crews", 1))
     var tg: Variant = d.get("tags", [])
     if tg is Array:

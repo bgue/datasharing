@@ -12,7 +12,7 @@ static func task_risk_term(gs: SimState, task: TaskData) -> float:
     var cong: float = Productivity.zone_congestion(gs, task.zone_id)
     var congestion_penalty: float = 1.0 / maxf(cong, 0.01)
     var hoarding: float = 1.0
-    if zone != null and not Logistics.has_tile_adjacent(gs.tiles, zone.cells, SiteTiles.HOARDING):
+    if zone != null and not gs.zone_has_hoarding(zone):
         hoarding = HOARDING_PENALTY
     var overtime: float = OVERTIME_PENALTY if gs.speed > 1 else 1.0
     var shift: float = gs.scenario.shift_risk_factor if gs.is_double_shift(task.zone_id) else 1.0

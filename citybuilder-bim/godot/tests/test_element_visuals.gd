@@ -210,7 +210,7 @@ func test_ghost_is_an_outline_without_a_filled_volume() -> void:
 func test_ghost_materials_do_not_occlude_the_solids() -> void:
     var gs: SimState = new_state()
     var v: BimView = _view(gs)
-    var mm: MultiMeshInstance3D = v._outlines["column"]
+    var mm: MultiMeshInstance3D = v.outline_node("column")
     var mat: StandardMaterial3D = mm.multimesh.mesh.surface_get_material(0) as StandardMaterial3D
     eq(mat.transparency, BaseMaterial3D.TRANSPARENCY_ALPHA, "outline lines are alpha blended (no depth write)")
     ok(mat.render_priority > 0, "outlines are drawn after the solid parts")
@@ -357,8 +357,7 @@ func test_heat_overlay_colours_toggle_and_rework() -> void:
     ok(red.r > 0.9 and red.g < CellHeatOverlay.AMBER.g * 0.6, "rework tints the cell red")
     v.set_heat_visible(true)
     ok(v.is_heat_visible() and heat.visible, "heat toggled on")
-    var mm: MultiMesh = heat.layer_node("L00").multimesh
-    eq(mm.instance_count, 4, "one quad per cell")
+    eq(heat.quad_count("L00"), 4, "one quad per cell")
     heat.refresh()
     for i in 4:
         ok(heat.quad_colour("L00", i).is_equal_approx(CellHeatOverlay.GREY), "ground cells start grey")
