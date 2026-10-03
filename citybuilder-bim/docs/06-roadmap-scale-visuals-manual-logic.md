@@ -339,3 +339,25 @@ tests.
 Acceptance: screenshots exist for all bundles and panels; a reviewer can
 name every kit in the catalogue sheet; half-poured slabs read as half; the
 suite stays green; no panel overlaps another at 1280×720 or 1920×1080.
+
+---
+
+## Phase 5 plan (scale and configurable grid)
+
+`ifcopenshell` 0.9 installs in the build environment, so this phase also
+exercises the real IFC path: the pipeline generates IFC files with
+`ifcopenshell.api` (storeys, spaces, walls, slabs, columns, MEP) and runs
+`ifc-to-elements` on them, including a 150k-element stress model.
+
+| WP | Scope |
+| --- | --- |
+| WP-T pipeline at scale | `project_config.json` (schema added) with auto grid defaults, chainage mode, zones from IfcSpace/IfcZone with `space_tags.json` rules, filters and scope; aggregation presets per sector with the `anchor` option on mapping rules (once per element, system, zone, cell group, storey, project); streaming IFC extraction with the geometry iterator; gzip + split bundle output and per-zone lazy detail; incremental zone rebuild; synthetic IFC generators (`bimseq synth-ifc`) and an end-to-end IFC test; a 150k-element stress model and timing report. |
+| WP-U game at scale | Load `.json.gz` and split task parts, lazy zone detail; PackedArray task runtime; chunked MultiMesh rendering per (storey, 8×8 chunk, kind/kit) with frustum and storey culling and far LOD cell cubes; virtualised Gantt rows; `project.areas` with camera bookmarks and an Areas menu; performance test on the stress bundle: ≤ 100 ms per simulated week at 20k tasks / 2k packages and ≤ 16 ms visual refresh. |
+| WP-V content | Re-narrow recipe anchoring with `anchor` instead of synthetic-name regexes; `data/zoning/space_tags_<sector>.json` mapping room names (OR, Theatre, MRI, Plant, Ward, Corridor, Switchroom, Control room, Pump house) to zone tags, crew caps and faces; aggregation presets tuned per sector. |
+| WP-W client and MCP | `view.*`, `state.areas`, `view.set_lod`, `project.config` methods in the Python client and MCP; `ifc_to_bundle` MCP tool that runs the pipeline on an IFC path and syncs the bundle. |
+
+Acceptance: a generated 150k-element IFC goes through `ifc-to-elements`,
+`map` (aggregated) and `schedule` in under 10 minutes and loads in the game
+within the targets; auto grid detection and space-based zoning are unit
+tested on generated IFC; the shipped sector bundles are unchanged or
+improved (zero gaps, baselines within ±10%).

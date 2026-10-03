@@ -113,7 +113,7 @@
     },
     "tasks": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "items": {
         "allOf": [
           {
@@ -204,6 +204,24 @@
     "manual": {
       "$ref": "manual_sequence.schema.json",
       "description": "Manual sequence merged into this bundle, if any"
+    },
+    "bundle_format": {
+      "type": "object",
+      "properties": {
+        "compressed": {
+          "type": "boolean"
+        },
+        "task_parts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Relative paths of task part files when tasks are split; tasks[] may then be empty"
+        },
+        "zone_detail_dir": {
+          "type": "string"
+        }
+      }
     }
   }
 }

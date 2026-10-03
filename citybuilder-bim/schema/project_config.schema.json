@@ -1,0 +1,334 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sitebuilder.dev/schema/project_config.schema.json",
+  "title": "Per-project pipeline configuration: grid, zoning, aggregation, filters and scope",
+  "type": "object",
+  "required": [
+    "schema_version"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "name": {
+      "type": "string"
+    },
+    "sector": {
+      "$ref": "common.schema.json#/$defs/sector"
+    },
+    "grid": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "fixed",
+            "chainage"
+          ],
+          "default": "auto"
+        },
+        "cell_size_m": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "storey_height_m": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "exclusiveMinimum": 0
+        },
+        "origin": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "rotation_deg": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "snap_m": {
+          "type": "number",
+          "default": 0.5
+        },
+        "min_cell_m": {
+          "type": "number",
+          "default": 3
+        },
+        "max_cell_m": {
+          "type": "number",
+          "default": 12
+        },
+        "chainage": {
+          "type": "object",
+          "properties": {
+            "alignment_guid": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "axis": {
+              "type": "string",
+              "enum": [
+                "x",
+                "y",
+                "auto"
+              ],
+              "default": "auto"
+            },
+            "cell_length_m": {
+              "type": "number",
+              "default": 25
+            },
+            "lanes": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 6
+            },
+            "lane_width_m": {
+              "type": "number",
+              "default": 3.5
+            }
+          }
+        }
+      }
+    },
+    "zones": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "ifc_space",
+            "ifc_zone",
+            "file"
+          ],
+          "default": "auto"
+        },
+        "file": {
+          "type": "string"
+        },
+        "auto_block": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "default": [
+            3,
+            3
+          ]
+        },
+        "max_crews_default": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 2
+        },
+        "space_tags": {
+          "type": "string",
+          "description": "Path to a space-name -> zone-tag rules file (space_tags.schema)"
+        },
+        "merge_small_spaces_below_cells": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 2
+        }
+      }
+    },
+    "aggregation": {
+      "type": "object",
+      "properties": {
+        "preset": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Preset id from aggregation_presets.json; null = off"
+        },
+        "max_members": {
+          "type": "integer",
+          "minimum": 2,
+          "default": 200
+        },
+        "threshold_per_cell": {
+          "type": "integer",
+          "minimum": 2,
+          "default": 25
+        }
+      }
+    },
+    "filters": {
+      "type": "object",
+      "properties": {
+        "exclude_ifc_classes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "IfcAnnotation",
+            "IfcGrid",
+            "IfcOpeningElement",
+            "IfcSpace",
+            "IfcSite",
+            "IfcBuilding",
+            "IfcBuildingStorey"
+          ]
+        },
+        "include_ifc_classes": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "include_storeys": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "bbox": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "min": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "max": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            }
+          }
+        },
+        "min_bbox_m": {
+          "type": "number",
+          "default": 0.05,
+          "description": "Drop elements smaller than this in every dimension"
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "buildings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "*"
+          ]
+        },
+        "systems": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "*"
+          ]
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "properties": {
+        "compress": {
+          "type": "boolean",
+          "default": false,
+          "description": "Write .json.gz and split task parts"
+        },
+        "tasks_per_part": {
+          "type": "integer",
+          "minimum": 100,
+          "default": 5000
+        },
+        "lazy_zone_detail": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "areas": {
+      "type": "array",
+      "description": "Several buildings or plant areas on one world grid",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "building_guid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "origin_cells": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "rotation_deg": {
+            "type": "number",
+            "default": 0
+          },
+          "camera_bookmark": {
+            "type": "object",
+            "properties": {
+              "cells": {
+                "$ref": "common.schema.json#/$defs/cells"
+              },
+              "storey_index": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

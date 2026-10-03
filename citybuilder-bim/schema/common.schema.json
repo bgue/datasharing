@@ -175,6 +175,51 @@
             "depth_cells": {
               "type": "integer",
               "minimum": 1
+            },
+            "rotation_deg": {
+              "type": "number"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "auto",
+                "fixed",
+                "chainage"
+              ]
+            },
+            "detected": {
+              "type": "object",
+              "description": "Auto-detection diagnostics"
+            }
+          }
+        },
+        "areas": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "name"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "cells": {
+                "$ref": "#/$defs/cells"
+              },
+              "storey_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "camera_bookmark": {
+                "type": "object"
+              }
             }
           }
         }

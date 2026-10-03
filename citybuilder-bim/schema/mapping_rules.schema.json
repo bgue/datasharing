@@ -187,6 +187,19 @@
         },
         "visual_kit": {
           "type": "string"
+        },
+        "anchor": {
+          "type": "string",
+          "enum": [
+            "element",
+            "system",
+            "zone",
+            "cell_group",
+            "storey",
+            "project"
+          ],
+          "default": "element",
+          "description": "How often a recipe on this rule expands: once per matched element, once per system_id, once per zone, once per contiguous cell group of matched elements, once per storey, or once for the project"
         }
       }
     }

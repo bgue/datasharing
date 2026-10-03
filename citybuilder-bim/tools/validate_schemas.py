@@ -18,7 +18,7 @@ from referencing import Registry, Resource
 SCHEMA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "schema")
 BASE = "https://sitebuilder.dev/schema/"
 NAMES = ["common", "elements", "step_library", "mapping_rules", "element_step_map", "scenario", "sequence",
-         "recipe", "manual_sequence", "visual_kit"]
+         "recipe", "manual_sequence", "visual_kit", "project_config", "space_tags"]
 
 
 def load_registry():

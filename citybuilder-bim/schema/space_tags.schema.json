@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sitebuilder.dev/schema/space_tags.schema.json",
+  "title": "Rules mapping IfcSpace/IfcZone names and properties to zone tags and crew caps",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "rules"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "sector": {
+      "type": "string"
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "match",
+          "tags"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "match": {
+            "type": "object",
+            "properties": {
+              "name_regex": {
+                "type": "string"
+              },
+              "long_name_regex": {
+                "type": "string"
+              },
+              "object_type_regex": {
+                "type": "string"
+              },
+              "properties": {
+                "type": "object"
+              }
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "max_crews": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "faces": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "shift_allowed": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}
