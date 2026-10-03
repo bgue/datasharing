@@ -99,15 +99,11 @@
    "optional": true
   },
   {
-   "ref": "PIP-SPOOL-LAY",
-   "optional": true,
-   "quantity": {
-    "basis": "length_m",
-    "value": 20
-   }
+   "ref": "PIP-SPOOL-LAY"
   },
   {
-   "ref": "PIP-FITTING-INSTALL"
+   "ref": "PIP-FITTING-INSTALL",
+   "optional": true
   },
   {
    "ref": "GEN-HYDROTEST",
@@ -145,12 +141,7 @@
    "marker": "scaffold"
   },
   {
-   "ref": "CX-PIPE-FLUSH",
-   "optional": true,
-   "quantity": {
-    "basis": "length_m",
-    "value": 20
-   }
+   "ref": "CX-PIPE-FLUSH"
   }
  ],
  "logic": [

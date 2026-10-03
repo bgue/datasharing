@@ -63,7 +63,7 @@ A rule may carry `recipe: "rec_..."` next to its `steps` (or alone). The pipelin
 * **The recipe is the authority on local order, the library only holds cross-element logic.** Library predecessor rules on virtual steps never contradict a recipe: recipes list steps in non-decreasing library phase order (paperwork, permits, lift plans and crane mobilisation first, as-builts and tests at their phase) and use `parallel_with` only for partners in the same or an earlier phase. Cumulative gates would otherwise report `gate_cycle` gaps. A `logic` link may not run from a later phase back to an earlier one.
 * **Time-driven virtual steps still occupy a crew slot** in the baseline scheduler (curing watch, dewatering run, vendor attendance), so durations are short and a curing watch is only created when its pour is.
 
-Current attachments (synthetic projects, standard level): industrial 14 rules with recipes and 257 virtual tasks, civil 9 and 167, healthcare 9 and 161.
+Rules also set `anchor` (`element`, `system`, `zone`, `cell_group`, `storey`, `project`) to control how often a recipe expands: equipment keeps the per-element anchor, linear runs use `system`, rooms use `zone`, spans and pile groups use `cell_group`. See `data/sectors/README.md` for the per-sector table.
 
 ## Marker vocabulary
 

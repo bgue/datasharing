@@ -10,25 +10,25 @@ Wards repeat, so a stable recipe is worth more than a clever plan. The order her
 
 ## Sequence
 
-1. `GEN-ICRA-SETUP` Erect ICRA barrier and negative air (BIM-bound, from zone element; hold point: icra inspection)
-2. `ARC-WALL-FRAME` Frame partition walls (BIM-bound, from zone element)
-3. `MEP-DUCT-INSTALL` Install ductwork (BIM-bound, from zone element)
-4. `PLB-PIPE-INSTALL` Install water, waste and heating pipe (BIM-bound, from zone element)
-5. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from zone element; hold point: electrical inspection)
-6. `FIR-SPRINK-INSTALL` Install sprinkler pipework and drops (BIM-bound, from zone element; hold point: fire inspection)
-7. `FIR-STOP-INSTALL` Fire-stop penetrations (BIM-bound, from zone element; hold point: fire inspection)
-8. `ARC-WALL-BOARD` Board, tape and finish partition walls (BIM-bound, from zone element)
+1. `GEN-ICRA-SETUP` Erect ICRA barrier and negative air (BIM-bound, from zone element; optional; hold point: icra inspection)
+2. `ARC-WALL-FRAME` Frame partition walls (BIM-bound, from zone element; optional)
+3. `MEP-DUCT-INSTALL` Install ductwork (BIM-bound, from zone element; optional)
+4. `PLB-PIPE-INSTALL` Install water, waste and heating pipe (BIM-bound, from zone element; optional)
+5. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from zone element; optional; hold point: electrical inspection)
+6. `FIR-SPRINK-INSTALL` Install sprinkler pipework and drops (BIM-bound, from zone element; optional; hold point: fire inspection)
+7. `FIR-STOP-INSTALL` Fire-stop penetrations (BIM-bound, from zone element; optional; hold point: fire inspection)
+8. `ARC-WALL-BOARD` Board, tape and finish partition walls (BIM-bound, from zone element; optional)
 9. `ARC-CEILING-CLOSE` Close ceiling (BIM-bound, from zone element)
-10. `ARC-FLOOR-FINISH` Install hygienic floor finish (BIM-bound, from zone element)
-11. `ARC-DOOR-INSTALL` Hang doors and ironmongery (BIM-bound, from host element)
-12. `ELE-LIGHT-INSTALL` Install light fittings and devices (BIM-bound, from zone element)
-13. `MEP-DIFFUSER-SET` Set diffusers and grilles (BIM-bound, from zone element)
-14. `PLB-FIXTURE-SET` Set sanitary fixtures and taps (BIM-bound, from zone element)
-15. `MED-EQUIP-INSTALL` Install fixed clinical equipment (BIM-bound, from zone element). Bed-heads and nurse call.
-16. `CX-AIR-BALANCE` Test and balance air system (BIM-bound, from system element)
-17. `CX-FIRE-TEST` Fire alarm and sprinkler acceptance test (BIM-bound, from zone element; hold point: fire inspection)
-18. `GEN-HEPA-CLEAN` HEPA terminal clean (BIM-bound, from zone element)
-19. `GEN-ICRA-CLOSEOUT` ICRA clearance and barrier removal (BIM-bound, from zone element; hold point: icra inspection)
+10. `ARC-FLOOR-FINISH` Install hygienic floor finish (BIM-bound, from zone element; optional)
+11. `ARC-DOOR-INSTALL` Hang doors and ironmongery (BIM-bound, from host element; optional)
+12. `ELE-LIGHT-INSTALL` Install light fittings and devices (BIM-bound, from zone element; optional)
+13. `MEP-DIFFUSER-SET` Set diffusers and grilles (BIM-bound, from zone element; optional)
+14. `PLB-FIXTURE-SET` Set sanitary fixtures and taps (BIM-bound, from zone element; optional)
+15. `MED-EQUIP-INSTALL` Install fixed clinical equipment (BIM-bound, from zone element; optional). Bed-heads and nurse call.
+16. `CX-AIR-BALANCE` Test and balance air system (BIM-bound, from self element; optional)
+17. `CX-FIRE-TEST` Fire alarm and sprinkler acceptance test (BIM-bound, from zone element; optional; hold point: fire inspection)
+18. `GEN-HEPA-CLEAN` HEPA terminal clean (BIM-bound, from zone element; optional)
+19. `GEN-ICRA-CLOSEOUT` ICRA clearance and barrier removal (BIM-bound, from zone element; optional; hold point: icra inspection)
 20. `GEN-PUNCH-CLEAR` Punch list close-out (virtual task, test marker)
 
 ## Ordering beyond the chain

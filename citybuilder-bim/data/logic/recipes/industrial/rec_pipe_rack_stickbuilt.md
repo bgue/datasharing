@@ -19,14 +19,14 @@ Stick-built racks need more site time but fewer heavy lifts. The recipe adds sca
 7. `GEN-SCAFFOLD-ERECT` Erect access scaffold (virtual task, scaffold marker)
 8. `STR-RACK-ERECT` Erect pipe rack frame (BIM-bound, from self element; optional)
 9. `STR-RACK-CONN` Bolt-up and weld rack connections (BIM-bound, from self element; optional; hold point: welding inspection)
-10. `PIP-SPOOL-LAY` Lift and lay pipe spools on rack (BIM-bound, from self element; optional)
-11. `PIP-FITTING-INSTALL` Install fittings, flanges and valves (BIM-bound, from self element)
+10. `PIP-SPOOL-LAY` Lift and lay pipe spools on rack (BIM-bound, from self element)
+11. `PIP-FITTING-INSTALL` Install fittings, flanges and valves (BIM-bound, from self element; optional)
 12. `GEN-HYDROTEST` System hydrotest or pressure test (virtual task, test marker; hold point: pressure_test inspection)
 13. `ELE-TRAY-INSTALL` Install cable tray (BIM-bound, from self element; optional)
 14. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from self element; optional)
 15. `INS-PIPE-INSULATE` Insulate and clad pipe (BIM-bound, from self element; optional)
 16. `GEN-SCAFFOLD-DISMANTLE` Dismantle access scaffold (virtual task, scaffold marker)
-17. `CX-PIPE-FLUSH` Flush and blow pipework (BIM-bound, from self element; optional)
+17. `CX-PIPE-FLUSH` Flush and blow pipework (BIM-bound, from self element)
 
 ## Ordering beyond the chain
 

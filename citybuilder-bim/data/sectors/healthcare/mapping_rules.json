@@ -35,7 +35,8 @@
    "continue": true,
    "chain": false,
    "visual": "slab",
-   "recipe": "rec_icra_containment"
+   "recipe": "rec_icra_containment",
+   "anchor": "zone"
   },
   {
    "id": "R-mri",
@@ -60,7 +61,8 @@
     }
    ],
    "visual": "equipment",
-   "recipe": "rec_imaging_suite_mri"
+   "recipe": "rec_imaging_suite_mri",
+   "anchor": "element"
   },
   {
    "id": "R-ct",
@@ -85,7 +87,8 @@
     }
    ],
    "visual": "equipment",
-   "recipe": "rec_imaging_suite_ct"
+   "recipe": "rec_imaging_suite_ct",
+   "anchor": "element"
   },
   {
    "id": "R-steriliser",
@@ -110,7 +113,8 @@
     }
    ],
    "visual": "equipment",
-   "recipe": "rec_sterile_services"
+   "recipe": "rec_sterile_services",
+   "anchor": "element"
   },
   {
    "id": "R-medical-device",
@@ -136,36 +140,8 @@
    "visual": "equipment"
   },
   {
-   "id": "R-gas-pipe-lead",
-   "description": "First line of each medical gas system carries the pipeline recipe.",
-   "priority": 375,
-   "match": {
-    "ifc_class": [
-     "IfcPipeSegment"
-    ],
-    "name_regex": "(?i)line L00 1$"
-   },
-   "steps": [
-    {
-     "step": "MED-GAS-PIPE-INSTALL",
-     "quantity": "length_m"
-    },
-    {
-     "step": "MED-GAS-TEST",
-     "quantity": "length_m"
-    },
-    {
-     "step": "MED-GAS-CERT",
-     "quantity": "length_m"
-    }
-   ],
-   "visual": "pipe",
-   "system_prefix": "MG-",
-   "recipe": "rec_medical_gas_system"
-  },
-  {
    "id": "R-gas-pipe",
-   "description": "Medical gas pipe (system_id MG-*): install, pressure test, certify.",
+   "description": "Medical gas pipe (system_id MG-*): install, pressure test, certify; one pipeline recipe per gas system.",
    "priority": 370,
    "match": {
     "ifc_class": [
@@ -187,7 +163,9 @@
     }
    ],
    "visual": "pipe",
-   "system_prefix": "MG-"
+   "system_prefix": "MG-",
+   "recipe": "rec_medical_gas_system",
+   "anchor": "system"
   },
   {
    "id": "R-pipe-fire",
@@ -478,7 +456,8 @@
     }
    ],
    "visual": "generic",
-   "recipe": "rec_live_hospital_tie_in"
+   "recipe": "rec_live_hospital_tie_in",
+   "anchor": "zone"
   },
   {
    "id": "R-valve",
@@ -574,7 +553,8 @@
     }
    ],
    "visual": "equipment",
-   "recipe": "rec_plant_room_ahu"
+   "recipe": "rec_plant_room_ahu",
+   "anchor": "element"
   },
   {
    "id": "R-switchgear",
@@ -1054,7 +1034,7 @@
   },
   {
    "id": "R-ceiling-or",
-   "description": "One ceiling per operating room carries the OR recipe (not every partition).",
+   "description": "Ceilings in operating rooms: one OR recipe per room zone.",
    "priority": 170,
    "match": {
     "ifc_class": [
@@ -1074,11 +1054,12 @@
     }
    ],
    "visual": "ceiling",
-   "recipe": "rec_or_room"
+   "recipe": "rec_or_room",
+   "anchor": "zone"
   },
   {
    "id": "R-ceiling-pressure",
-   "description": "One ceiling per pressure room carries the pressure room recipe.",
+   "description": "Ceilings in pressure rooms: one pressure room recipe per room zone.",
    "priority": 165,
    "match": {
     "ifc_class": [
@@ -1098,7 +1079,33 @@
     }
    ],
    "visual": "ceiling",
-   "recipe": "rec_pressure_room"
+   "recipe": "rec_pressure_room",
+   "anchor": "zone"
+  },
+  {
+   "id": "R-ceiling-ward",
+   "description": "One ward fit-out recipe per ward zone, anchored on the zone ceiling.",
+   "priority": 170,
+   "match": {
+    "ifc_class": [
+     "IfcCovering"
+    ],
+    "predefined_type": [
+     "CEILING"
+    ],
+    "zone_tags_any": [
+     "ward"
+    ]
+   },
+   "steps": [
+    {
+     "step": "ARC-CEILING-CLOSE",
+     "quantity": "area_m2"
+    }
+   ],
+   "visual": "ceiling",
+   "recipe": "rec_ward_fitout",
+   "anchor": "zone"
   },
   {
    "id": "R-ceiling",

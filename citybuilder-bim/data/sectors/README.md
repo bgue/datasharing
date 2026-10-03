@@ -20,8 +20,8 @@ Counts at a glance:
 
 | Sector | Phases | Trades | Steps | Rules (+default) | Gates | Events per level (tutorial / standard / hard) |
 | --- | --- | --- | --- | --- | --- | --- |
-| industrial | 12 | 9 | 79 | 53 | 6 | 12 / 15 / 15 |
-| civil | 10 | 9 | 70 | 45 | 6 | 12 / 15 / 15 |
+| industrial | 12 | 9 | 79 | 52 | 6 | 12 / 15 / 15 |
+| civil | 10 | 9 | 70 | 41 | 6 | 12 / 15 / 15 |
 | healthcare | 11 | 10 | 77 | 49 | 6 | 12 / 15 / 15 |
 
 ## How a library is organised
@@ -251,3 +251,46 @@ Result on the synthetic bundles (standard scenario, `build-samples`):
 | healthcare | 9 | 161 | 1526 (1370) | 0 | 49 (47) |
 
 To keep the gaps at zero the library predecessors on virtual steps were reduced to cross-element logic: civil `GEN-SHORING-REMOVE` moved to the structures phase and `GEN-DEWATER-RUN` to the drainage phase, `GEN-HYDROTEST` is no longer `required`, civil anchor survey and curing watch wait only for the set-out, and `STR-BEARING-SET` no longer waits for the anchor survey. Crane steps keep waiting for the lift plan in their zone.
+
+## Recipe anchors (`anchor` on mapping rules)
+
+A rule that carries a recipe says how often the recipe expands with `anchor`: `element` (default, once per matched element), `system`, `zone`, `cell_group` (once per contiguous group of matched elements' cells), `storey` or `project`. The synthetic-name regexes that used to pick a representative element (`CH000$`, `G\d-2$`, `line L00 1$`, `wearing course CH000-2$`) and the narrow clone rules that carried them are gone (`R-rack-fitting`, `R-bridge-girder-lead`, `R-pipe-utility-lead`, `R-pipe-drain-lead`, `R-pavement-lead`, `R-gas-pipe-lead`); the recipes now sit on the generic rules.
+
+| Sector | Rules with a recipe | element | cell_group | system | zone |
+| --- | --- | --- | --- | --- | --- |
+| industrial | 15 | module, transformer, tank, chimney, pump, turbine, exchanger, vertical and horizontal vessel | pit excavation, pile caps, rack modules | rack pipe (stick-built rack), cable | ground slab in heavy-lift bays |
+| civil | 9 | none | pile caps (pier), girders (deck, one per span), culverts, retaining and headwall walls | diverted services, drainage | wearing course, temporary signs (traffic switch), permanent signs |
+| healthcare | 10 | MRI, CT, sterilisers, AHUs | none | medical gas pipe | ICRA slabs, OR ceiling, pressure room ceiling, ward ceiling (`R-ceiling-ward`, zone tag `ward`), valves next to the live ward (tie-in) |
+
+Discrete equipment keeps the per-element anchor because each unit has its own pad, lift and vendor visit. Linear runs use `system`, rooms use `zone`, and spans or pile groups use `cell_group`. The room rules (`R-ceiling-or`, `R-ceiling-pressure`, `R-ceiling-ward`) carry a zone tag and the anchor, so one expansion is made per room whatever the number of partitions. The ward rule only fires once zones carry the `ward` tag from `data/zoning/space_tags_healthcare.json`.
+
+## Aggregation guidance (for `tools/bimseq/aggregation_presets.json`)
+
+Aggregation folds groups of the same class in one cell (and system) into one aggregate element with summed quantities, which keeps task counts bounded on large models. Recommended presets and rules per sector; class names are exact IFC names as used in the mapping rules.
+
+**Never aggregate** (one task chain per element is the point, or the step has `crew_profile.min` greater than 1, a lead time, a hold point that is specific to the element, or a recipe anchored per element):
+
+* Equipment and long-lead items: `IfcTank`, `IfcChimney`, `IfcTransformer`, `IfcFlowMovingDevice`, `IfcEnergyConversionDevice`, `IfcFlowStorageDevice`, `IfcElectricDistributionBoard`, `IfcMedicalDevice`, `IfcBearing`, `IfcDistributionChamberElement`.
+* Structure with crane or crew minimums: `IfcColumn`, `IfcBeam`, `IfcMember`, `IfcPlate`, `IfcSlab`, `IfcFooting`, `IfcPile`, `IfcDeepFoundation`, `IfcStair`, `IfcRamp`, `IfcCurtainWall`, `IfcRoof`.
+* Any element with a property that a rule or recipe keys on: `Module`, `BridgePart`, `Shielding`, `Culvert`, `EquipmentPad`, `Hygienic` coverings, plus `IfcBuildingElementProxy` (modules, culverts).
+* Walls: `IfcWall` and `IfcWallStandardCase` with `Shielding`, `BridgePart` or `Culvert`, or concrete walls (`STR-WALL-POUR` crews); plain partitions may aggregate, see the thresholds.
+
+**Aggregate** when a group (same storey, cell, class and system) exceeds the threshold:
+
+| Class | industrial (`industrial_dense`) | healthcare (`hospital_dense`) | civil (`civil_linear`) |
+| --- | --- | --- | --- |
+| `IfcPipeSegment`, `IfcPipeFitting` | 25 per cell and system | 40 per cell and system (medical gas pipes: 40 per cell and gas system, never mixed across `MG-` systems) | 60 per cell and system |
+| `IfcDuctSegment`, `IfcDuctFitting` | 25 | 40 | not used |
+| `IfcCableCarrierSegment`, `IfcCableSegment` | 40 | 40 | 60 |
+| `IfcCovering` (`INSULATION`, `CLADDING`, `CEILING`, `FLOORING` without `Hygienic`) | 25 | 40 | 60 |
+| `IfcLightFixture`, `IfcFlowTerminal`, `IfcAirTerminal`, `IfcSanitaryTerminal`, `IfcFireSuppressionTerminal` | 40 | 40 | 60 |
+| `IfcSensor`, `IfcActuator`, `IfcController`, `IfcAlarm`, `IfcUnitaryControlElement`, `IfcFlowController` | 40 | 40 | not used |
+| `IfcRailing` (guardrail, not `BridgePart`), `IfcKerb`, `IfcCourse`, `IfcPavement`, `IfcSign` (permanent) | 40 | not used | 60 |
+| `IfcEarthworksCut`, `IfcEarthworksFill`, `IfcPipeSegment` (drainage) | not used | not used | 60 |
+| `IfcWall` (`PARTITIONING`, no `Shielding`), `IfcDoor`, `IfcWindow` | not used | 60 | not used |
+
+Group by `storey`, `cell`, `kit_or_class` and `system` as today; the civil preset omits `system` for pavement layers, kerbs and signs because they have none. A group aggregated into one element still reports the right quantities (sum of member quantities), so the rate and crew-day maths hold. Recipes anchored per `system`, `zone`, `cell_group` or `storey` work on aggregates; recipes anchored per `element` (the equipment list above) rely on elements staying individual.
+
+## Zoning vocabulary
+
+Room names and the zone tags, crew caps, faces and shift flags they produce live in `data/zoning/` (see `data/zoning/README.md`). The tags used by recipes, cards and rules are `or_room`, `imaging`, `plant_room`, `pressure_room`, `occupied_adjacent`, `ward`, `pipe_rack`, `process_unit`, `heavy_lift_area`, `bridge`, `culvert`, `live_traffic` and `segment`.

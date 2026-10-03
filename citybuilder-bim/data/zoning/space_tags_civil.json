@@ -1,0 +1,100 @@
+{
+ "schema_version": "1.0",
+ "sector": "civil",
+ "rules": [
+  {
+   "id": "civ-live-lane",
+   "match": {
+    "name_regex": "(?i)(live\\s*(lane|carriageway|traffic)|existing\\s*(lane|carriageway)|traffic\\s*lane)"
+   },
+   "tags": [
+    "live_traffic",
+    "segment"
+   ],
+   "max_crews": 2,
+   "faces": {
+    "floor": 1,
+    "below_ground": 1
+   },
+   "shift_allowed": false
+  },
+  {
+   "id": "civ-bridge",
+   "match": {
+    "name_regex": "(?i)(abutment|\\bpier\\b|\\bspan\\b|bridge|\\bdeck\\b|girder)"
+   },
+   "tags": [
+    "bridge",
+    "heavy_lift_area"
+   ],
+   "max_crews": 4,
+   "faces": {
+    "structure": 3,
+    "roof": 2,
+    "below_ground": 2
+   }
+  },
+  {
+   "id": "civ-culvert",
+   "match": {
+    "name_regex": "(?i)(culvert|headwall|box\\s*section)"
+   },
+   "tags": [
+    "culvert"
+   ],
+   "max_crews": 3,
+   "faces": {
+    "below_ground": 3,
+    "structure": 2
+   }
+  },
+  {
+   "id": "civ-utilities",
+   "match": {
+    "name_regex": "(?i)(drain(age)?|chamber|manhole|utilit(y|ies)|duct\\s*bank|service\\s*corridor)"
+   },
+   "tags": [
+    "utilities"
+   ],
+   "max_crews": 3,
+   "faces": {
+    "below_ground": 3
+   }
+  },
+  {
+   "id": "civ-verge",
+   "match": {
+    "name_regex": "(?i)(verge|footway|footpath|landscap|cycle\\s*(track|lane)|shoulder)"
+   },
+   "tags": [
+    "verge"
+   ],
+   "max_crews": 2,
+   "faces": {
+    "floor": 2
+   }
+  },
+  {
+   "id": "civ-segment",
+   "match": {
+    "name_regex": "(?i)(carriageway|\\blane\\b|segment|chainage|\\bCH\\s*\\d+)"
+   },
+   "tags": [
+    "segment"
+   ],
+   "max_crews": 3,
+   "faces": {
+    "floor": 2,
+    "below_ground": 2
+   }
+  },
+  {
+   "id": "civ-fallback",
+   "match": {
+    "name_regex": ".*"
+   },
+   "tags": [],
+   "max_crews": 2
+  }
+ ]
+}

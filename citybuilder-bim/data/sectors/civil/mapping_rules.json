@@ -75,7 +75,8 @@
     }
    ],
    "visual": "sign",
-   "recipe": "rec_traffic_stage_switch"
+   "recipe": "rec_traffic_stage_switch",
+   "anchor": "zone"
   },
   {
    "id": "R-culvert",
@@ -112,7 +113,8 @@
     }
    ],
    "visual": "culvert",
-   "recipe": "rec_culvert"
+   "recipe": "rec_culvert",
+   "anchor": "cell_group"
   },
   {
    "id": "R-earth-cut-bulk",
@@ -231,7 +233,8 @@
     }
    ],
    "visual": "footing",
-   "recipe": "rec_bridge_pier"
+   "recipe": "rec_bridge_pier",
+   "anchor": "cell_group"
   },
   {
    "id": "R-pile",
@@ -326,31 +329,8 @@
    "visual": "beam"
   },
   {
-   "id": "R-bridge-girder-lead",
-   "description": "First girder of each span carries the beam lift and deck recipe (one expansion per span, not per girder).",
-   "priority": 335,
-   "match": {
-    "ifc_class": [
-     "IfcBeam"
-    ],
-    "properties_present": [
-     "BridgePart"
-    ],
-    "name_regex": "G\\d-2$"
-   },
-   "steps": [
-    {
-     "step": "STR-BEAM-LIFT",
-     "quantity": "count",
-     "min_quantity": 1
-    }
-   ],
-   "visual": "beam",
-   "recipe": "rec_bridge_deck"
-  },
-  {
    "id": "R-bridge-girder",
-   "description": "Precast bridge beam: crane plus night closure after piers and bearings.",
+   "description": "Precast bridge beam: crane plus night closure after piers and bearings. One deck recipe per contiguous group of girders (a span).",
    "priority": 330,
    "match": {
     "ifc_class": [
@@ -367,7 +347,9 @@
      "min_quantity": 1
     }
    ],
-   "visual": "beam"
+   "visual": "beam",
+   "recipe": "rec_bridge_deck",
+   "anchor": "cell_group"
   },
   {
    "id": "R-beam-cast",
@@ -546,7 +528,8 @@
     }
    ],
    "visual": "wall",
-   "recipe": "rec_retaining_wall"
+   "recipe": "rec_retaining_wall",
+   "anchor": "cell_group"
   },
   {
    "id": "R-wall",
@@ -690,38 +673,8 @@
     }
    ],
    "visual": "sign",
-   "recipe": "rec_kerb_and_signage"
-  },
-  {
-   "id": "R-pavement-lead",
-   "description": "Representative wearing-course element carries the pavement recipe.",
-   "priority": 250,
-   "match": {
-    "ifc_class": [
-     "IfcPavement",
-     "IfcCourse"
-    ],
-    "name_regex": "(?i)wearing course CH000-2$"
-   },
-   "steps": [
-    {
-     "step": "CIV-ASPHALT-WEAR",
-     "quantity": "area_m2"
-    },
-    {
-     "step": "CIV-MARKING-APPLY",
-     "quantity": "area_m2",
-     "quantity_factor": 0.35,
-     "unit_override": "m"
-    },
-    {
-     "step": "GEN-HANDOVER-DOC",
-     "quantity": "count",
-     "min_quantity": 1
-    }
-   ],
-   "visual": "pavement",
-   "recipe": "rec_pavement_build"
+   "recipe": "rec_kerb_and_signage",
+   "anchor": "zone"
   },
   {
    "id": "R-course-subbase",
@@ -771,7 +724,7 @@
   },
   {
    "id": "R-course-wearing",
-   "description": "Wearing course, then markings and handover pack.",
+   "description": "Wearing course, then markings and handover pack; one pavement recipe per zone.",
    "priority": 235,
    "match": {
     "ifc_class": [
@@ -797,7 +750,9 @@
      "min_quantity": 1
     }
    ],
-   "visual": "pavement"
+   "visual": "pavement",
+   "recipe": "rec_pavement_build",
+   "anchor": "zone"
   },
   {
    "id": "R-pavement",
@@ -844,32 +799,8 @@
    "visual": "pavement"
   },
   {
-   "id": "R-pipe-utility-lead",
-   "description": "First segment of each diverted service carries the diversion recipe.",
-   "priority": 225,
-   "match": {
-    "ifc_class": [
-     "IfcPipeSegment"
-    ],
-    "storey_index_max": -1,
-    "name_regex": "(?i)(water|gas|telecom|power|divert).*CH000$"
-   },
-   "steps": [
-    {
-     "step": "CIV-UTIL-DIVERT",
-     "quantity": "length_m"
-    },
-    {
-     "step": "CIV-UTIL-TEST",
-     "quantity": "length_m"
-    }
-   ],
-   "visual": "pipe",
-   "recipe": "rec_utility_diversion"
-  },
-  {
    "id": "R-pipe-utility",
-   "description": "Utility diversions before earthworks.",
+   "description": "Utility diversions before earthworks; one diversion recipe per service (system).",
    "priority": 220,
    "match": {
     "ifc_class": [
@@ -888,42 +819,13 @@
      "quantity": "length_m"
     }
    ],
-   "visual": "pipe"
-  },
-  {
-   "id": "R-pipe-drain-lead",
-   "description": "First segment of each drainage run carries the drainage recipe.",
-   "priority": 215,
-   "match": {
-    "ifc_class": [
-     "IfcPipeSegment"
-    ],
-    "name_regex": "(?i)(storm|drain|sewer).*CH000$"
-   },
-   "steps": [
-    {
-     "step": "CIV-TRENCH-DIG",
-     "quantity": "length_m"
-    },
-    {
-     "step": "CIV-DRAIN-INSTALL",
-     "quantity": "length_m"
-    },
-    {
-     "step": "CIV-DRAIN-TEST",
-     "quantity": "length_m"
-    },
-    {
-     "step": "CIV-DRAIN-BACKFILL",
-     "quantity": "length_m"
-    }
-   ],
    "visual": "pipe",
-   "recipe": "rec_drainage_run"
+   "recipe": "rec_utility_diversion",
+   "anchor": "system"
   },
   {
    "id": "R-pipe-drain",
-   "description": "Drainage: trench, lay, test, backfill; must precede pavement.",
+   "description": "Drainage: trench, lay, test, backfill; one drainage recipe per drainage system; must precede pavement.",
    "priority": 210,
    "match": {
     "ifc_class": [
@@ -948,7 +850,9 @@
      "quantity": "length_m"
     }
    ],
-   "visual": "pipe"
+   "visual": "pipe",
+   "recipe": "rec_drainage_run",
+   "anchor": "system"
   },
   {
    "id": "R-fitting",

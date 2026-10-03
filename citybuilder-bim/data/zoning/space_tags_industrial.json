@@ -1,0 +1,140 @@
+{
+ "schema_version": "1.0",
+ "sector": "industrial",
+ "rules": [
+  {
+   "id": "ind-control",
+   "match": {
+    "name_regex": "(?i)(control\\s*room|\\bCCR\\b|\\bLER\\b|operator|control\\s*building)"
+   },
+   "tags": [
+    "control_room"
+   ],
+   "max_crews": 2,
+   "faces": {
+    "walls": 2,
+    "ceiling_void": 2,
+    "floor": 1
+   }
+  },
+  {
+   "id": "ind-switchroom",
+   "match": {
+    "name_regex": "(?i)(switch\\s*room|\\bMCC\\b|substation|\\be-?house\\b|electrical\\s*room|transformer\\s*(bay|yard))"
+   },
+   "tags": [
+    "switchroom"
+   ],
+   "max_crews": 3,
+   "faces": {
+    "plant_pad": 2,
+    "walls": 2,
+    "ceiling_void": 2
+   }
+  },
+  {
+   "id": "ind-pump-house",
+   "match": {
+    "name_regex": "(?i)(pump\\s*house|pump\\s*station|pump\\s*shelter)"
+   },
+   "tags": [
+    "pump_house"
+   ],
+   "max_crews": 3,
+   "faces": {
+    "plant_pad": 2,
+    "ceiling_void": 2
+   }
+  },
+  {
+   "id": "ind-compressor",
+   "match": {
+    "name_regex": "(?i)(compressor\\s*(house|building|shelter)|machinery\\s*hall|turbine\\s*hall)"
+   },
+   "tags": [
+    "compressor_house",
+    "heavy_lift_area"
+   ],
+   "max_crews": 3,
+   "faces": {
+    "plant_pad": 2,
+    "structure": 2
+   }
+  },
+  {
+   "id": "ind-rack",
+   "match": {
+    "name_regex": "(?i)(pipe\\s*rack|pipe[\\s-]*bridge|\\brack\\b)"
+   },
+   "tags": [
+    "pipe_rack"
+   ],
+   "max_crews": 4,
+   "faces": {
+    "structure": 3,
+    "external": 2,
+    "ceiling_void": 2
+   }
+  },
+  {
+   "id": "ind-process-unit",
+   "match": {
+    "name_regex": "(?i)(process\\s*(unit|area)|\\bunit\\s*\\d+|\\barea\\s*\\d+|process\\s*module)"
+   },
+   "tags": [
+    "process_unit",
+    "heavy_lift_area"
+   ],
+   "max_crews": 5,
+   "faces": {
+    "plant_pad": 3,
+    "structure": 3,
+    "ceiling_void": 2
+   }
+  },
+  {
+   "id": "ind-tank-farm",
+   "match": {
+    "name_regex": "(?i)(tank\\s*farm|bund|tankage|storage\\s*area)"
+   },
+   "tags": [
+    "tank_farm",
+    "heavy_lift_area"
+   ],
+   "max_crews": 3,
+   "faces": {
+    "plant_pad": 2,
+    "structure": 2,
+    "below_ground": 2
+   }
+  },
+  {
+   "id": "ind-laydown",
+   "match": {
+    "name_regex": "(?i)(lay[\\s-]?down|yard|marshalling)"
+   },
+   "tags": [
+    "laydown"
+   ],
+   "max_crews": 2
+  },
+  {
+   "id": "ind-warehouse",
+   "match": {
+    "name_regex": "(?i)(warehouse|workshop|store|maintenance)"
+   },
+   "tags": [
+    "warehouse"
+   ],
+   "max_crews": 2
+  },
+  {
+   "id": "ind-fallback",
+   "match": {
+    "name_regex": ".*"
+   },
+   "tags": [],
+   "max_crews": 3
+  }
+ ]
+}

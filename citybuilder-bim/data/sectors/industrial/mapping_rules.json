@@ -39,7 +39,8 @@
     }
    ],
    "visual": "equipment",
-   "recipe": "rec_process_module_set"
+   "recipe": "rec_process_module_set",
+   "anchor": "element"
   },
   {
    "id": "R-transformer",
@@ -68,7 +69,8 @@
     }
    ],
    "visual": "equipment",
-   "recipe": "rec_transformer_and_switchgear"
+   "recipe": "rec_transformer_and_switchgear",
+   "anchor": "element"
   },
   {
    "id": "R-tank",
@@ -102,7 +104,8 @@
     }
    ],
    "visual": "tank",
-   "recipe": "rec_tank_ring_foundation"
+   "recipe": "rec_tank_ring_foundation",
+   "anchor": "element"
   },
   {
    "id": "R-chimney",
@@ -126,7 +129,8 @@
     }
    ],
    "visual": "tank",
-   "recipe": "rec_crane_lift_heavy"
+   "recipe": "rec_crane_lift_heavy",
+   "anchor": "element"
   },
   {
    "id": "R-switchgear",
@@ -235,7 +239,8 @@
     }
    ],
    "visual": "footing",
-   "recipe": "rec_deep_excavation"
+   "recipe": "rec_deep_excavation",
+   "anchor": "cell_group"
   },
   {
    "id": "R-footing-pilecap",
@@ -272,7 +277,8 @@
     }
    ],
    "visual": "footing",
-   "recipe": "rec_piled_foundation"
+   "recipe": "rec_piled_foundation",
+   "anchor": "cell_group"
   },
   {
    "id": "R-footing-eqpad",
@@ -370,7 +376,7 @@
   },
   {
    "id": "R-slab-ground-bay",
-   "description": "Ground slab in the heavy-lift equipment bays carries the slab on grade recipe.",
+   "description": "Ground slab in the heavy-lift equipment bays: one slab on grade recipe per bay zone.",
    "priority": 340,
    "match": {
     "ifc_class": [
@@ -399,7 +405,8 @@
     }
    ],
    "visual": "slab",
-   "recipe": "rec_slab_on_grade"
+   "recipe": "rec_slab_on_grade",
+   "anchor": "zone"
   },
   {
    "id": "R-slab-ground",
@@ -475,7 +482,8 @@
     }
    ],
    "visual": "beam",
-   "recipe": "rec_pipe_rack_module"
+   "recipe": "rec_pipe_rack_module",
+   "anchor": "cell_group"
   },
   {
    "id": "R-rack-steel",
@@ -860,7 +868,7 @@
   },
   {
    "id": "R-pipe-rack",
-   "description": "Rack pipe: spool lay, hydrotest, flush (insulation is its own covering element).",
+   "description": "Rack pipe: spool lay, hydrotest, flush (insulation is its own covering element). One stick-built rack recipe per rack line (system).",
    "priority": 230,
    "match": {
     "ifc_class": [
@@ -882,7 +890,9 @@
      "quantity": "length_m"
     }
    ],
-   "visual": "pipe"
+   "visual": "pipe",
+   "recipe": "rec_pipe_rack_stickbuilt",
+   "anchor": "system"
   },
   {
    "id": "R-pipe-process",
@@ -908,26 +918,6 @@
     }
    ],
    "visual": "pipe"
-  },
-  {
-   "id": "R-rack-fitting",
-   "description": "One rack line anchor (the rack expansion loop) carries the stick-built rack recipe.",
-   "priority": 220,
-   "match": {
-    "ifc_class": [
-     "IfcPipeFitting"
-    ],
-    "name_regex": "(?i)rack"
-   },
-   "steps": [
-    {
-     "step": "PIP-FITTING-INSTALL",
-     "quantity": "count",
-     "min_quantity": 1
-    }
-   ],
-   "visual": "pipe",
-   "recipe": "rec_pipe_rack_stickbuilt"
   },
   {
    "id": "R-fitting",
@@ -984,7 +974,7 @@
   },
   {
    "id": "R-cable",
-   "description": "Cable pull and megger test.",
+   "description": "Cable pull and megger test; one cabling recipe per cable system.",
    "priority": 200,
    "match": {
     "ifc_class": [
@@ -1001,7 +991,9 @@
      "quantity": "length_m"
     }
    ],
-   "visual": "cable_tray"
+   "visual": "cable_tray",
+   "recipe": "rec_cable_tray_and_cabling",
+   "anchor": "system"
   },
   {
    "id": "R-terminal-air",
@@ -1139,7 +1131,8 @@
     }
    ],
    "visual": "turbine",
-   "recipe": "rec_turbine_on_pedestal"
+   "recipe": "rec_turbine_on_pedestal",
+   "anchor": "element"
   },
   {
    "id": "R-pump",
@@ -1163,7 +1156,8 @@
     }
    ],
    "visual": "equipment",
-   "recipe": "rec_pump_on_plinth"
+   "recipe": "rec_pump_on_plinth",
+   "anchor": "element"
   },
   {
    "id": "R-exchanger",
@@ -1193,7 +1187,8 @@
     }
    ],
    "visual": "exchanger",
-   "recipe": "rec_heat_exchanger"
+   "recipe": "rec_heat_exchanger",
+   "anchor": "element"
   },
   {
    "id": "R-vessel-horizontal",
@@ -1223,7 +1218,8 @@
     }
    ],
    "visual": "vessel_h",
-   "recipe": "rec_horizontal_vessel"
+   "recipe": "rec_horizontal_vessel",
+   "anchor": "element"
   },
   {
    "id": "R-vessel-vertical",
@@ -1253,7 +1249,8 @@
     }
    ],
    "visual": "vessel_v",
-   "recipe": "rec_vertical_vessel"
+   "recipe": "rec_vertical_vessel",
+   "anchor": "element"
   },
   {
    "id": "R-equipment",

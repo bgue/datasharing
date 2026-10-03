@@ -12,9 +12,9 @@ Containment is installed once and cabled many times. The recipe keeps access in 
 
 1. `GEN-SURVEY-SETOUT` Survey set-out of the work area (virtual task, survey marker). Route marking and clash check.
 2. `GEN-SCAFFOLD-ERECT` Erect access scaffold (virtual task, scaffold marker; optional)
-3. `ELE-TRAY-INSTALL` Install cable tray (BIM-bound, from system element)
-4. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from system element)
-5. `ELE-CABLE-TEST` Megger and continuity test (BIM-bound, from system element; hold point: electrical inspection)
+3. `ELE-TRAY-INSTALL` Install cable tray (BIM-bound, from self element; optional)
+4. `ELE-CABLE-PULL` Pull and terminate cable (BIM-bound, from self element)
+5. `ELE-CABLE-TEST` Megger and continuity test (BIM-bound, from self element; hold point: electrical inspection)
 6. `ELE-PANEL-INSTALL` Install local panel or junction box (BIM-bound, from self element; optional)
 7. `GEN-SCAFFOLD-DISMANTLE` Dismantle access scaffold (virtual task, scaffold marker; optional)
 8. `GEN-PRECOMM-CHECK` Pre-commissioning checks (virtual task, test marker). Insulation resistance records and cable schedule check.

@@ -50,16 +50,18 @@
   },
   {
    "ref": "ELE-TRAY-INSTALL",
-   "from_element": "system"
+   "optional": true,
+   "quantity": {
+    "basis": "length_m",
+    "value": 20
+   }
   },
   {
-   "ref": "ELE-CABLE-PULL",
-   "from_element": "system"
+   "ref": "ELE-CABLE-PULL"
   },
   {
    "ref": "ELE-CABLE-TEST",
-   "hold_point": "electrical",
-   "from_element": "system"
+   "hold_point": "electrical"
   },
   {
    "ref": "ELE-PANEL-INSTALL",

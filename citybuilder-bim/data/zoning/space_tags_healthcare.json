@@ -1,0 +1,198 @@
+{
+ "schema_version": "1.0",
+ "sector": "healthcare",
+ "rules": [
+  {
+   "id": "hc-or",
+   "match": {
+    "name_regex": "(?i)(operating\\s*theat(re|er)s?|\\bOR\\b|\\bOT\\b|theat(re|er)\\b)"
+   },
+   "tags": [
+    "or_room",
+    "pressure_room"
+   ],
+   "max_crews": 3,
+   "faces": {
+    "ceiling_void": 2,
+    "walls": 2,
+    "floor": 1
+   },
+   "shift_allowed": false
+  },
+  {
+   "id": "hc-imaging",
+   "match": {
+    "name_regex": "(?i)(\\bMRI\\b|\\bCT\\b|x[\\s-]?ray|imaging|radiolog|scanner|fluoroscopy|angio)"
+   },
+   "tags": [
+    "imaging"
+   ],
+   "max_crews": 3,
+   "faces": {
+    "ceiling_void": 2,
+    "walls": 2,
+    "floor": 1,
+    "plant_pad": 1
+   },
+   "shift_allowed": false
+  },
+  {
+   "id": "hc-plant",
+   "match": {
+    "name_regex": "(?i)(plant\\s*room|\\bAHU\\b|air\\s*handling|mechanical|electrical\\s*room|switch\\s*room|riser|boiler|chiller|generator)"
+   },
+   "tags": [
+    "plant_room",
+    "heavy_lift_area"
+   ],
+   "max_crews": 4,
+   "faces": {
+    "plant_pad": 3,
+    "ceiling_void": 2,
+    "walls": 2
+   }
+  },
+  {
+   "id": "hc-sterile",
+   "match": {
+    "name_regex": "(?i)(sterile|CSSD|decontam|steril)"
+   },
+   "tags": [
+    "sterile",
+    "pressure_room"
+   ],
+   "max_crews": 3,
+   "faces": {
+    "ceiling_void": 2,
+    "walls": 2,
+    "floor": 1
+   },
+   "shift_allowed": false
+  },
+  {
+   "id": "hc-pressure",
+   "match": {
+    "name_regex": "(?i)(isolation|negative\\s*pressure|protective\\s*environment|clean\\s*room|pressure)"
+   },
+   "tags": [
+    "pressure_room"
+   ],
+   "max_crews": 2,
+   "faces": {
+    "ceiling_void": 2,
+    "walls": 2,
+    "floor": 1
+   },
+   "shift_allowed": false
+  },
+  {
+   "id": "hc-ward-live",
+   "match": {
+    "name_regex": "(?i)(ward|bed|patient|bay)",
+    "long_name_regex": "(?i)\\blive\\b"
+   },
+   "tags": [
+    "ward",
+    "occupied_adjacent"
+   ],
+   "max_crews": 2,
+   "faces": {
+    "ceiling_void": 2,
+    "walls": 2,
+    "floor": 1
+   },
+   "shift_allowed": false
+  },
+  {
+   "id": "hc-ward",
+   "match": {
+    "name_regex": "(?i)(ward|bed|patient|bay)"
+   },
+   "tags": [
+    "ward"
+   ],
+   "max_crews": 2,
+   "faces": {
+    "ceiling_void": 2,
+    "walls": 2,
+    "floor": 1
+   }
+  },
+  {
+   "id": "hc-corridor",
+   "match": {
+    "name_regex": "(?i)(corridor|circulation|hall(way)?|passage)"
+   },
+   "tags": [
+    "corridor"
+   ],
+   "max_crews": 2,
+   "faces": {
+    "ceiling_void": 2,
+    "walls": 1,
+    "floor": 1
+   }
+  },
+  {
+   "id": "hc-pharmacy",
+   "match": {
+    "name_regex": "(?i)(pharmacy|dispens)"
+   },
+   "tags": [
+    "pharmacy"
+   ],
+   "max_crews": 2
+  },
+  {
+   "id": "hc-lab",
+   "match": {
+    "name_regex": "(?i)(\\blab(oratory)?\\b|pathology|specimen)"
+   },
+   "tags": [
+    "lab",
+    "pressure_room"
+   ],
+   "max_crews": 2,
+   "shift_allowed": false
+  },
+  {
+   "id": "hc-lobby",
+   "match": {
+    "name_regex": "(?i)(lobby|reception|waiting|entrance|atrium)"
+   },
+   "tags": [
+    "lobby"
+   ],
+   "max_crews": 3
+  },
+  {
+   "id": "hc-office",
+   "match": {
+    "name_regex": "(?i)(office|admin|staff|meeting|store|storage)"
+   },
+   "tags": [
+    "office"
+   ],
+   "max_crews": 2
+  },
+  {
+   "id": "hc-live-any",
+   "match": {
+    "long_name_regex": "(?i)\\blive\\b"
+   },
+   "tags": [
+    "occupied_adjacent"
+   ],
+   "max_crews": 2,
+   "shift_allowed": false
+  },
+  {
+   "id": "hc-fallback",
+   "match": {
+    "name_regex": ".*"
+   },
+   "tags": [],
+   "max_crews": 2
+  }
+ ]
+}
