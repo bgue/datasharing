@@ -7,8 +7,13 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shutil
+import subprocess
 import sys
+import tempfile
 import threading
+import time
 from pathlib import Path
 from typing import Any, Literal
 
@@ -76,6 +81,9 @@ def _call(method: str, **params: Any) -> Any:
             try:
                 return c.call(method, **params)
             except GameApiError as e:
+                if e.code == -32601:
+                    raise ToolError(f"{method} is not supported by this game build ({e.message}); "
+                                    "update the game or use another tool") from e
                 raise ToolError(f"{method} failed: {e.message}" + (f" ({e.data})" if e.data else "")) from e
             except (ConnectionClosed, ConnectionError, OSError) as e:
                 reset_client()
@@ -612,6 +620,233 @@ def author_manual_chain(zone_id: str, steps: list[dict], manual_mode: bool = Tru
     head = (f"Authored {len(added)} tasks in {zone_id}: {', '.join(added)}"
             + (" (linked FS in order)." if auto_link else " (not linked; use link_manual_tasks)."))
     return head + "\n" + _chain_view(zone_id) + "\nNext: staff_zone to put crews on the chain, then advance_weeks."
+
+
+# ---- 3D view, installations, areas ---------------------------------------------------------------
+
+@mcp.tool()
+def show_heat(on: bool = True) -> str:
+    """Turn the progress heat overlay in the game's 3D view on or off (cells coloured by done share). Only has an
+    effect when the game runs with a window; use heat_map for the same information as text."""
+    res = _call("view.set_heat", on=on)
+    return f"Heat overlay {'ON' if res.get('on', on) else 'OFF'}."
+
+
+@mcp.tool()
+def heat_map(storey_id: str = "") -> str:
+    """Text grid of progress per cell for one storey (default: the storey the game focuses on): one character per
+    cell, x across and z down: '.' no task, '0'-'9' tenths done, '#' finished, 'R' rework. Shows where work has
+    happened and where it has not (compare with list_zones / gantt_text). Wide grids are binned."""
+    res = _call("view.heat", **({"storey_id": storey_id} if storey_id else {}))
+    return tv.heat_grid_text(res)
+
+
+@mcp.tool()
+def highlight_elements(guids: list[str]) -> str:
+    """Highlight BIM elements (by GUID) in the game's 3D view, replacing any earlier highlight; an empty list
+    clears the highlight. Returns how many were highlighted and which GUIDs the game does not know."""
+    if not guids:
+        _call("view.clear_highlight")
+        return "Highlight cleared."
+    res = _call("view.highlight", guids=list(guids))
+    text = f"Highlighted {res.get('highlighted', 0)} elements."
+    if res.get("unknown"):
+        text += f" Unknown GUIDs: {', '.join(map(str, res['unknown'][:10]))}."
+    return text
+
+
+@mcp.tool()
+def list_installations(limit: int = 40) -> str:
+    """Visual-kit installations in the loaded model (tank, pump, rack module, ...): index, kit, variant, zone,
+    element count, overall fill and per-layer fill (e.g. shell/roof/piping). Use the index with
+    jump_to_installation. limit caps the rows (default 40; the totals line always counts all)."""
+    return tv.installations_table(_call("view.installations"), limit)
+
+
+@mcp.tool()
+def jump_to_installation(index: int) -> str:
+    """Move the game camera to an installation (index from list_installations) and report its fill."""
+    res = _call("view.jump_to_installation", index=index)
+    inst = res.get("installation") or {}
+    return (f"Camera {'moved to' if res.get('framed') else 'not moved (no window) for'} installation #{res.get('index', index)}: "
+            f"{inst.get('title') or inst.get('kit', '?')}, zone {inst.get('zone_id', '?')}, "
+            f"{(inst.get('overall_fill') or 0) * 100:.0f}% done.")
+
+
+@mcp.tool()
+def list_areas() -> str:
+    """Areas of the project (large models are split into areas of several zones): id, name and their status
+    columns. Use an id with jump_to_area."""
+    return tv.areas_text(_call("state.areas"))
+
+
+@mcp.tool()
+def jump_to_area(id: str) -> str:
+    """Move the game camera to an area (id from list_areas)."""
+    res = _call("view.jump_to_area", id=id)
+    framed = res.get("framed") if isinstance(res, dict) else None
+    return f"Camera {'moved to' if framed or framed is None else 'not moved (no window) for'} area {id}."
+
+
+# ---- IFC to bundle (runs the bimseq pipeline) ----------------------------------------------------
+
+REPO = Path(__file__).resolve().parents[2]
+TOOLS_DIR = REPO / "tools"
+SECTORS = ("industrial", "civil", "healthcare")
+
+
+def scenarios_dir() -> Path:
+    return Path(os.environ.get("SITEBUILDER_SCENARIOS_DIR") or REPO / "godot" / "scenarios")
+
+
+def work_root() -> Path:
+    return Path(os.environ.get("SITEBUILDER_WORK_DIR") or Path(tempfile.gettempdir()) / "sitebuilder_bundles")
+
+
+def _run_cmd(cmd: list[str], cwd: str, timeout: float = 3600) -> tuple[int, str, str]:
+    """Run a pipeline command; returns (returncode, stdout, stderr). Tests replace this function."""
+    try:
+        p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return 124, "", f"timed out after {timeout:.0f}s"
+    except OSError as e:
+        return 127, "", str(e)
+    return p.returncode, p.stdout, p.stderr
+
+
+def _bimseq(*args: str) -> list[str]:
+    return [sys.executable, "-m", "bimseq", *args]
+
+
+def _tail(text: str, n: int = 6) -> str:
+    lines = [l for l in text.strip().splitlines() if l.strip()]
+    return "\n".join(lines[-n:])
+
+
+def _supports(sub: str, flag: str, cache: dict) -> bool:
+    """Does `bimseq <sub>` accept `flag`? Asked once via --help (the pipeline CLI is still evolving)."""
+    if sub not in cache:
+        rc, out, err = _run_cmd(_bimseq(sub, "--help"), str(TOOLS_DIR), 60)
+        cache[sub] = (out + err) if rc == 0 else ""
+    return flag in cache[sub]
+
+
+def _slug(text: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_]+", "_", text).strip("_").lower() or "model"
+
+
+@mcp.tool()
+def ifc_to_bundle(ifc_path: str, sector: str = "industrial", scenario_id: str = "", project_config_path: str = "",
+                  aggregate_preset: str = "", scenario_file: str = "", cell_size_m: float | None = None,
+                  overwrite: bool = False, load: bool = True) -> str:
+    """Turn an IFC file into a playable scenario and load it. Runs the bimseq pipeline on the machine hosting this
+    server: ifc-to-elements -> map -> schedule -> validate, then copies sequence.json to
+    godot/scenarios/<scenario_id>/ and, when the game is connected and load=true, calls scenario.load.
+    ifc_path: path to the .ifc on this machine (needs ifcopenshell). sector: industrial | civil | healthcare
+    (selects data/sectors/<sector>/step_library.json, mapping_rules.json and the scenario file).
+    scenario_id: id and folder name for the new level (default: <sector>_<ifc file name>); it must not exist
+    unless overwrite=true (protects the shipped scenarios). project_config_path: optional project_config.json
+    (grid and other project settings). aggregate_preset: optional aggregation preset name for large models.
+    scenario_file: optional scenario json (default data/sectors/<sector>/scenario_standard.json; its id is replaced
+    by scenario_id). cell_size_m: grid cell size in metres (default: detected). Takes from seconds to many
+    minutes for big models; returns a step-by-step log, or an error naming the failing step with its output."""
+    log: list[str] = []
+    t_all = time.monotonic()
+
+    def fail(msg: str) -> "ToolError":
+        return ToolError(msg + ("\n\nProgress so far:\n" + "\n".join(log) if log else ""))
+
+    if sector not in SECTORS:
+        raise fail(f"sector must be one of {', '.join(SECTORS)}, got {sector!r}")
+    ifc = Path(ifc_path).expanduser()
+    if not ifc.is_file():
+        raise fail(f"IFC file not found: {ifc}")
+    sid = _slug(scenario_id) if scenario_id else f"{sector}_{_slug(ifc.stem)}"
+    sdir = Path(os.environ.get("SITEBUILDER_SECTORS_DIR") or REPO / "data" / "sectors") / sector
+    library, rules = sdir / "step_library.json", sdir / "mapping_rules.json"
+    scen_src = Path(scenario_file).expanduser() if scenario_file else sdir / "scenario_standard.json"
+    for f in (library, rules, scen_src):
+        if not f.is_file():
+            raise fail(f"missing sector data file: {f}")
+    if project_config_path and not Path(project_config_path).expanduser().is_file():
+        raise fail(f"project config not found: {project_config_path}")
+    dest = scenarios_dir() / sid
+    if (dest / "sequence.json").exists() and not overwrite:
+        raise fail(f"scenario {sid!r} already exists at {dest}; pass overwrite=true or choose another scenario_id")
+
+    work = work_root() / sid
+    work.mkdir(parents=True, exist_ok=True)
+    elements, step_map, seq, scen = work / "elements.json", work / "element_step_map.json", work / "sequence.json", work / f"scenario_{sid}.json"
+    try:
+        sc = json.loads(scen_src.read_text(encoding="utf-8"))
+        sc["id"] = sid
+        sc["name"] = f"{sc.get('name', sector)} - {ifc.stem}"
+        scen.write_text(json.dumps(sc, indent=1) + "\n", encoding="utf-8")
+    except (OSError, ValueError) as e:
+        raise fail(f"cannot prepare scenario file {scen_src}: {e}") from e
+    helps: dict = {}
+    log.append(f"Building scenario {sid!r} from {ifc} (sector {sector}); intermediates in {work}")
+
+    def step(n: int, name: str, cmd: list[str], optional_note: str = "") -> str:
+        t0 = time.monotonic()
+        rc, out, err = _run_cmd(cmd, str(TOOLS_DIR), 3600)
+        dt = time.monotonic() - t0
+        if rc != 0:
+            hint = ""
+            if name == "ifc-to-elements" and rc == 3:
+                hint = " ifcopenshell is not installed in the server's Python (pip install ifcopenshell)."
+            log.append(f"[{n}/5] {name}: FAILED (exit {rc}, {dt:.1f}s)")
+            raise fail(f"{name} failed (exit {rc}).{hint}\n{_tail(err or out, 12)}")
+        log.append(f"[{n}/5] {name}: ok ({dt:.1f}s) {_tail(out, 1)}{optional_note}")
+        return out
+
+    cmd = _bimseq("ifc-to-elements", str(ifc), str(elements), "--sector", sector)
+    if project_config_path:
+        if not _supports("ifc-to-elements", "--project-config", helps):
+            raise fail("this bimseq version has no --project-config for ifc-to-elements; update the pipeline or omit project_config_path")
+        cmd += ["--project-config", str(Path(project_config_path).expanduser())]
+    if cell_size_m:
+        cmd += ["--cell-size", str(cell_size_m)]
+    step(1, "ifc-to-elements", cmd)
+
+    cmd = _bimseq("map", str(elements), "--rules", str(rules), "--library", str(library), "--out", str(step_map))
+    if aggregate_preset:
+        if not _supports("map", "--aggregate", helps):
+            raise fail("this bimseq version has no --aggregate for map; update the pipeline or omit aggregate_preset")
+        cmd += ["--aggregate", aggregate_preset]
+    step(2, "map", cmd)
+
+    cmd = _bimseq("schedule", str(step_map), "--library", str(library), "--scenario", str(scen),
+                  "--elements", str(elements), "--out", str(seq))
+    if _supports("schedule", "--crew-model", helps):
+        cmd += ["--crew-model", "fractional"]  # the game progresses in crew-days (see tools/README.md)
+    step(3, "schedule", cmd)
+
+    step(4, "validate", _bimseq("validate", str(work)))
+
+    t0 = time.monotonic()
+    try:
+        dest.mkdir(parents=True, exist_ok=True)
+        copied = [f for f in sorted(work.iterdir()) if f.is_file() and f.name.startswith("sequence")]
+        for f in copied:
+            shutil.copyfile(f, dest / f.name)
+    except OSError as e:
+        log.append("[5/5] copy: FAILED")
+        raise fail(f"cannot copy the bundle to {dest}: {e}") from e
+    log.append(f"[5/5] copy: ok ({time.monotonic() - t0:.1f}s) {', '.join(f.name for f in copied)} -> {dest}")
+
+    if load:
+        try:
+            get_client().connect()
+            res = get_client().call("scenario.load", id=sid)
+            log.append(f"Loaded in the game: {tv.summary_text(res).splitlines()[0] if isinstance(res, dict) else 'ok'}")
+        except GameApiError as e:
+            log.append(f"Built, but the game refused scenario.load: {e.message}")
+        except (ConnectionClosed, ConnectionError, OSError, TimeoutError):
+            reset_client()
+            log.append("Game not connected: load it later with load_scenario(id=%r)." % sid)
+    log.append(f"Done in {time.monotonic() - t_all:.1f}s. Scenario id: {sid}")
+    return "\n".join(log)
 
 
 # ---- resources --------------------------------------------------------------------------------

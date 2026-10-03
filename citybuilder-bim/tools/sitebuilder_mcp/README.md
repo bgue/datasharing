@@ -90,6 +90,55 @@ already added are removed, the zone's previous mode is restored and the error na
 rejected: ... unknown step: NOPE-X`). The API has no `library.steps` call, so step ids are validated by the game
 (valid ids appear in `explain_installation`, `get_recipe` and `list_manual_chain`).
 
+### 3D view, installations, areas and IFC import
+
+| Tool | What it does |
+| --- | --- |
+| `show_heat(on=True)` | progress heat overlay in the game's 3D view (windowed game) |
+| `heat_map(storey_id="")` | text grid of done share per cell: `.` none, `0`-`9` tenths, `#` finished, `R` rework |
+| `highlight_elements(guids)` | highlight elements in the 3D view; an empty list clears; unknown GUIDs are reported |
+| `list_installations(limit=40)` | visual-kit installations: index, kit, variant, zone, elements, fill, per-layer fill |
+| `jump_to_installation(index)` | move the camera to an installation |
+| `list_areas()` / `jump_to_area(id)` | areas of a split large model (needs a game build with `state.areas`; older builds give a clear "not supported" error) |
+| `ifc_to_bundle(ifc_path, sector="industrial", scenario_id="", project_config_path="", aggregate_preset="", scenario_file="", cell_size_m=None, overwrite=False, load=True)` | IFC to playable scenario, see below |
+
+`heat_map` example (`L00`, x across, z down):
+
+```
+Heat L00: x 0..11, z 0..9, 120 cells with tasks, mean done 18%
+   0 00000000000#
+   1 0112233#####
+   ...
+. none  0-9 tenths done  # finished  R rework
+```
+
+#### `ifc_to_bundle`
+
+Runs the bimseq pipeline as subprocesses on the server's machine (`python3 -m bimseq ...` in `tools/`):
+
+1. `ifc-to-elements <ifc> elements.json --sector S` (adds `--project-config P` and `--cell-size N` when given; needs ifcopenshell)
+2. `map elements.json --rules data/sectors/S/mapping_rules.json --library data/sectors/S/step_library.json --out element_step_map.json` (adds `--aggregate PRESET` when given)
+3. `schedule element_step_map.json --library ... --scenario scenario_<id>.json --elements elements.json --out sequence.json --crew-model fractional`
+4. `validate <work dir>`
+5. copy `sequence*` files to `godot/scenarios/<scenario_id>/`, then `scenario.load` if the game is connected (`load=true`).
+
+The scenario file defaults to `data/sectors/S/scenario_standard.json` with its `id` replaced by `scenario_id` (the game
+identifies a level by that id). The default `scenario_id` is `<sector>_<ifc file name>`; an existing scenario is only replaced
+with `overwrite=true`. Intermediates stay in `$SITEBUILDER_WORK_DIR` (default `<tmp>/sitebuilder_bundles/<id>`); the output
+folder can be moved with `SITEBUILDER_SCENARIOS_DIR` (default `godot/scenarios`). The tool returns a numbered progress log
+(`[2/5] map: ok (0.2s) wrote ... 12 tasks ...`); a failing step raises an error with the exit code, the last lines of the
+step's output and the log so far. Flags other than the core ones are checked against `bimseq <sub> --help` first, so an
+older pipeline gives "this bimseq version has no --aggregate" instead of a cryptic usage error.
+
+```
+You:    Build a level from /data/plant12.ifc, an industrial plant, and show me where the tanks are.
+Claude: [ifc_to_bundle ifc_path=/data/plant12.ifc sector=industrial scenario_id=plant12]
+        -> [1/5] ifc-to-elements: ok (41s) wrote ...: 18432 elements, 54 zones, 3 storeys ... Loaded in the game: Week 0/52
+        [list_installations limit=10]  -> table of kits, 120 installations, 0 complete
+        [jump_to_installation index=3]
+        [advance_weeks weeks=8] [heat_map storey_id=L00]
+```
+
 Resources: `sitebuilder://summary`, `sitebuilder://zones`, `sitebuilder://zone/{zone_id}`,
 `sitebuilder://packages/{zone_id}`, `sitebuilder://gantt`, `sitebuilder://logic` (recipe index),
 `sitebuilder://logic/{recipe_id}`, `sitebuilder://manual/{zone_id}` (the zone's authored chain).
@@ -180,12 +229,15 @@ Exit codes: 0 ok, 1 game error (JSON on stdout), 2 bad params, 3 connection fail
 ```bash
 cd tools
 python3 -m unittest discover -s tests -p 'test_client_*.py' -v     # client + textviews + CLI against a fake server
-python3 -m unittest discover -s tests -p 'test_mcp_*.py' -v        # MCP tools/resources/prompt, launch_game
+python3 -m unittest discover -s tests -p 'test_mcp_*.py' -v        # MCP tools/resources/prompt, launch_game, ifc_to_bundle with a fake pipeline
 # integration (real game): needs a Godot 4 binary and the implemented godot/scripts/api/
 GODOT_BIN=/path/to/godot python3 -m unittest tests.test_mcp_integration -v
 ```
 
 The integration test is skipped, with a message explaining why, unless `GODOT_BIN` is set and `godot/scripts/api/` exists.
+`RealGameViewTests` loads `industrial_standard`, lists installations, shows the heat overlay, plays 8 autopilot weeks and
+checks progress appears in `heat_map`. `RealPipelineTests` (needs only ifcopenshell, no game) generates a tiny IFC and runs
+`ifc_to_bundle` through the real pipeline into a temp folder.
 `RealGameManualTests` (needs the same environment) loads `healthcare_manual_demo` (else `minimal`), explains a zone,
 authors a 3-step chain (one virtual) in a free zone, plays 10 autopilot weeks and asserts the chain tasks appear in
 `state.tasks` with `origin: manual`. Example run:

@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -26,7 +28,10 @@ SPEC_TOOLS = ["load_scenario", "get_summary", "list_zones", "list_packages", "li
               # docs/06 track A
               "explain_installation", "list_recipes", "get_recipe", "apply_recipe", "set_manual_mode",
               "list_manual_chain", "add_manual_task", "link_manual_tasks", "remove_manual_task",
-              "export_manual_sequence", "author_manual_chain"]
+              "export_manual_sequence", "author_manual_chain",
+              # 3D view, installations, areas, IFC
+              "show_heat", "heat_map", "highlight_elements", "list_installations", "jump_to_installation",
+              "list_areas", "jump_to_area", "ifc_to_bundle"]
 
 
 def run(coro):
@@ -319,6 +324,240 @@ class ManualToolTests(unittest.TestCase):
         self.assertEqual(props["auto_link"]["default"], True)
         self.assertEqual(tools["link_manual_tasks"].inputSchema["properties"]["type"]["enum"], ["FS", "SS", "FF"])
         self.assertGreater(len(tools["author_manual_chain"].description), 600)
+
+
+class ViewToolTests(unittest.TestCase):
+    def setUp(self):
+        self.fake = FakeServer().start()
+        self.addCleanup(self.fake.stop)
+        server.reset_client()
+        self.addCleanup(server.reset_client)
+        patcher = mock.patch.object(server, "_new_client", lambda: GameClient(self.fake.url, timeout=5))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.game = self.fake.game
+
+    def test_heat(self):
+        self.assertIn("ON", server.show_heat(True))
+        self.assertTrue(self.game.heat_on)
+        self.assertIn("OFF", server.show_heat(False))
+        self.assertFalse(self.game.heat_on)
+        t = server.heat_map("L01")
+        self.assertIn("Heat L01", t)
+        self.assertIn(" 04#", t)
+        self.assertIn(" 0R#", t)
+        self.assertEqual(self.game.calls[-1], ("view.heat", {"storey_id": "L01"}))
+        server.heat_map()
+        self.assertEqual(self.game.calls[-1], ("view.heat", {}))
+        with self.assertRaises(ToolError) as cm:
+            server.heat_map("L99")
+        self.assertIn("no such storey", str(cm.exception))
+
+    def test_highlight(self):
+        self.assertIn("Highlighted 1 elements", server.highlight_elements(["E1", "zzz"]))
+        self.assertIn("Unknown GUIDs: zzz", server.highlight_elements(["E1", "zzz"]))
+        self.assertEqual(self.game.highlighted, ["E1"])
+        self.assertIn("cleared", server.highlight_elements([]))
+        self.assertEqual(self.game.highlighted, [])
+
+    def test_installations_and_jumps(self):
+        t = server.list_installations()
+        self.assertIn("tank", t)
+        self.assertIn("2 installations, 1 complete", t)
+        self.assertIn("(showing 1)", server.list_installations(limit=1))
+        j = server.jump_to_installation(1)
+        self.assertIn("installation #1", j)
+        self.assertIn("100% done", j)
+        with self.assertRaises(ToolError):
+            server.jump_to_installation(7)
+        self.assertIn("North wing", server.list_areas())
+        self.assertIn("area A2", server.jump_to_area("A2"))
+        with self.assertRaises(ToolError) as cm:
+            server.jump_to_area("nope")
+        self.assertIn("no such area", str(cm.exception))
+
+    def test_older_game_without_areas(self):
+        self.game.no_areas = True
+        with self.assertRaises(ToolError) as cm:
+            server.list_areas()
+        self.assertIn("Method not found", str(cm.exception))
+
+
+class FakePipeline:
+    """Stands in for server._run_cmd: records commands and writes the files the real pipeline would."""
+    HELP = {"ifc-to-elements": "--sector --cell-size --project-config", "map": "--rules --aggregate",
+            "schedule": "--library --crew-model", "validate": ""}
+
+    def __init__(self, fail=None, help_text=None):
+        self.cmds, self.fail = [], fail or {}
+        self.help = dict(self.HELP, **(help_text or {}))
+
+    @staticmethod
+    def sub(cmd):
+        return cmd[cmd.index("bimseq") + 1]
+
+    def __call__(self, cmd, cwd, timeout=0):
+        self.cmds.append(cmd)
+        sub = self.sub(cmd)
+        if "--help" in cmd:
+            return 0, f"usage: bimseq {sub} {self.help[sub]}", ""
+        if sub in self.fail:
+            rc, err = self.fail[sub]
+            return rc, "", err
+        out = {"ifc-to-elements": lambda: cmd[cmd.index(sub) + 2], "map": lambda: cmd[cmd.index("--out") + 1],
+               "schedule": lambda: cmd[cmd.index("--out") + 1]}.get(sub)
+        if out:
+            Path(out()).write_text(json.dumps({"sub": sub}))
+        if sub == "schedule":
+            Path(out()).with_name("sequence_part2.json").write_text("{}")
+        return 0, f"wrote {sub} output\nOK {sub}\n", ""
+
+    def named(self, sub):
+        return [c for c in self.cmds if self.sub(c) == sub and "--help" not in c]
+
+
+class IfcToBundleTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(__import__("shutil").rmtree, self.tmp, True)
+        self.ifc = self.tmp / "Plant 12.ifc"
+        self.ifc.write_text("ISO-10303-21;")
+        self.scen_dir, self.work = self.tmp / "scenarios", self.tmp / "work"
+        env = mock.patch.dict(os.environ, {"SITEBUILDER_SCENARIOS_DIR": str(self.scen_dir),
+                                           "SITEBUILDER_WORK_DIR": str(self.work)})
+        env.start()
+        self.addCleanup(env.stop)
+        self.fake = FakeServer().start()
+        self.addCleanup(self.fake.stop)
+        server.reset_client()
+        self.addCleanup(server.reset_client)
+        p = mock.patch.object(server, "_new_client", lambda: GameClient(self.fake.url, timeout=5))
+        p.start()
+        self.addCleanup(p.stop)
+
+    def run_tool(self, runner, **kw):
+        with mock.patch.object(server, "_run_cmd", runner):
+            return server.ifc_to_bundle(str(self.ifc), **kw)
+
+    def test_success_and_load(self):
+        self.fake.game.scenario_ids.add("my_plant")
+        r = FakePipeline()
+        text = self.run_tool(r, sector="industrial", scenario_id="my_plant")
+        for n, name in enumerate(("ifc-to-elements", "map", "schedule", "validate", "copy"), 1):
+            self.assertIn(f"[{n}/5] {name}: ok", text)
+        self.assertIn("Loaded in the game", text)
+        self.assertIn(("scenario.load", {"id": "my_plant"}), self.fake.game.calls)
+        self.assertEqual(json.loads((self.scen_dir / "my_plant" / "sequence.json").read_text()), {"sub": "schedule"})
+        self.assertTrue((self.scen_dir / "my_plant" / "sequence_part2.json").exists())  # split bundles are copied whole
+        self.assertFalse((self.scen_dir / "my_plant" / "elements.json").exists())
+        ifc_cmd, map_cmd, sch_cmd = (r.named(s)[0] for s in ("ifc-to-elements", "map", "schedule"))
+        self.assertIn("--sector", ifc_cmd)
+        self.assertEqual(ifc_cmd[ifc_cmd.index("--sector") + 1], "industrial")
+        self.assertTrue(map_cmd[map_cmd.index("--rules") + 1].endswith("data/sectors/industrial/mapping_rules.json"))
+        self.assertTrue(sch_cmd[sch_cmd.index("--library") + 1].endswith("data/sectors/industrial/step_library.json"))
+        self.assertEqual(sch_cmd[sch_cmd.index("--crew-model") + 1], "fractional")
+        self.assertNotIn("--aggregate", map_cmd)
+        self.assertNotIn("--project-config", ifc_cmd)
+        self.assertEqual(r.named("validate")[0][-1], str(self.work / "my_plant"))
+        # the scenario handed to the scheduler carries the new id
+        sc = json.loads(Path(sch_cmd[sch_cmd.index("--scenario") + 1]).read_text())
+        self.assertEqual(sc["id"], "my_plant")
+        self.assertIn("Plant 12", sc["name"])
+        self.assertEqual(sch_cmd[0], sys.executable)
+
+    def test_default_scenario_id_and_other_sector(self):
+        text = self.run_tool(FakePipeline(), sector="healthcare")
+        self.assertIn("Scenario id: healthcare_plant_12", text)
+        self.assertTrue((self.scen_dir / "healthcare_plant_12" / "sequence.json").exists())
+
+    def test_optional_flags(self):
+        cfg = self.tmp / "project_config.json"
+        cfg.write_text("{}")
+        r = FakePipeline()
+        self.run_tool(r, scenario_id="x1", project_config_path=str(cfg), aggregate_preset="area_6", cell_size_m=3.0)
+        ifc_cmd, map_cmd = r.named("ifc-to-elements")[0], r.named("map")[0]
+        self.assertEqual(ifc_cmd[ifc_cmd.index("--project-config") + 1], str(cfg))
+        self.assertEqual(ifc_cmd[ifc_cmd.index("--cell-size") + 1], "3.0")
+        self.assertEqual(map_cmd[map_cmd.index("--aggregate") + 1], "area_6")
+
+    def test_unsupported_requested_flag_is_an_error(self):
+        cfg = self.tmp / "pc.json"
+        cfg.write_text("{}")
+        with self.assertRaises(ToolError) as cm:
+            self.run_tool(FakePipeline(help_text={"ifc-to-elements": "--sector"}), scenario_id="x2", project_config_path=str(cfg))
+        self.assertIn("no --project-config", str(cm.exception))
+        with self.assertRaises(ToolError) as cm:
+            self.run_tool(FakePipeline(help_text={"map": "--rules"}), scenario_id="x3", aggregate_preset="p")
+        self.assertIn("no --aggregate", str(cm.exception))
+        # optional --crew-model is silently left out when unsupported
+        r = FakePipeline(help_text={"schedule": "--library"})
+        self.run_tool(r, scenario_id="x4")
+        self.assertNotIn("--crew-model", r.named("schedule")[0])
+
+    def test_step_failure_reports_step_and_does_not_copy(self):
+        r = FakePipeline(fail={"map": (2, "error: bad rules\nTraceback...\nValueError: boom")})
+        with self.assertRaises(ToolError) as cm:
+            self.run_tool(r, scenario_id="bad")
+        msg = str(cm.exception)
+        self.assertIn("map failed (exit 2)", msg)
+        self.assertIn("ValueError: boom", msg)
+        self.assertIn("[1/5] ifc-to-elements: ok", msg)
+        self.assertIn("[2/5] map: FAILED", msg)
+        self.assertEqual(r.named("schedule"), [])
+        self.assertFalse((self.scen_dir / "bad").exists())
+
+    def test_no_ifcopenshell_hint(self):
+        with self.assertRaises(ToolError) as cm:
+            self.run_tool(FakePipeline(fail={"ifc-to-elements": (3, "error: ifcopenshell is not installed")}), scenario_id="n")
+        self.assertIn("pip install ifcopenshell", str(cm.exception))
+
+    def test_validate_failure(self):
+        with self.assertRaises(ToolError) as cm:
+            self.run_tool(FakePipeline(fail={"validate": (1, "FAIL sequence.json: tasks/3: required")}), scenario_id="v")
+        self.assertIn("validate failed", str(cm.exception))
+        self.assertFalse((self.scen_dir / "v").exists())
+
+    def test_input_validation_and_overwrite_protection(self):
+        with self.assertRaises(ToolError) as cm:
+            self.run_tool(FakePipeline(), sector="space")
+        self.assertIn("sector must be one of", str(cm.exception))
+        with self.assertRaises(ToolError) as cm:
+            with mock.patch.object(server, "_run_cmd", FakePipeline()):
+                server.ifc_to_bundle(str(self.tmp / "missing.ifc"))
+        self.assertIn("not found", str(cm.exception))
+        with self.assertRaises(ToolError) as cm:
+            self.run_tool(FakePipeline(), scenario_id="p", project_config_path=str(self.tmp / "none.json"))
+        self.assertIn("project config not found", str(cm.exception))
+        self.run_tool(FakePipeline(), scenario_id="once")
+        with self.assertRaises(ToolError) as cm:
+            self.run_tool(FakePipeline(), scenario_id="once")
+        self.assertIn("already exists", str(cm.exception))
+        self.assertIn("[5/5] copy: ok", self.run_tool(FakePipeline(), scenario_id="once", overwrite=True))
+
+    def test_game_not_connected_and_refusing(self):
+        with mock.patch.object(server, "_new_client", lambda: GameClient("ws://127.0.0.1:1", timeout=1)):
+            server.reset_client()
+            text = self.run_tool(FakePipeline(), scenario_id="offline")
+        self.assertIn("Game not connected", text)
+        self.assertIn("load_scenario(id='offline')", text)
+        self.assertTrue((self.scen_dir / "offline" / "sequence.json").exists())
+        server.reset_client()
+        text = self.run_tool(FakePipeline(), scenario_id="refused")  # the fake game does not know this id
+        self.assertIn("game refused scenario.load", text)
+        server.reset_client()
+        text = self.run_tool(FakePipeline(), scenario_id="noload", load=False)
+        self.assertNotIn("Loaded", text)
+        self.assertNotIn("not connected", text)
+
+    def test_real_cli_flags_still_exist(self):
+        """The flags this tool passes must exist in the current bimseq CLI (guards against pipeline renames)."""
+        import subprocess
+        for sub, flags in (("ifc-to-elements", ["--sector"]), ("map", ["--rules", "--library", "--out"]),
+                           ("schedule", ["--library", "--scenario", "--elements", "--out"]), ("validate", [])):
+            out = subprocess.run([sys.executable, "-m", "bimseq", sub, "--help"], cwd=TOOLS, capture_output=True, text=True)
+            self.assertEqual(out.returncode, 0, out.stderr)
+            for f in flags:
+                self.assertIn(f, out.stdout, f"{sub} lost {f}")
 
 
 class ConnectionFailureTests(unittest.TestCase):

@@ -35,6 +35,9 @@ API_METHODS = (
     "manual_set_mode", "manual_add_task", "manual_update_task", "manual_remove_task", "manual_link",
     "manual_unlink", "manual_apply_recipe", "manual_export", "manual_tasks",
     "logic_list", "logic_get", "logic_explain", "logic_apply",
+    # 3D view, kit installations and areas (an unknown-method error from an older game raises GameApiError)
+    "view_heat", "view_set_heat", "view_highlight", "view_clear_highlight", "view_installations",
+    "view_element_layers", "view_jump_to_installation", "view_jump_to_area", "state_areas",
 )
 
 
@@ -360,3 +363,17 @@ class GameClient:
         return self.call("logic.apply", **_clean({"recipe_id": recipe_id, "zone_id": zone_id,
                                                   "element_guid": element_guid,
                                                   "include_optional": include_optional}))
+
+    # ---- 3D view, kit installations, areas ------------------------------------------------
+    def view_heat(self, storey_id=None):
+        """Per-cell done shares of a storey: ``{storey_id, cells: [{cell, share, tasks, rework}], empty_cells}``."""
+        return self.call("view.heat", **_clean({"storey_id": storey_id}))
+
+    def view_set_heat(self, on: bool = True): return self.call("view.set_heat", on=on)
+    def view_highlight(self, guids): return self.call("view.highlight", guids=list(guids))
+    def view_clear_highlight(self): return self.call("view.clear_highlight")
+    def view_installations(self): return self.call("view.installations")
+    def view_element_layers(self, guid: str): return self.call("view.element_layers", guid=guid)
+    def view_jump_to_installation(self, index: int): return self.call("view.jump_to_installation", index=index)
+    def view_jump_to_area(self, id: str): return self.call("view.jump_to_area", id=id)
+    def state_areas(self): return self.call("state.areas")

@@ -29,6 +29,54 @@ def free_port() -> int:
         return s.getsockname()[1]
 
 
+try:
+    import ifcopenshell  # noqa: F401
+    HAVE_IFC = True
+except ImportError:
+    HAVE_IFC = False
+
+
+@unittest.skipUnless(HAVE_IFC, "ifc_to_bundle smoke test needs ifcopenshell (pip install ifcopenshell)")
+class RealPipelineTests(unittest.TestCase):
+    """ifc_to_bundle against the real bimseq pipeline (no game needed) on a tiny generated IFC."""
+
+    def test_tiny_ifc_to_bundle(self):
+        import json
+        from unittest import mock
+        import ifcopenshell.api as api
+        import numpy
+        from sitebuilder_mcp import server
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(__import__("shutil").rmtree, tmp, True)
+        f = api.run("project.create_file")
+        proj = api.run("root.create_entity", f, ifc_class="IfcProject", name="Tiny")
+        api.run("unit.assign_unit", f)
+        site, bld, st = (api.run("root.create_entity", f, ifc_class=c, name=c) for c in
+                         ("IfcSite", "IfcBuilding", "IfcBuildingStorey"))
+        api.run("aggregate.assign_object", f, products=[site], relating_object=proj)
+        api.run("aggregate.assign_object", f, products=[bld], relating_object=site)
+        api.run("aggregate.assign_object", f, products=[st], relating_object=bld)
+        ctx = api.run("context.add_context", f, context_type="Model")
+        body = api.run("context.add_context", f, context_type="Model", context_identifier="Body",
+                       target_view="MODEL_VIEW", parent=ctx)
+        for i in range(6):
+            e = api.run("root.create_entity", f, ifc_class="IfcSlab" if i % 2 else "IfcColumn", name=f"E{i}")
+            api.run("spatial.assign_container", f, products=[e], relating_structure=st)
+            api.run("geometry.edit_object_placement", f, product=e,
+                    matrix=numpy.array([[1, 0, 0, 6.0 * i], [0, 1, 0, 3], [0, 0, 1, 0], [0, 0, 0, 1.0]]))
+            rep = api.run("geometry.add_wall_representation", f, context=body, length=3, height=3, thickness=0.3)
+            api.run("geometry.assign_representation", f, product=e, representation=rep)
+        ifc = tmp / "tiny.ifc"
+        f.write(str(ifc))
+        env = {"SITEBUILDER_SCENARIOS_DIR": str(tmp / "scenarios"), "SITEBUILDER_WORK_DIR": str(tmp / "work")}
+        with mock.patch.dict(os.environ, env):
+            text = server.ifc_to_bundle(str(ifc), sector="industrial", scenario_id="tiny_smoke", load=False)
+        self.assertIn("[5/5] copy: ok", text)
+        seq = json.loads((tmp / "scenarios" / "tiny_smoke" / "sequence.json").read_text())
+        self.assertEqual(seq["scenario"]["id"], "tiny_smoke")
+        self.assertGreater(len(seq["tasks"]), 0)
+
+
 @unittest.skipUnless(os.environ.get("GODOT_BIN") and API_DIR.is_dir(), SKIP)
 class RealGameTests(unittest.TestCase):
     def test_play_minimal_to_completion(self):
@@ -158,6 +206,46 @@ class RealGameManualTests(unittest.TestCase):
         self.assertGreaterEqual(summary.get("manual_zones", 0), 1)
         self.assertGreaterEqual(summary.get("manual_tasks", 0), 3)
         self.assertIn("Manual sequence:", srv.export_manual_sequence())
+
+
+@unittest.skipUnless(os.environ.get("GODOT_BIN") and API_DIR.is_dir(), SKIP)
+class RealGameViewTests(unittest.TestCase):
+    """Kit installations and the heat view of industrial_standard through the MCP tool functions."""
+
+    def setUp(self):
+        from unittest import mock
+        from sitebuilder_mcp import server
+        self.server = server
+        self.port = free_port()
+        proc = launch_game.launch_game("industrial_standard", self.port, wait=120)
+        self.addCleanup(launch_game.stop_game, proc)
+        env = mock.patch.dict(os.environ, {"SITEBUILDER_URL": f"ws://127.0.0.1:{self.port}"})
+        env.start()
+        self.addCleanup(env.stop)
+        server.reset_client()
+        self.addCleanup(server.reset_client)
+
+    def test_installations_and_heat(self):
+        srv = self.server
+        text = srv.list_installations(limit=5)
+        self.assertRegex(text, r"\d+ installations, \d+ complete")
+        self.assertIn("kit", text.split("\n")[0])
+        raw = srv.get_client().view_installations()
+        self.assertGreater(raw["count"], 0)
+        self.assertIn("installation #0", srv.jump_to_installation(0))
+        self.assertIn("ON", srv.show_heat(True))
+        before = srv.heat_map()
+        self.assertTrue(before.startswith("Heat "), before)
+        self.assertIn("rework", before)
+        srv.highlight_elements([])
+        c = srv.get_client()
+        c.site_auto_layout()
+        for zone in c.state_zones():
+            srv.staff_zone(zone.get("zone_id", zone.get("id")), "ideal", hire=True)
+        srv.autopilot(8)
+        after = srv.heat_map()
+        grid = "".join(l.split(None, 1)[1] for l in after.split("\n")[1:-1] if l.strip() and l.split(None, 1)[1:])
+        self.assertRegex(grid, r"[1-9#]", "no progress shows in the heat grid after 8 autopilot weeks:\n" + after)
 
 
 if __name__ == "__main__":

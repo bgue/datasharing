@@ -40,12 +40,14 @@ class FakeGame:
         self.token = token
         self.event_week = event_week
         self.calls = []
+        self.scenario_ids = {"minimal"}
         self.reset()
 
     def reset(self):
         self.week, self.cash, self.loaded, self.pending = 0, 100000, None, None
         self.crews = []
         self.tasks, self.manual_zones, self.next_id = {}, set(), 0
+        self.heat_on, self.highlighted, self.no_areas = False, [], False
         self.packages = {
             "P00001": {"package_id": "P00001", "name": "L00-Z1 · Foundations · civil", "zone_id": "L00-Z1",
                        "state": "ready", "crews_now": 0, "crew_profile": {"min": 1, "ideal": 2, "max": 3},
@@ -70,7 +72,7 @@ class FakeGame:
         if method == "scenario.list":
             return [{"id": "minimal", "name": "Minimal block", "sector": "healthcare", "difficulty": 1, "tasks": 12}]
         if method == "scenario.load":
-            if params.get("id") != "minimal":
+            if params.get("id") not in self.scenario_ids:
                 raise RpcError(-32000, f"unknown scenario {params.get('id')}")
             self.reset()
             self.loaded = "minimal"
@@ -138,6 +140,63 @@ class FakeGame:
             return [t for t in self.tasks.values() if params.get("zone_id") in (None, t["zone_id"])]
         if method.startswith(("manual.", "logic.")):
             return self.handle_manual(method, params)
+        if method.startswith("view.") or method == "state.areas":
+            return self.handle_view(method, params)
+        raise RpcError(-32601, f"Method not found: {method}")
+
+    # ---- 3D view, installations, areas ------------------------------------------------------------------
+    INSTALLATIONS = [
+        {"index": 0, "kit": "tank", "title": "Tank", "name": "T-101", "variant": "round", "cells": [[2, 2], [3, 2]],
+         "storey_id": "L00", "zone_id": "L00-Z1", "element_count": 4, "height_m": 6.0, "overall_fill": 0.5,
+         "complete": False, "layer_fills": {"ring": 1.0, "shell": 0.5, "roof": 0.0}, "present_layers": ["ring", "shell", "roof"]},
+        {"index": 1, "kit": "pump", "title": "Pump", "name": "P-7", "variant": "", "cells": [[5, 1]],
+         "storey_id": "L00", "zone_id": "L00-Z1", "element_count": 2, "height_m": 1.5, "overall_fill": 1.0,
+         "complete": True, "layer_fills": {"plinth": 1.0}, "present_layers": ["plinth"]},
+    ]
+
+    def handle_view(self, method, params):
+        if method == "view.heat":
+            sid = params.get("storey_id", "L00")
+            if sid not in ("L00", "L01"):
+                raise RpcError(-32000, f"no such storey: {sid}")
+            cells = [{"cell": [x, z], "share": 0.0 if x == 2 else (1.0 if x == 4 else 0.45), "tasks": 2,
+                      "rework": (x, z) == (3, 2)} for x in range(2, 5) for z in range(1, 3)]
+            return {"storey_id": sid, "cells": cells, "empty_cells": 3}
+        if method == "view.set_heat":
+            self.heat_on = bool(params.get("on", True))
+            return {"on": self.heat_on}
+        if method == "view.highlight":
+            if not isinstance(params.get("guids"), list):
+                raise RpcError(-32000, "guids must be an array")
+            known = [g for g in params["guids"] if g in self.KNOWN_ELEMENTS]
+            self.highlighted = known
+            return {"highlighted": len(known), "boxes": len(known), "unknown": [g for g in params["guids"] if g not in known]}
+        if method == "view.clear_highlight":
+            self.highlighted = []
+            return {"cleared": True}
+        if method == "view.installations":
+            return {"count": 2, "complete": 1, "installations": self.INSTALLATIONS}
+        if method == "view.element_layers":
+            if params.get("guid") not in self.KNOWN_ELEMENTS:
+                raise RpcError(-32000, f"no such element: {params.get('guid')}")
+            if params["guid"] == "E3":
+                return {"guid": "E3", "kit": None, "installation": -1, "layers": {}, "overall_fill": 0.0}
+            return {"guid": params["guid"], "kit": "tank", "variant": "round", "installation": 0,
+                    "layers": {"ring": 1.0, "shell": 0.5}, "overall_fill": 0.5}
+        if method == "view.jump_to_installation":
+            i = int(params.get("index", -1))
+            if not 0 <= i < len(self.INSTALLATIONS):
+                raise RpcError(-32000, f"no such installation: {i}")
+            return {"index": i, "framed": True, "installation": self.INSTALLATIONS[i]}
+        if method == "state.areas":
+            if self.no_areas:
+                raise RpcError(-32601, "Method not found: state.areas")
+            return [{"id": "A1", "name": "North wing", "zone_ids": ["L00-Z1"], "progress": 0.25, "tasks": 40},
+                    {"id": "A2", "name": "South wing", "zone_ids": ["L01-Z1"], "progress": 0.0, "tasks": 30}]
+        if method == "view.jump_to_area":
+            if params.get("id") not in ("A1", "A2"):
+                raise RpcError(-32000, f"no such area: {params.get('id')}")
+            return {"id": params["id"], "framed": True}
         raise RpcError(-32601, f"Method not found: {method}")
 
     # ---- manual sequencing and logic library (tiny in-memory version of docs/06 track A) ----------------
@@ -483,7 +542,9 @@ class ClientTests(unittest.TestCase):
                 "site_auto_layout procure_order_all_due sim_run_until sim_autopilot analysis_bottlenecks "
                 "analysis_critical analysis_s_curve analysis_what_if_shift manual_set_mode manual_add_task "
                 "manual_update_task manual_remove_task manual_link manual_unlink manual_apply_recipe manual_export "
-                "manual_tasks logic_list logic_get logic_explain logic_apply").split()
+                "manual_tasks logic_list logic_get logic_explain logic_apply view_heat view_set_heat view_highlight "
+                "view_clear_highlight view_installations view_element_layers view_jump_to_installation "
+                "view_jump_to_area state_areas").split()
         self.assertEqual(sorted(API_METHODS), sorted(spec))
         for name in spec:
             self.assertTrue(callable(getattr(GameClient, name)), name)
@@ -615,6 +676,87 @@ class LogicTextViewTests(unittest.TestCase):
         self.assertIn("hold:structural", rows[1])
         self.assertRegex(rows[1], r"\b3\b")  # lag
         self.assertIn("(no manual tasks in Z", tv.manual_chain_text([], "Z"))
+
+
+class ViewClientTests(unittest.TestCase):
+    def setUp(self):
+        self.server = FakeServer().start()
+        self.addCleanup(self.server.stop)
+        self.c = GameClient(self.server.url, timeout=5)
+        self.addCleanup(self.c.close)
+
+    def test_view_methods(self):
+        c, g = self.c, self.server.game
+        h = c.view_heat("L00")
+        self.assertEqual(g.calls[-1], ("view.heat", {"storey_id": "L00"}))
+        self.assertEqual(len(h["cells"]), 6)
+        c.view_heat()
+        self.assertEqual(g.calls[-1], ("view.heat", {}))
+        with self.assertRaises(GameApiError):
+            c.view_heat("L99")
+        self.assertEqual(c.view_set_heat(True), {"on": True})
+        self.assertEqual(c.view_set_heat(on=False), {"on": False})
+        self.assertEqual(c.view_highlight(["E1", "zz"])["unknown"], ["zz"])
+        self.assertEqual(g.calls[-1], ("view.highlight", {"guids": ["E1", "zz"]}))
+        self.assertTrue(c.view_clear_highlight()["cleared"])
+        self.assertEqual(c.view_installations()["count"], 2)
+        self.assertEqual(c.view_element_layers("E1")["kit"], "tank")
+        self.assertEqual(c.view_jump_to_installation(1)["installation"]["kit"], "pump")
+        with self.assertRaises(GameApiError):
+            c.view_jump_to_installation(9)
+        self.assertEqual(c.state_areas()[0]["id"], "A1")
+        self.assertTrue(c.view_jump_to_area("A2")["framed"])
+
+    def test_unknown_method_from_older_game(self):
+        self.server.game.no_areas = True
+        with self.assertRaises(GameApiError) as cm:
+            self.c.state_areas()
+        self.assertEqual(cm.exception.code, -32601)
+
+
+class ViewTextTests(unittest.TestCase):
+    HEAT = {"storey_id": "L00", "empty_cells": 3, "cells": [
+        {"cell": [2, 1], "share": 0.0, "tasks": 2}, {"cell": [3, 1], "share": 0.45}, {"cell": [4, 1], "share": 1.0},
+        {"cell": [2, 2], "share": 0.95}, {"cell": [3, 2], "share": 0.3, "rework": True}]}
+
+    def test_heat_grid(self):
+        lines = tv.heat_grid_text(self.HEAT).split("\n")
+        self.assertIn("Heat L00", lines[0])
+        self.assertIn("5 cells with tasks", lines[0])
+        self.assertIn("3 empty zone cells", lines[0])
+        self.assertEqual(lines[1].split()[1], "04#")
+        self.assertEqual(lines[2].split()[1], "9R.")
+        self.assertIn("rework", lines[-1])
+
+    def test_heat_grid_binning_and_empty(self):
+        wide = {"storey_id": "L1", "cells": [{"cell": [x, 0], "share": 1.0} for x in range(250)]}
+        lines = tv.heat_grid_text(wide, max_width=100).split("\n")
+        self.assertIn("binned 3x3", lines[0])
+        self.assertLessEqual(len(lines[1]), 5 + 100)
+        self.assertIn("no cells", tv.heat_grid_text({"storey_id": "L0", "cells": []}))
+        self.assertIsInstance(tv.heat_grid_text(None), str)
+
+    def test_installations_table(self):
+        t = tv.installations_table({"count": 2, "complete": 1, "installations": FakeGame.INSTALLATIONS})
+        self.assertIn("tank", t)
+        self.assertIn("round", t)
+        self.assertIn("ring 100% shell 50% roof 0%", t)
+        self.assertIn("100% done", t)
+        self.assertIn("2 installations, 1 complete", t)
+        self.assertIn("(showing 1)", tv.installations_table(FakeGame.INSTALLATIONS, 1))
+        self.assertEqual(tv.installations_table({"installations": []}), "(no installations)")
+
+    def test_element_layers_and_areas(self):
+        self.assertIn("kit tank (round)", tv.element_layers_text({"guid": "E1", "kit": "tank", "variant": "round",
+                                                                    "installation": 0, "layers": {"ring": 1.0}, "overall_fill": 0.5}))
+        self.assertIn("not part of a kit", tv.element_layers_text({"guid": "E3", "kit": None}))
+        a = tv.areas_text([{"id": "A1", "name": "North", "zone_ids": ["a", "b"], "progress": 0.25, "tasks": 40}, {"id": "A2"}])
+        self.assertIn("A1", a)
+        self.assertIn("25%", a)
+        self.assertIn("2 zones", a)
+        self.assertIn("A2", a)
+        self.assertEqual(tv.areas_text([]), "(no areas)")
+        self.assertIn("A9", tv.areas_text({"areas": [{"id": "A9", "name": "x"}]}))
 
 
 class TokenTests(unittest.TestCase):

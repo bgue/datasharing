@@ -474,3 +474,109 @@ def manual_chain_text(tasks: Iterable[dict] | None, zone_id: str | None = None) 
                      f"{_num(t.get('planned_start_day'))}-{_num(t.get('planned_finish_day'))}"])
     head = f"Manual chain{' for ' + zone_id if zone_id else ''} ({len(rows)} tasks):\n"
     return head + _table(["task", "step", "bound", "after", "lag", "dur d", "state", "plan days"], rows, {1: 40})
+
+
+# ---- 3D view: heat grid, installations, areas -------------------------------------------------
+
+def heat_grid_text(heat: dict | None, max_width: int = 100) -> str:
+    """Compact grid of done shares per cell for ``view.heat``.
+
+    One character per cell (x across, z down): ``.`` no task touches the cell, ``0``-``9`` done share in tenths
+    (``9`` = 90-99 %), ``#`` finished (100 %), ``R`` rework. Grids wider than ``max_width`` are binned (mean share,
+    ``R`` if any cell reworks) and the bin size is stated."""
+    heat = heat or {}
+    cells = [c for c in (heat.get("cells") or []) if isinstance(c, dict) and isinstance(c.get("cell"), (list, tuple))]
+    sid = heat.get("storey_id", "?")
+    if not cells:
+        return f"Heat {sid}: no cells with tasks" + (f" ({heat['empty_cells']} empty cells)" if heat.get("empty_cells") else "")
+    xs = [int(c["cell"][0]) for c in cells]
+    zs = [int(c["cell"][1]) for c in cells]
+    x0, x1, z0, z1 = min(xs), max(xs), min(zs), max(zs)
+    width = x1 - x0 + 1
+    bin_ = max(1, -(-width // max_width))
+    gw, gh = -(-width // bin_), -(-(z1 - z0 + 1) // bin_)
+    acc: dict[tuple[int, int], list] = {}
+    for c in cells:
+        key = ((int(c["cell"][0]) - x0) // bin_, (int(c["cell"][1]) - z0) // bin_)
+        a = acc.setdefault(key, [0.0, 0, False])
+        a[0] += float(c.get("share") or 0.0)
+        a[1] += 1
+        a[2] = a[2] or bool(c.get("rework"))
+    shares = [a[0] / a[1] for a in acc.values()]
+    lines = []
+    for gz in range(gh):
+        row = []
+        for gx in range(gw):
+            a = acc.get((gx, gz))
+            if a is None:
+                row.append(".")
+            elif a[2]:
+                row.append("R")
+            else:
+                sh = a[0] / a[1]
+                row.append("#" if sh >= 0.9995 else str(min(int(sh * 10), 9)))
+        lines.append(f"{z0 + gz * bin_:>4} " + "".join(row))
+    avg = sum(float(c.get("share") or 0) for c in cells) / len(cells)
+    head = (f"Heat {sid}: x {x0}..{x1}, z {z0}..{z1}, {len(cells)} cells with tasks, mean done {avg * 100:.0f}%"
+            + (f", {heat['empty_cells']} empty zone cells" if heat.get("empty_cells") else "")
+            + (f" (binned {bin_}x{bin_})" if bin_ > 1 else ""))
+    legend = ". none  0-9 tenths done  # finished  R rework"
+    return "\n".join([head] + lines + [legend])
+
+
+def installations_table(res: dict | list | None, limit: int | None = None) -> str:
+    """Kit installations (view.installations): index, kit, variant, zone, elements, fill and layer fills."""
+    rows_in = res.get("installations", []) if isinstance(res, dict) else (res or [])
+    rows = []
+    for r in rows_in[: limit or None]:
+        layers = " ".join(f"{k} {v * 100:.0f}%" for k, v in (_g(r, "layer_fills") or {}).items())
+        rows.append([_num(_g(r, "index")), str(_g(r, "kit", "?")), str(_g(r, "variant") or "-"),
+                     str(_g(r, "zone_id") or _g(r, "storey_id") or "-"), _num(_g(r, "element_count")),
+                     f"{(_g(r, 'overall_fill') or 0) * 100:.0f}%" + (" done" if _g(r, "complete") else ""), layers])
+    if not rows:
+        return "(no installations)"
+    total = len(rows_in)
+    done = res.get("complete") if isinstance(res, dict) and "complete" in res else sum(1 for r in rows_in if _g(r, "complete"))
+    out = _table(["#", "kit", "variant", "zone", "elems", "fill", "layers"], rows, {6: 60})
+    out += f"\n{total} installations, {done} complete"
+    if limit and total > limit:
+        out += f" (showing {limit})"
+    return out
+
+
+def element_layers_text(res: dict | None) -> str:
+    res = res or {}
+    if not res.get("kit"):
+        return f"Element {res.get('guid', '?')}: not part of a kit installation."
+    layers = ", ".join(f"{k} {v * 100:.0f}%" for k, v in (res.get("layers") or {}).items())
+    return (f"Element {res.get('guid')}: kit {res['kit']} ({res.get('variant') or '-'}), installation #{res.get('installation')}, "
+            f"overall {(res.get('overall_fill') or 0) * 100:.0f}%; layers: {layers or '-'}")
+
+
+def areas_text(areas: Any) -> str:
+    """List of areas (state.areas): id, name and whatever scalar facts the game reports (zones, storeys, tasks, progress)."""
+    rows_in = areas.get("areas", []) if isinstance(areas, dict) else (areas or [])
+    rows_in = [a for a in rows_in if isinstance(a, dict)]
+    if not rows_in:
+        return "(no areas)"
+    skip = {"id", "name", "cells", "zone_ids", "storey_ids"}
+    extra_keys: list[str] = []
+    for a in rows_in:
+        for k, v in a.items():
+            if k not in skip and not isinstance(v, (dict, list)) and k not in extra_keys:
+                extra_keys.append(k)
+    extra_keys = extra_keys[:6]
+    rows = []
+    for a in rows_in:
+        cells = [str(a.get("id", "?")), str(a.get("name", ""))]
+        for k in extra_keys:
+            v = a.get(k)
+            pct = isinstance(v, float) and 0 <= v <= 1 and any(w in k for w in ("prog", "share", "fill", "done"))
+            cells.append(f"{v * 100:.0f}%" if pct else _num(v))
+        if isinstance(a.get("zone_ids"), list):
+            cells.append(f"{len(a['zone_ids'])} zones")
+        rows.append(cells)
+    headers = ["area", "name"] + extra_keys + (["zones"] if any(isinstance(a.get("zone_ids"), list) for a in rows_in) else [])
+    width = len(headers)
+    rows = [r + [""] * (width - len(r)) for r in rows]
+    return _table(headers, rows, {1: 40})
