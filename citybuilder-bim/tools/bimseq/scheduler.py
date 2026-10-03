@@ -183,7 +183,7 @@ def level(durations: Seq[int], edges: Seq[Edge], resources: Seq[str | None],
                     heapq.heappop(act)
                 limit = cap_of.get(res) if res is not None else None
                 used = sum(ld for _, ld in act)
-                while heap and (limit is None or used + load_of[heap[0][1]] <= limit + 1e-9):
+                while heap and (limit is None or used == 0 or used + load_of[heap[0][1]] <= limit + 1e-9):
                     _, v = heapq.heappop(heap)
                     heapq.heappush(act, (day + durations[v], load_of[v]))
                     used += load_of[v]
@@ -291,23 +291,29 @@ class ScheduleResult:
     gate_gaps: list[JSON] = field(default_factory=list)   # sequencing_gaps entries, note "gate_cycle"
 
 
-def duration_days(task: Task, library: StepLibrary) -> int:
-    """``max(min_duration_days, ceil(estimated_crew_days))`` for one crew."""
+def duration_days(task: Task, library: StepLibrary, parallel: int = 1) -> int:
+    """``max(min_duration_days, ceil(estimated_crew_days / parallel))`` (one crew unless ``parallel`` > 1).
+
+    ``parallel`` is the member count of an aggregate element: its members are worked concurrently, so
+    the task lasts about as long as one member would; in the fractional crew model it then occupies
+    ``estimated_crew_days / duration`` crews. Time-driven tasks keep their fixed ``duration_days``.
+    """
     if task.duration_days:                       # time-driven (virtual or manual) task
         return max(1, int(task.duration_days))
     step = library.steps[task.step_id]
-    return max(step.min_duration_days, math.ceil(round(task.estimated_crew_days, 6) - 1e-9), 1)
+    return max(step.min_duration_days, math.ceil(round(task.estimated_crew_days, 6) / max(1, parallel) - 1e-9), 1)
 
 
 def schedule_tasks(tasks: Seq[Task], library: StepLibrary, crews: Mapping[str, int],
-                   fractional_crews: bool = False) -> ScheduleResult:
+                   fractional_crews: bool = False, parallel: Mapping[str, int] | None = None) -> ScheduleResult:
     """CPM + gates + levelling for a task list; returns dates in task order.
 
     With ``fractional_crews`` a task occupies ``estimated_crew_days / duration`` crews instead of
     a whole crew, so tasks shorter than a crew-day can share a crew (shorter baselines).
     """
     n_tasks = len(tasks)
-    durs = [duration_days(t, library) for t in tasks]
+    par = parallel or {}
+    durs = [duration_days(t, library, par.get(t.element_guid or "", 1)) for t in tasks]
     phase_order = {p.id: p.order for p in library.phases}
     instances = _gate_instances(library.gates, tasks, phase_order)
     edges, n, warnings = _resolve_gate_cycles(tasks, instances)
@@ -316,7 +322,7 @@ def schedule_tasks(tasks: Seq[Task], library: StepLibrary, crews: Mapping[str, i
     resources: list[str | None] = [t.trade for t in tasks] + [None] * (n - n_tasks)
     loads = None
     if fractional_crews:
-        loads = [min(1.0, max(t.estimated_crew_days, 0.01) / d) for t, d in zip(tasks, durs)] + [0.0] * (n - n_tasks)
+        loads = [max(t.estimated_crew_days, 0.01) / d for t, d in zip(tasks, durs)] + [0.0] * (n - n_tasks)
     starts = level(all_durs, edges, resources, crews, priority=res.ls, loads=loads)[:n_tasks]
     finishes = [s + d for s, d in zip(starts, durs)]
     gaps: list[JSON] = []
@@ -417,7 +423,8 @@ def build_sequence(step_map: StepMap, library: StepLibrary, scenario: Scenario,
     tasks = [Task.from_dict(t.to_dict()) for t in step_map.tasks]   # do not mutate the input map
     if not tasks:
         raise SchedulingError("no tasks to schedule")
-    res = schedule_tasks(tasks, library, scenario.crews_available, fractional_crews)
+    parallel = {e.guid: len(e.member_guids) for e in elements.elements if e.member_guids}
+    res = schedule_tasks(tasks, library, scenario.crews_available, fractional_crews, parallel)
     for gap in res.gate_gaps:
         if gap not in step_map.sequencing_gaps:
             step_map.sequencing_gaps.append(gap)

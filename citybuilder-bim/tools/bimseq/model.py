@@ -199,7 +199,19 @@ def elements_from_dict(d: Mapping[str, Any]) -> ElementsDoc:
 
 
 def load_elements(path: str | Path) -> ElementsDoc:
-    return elements_from_dict(read_json(path))
+    """Load an elements document: ``.json``, ``.json.gz`` or an ``elements.index.json`` listing part files."""
+    from .bundle import read_any_json
+    path = Path(path)
+    data = read_any_json(path)
+    if "parts" in data and "elements" not in data:
+        head: dict[str, Any] | None = None
+        elements: list[Any] = []
+        for rel in data["parts"]:
+            part = read_any_json(path.parent / rel)
+            head = head or {k: v for k, v in part.items() if k != "elements"}
+            elements.extend(part["elements"])
+        data = {**(head or {}), "elements": elements}
+    return elements_from_dict(data)
 
 
 # --------------------------------------------------------------------------- step library
@@ -432,6 +444,7 @@ class Rule:
     description: str = ""
     recipe: str | None = None
     visual_kit: str | None = None
+    anchor: str = "element"
 
 
 @dataclass
@@ -455,7 +468,7 @@ def mapping_rules_from_dict(d: Mapping[str, Any]) -> MappingRules:
              steps=[Emit.from_dict(e) for e in r.get("steps", [])], continue_=bool(r.get("continue", False)),
              chain=bool(r.get("chain", True)), visual=r.get("visual"),
              system_prefix=r.get("system_prefix"), description=r.get("description", ""),
-             recipe=r.get("recipe"), visual_kit=r.get("visual_kit"))
+             recipe=r.get("recipe"), visual_kit=r.get("visual_kit"), anchor=r.get("anchor", "element"))
         for r in d["rules"]
     ]
     dflt = d["default"]
@@ -676,7 +689,8 @@ def step_map_from_dict(d: Mapping[str, Any]) -> StepMap:
 
 
 def load_step_map(path: str | Path) -> StepMap:
-    return step_map_from_dict(read_json(path))
+    from .bundle import read_any_json
+    return step_map_from_dict(read_any_json(path))
 
 
 @dataclass

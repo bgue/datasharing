@@ -2,3 +2,9 @@ godot/.godot/
 godot/export/
 tools/**/__pycache__/
 *.pyc
+# regenerable large artefacts
+tools/bench/*
+!tools/bench/README.md
+!tools/bench/last_bench.json
+godot/scenarios/stress_hospital/
+data/samples/stress*/

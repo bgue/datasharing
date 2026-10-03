@@ -13,7 +13,7 @@ if _TOOLS_DIR not in sys.path:
 
 import validate_schemas as vs  # noqa: E402  (tools/validate_schemas.py)
 
-from .model import read_json  # noqa: E402
+from .bundle import load_bundle, read_any_json  # noqa: E402
 
 MAX_ERRORS = 25
 
@@ -23,10 +23,24 @@ def _validator(name: str):
     return vs.validator_for(name)
 
 
+def _base_name(path: str | Path) -> str:
+    n = Path(path).name
+    return n[:-3] if n.endswith(".gz") else n
+
+
 def guess_schema(path: str | Path) -> str | None:
-    """Schema name for a file (delegates to validate_schemas.guess_schema; ``manual*.json`` too)."""
-    name = vs.guess_schema(str(path))
-    if name is None and Path(path).name.startswith("manual") and Path(path).suffix == ".json":
+    """Schema name for a file (delegates to validate_schemas.guess_schema).
+
+    Also: ``manual*.json`` is a manual sequence, ``*.json.gz`` is judged by its name without ``.gz``,
+    ``elements.part-N`` files are elements documents; task parts and zone details are not schema files.
+    """
+    base = _base_name(path)
+    if not base.endswith(".json") or base.startswith("tasks.part-") or base.endswith(".index.json"):
+        return None
+    if base.startswith("elements.part-"):
+        return "elements"
+    name = vs.guess_schema(base)
+    if name is None and base.startswith("manual"):
         return "manual_sequence"
     return name
 
@@ -95,8 +109,8 @@ def validate_file(path: str | Path, schema: str | None = None) -> tuple[bool, li
     if name is None:
         return False, ["cannot guess schema from file name"]
     try:
-        data = read_json(path)
-    except (OSError, ValueError) as exc:
+        data = load_bundle(path) if name == "sequence" else read_any_json(path)
+    except (OSError, ValueError, KeyError) as exc:
         return False, [f"cannot read JSON: {exc}"]
     msgs = schema_errors(name, data)
     if not msgs:
@@ -107,7 +121,7 @@ def validate_file(path: str | Path, schema: str | None = None) -> tuple[bool, li
 def iter_recognised(root: str | Path) -> Iterator[tuple[Path, str]]:
     """Yield (path, schema) for every ``*.json`` under root whose name maps to a schema."""
     root = Path(root)
-    candidates = [root] if root.is_file() else sorted(root.rglob("*.json"))
+    candidates = [root] if root.is_file() else sorted([*root.rglob("*.json"), *root.rglob("*.json.gz")])
     for p in candidates:
         name = guess_schema(p)
         if name:

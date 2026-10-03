@@ -76,13 +76,14 @@ def nearest_neighbour_distances(points: Seq[tuple[float, float]]) -> list[float]
     return out
 
 
-def estimate_cell_size(items: Iterable[GridItem]) -> tuple[float, int]:
+def estimate_cell_size(items: Iterable[GridItem], snap_m: float = CELL_SNAP, min_cell: float = MIN_CELL,
+                       max_cell: float = MAX_CELL) -> tuple[float, int]:
     """(cell size m, columns used): median column NN spacing snapped to 0.5 m, clamped 3..12; 6 if unknown."""
     cols = [it.centre for it in items if it.ifc_class == "IfcColumn"]
     dists = nearest_neighbour_distances(cols)
     if not dists:
         return DEFAULT_CELL, len(cols)
-    return min(MAX_CELL, max(MIN_CELL, snap(statistics.median(dists), CELL_SNAP))), len(cols)
+    return min(max_cell, max(min_cell, snap(statistics.median(dists), snap_m))), len(cols)
 
 
 def _fold90(deg: float) -> float:
@@ -131,19 +132,26 @@ def rotate(x: float, y: float, deg: float) -> tuple[float, float]:
     return x * c - y * s, x * s + y * c
 
 
-def detect_grid(items: Seq[GridItem]) -> JSON:
+def detect_grid(items: Seq[GridItem], *, snap_m: float = CELL_SNAP, min_cell: float = MIN_CELL,
+                max_cell: float = MAX_CELL, extent: Seq[float] | None = None, rotation: float | None = None) -> JSON:
     """Estimate ``cell_size_m``, ``rotation_deg`` and ``origin`` for a set of elements.
 
     ``origin`` is the model-space position of the minimum corner of the site bbox measured in the
     rotated frame (``origin_rotated`` is the same corner in rotated-frame coordinates).
     """
-    if not items:
+    if not items and extent is None:
         return {"cell_size_m": DEFAULT_CELL, "rotation_deg": 0.0, "origin": [0.0, 0.0, 0.0],
                 "origin_rotated": [0.0, 0.0], "columns": 0, "items": 0}
-    cell, ncols = estimate_cell_size(items)
-    rot = estimate_rotation(items)
+    cell, ncols = estimate_cell_size(items, snap_m, min_cell, max_cell)
+    rot = estimate_rotation(items) if rotation is None else float(rotation)
     us: list[float] = []
     vs: list[float] = []
+    if extent is not None:                        # overall site bbox (min x, min y, max x, max y)
+        for x in (extent[0], extent[2]):
+            for y in (extent[1], extent[3]):
+                u, v = rotate(x, y, -rot)
+                us.append(u)
+                vs.append(v)
     for it in items:
         for x in (it.lo[0], it.hi[0]):
             for y in (it.lo[1], it.hi[1]):

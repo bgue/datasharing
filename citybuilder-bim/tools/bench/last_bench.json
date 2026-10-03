@@ -1,0 +1,40 @@
+{
+ "route": "synth-ifc -> ifc-to-elements -> map (aggregated) -> schedule -> compressed split bundle",
+ "wings": [
+  15,
+  12
+ ],
+ "elements": 150120,
+ "aggregated_elements": 5920,
+ "tasks": 12080,
+ "links": 48459,
+ "packages": 1460,
+ "virtual_tasks": 3780,
+ "baseline_weeks": 28,
+ "contract_weeks": 31,
+ "gaps": 0,
+ "bundle_bytes": 16482090,
+ "seconds": {
+  "synth_ifc": 50.25,
+  "extract": 117.08,
+  "load_elements": 5.8,
+  "load": 0.14,
+  "aggregate": 0.98,
+  "map": 2.13,
+  "schedule": 7.59,
+  "write": 6.18
+ },
+ "total_seconds": 190.5,
+ "cpus": 4,
+ "python": "3.11.15",
+ "targets": {
+  "total_seconds": 600,
+  "tasks": 20000,
+  "packages": 2000
+ },
+ "targets_met": {
+  "time": true,
+  "tasks": true,
+  "packages": true
+ }
+}

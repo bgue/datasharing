@@ -54,8 +54,8 @@ class Aggregation(unittest.TestCase):
     def test_presets_and_threshold(self):
         self.assertIn("industrial_dense", aggregation.load_presets())
         d = dense_doc()
-        self.assertEqual(len(aggregation.aggregate(d, {"max_members": 100}).elements), len(d.elements))
-        self.assertEqual(len(aggregation.aggregate(d, {"max_members": 5}).elements),
+        self.assertEqual(len(aggregation.aggregate(d, {"threshold_per_cell": 100}).elements), len(d.elements))
+        self.assertEqual(len(aggregation.aggregate(d, {"threshold_per_cell": 5}).elements),
                          len(d.elements) - 60 + 1 - 10 + 1)                  # cables now aggregate too
         with self.assertRaises(ValueError):
             aggregation.aggregate(d, "nope")

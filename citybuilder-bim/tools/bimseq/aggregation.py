@@ -9,7 +9,8 @@ from typing import Any, Mapping, Sequence as Seq
 from .model import Element, ElementsDoc, JSON, read_json
 
 PRESETS_PATH = Path(__file__).with_name("aggregation_presets.json")
-DEFAULT_MAX_MEMBERS = 25
+DEFAULT_THRESHOLD = 25
+DEFAULT_MAX_MEMBERS = 200
 AGG_PREFIX = "AGG-"
 
 
@@ -20,9 +21,10 @@ def load_presets(path: str | Path = PRESETS_PATH) -> dict[str, JSON]:
 def resolve_preset(preset: str | Mapping[str, Any] | None) -> JSON:
     """Preset by name (from ``aggregation_presets.json``) or an inline dict."""
     if preset is None:
-        preset = "default"
+        preset = "generic"
     if isinstance(preset, Mapping):
-        return {"max_members": DEFAULT_MAX_MEMBERS, "group_by": ["storey", "cell", "kit_or_class", "system"], **preset}
+        return {"threshold_per_cell": DEFAULT_THRESHOLD, "max_members": DEFAULT_MAX_MEMBERS,
+                "group_by": ["storey", "cell", "kit_or_class", "system"], **preset}
     presets = load_presets()
     if preset not in presets:
         raise ValueError(f"unknown aggregation preset {preset!r}; known: {', '.join(sorted(presets))}")
@@ -42,8 +44,15 @@ def _most_common(values: Seq[Any]) -> Any:
     return sorted(counts, key=lambda v: (-counts[v], str(v)))[0]
 
 
-def make_aggregate(members: Seq[Element]) -> Element:
-    """One aggregate element standing in for ``members`` (same storey and anchor cell)."""
+def _sample(cells: list, limit: int) -> list:
+    if not limit or len(cells) <= limit:
+        return cells
+    step = (len(cells) - 1) / (limit - 1) if limit > 1 else 0
+    return [cells[round(i * step)] for i in range(limit)]
+
+
+def make_aggregate(members: Seq[Element], max_cells: int = 0) -> Element:
+    """One aggregate element standing in for ``members`` (same storey and group key)."""
     members = sorted(members, key=lambda e: e.guid)
     guids = [m.guid for m in members]
     guid = AGG_PREFIX + hashlib.sha1("|".join(guids).encode()).hexdigest()[:10]
@@ -57,7 +66,7 @@ def make_aggregate(members: Seq[Element]) -> Element:
     props = {k: v for k, v in first.properties.items()
              if all(k in m.properties and m.properties[k] == v and isinstance(m.properties[k], bool) == isinstance(v, bool)
                     for m in members)}
-    cells = sorted({tuple(c) for m in members for c in m.cells})
+    cells = _sample(sorted({tuple(c) for m in members for c in m.cells}), max_cells)
     bbox = None
     boxes = [m.bbox for m in members if m.bbox]
     if boxes:
@@ -74,27 +83,34 @@ def make_aggregate(members: Seq[Element]) -> Element:
         visual_kit=first.visual_kit, member_guids=guids)
 
 
-def aggregate(doc: ElementsDoc, preset: str | Mapping[str, Any] | None = "default") -> ElementsDoc:
+def aggregate(doc: ElementsDoc, preset: str | Mapping[str, Any] | None = "generic") -> ElementsDoc:
     """Return a new document in which dense groups are replaced by aggregate elements.
 
-    A group is (storey, anchor cell, kit or class, system) and is aggregated when it holds more
-    than ``max_members`` elements. ``host_guid`` references to folded members are re-pointed to the
-    aggregate. The input is not modified.
+    A group (``group_by`` key) is folded when it holds more than ``threshold_per_cell`` elements, in
+    chunks of at most ``max_members`` (sorted by GUID). ``host_guid`` references to folded members are
+    re-pointed to their aggregate. The input is not modified.
     """
     cfg = resolve_preset(preset)
-    limit = int(cfg["max_members"])
+    if "threshold_per_cell" not in cfg and "max_members" in cfg and "legacy" not in cfg:
+        cfg = {**cfg, "threshold_per_cell": cfg["max_members"], "max_members": DEFAULT_MAX_MEMBERS}   # old-style preset
+    limit = int(cfg.get("threshold_per_cell", DEFAULT_THRESHOLD))
+    cap = max(2, int(cfg.get("max_members", DEFAULT_MAX_MEMBERS)))
+    max_cells = int(cfg.get("max_cells", 0))
     groups: dict[tuple, list[Element]] = defaultdict(list)
     for e in doc.elements:
         groups[_group_key(e, cfg["group_by"])].append(e)
     folded: dict[str, str] = {}
     aggregates: list[Element] = []
     for key in sorted(groups, key=str):
-        members = groups[key]
+        members = sorted(groups[key], key=lambda e: e.guid)
         if len(members) > limit:
-            agg = make_aggregate(members)
-            aggregates.append(agg)
-            for m in members:
-                folded[m.guid] = agg.guid
+            n_chunks = -(-len(members) // cap)
+            size = -(-len(members) // n_chunks)                        # balanced chunks of <= cap
+            for lo in range(0, len(members), size):
+                agg = make_aggregate(members[lo:lo + size], max_cells)
+                aggregates.append(agg)
+                for m in members[lo:lo + size]:
+                    folded[m.guid] = agg.guid
     if not folded:
         return doc
     elements = [e for e in doc.elements if e.guid not in folded] + aggregates

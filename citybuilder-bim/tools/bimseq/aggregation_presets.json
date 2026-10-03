@@ -1,25 +1,42 @@
 {
  "schema_version": "1.0",
- "description": "Aggregation presets: group elements by (storey, cell, kit or class, system) and fold groups larger than max_members into one aggregate element (docs/06 B.5).",
+ "description": "Aggregation presets (docs/06 B.5, C.2). A group is the elements sharing the group_by key; groups with more than threshold_per_cell members fold into aggregate elements of at most max_members each. group_by keys: storey, cell (anchor cell), zone, kit_or_class, system. max_cells (0 = all) keeps an even sample of the member cells on the aggregate to bound task size.",
  "presets": {
-  "default": {
-   "max_members": 25,
+  "generic": {
+   "threshold_per_cell": 25,
+   "max_members": 200,
    "group_by": ["storey", "cell", "kit_or_class", "system"]
   },
   "industrial_dense": {
-   "max_members": 25,
+   "threshold_per_cell": 25,
+   "max_members": 200,
    "group_by": ["storey", "cell", "kit_or_class", "system"],
    "description": "Pipe racks and piping with hundreds of members per cell"
   },
-  "hospital_dense": {
-   "max_members": 40,
-   "group_by": ["storey", "cell", "kit_or_class", "system"],
-   "description": "Ceiling-void MEP: ducts, pipes, trays, fixtures"
+  "healthcare_mep": {
+   "threshold_per_cell": 20,
+   "max_members": 120,
+   "group_by": ["storey", "zone", "kit_or_class", "system"],
+   "max_cells": 12,
+   "description": "Hospital models: fold per zone and class/system (ceiling-void MEP, partitions, fixtures)"
   },
   "civil_linear": {
-   "max_members": 60,
+   "threshold_per_cell": 60,
+   "max_members": 200,
    "group_by": ["storey", "cell", "kit_or_class"],
    "description": "Pavement layers, kerbs and barriers along chainage"
+  },
+  "default": {
+   "threshold_per_cell": 25,
+   "max_members": 200,
+   "group_by": ["storey", "cell", "kit_or_class", "system"],
+   "description": "Alias of generic"
+  },
+  "hospital_dense": {
+   "threshold_per_cell": 40,
+   "max_members": 200,
+   "group_by": ["storey", "cell", "kit_or_class", "system"],
+   "description": "Legacy name: ceiling-void MEP per cell"
   }
  }
 }

@@ -81,6 +81,68 @@ python3 -m bimseq build-samples ../data/samples --manual-demo   # + healthcare/m
   snap) and `origin` (site bbox minimum in the rotated frame). `ifc-to-elements` uses it by default
   (`--grid-mode auto`, `--project-config`); `--grid-mode fixed` keeps 6 m, no rotation.
 
+## IFC, project config and scale (Phase 5)
+
+`ifcopenshell` 0.9 is used when installed (without it `ifc-to-elements` exits 3).
+
+```bash
+python3 -m bimseq synth-ifc --sector healthcare --out model.ifc            # real IFC4 (civil: IFC4X3); --scale N = N-wing campus
+python3 -m bimseq ifc-to-elements model.ifc elements.json --sector healthcare [--project-config project_config.json] [--compress]
+python3 -m bimseq map elements.json --rules R --library L --out map.json [--project-config project_config.json]
+python3 -m bimseq schedule map.json --library L --scenario S --elements elements.json --out sequence.json [--project-config ...]
+python3 -m bimseq grid-detect model.ifc                                      # cell size / rotation / origin diagnostics
+python3 -m bimseq rebuild-zone map.json --zone L01-S3 --manual manual.json   # patch one zone of the bundle beside the map
+python3 -m bimseq stress --wings 6 6 --sync-godot ../godot                   # synthetic campus bundle (~30k elements)
+python3 -m bimseq bench --wings 15 12 --from-ifc                             # ~150k elements through a real IFC; writes bench/last_bench.json
+```
+
+**project_config.json** (`schema/project_config.schema.json`, loader `bimseq/config.py`; all keys optional):
+
+* `grid.mode`: `auto` (cell size = median `IfcColumn` nearest-neighbour spacing snapped to `snap_m`, clamped
+  `min_cell_m`..`max_cell_m`; rotation = dominant wall/beam direction mod 90 degrees, 5 degree snap; origin = site bbox
+  minimum in the rotated frame), `fixed` (`cell_size_m`, default 6, `rotation_deg`, `origin`) or `chainage` (cells
+  along the alignment axis of `cell_length_m`, `lanes` lane cells of `lane_width_m` across; `axis` auto = the longer
+  bbox axis; `cell_size_m` of the project becomes the cell length, `alignment_guid` is only recorded). The result and
+  diagnostics are written to `project.grid` (`mode`, `rotation_deg`, `detected`).
+* `zones.source`: `auto` (spaces when the model has any, else blocks), `ifc_space` (one zone per `IfcSpace`), `ifc_zone`
+  (spaces of one `IfcZone` merge), `file` (rectangles from a CSV `zone_id,name,storey_id,x0,z0,x1,z1[,tags][,max_crews]`).
+  Space names/long names/object types/properties go through `data/zoning/space_tags_<sector>.json` (first matching rule
+  wins: tags, `max_crews`, `faces`, `shift_allowed`); spaces smaller than `merge_small_spaces_below_cells` merge into
+  the neighbour they touch most; a cell claimed by two spaces belongs to the smaller; cells outside every space get
+  `auto_block` zones (`<storey>-A<n>`).
+* `filters` (exclude/include classes, include storeys by name or GlobalId, bbox, `min_bbox_m`), `scope` (buildings by
+  name/GlobalId, systems), `aggregation.preset`, `output` (`compress`, `tasks_per_part`, `lazy_zone_detail`,
+  `elements_per_part`), `areas`. With more than one `IfcBuilding`, `project.areas` lists each building (cells, storeys,
+  camera bookmark).
+
+**Extraction** reads relationships once (material, `IfcSystem`, voids/fills, property and quantity sets), runs the
+geometry iterator on all CPUs for world-space bboxes (placement fallback), computes grid, zones and cells, then streams
+elements in chunks. Above `elements_per_part` elements it writes `elements.part-N.json[.gz]` (each a complete elements
+document) plus `elements.index.json`; `map` accepts the index. Quantities come from `IfcElementQuantity` when present,
+else from the bbox.
+
+**Aggregation presets** (`bimseq/aggregation_presets.json`: `generic`, `industrial_dense`, `healthcare_mep`,
+`civil_linear`): a group (`group_by` of storey, cell, zone, kit_or_class, system) with more than `threshold_per_cell`
+members folds into aggregates of at most `max_members`; `max_cells` bounds the cells kept on an aggregate. Aggregate
+tasks last about as long as one member (members work concurrently) and in the fractional crew model occupy
+`crew_days / duration` crews. `map` with an aggregation preset caps predecessor fan-in at 8 (an even sample of the
+candidates, last one always kept), which keeps link counts linear. Packaging for aggregated builds groups by zone,
+phase and trade.
+
+**Recipe `anchor`** (mapping rule): `element` (default), `system`, `zone`, `cell_group` (4-neighbour contiguous cells,
+split when storey, system or zone changes), `storey`, `project`. Virtual steps become one task per anchor group (cells =
+zone cells, or the union of the group's cells); element-bound steps bind to all matched elements of the group by
+`from_element`; consecutive element groups link per shared element instead of M x N.
+
+**Split bundle** (`output.compress` / `lazy_zone_detail`; `bimseq/bundle.py`): `sequence.json[.gz]` holds everything
+except `tasks` (empty) and `bundle_format {compressed, task_parts[], zone_detail_dir}`; `tasks.part-N.json[.gz]` is
+`{schema_version, part, tasks[]}`; `zones/<zone_id>.json[.gz]` is `{zone_id, task_ids, package_ids, members}` where
+`members` maps aggregate GUIDs to member GUIDs (moved out of the main file, which keeps `member_count`).
+`load_bundle` merges everything back; `validate` and `export-csv` accept split bundles.
+
+**rebuild-zone** re-maps with the manual sequence, keeps task and package ids outside the zone, gives the zone's tasks
+and packages fresh ids, recomputes links both ways and the schedule, and rewrites sequence, map in place (or `--out-dir`).
+
 ## Crew model for levelling
 
 `--crew-model whole` (default for `schedule`): every active task occupies one crew, so at most

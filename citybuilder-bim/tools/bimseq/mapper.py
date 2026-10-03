@@ -123,6 +123,32 @@ class _Subject:
         return self.guids[0] if self.guids else None
 
 
+@dataclass
+class _Anchor:
+    """The scope one recipe expansion binds to: matched elements plus the zone/cells for virtual tasks."""
+
+    members: list[Element]
+    zone_id: str
+    cells: list[Cell]
+    label: str
+    kind: str = "element"
+
+    @property
+    def owner(self) -> str:
+        return self.members[0].guid if self.members else "~zone"
+
+
+MAX_ANCHOR_CELLS = 64
+
+
+def _sample_cells(cells: list[Cell], limit: int = MAX_ANCHOR_CELLS) -> list[Cell]:
+    cells = sorted(set(cells))
+    if len(cells) <= limit:
+        return cells
+    step = (len(cells) - 1) / (limit - 1)
+    return [cells[round(i * step)] for i in range(limit)]
+
+
 def _subject_of(el: Element, si: int) -> _Subject:
     return _Subject([el.guid], el.storey_id, si, el.zone_id, list(el.cells), el.system_id, el.host_guid)
 
@@ -197,18 +223,20 @@ def _unit(emit_unit: str | None, basis: str) -> str:
 def map_elements(doc: ElementsDoc, library: StepLibrary, rules: MappingRules, *,
                  generated_at: str | None = None, step_library_ref: str | None = None,
                  mapping_rules_ref: str | None = None, recipes: Mapping[str, JSON] | None = None,
-                 manual: Mapping[str, Any] | None = None) -> StepMap:
+                 manual: Mapping[str, Any] | None = None, max_fanin: int | None = None) -> StepMap:
     """Run the rule engine and predecessor resolution; returns an undated :class:`StepMap`.
 
     ``recipes`` (id -> recipe) enable rules that emit a recipe and manual ``applied_recipes``;
-    ``manual`` is a parsed manual_sequence.json. Steps defined inline by recipes are registered into
-    ``library`` (and listed in ``StepMap.inline_steps``), so the same library object must be passed
+    ``manual`` is a parsed manual_sequence.json. ``max_fanin`` (default off) caps how many predecessor
+    tasks one scope rule may link to a task: larger candidate sets are thinned to an even sample that always
+    keeps the last task (an approximation for very large, aggregated models). Steps defined inline by
+    recipes are registered into ``library`` (and listed in ``StepMap.inline_steps``), so the same library object must be passed
     on to the scheduler.
     """
     problems = check_rules(rules, library)
     if problems:
         raise MappingError("; ".join(problems[:20]) + (" ..." if len(problems) > 20 else ""))
-    return _Engine(doc, library, rules, recipes or {}, manual).run(
+    return _Engine(doc, library, rules, recipes or {}, manual, max_fanin).run(
         generated_at, step_library_ref, mapping_rules_ref)
 
 
@@ -216,8 +244,11 @@ class _Engine:
     """One mapping run: tasks, links and the recipe / manual machinery."""
 
     def __init__(self, doc: ElementsDoc, library: StepLibrary, rules: MappingRules,
-                 recipes: Mapping[str, JSON], manual: Mapping[str, Any] | None) -> None:
+                 recipes: Mapping[str, JSON], manual: Mapping[str, Any] | None,
+                 max_fanin: int | None = None) -> None:
         self.doc, self.library, self.rules, self.recipes = doc, library, rules, recipes
+        self.max_fanin = max_fanin
+        self._rules_for_class: dict[str, list[Rule]] = {}
         self.manual = manual or {}
         self.sector = doc.project.get("sector")
         self.storey_index = {s.id: s.index for s in doc.storeys}
@@ -298,18 +329,19 @@ class _Engine:
                       origin: str, recipe_id: str | None = None, quantity: float | None = None,
                       basis: str | None = None, factor: float = 1.0, duration_days: int | None = None,
                       marker: str | None = None, manual_id: str | None = None,
-                      unit: str | None = None) -> int:
+                      unit: str | None = None, cells: list[Cell] | None = None) -> int:
         zone = self.zones[zone_id]
+        cells = list(cells) if cells else list(zone.cells)
         basis = basis or ("count" if quantity is None else step.quantity_basis)
         q = (quantity if quantity is not None else 1.0) * factor
         q = max(q, MIN_FALLBACK_QUANTITY) if q <= 0 else q
         t = self._blank(step, rule_id, virtual=True, origin=origin, recipe_id=recipe_id,
                         duration_days=duration_days, marker=marker, manual_id=manual_id)
-        t.element_name, t.storey_id, t.zone_id, t.cells = name, zone.storey_id, zone_id, list(zone.cells)
+        t.element_name, t.storey_id, t.zone_id, t.cells = name, zone.storey_id, zone_id, cells
         t.quantity, t.unit = round(q, 4), _unit(unit, basis)
         t.estimated_crew_days = round(float(duration_days) if duration_days else q / step.rate_per_crew_day, 4)
         t.cost = round(q * step.unit_cost, 2)
-        sub = _Subject([], zone.storey_id, self.storey_index[zone.storey_id], zone_id, list(zone.cells))
+        sub = _Subject([], zone.storey_id, self.storey_index[zone.storey_id], zone_id, cells)
         return self._register(t, sub, owner, step.id)
 
     def _link(self, pred: int, succ: int, type_: str = "FS", lag: int = 0, reason: str = "") -> None:
@@ -324,14 +356,14 @@ class _Engine:
             mapping_rules_ref: str | None) -> StepMap:
         doc, rules = self.doc, self.rules
         self._manual_tasks()
-        ordered_rules = rules.ordered()
+        self.ordered_rules = rules.ordered()
         elements = sorted(doc.elements, key=lambda e: (self.storey_index[e.storey_id], e.zone_id, e.guid))
         pending: list[tuple[Element, Rule]] = []
         for el in elements:
             si = self.storey_index[el.storey_id]
             tags = self.zone_tags.get(el.zone_id, set())
             matched: list[Rule] = []
-            for rule in ordered_rules:
+            for rule in self._candidate_rules(el.ifc_class):
                 if rule_matches(rule, el, si, tags):
                     matched.append(rule)
                     if not rule.continue_:
@@ -352,14 +384,88 @@ class _Engine:
                 self._emit_rule(el, si, rule)
                 if rule.recipe:
                     pending.append((el, rule))
-        for el, rule in pending:
+        for rule, anchor in self._anchor_groups(pending):
             if rule.recipe not in self.recipes:
                 self._gap(None, rule.recipe, f"rule:{rule.id}", "recipe_ref")
                 continue
-            self._expand(rule.recipe, el, el.zone_id, rule.id, False, (), False)
+            self._expand(rule.recipe, anchor, rule.id, False, (), False)
         self._applied_recipes()
         self._resolve_predecessors()
         return self._finish(generated_at, step_library_ref, mapping_rules_ref)
+
+    def _anchor_groups(self, pending: list[tuple[Element, Rule]]) -> list[tuple[Rule, _Anchor]]:
+        """Group the elements matched by recipe rules per rule ``anchor`` (element, system, zone, cell_group, storey, project)."""
+        out: list[tuple[Rule, _Anchor]] = []
+        by_rule: dict[str, tuple[Rule, list[Element]]] = {}
+        for el, rule in pending:
+            by_rule.setdefault(rule.id, (rule, []))[1].append(el)
+        # rules in order of their first matched element so output order is stable
+        for rule, els in by_rule.values():
+            kind = rule.anchor
+            if kind == "element":
+                out.extend((rule, _Anchor([e], e.zone_id, list(self.zones[e.zone_id].cells), e.name)) for e in els)
+                continue
+            groups: dict[Any, list[Element]] = {}
+            if kind == "system":
+                for e in els:
+                    groups.setdefault(("s", e.system_id) if e.system_id else ("e", e.guid), []).append(e)
+            elif kind == "zone":
+                for e in els:
+                    groups.setdefault(e.zone_id, []).append(e)
+            elif kind == "storey":
+                for e in els:
+                    groups.setdefault(e.storey_id, []).append(e)
+            elif kind == "project":
+                groups["*"] = list(els)
+            else:                                   # cell_group
+                groups = self._cell_groups(els)
+            for key, members in groups.items():
+                out.append((rule, self._make_anchor(kind, key, members)))
+        return out
+
+    def _cell_groups(self, els: list[Element]) -> dict[Any, list[Element]]:
+        """Contiguous (4-neighbour) cell groups of elements, split whenever storey, system_id or zone_id differs."""
+        by_cell: dict[tuple, list[int]] = defaultdict(list)
+        for i, e in enumerate(els):
+            for c in e.cells:
+                by_cell[(e.storey_id, e.system_id, e.zone_id, tuple(c))].append(i)
+        parent = list(range(len(els)))
+
+        def find(x: int) -> int:
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+        for (sid, sysid, zid, (x, z)), idxs in by_cell.items():
+            for j in idxs[1:]:
+                parent[find(j)] = find(idxs[0])
+            for nb in ((x + 1, z), (x, z + 1)):
+                other = by_cell.get((sid, sysid, zid, nb))
+                if other:
+                    parent[find(other[0])] = find(idxs[0])
+        groups: dict[int, list[Element]] = {}
+        for i, e in enumerate(els):
+            groups.setdefault(find(i), []).append(e)
+        return {n: g for n, g in enumerate(groups.values())}
+
+    def _make_anchor(self, kind: str, key: Any, members: list[Element]) -> _Anchor:
+        first = members[0]
+        zone_id = first.zone_id
+        cells = _sample_cells([tuple(c) for e in members for c in e.cells])
+        if kind == "zone":
+            return _Anchor(members, zone_id, list(self.zones[zone_id].cells), self.zones[zone_id].name, kind)
+        label = {"system": f"system {first.system_id}" if first.system_id else first.name,
+                 "cell_group": f"{first.storey_id} group at {cells[0][0]},{cells[0][1]}",
+                 "storey": f"storey {first.storey_id}", "project": "project"}[kind]
+        return _Anchor(members, zone_id, cells, label, kind)
+
+    def _candidate_rules(self, ifc_class: str) -> list[Rule]:
+        """Rules (priority order) that can match ``ifc_class``: those without an ifc_class key or listing it."""
+        got = self._rules_for_class.get(ifc_class)
+        if got is None:
+            got = [r for r in self.ordered_rules if r.match.ifc_class is None or ifc_class in r.match.ifc_class]
+            self._rules_for_class[ifc_class] = got
+        return got
 
     def _emit_rule(self, el: Element, si: int, rule: Rule) -> None:
         prev: int | None = None
@@ -403,7 +509,7 @@ class _Engine:
             self._gap(None, entry["ref"], f"recipe:{rid}", "recipe_ref")
         return step
 
-    def _expand(self, rid: str, el: Element | None, zone_id: str, rule_id: str, include_optional: bool,
+    def _expand(self, rid: str, anchor: _Anchor, rule_id: str, include_optional: bool,
                 stack: tuple[str, ...], force: bool) -> tuple[list[int], list[int], list[int]]:
         """Create the tasks of a recipe for one anchor; returns (heads, tails, all task indices)."""
         recipe = self.recipes[rid]
@@ -420,12 +526,10 @@ class _Engine:
                 if nested in stack or nested == rid or nested not in self.recipes:
                     self._gap(None, nested, f"recipe:{rid}", "recipe_cycle" if nested in stack or nested == rid else "recipe_ref")
                     continue
-                h, t, a = self._expand(nested, el, zone_id, rule_id, include_optional, stack + (rid,), force)
+                h, t, a = self._expand(nested, anchor, rule_id, include_optional, stack + (rid,), force)
                 if not a:
                     continue
-                for p in prev_tails:
-                    for i in h:
-                        self._link(p, i, "FS", lag, f"recipe:{rid}:{nested}")
+                self._link_groups(prev_tails, h, "FS", lag, f"recipe:{rid}:{nested}")
                 heads = heads if heads is not None else h
                 prev_tails = t
                 groups[entry.get("key") or nested] = a
@@ -434,21 +538,17 @@ class _Engine:
             step = self._resolve_step(entry, rid)
             if step is None:
                 continue
-            idxs = self._bind(entry, step, recipe, el, zone_id, rule_id, force)
+            idxs = self._bind(entry, step, recipe, anchor, rule_id, force)
             if not idxs:
                 continue
             key = entry.get("key") or step.id
             reason = f"recipe:{rid}:{key}"
             pw = entry.get("parallel_with")
             if pw and pw in groups:
-                for p in groups[pw]:
-                    for i in idxs:
-                        self._link(p, i, "SS", lag, reason)
+                self._link_groups(groups[pw], idxs, "SS", lag, reason)
                 # a start-together side branch: not a chain member, the next step follows the one before it
             else:
-                for p in prev_tails:
-                    for i in idxs:
-                        self._link(p, i, "FS", lag, reason)
+                self._link_groups(prev_tails, idxs, "FS", lag, reason)
                 prev_tails = idxs
             if heads is None:
                 heads = idxs
@@ -462,46 +562,72 @@ class _Engine:
         for lg in recipe.get("logic", []):
             a, b = groups.get(lg["after"]), groups.get(lg["before"])
             if a and b:
-                for i in a:
-                    for j in b:
-                        self._link(i, j, lg.get("type", "FS"), int(lg.get("lag_days", 0)),
-                                   f"logic:{rid}:{lg.get('reason') or lg['after'] + '>' + lg['before']}")
+                self._link_groups(a, b, lg.get("type", "FS"), int(lg.get("lag_days", 0)),
+                                  f"logic:{rid}:{lg.get('reason') or lg['after'] + '>' + lg['before']}")
         return heads or [], prev_tails, all_idx
 
-    def _bind(self, entry: Mapping[str, Any], step: Step, recipe: Mapping[str, Any], el: Element | None,
-              zone_id: str, rule_id: str, force: bool) -> list[int]:
+    def _link_groups(self, preds: list[int], succs: list[int], type_: str, lag: int, reason: str) -> None:
+        """Link two task groups. Small groups link all-to-all; two element groups pair by shared element.
+
+        Tasks without a same-element partner link to a thinned sample of the other group, so a
+        storey- or project-anchored recipe over hundreds of elements does not create M x N links.
+        """
+        if not preds or not succs:
+            return
+        if len(preds) == 1 or len(succs) == 1 or len(preds) * len(succs) <= 16:
+            for p in preds:
+                for i in succs:
+                    self._link(p, i, type_, lag, reason)
+            return
+        by_guid: dict[str, list[int]] = defaultdict(list)
+        for p in preds:
+            g = self.tasks[p].element_guid
+            if g:
+                by_guid[g].append(p)
+        sample = _thin(preds, 4)
+        for i in succs:
+            same = by_guid.get(self.tasks[i].element_guid or "")
+            for p in (same if same else sample):
+                self._link(p, i, type_, lag, reason)
+
+    def _bind(self, entry: Mapping[str, Any], step: Step, recipe: Mapping[str, Any], anchor: _Anchor,
+              rule_id: str, force: bool) -> list[int]:
         """Task indices for a recipe step (new, or reused when element+step already has a task)."""
         rid = recipe["id"]
         qspec = entry.get("quantity") or {}
         duration = entry.get("duration_days")
         mode = entry.get("from_element", "self")
         marker = entry.get("marker") or recipe.get("virtual_visual")
+        zone_id = anchor.zone_id
         if entry.get("virtual") or mode == "zone":
-            zone = self.zones[zone_id]
-            owner = el.guid if el is not None else "~zone"
-            label = el.name if el is not None else zone.name
             idx = self._virtual_task(
-                step, rule_id, zone_id, owner, f"{step.name} · {label}", origin="recipe", recipe_id=rid,
+                step, rule_id, zone_id, anchor.owner, f"{step.name} · {anchor.label}", origin="recipe", recipe_id=rid,
                 quantity=qspec.get("value"), basis=qspec.get("basis"), factor=float(qspec.get("factor", 1.0)),
-                duration_days=duration, marker=marker)
+                duration_days=duration, marker=marker, cells=anchor.cells)
             return [idx]
-        if el is None:
+        if not anchor.members:
             self._gap(None, step.id, f"recipe:{rid}", "recipe_unbound")
             return []
         out: list[int] = []
+        seen: set[str] = set()
         basis = qspec.get("basis") or step.quantity_basis
-        for target in self.eindex.targets(el, mode):
-            if (target.guid, step.id) in self.suppress or target.guid in self.suppress_all:
-                continue
-            if target.zone_id in self.manual_zones and not force:
-                continue
-            existing = self.by_elem_step.get((target.guid, step.id))
-            if existing is not None:
-                out.append(existing)
-                continue
-            out.append(self._element_task(
-                target, self.storey_index[target.storey_id], rule_id, step, basis, float(qspec.get("factor", 1.0)),
-                None, 0.0, origin="recipe", recipe_id=rid, fixed_value=qspec.get("value"), duration_days=duration))
+        for member in anchor.members:
+            for target in self.eindex.targets(member, mode):
+                if target.guid in seen:
+                    continue
+                seen.add(target.guid)
+                if (target.guid, step.id) in self.suppress or target.guid in self.suppress_all:
+                    continue
+                if target.zone_id in self.manual_zones and not force:
+                    continue
+                existing = self.by_elem_step.get((target.guid, step.id))
+                if existing is not None:
+                    out.append(existing)
+                    continue
+                out.append(self._element_task(
+                    target, self.storey_index[target.storey_id], rule_id, step, basis,
+                    float(qspec.get("factor", 1.0)), None, 0.0, origin="recipe", recipe_id=rid,
+                    fixed_value=qspec.get("value"), duration_days=duration))
         return out
 
     def _applied_recipes(self) -> None:
@@ -512,18 +638,18 @@ class _Engine:
                 continue
             opt = bool(ar.get("include_optional", False))
             guid = ar.get("element_guid")
+            zone = self.zones[zone_id]
             if guid:
                 el = self.eindex.by_guid.get(guid)
-                anchors: list[Element | None] = [el] if el else []
                 if el is None:
                     self._gap(None, rid, f"manual:{guid}", "manual_ref")
+                    continue
+                anchor = _Anchor([el], zone_id, list(zone.cells), el.name)
             else:
-                zone = self.zones[zone_id]
-                anchors = [e for e in sorted(self.doc.elements, key=lambda e: e.guid)
+                members = [e for e in sorted(self.doc.elements, key=lambda e: e.guid)
                            if e.zone_id == zone_id and recipe_matches(self.recipes[rid], e, zone.tags, self.sector)]
-                anchors = anchors or [None]
-            for el in anchors:
-                self._expand(rid, el, zone_id, "manual", opt, (), True)
+                anchor = _Anchor(members, zone_id, list(zone.cells), zone.name, "zone")
+            self._expand(rid, anchor, "manual", opt, (), True)
 
     # ------------------------------------------------------------------ manual tasks
     def _manual_tasks(self) -> None:
@@ -584,6 +710,8 @@ class _Engine:
             for pr in self.library.steps[task.step_id].predecessors:
                 found = _resolve_scope(pr.scope, pr.step, sub, self.ix, self.storey_id_by_index, self.zones_at)
                 cands = [c for c in found if c != idx]
+                if self.max_fanin and len(cands) > self.max_fanin:
+                    cands = _thin(cands, self.max_fanin)
                 if not cands:
                     if pr.required:
                         self._gap(idx, pr.step, pr.scope, "required predecessor not found")
@@ -630,6 +758,15 @@ class _Engine:
             mapping_rules_ref=mapping_rules_ref, unmapped_elements=_dedupe_dicts(self.unmapped),
             sequencing_gaps=_dedupe_dicts(gaps), element_visuals=self.element_visuals,
             element_visual_kits=self.element_kits, inline_steps=self.inline_steps)
+
+
+def _thin(cands: list[int], limit: int) -> list[int]:
+    """Even sample of ``limit`` candidates (sorted), always including the last one."""
+    cands = sorted(set(cands))
+    if len(cands) <= limit:
+        return cands
+    step = (len(cands) - 1) / (limit - 1)
+    return sorted({cands[round(i * step)] for i in range(limit)})
 
 
 def _dedupe_dicts(items: list[dict[str, str]]) -> list[dict[str, str]]:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -20,27 +21,36 @@ def _recipe_dirs(args: argparse.Namespace) -> tuple:
 
 
 def _cmd_ifc(args: argparse.Namespace) -> int:
-    from . import ifc_extract
+    from . import config as config_mod, ifc_extract
     if not ifc_extract.available():
         print("error: ifcopenshell is not installed; install it (pip install ifcopenshell) to read IFC "
               "files. Synthetic samples do not need it: use 'build-samples'.", file=sys.stderr)
         return EXIT_NO_IFCOPENSHELL
-    doc = ifc_extract.extract(args.ifc, sector=args.sector, cell_size_m=args.cell_size,
-                              zone_block=args.zone_block, max_crews=args.max_crews, grid_mode=args.grid_mode,
-                              project_config=ifc_extract.load_project_config(args.project_config))
-    from .model import write_json
-    write_json(args.out, doc)
-    print(f"wrote {args.out}: {len(doc['elements'])} elements, {len(doc['zones'])} zones, "
-          f"{len(doc['storeys'])} storeys")
+    cfg = config_mod.load_project_config(args.project_config)
+    if args.grid_mode:
+        cfg.grid.mode = args.grid_mode
+    if args.zone_block:
+        cfg.zones.auto_block = tuple(args.zone_block)              # type: ignore[assignment]
+    if args.max_crews:
+        cfg.zones.max_crews_default = args.max_crews
+    if args.compress:
+        cfg.output.compress = True
+    res = ifc_extract.extract_to(args.ifc, args.out, sector=args.sector, config=cfg, cell_size_m=args.cell_size,
+                                 threads=args.threads)
+    print(f"wrote {', '.join(str(f) for f in res.files[:3])}{' ...' if len(res.files) > 3 else ''}: {res.count} elements, "
+          f"{len(res.head['zones'])} zones, {len(res.head['storeys'])} storeys, grid "
+          f"{res.head['project']['grid']['cell_size_m']} m / {res.head['project']['grid']['rotation_deg']} deg; "
+          + ", ".join(f"{k} {v}s" for k, v in res.timings.items()))
     return 0
 
 
 def _cmd_map(args: argparse.Namespace) -> int:
     pipeline.run_map(args.elements, args.rules, args.library, args.out, args.generated_at, args.manual,
-                     args.aggregate, _recipe_dirs(args))
+                     args.aggregate, _recipe_dirs(args), args.project_config)
     from .model import load_step_map
-    m = load_step_map(args.out)
-    print(f"wrote {args.out}: {len(m.tasks)} tasks ({sum(1 for t in m.tasks if t.virtual)} virtual), "
+    written = args.out if args.out.exists() else args.out.with_name(args.out.name + ".gz")
+    m = load_step_map(written)
+    print(f"wrote {written}: {len(m.tasks)} tasks ({sum(1 for t in m.tasks if t.virtual)} virtual), "
           f"{len(m.unmapped_elements)} unmapped entries, {len(m.sequencing_gaps)} sequencing gaps"
           + (f", {len(m.aggregates)} aggregates" if m.aggregates else ""))
     return 0
@@ -49,10 +59,10 @@ def _cmd_map(args: argparse.Namespace) -> int:
 def _cmd_schedule(args: argparse.Namespace) -> int:
     for w in pipeline.run_schedule(args.map, args.library, args.scenario, args.elements, args.out,
                                    args.generated_at, args.crew_model == "fractional", args.manual,
-                                   _recipe_dirs(args)):
+                                   _recipe_dirs(args), args.project_config):
         print(w if w.startswith("note:") else f"warning: {w}", file=sys.stderr)
-    from .model import load_sequence
-    b = load_sequence(args.out).baseline
+    from .bundle import load_bundle
+    b = load_bundle(args.out if args.out.exists() else args.out.with_name(args.out.name + ".gz"))["baseline"]
     print(f"wrote {args.out}: finish day {b['finish_day']} (week {b['finish_week']}), "
           f"cost {b['total_cost']:,.0f}, {len(b['critical_task_ids'])} critical tasks")
     return 0
@@ -169,6 +179,67 @@ def _cmd_grid(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_stress(args: argparse.Namespace) -> int:
+    wx, wz = args.wings
+    summary, tm = pipeline.build_stress(wx, wz, args.out, args.name, args.preset, log=sys.stderr)
+    print(summary.line())
+    print("timings: " + ", ".join(f"{k} {v}s" for k, v in tm.items()))
+    if args.sync_godot:
+        for p in pipeline.sync_split_bundle(Path(args.out) / args.name, args.sync_godot, args.name)[:3]:
+            print(f"copied -> {p}")
+        print(f"synced to {args.sync_godot}/scenarios/{args.name}/")
+    return 0
+
+
+def _cmd_rebuild(args: argparse.Namespace) -> int:
+    stats = pipeline.run_rebuild_zone(args.map, args.zone, args.manual, bundle_path=args.bundle, elements_path=args.elements,
+                                      rules_path=args.rules, library_path=args.library, scenario_path=args.scenario,
+                                      out_dir=args.out_dir, recipe_dirs=_recipe_dirs(args))
+    print(f"rebuilt zone {args.zone}: {stats['zone_tasks_before']} -> {stats['zone_tasks']} tasks "
+          f"({stats['tasks_kept']} other tasks kept with their ids, {stats['tasks']} total)")
+    return 0
+
+
+def _cmd_synth_ifc(args: argparse.Namespace) -> int:
+    from . import synth_ifc
+    info = synth_ifc.synth_ifc(args.sector, args.out, args.scale, args.seed)
+    print(f"wrote {args.out}: " + ", ".join(f"{k} {v}" for k, v in info.items()))
+    return 0
+
+
+def _cmd_bench(args: argparse.Namespace) -> int:
+    import json
+    import platform
+    import time
+    from .model import write_json
+    wx, wz = args.wings
+    t0 = time.perf_counter()
+    if args.from_ifc:
+        summary, tm = pipeline.build_stress_ifc(wx, wz, args.work, args.name, log=sys.stderr)
+        route = "synth-ifc -> ifc-to-elements -> map (aggregated) -> schedule -> compressed split bundle"
+    else:
+        summary, tm = pipeline.build_stress(wx, wz, args.work, args.name, args.preset, log=sys.stderr)
+        route = "elements generator -> aggregate -> map -> schedule -> compressed split bundle"
+    total = round(time.perf_counter() - t0, 1)
+    bundle = Path(args.work) / args.name
+    size = sum(f.stat().st_size for f in bundle.rglob("*") if f.is_file())
+    result = {
+        "route": route, "wings": [wx, wz], "elements": summary.elements, "aggregated_elements": summary.recipe_elements,
+        "tasks": summary.tasks, "links": summary.links, "packages": summary.packages, "virtual_tasks": summary.virtual_tasks,
+        "baseline_weeks": summary.finish_week, "contract_weeks": summary.contract_weeks, "gaps": summary.gaps,
+        "bundle_bytes": size, "seconds": tm, "total_seconds": total, "cpus": os.cpu_count(),
+        "python": platform.python_version(),
+        "targets": {"total_seconds": 600, "tasks": 20000, "packages": 2000},
+        "targets_met": {"time": total <= 600, "tasks": summary.tasks <= 20000, "packages": summary.packages <= 2000},
+    }
+    write_json(args.out, result)
+    print(json.dumps(result, indent=1))
+    if args.sync_godot:
+        pipeline.sync_split_bundle(bundle, args.sync_godot, args.name)
+        print(f"synced to {args.sync_godot}/scenarios/{args.name}/")
+    return 0 if all(result["targets_met"].values()) else 1
+
+
 def _cmd_packages(args: argparse.Namespace) -> int:
     from .model import read_json
     data = read_json(args.seq)
@@ -210,11 +281,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("out", type=Path)
     p.add_argument("--sector", default="industrial", choices=pipeline.SECTORS)
     p.add_argument("--cell-size", type=float, default=None, help="grid cell size in metres (default: detected)")
-    p.add_argument("--zone-block", type=int, nargs=2, default=(3, 3), metavar=("W", "D"))
-    p.add_argument("--max-crews", type=int, default=2)
-    p.add_argument("--grid-mode", choices=("auto", "fixed"), default="auto",
-                   help="auto: detect cell size, rotation and origin; fixed: --cell-size (6 m), no rotation")
-    p.add_argument("--project-config", default=None, help="project_config.json (grid block)")
+    p.add_argument("--zone-block", type=int, nargs=2, default=None, metavar=("W", "D"))
+    p.add_argument("--max-crews", type=int, default=None)
+    p.add_argument("--grid-mode", choices=("auto", "fixed", "chainage"), default=None,
+                   help="overrides project config: auto detects cell size, rotation and origin; fixed uses --cell-size")
+    p.add_argument("--project-config", type=Path, default=None, help="project_config.json")
+    p.add_argument("--threads", type=int, default=None, help="geometry iterator threads (default: CPUs, max 8)")
+    p.add_argument("--compress", action="store_true", help="write .json.gz (and split parts when large)")
     p.set_defaults(fn=_cmd_ifc)
 
     p = sub.add_parser("map", help="elements.json + rules + library -> element_step_map.json")
@@ -223,6 +296,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--library", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--generated-at", default=None)
+    p.add_argument("--project-config", type=Path, default=None, help="project_config.json (aggregation preset, output)")
     p.add_argument("--manual", type=Path, default=None, help="manual_sequence.json to merge")
     p.add_argument("--aggregate", default=None, help="aggregation preset name (default: off)")
     p.add_argument("--recipes-dir", type=Path, action="append", help="extra recipe directory (repeatable)")
@@ -237,6 +311,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--generated-at", default=None)
     p.add_argument("--crew-model", choices=CREW_MODELS, default="whole",
                    help=CREW_HELP + " (default: whole)")
+    p.add_argument("--project-config", type=Path, default=None, help="project_config.json (output: compress, parts)")
     p.add_argument("--manual", type=Path, default=None, help="manual_sequence.json to embed in the bundle")
     p.add_argument("--recipes-dir", type=Path, action="append", help="extra recipe directory (repeatable)")
     p.set_defaults(fn=_cmd_schedule)
@@ -296,6 +371,44 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("grid-detect", help="estimate cell size, rotation and origin (elements.json or .ifc)")
     p.add_argument("source", type=Path)
     p.set_defaults(fn=_cmd_grid)
+
+    p = sub.add_parser("stress", help="build a synthetic hospital-campus stress bundle (aggregated, compressed, split)")
+    p.add_argument("--wings", type=int, nargs=2, default=(6, 6), metavar=("X", "Z"), help="wings in x and z (834 elements each)")
+    p.add_argument("--out", type=Path, default=pipeline.BENCH_DIR / "work")
+    p.add_argument("--name", default="stress_hospital")
+    p.add_argument("--preset", default="healthcare_mep")
+    p.add_argument("--sync-godot", type=Path, default=None, help="godot dir: copy the bundle to scenarios/<name>/")
+    p.set_defaults(fn=_cmd_stress)
+
+    p = sub.add_parser("rebuild-zone", help="re-map and re-schedule one zone (e.g. with a manual sequence), patching the bundle")
+    p.add_argument("map", type=Path, help="element_step_map.json[.gz] (sibling sequence/elements files are found beside it)")
+    p.add_argument("--zone", required=True)
+    p.add_argument("--manual", type=Path, default=None)
+    p.add_argument("--bundle", type=Path, default=None)
+    p.add_argument("--elements", type=Path, default=None)
+    p.add_argument("--rules", type=Path, default=None)
+    p.add_argument("--library", type=Path, default=None)
+    p.add_argument("--scenario", type=Path, default=None)
+    p.add_argument("--out-dir", type=Path, default=None, help="default: overwrite beside the map")
+    p.add_argument("--recipes-dir", type=Path, action="append")
+    p.set_defaults(fn=_cmd_rebuild)
+
+    p = sub.add_parser("synth-ifc", help="write a synthetic IFC file for a sector (needs ifcopenshell)")
+    p.add_argument("--sector", choices=pipeline.SECTORS, required=True)
+    p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--scale", type=int, default=1, help="healthcare only: number of wings of the stress campus")
+    p.add_argument("--seed", type=int, default=42)
+    p.set_defaults(fn=_cmd_synth_ifc)
+
+    p = sub.add_parser("bench", help="time the scale pipeline and write tools/bench/last_bench.json")
+    p.add_argument("--wings", type=int, nargs=2, default=(15, 12), metavar=("X", "Z"), help="default 15x12 = ~150k elements")
+    p.add_argument("--from-ifc", action="store_true", help="go through a real IFC file (synth-ifc + ifc-to-elements)")
+    p.add_argument("--work", type=Path, default=pipeline.BENCH_DIR / "work")
+    p.add_argument("--out", type=Path, default=pipeline.BENCH_DIR / "last_bench.json")
+    p.add_argument("--name", default="stress_hospital")
+    p.add_argument("--preset", default="healthcare_mep")
+    p.add_argument("--sync-godot", type=Path, default=None)
+    p.set_defaults(fn=_cmd_bench)
 
     p = sub.add_parser("packages", help="print the package table of a sequence.json")
     p.add_argument("seq", type=Path)

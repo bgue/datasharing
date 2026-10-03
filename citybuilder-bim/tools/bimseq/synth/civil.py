@@ -128,7 +128,7 @@ def generate(seed: int = 42) -> dict[str, Any]:
                   material="Prestressed concrete C60/75", qty=q(volume=round(rng.uniform(34, 40), 1), length=12.0,
                                                                weight=round(rng.uniform(85, 100), 1)),
                   props={"BridgePart": "girder", "LoadBearing": True, "Precast": True, "LeadTimeWeeks": 10},
-                  bbox=b.box_xy((sx * 6, z * 6 + 2.4, sx * 6 + 12, z * 6 + 3.6), 6.8, 8.0))
+                  bbox=b.box_xy((sx * 6 + 3, z * 6 + 2.4, sx * 6 + 15, z * 6 + 3.6), 6.8, 8.0))
     for x in BRIDGE_X:
         for z in zs:
             b.add("IfcSlab", f"Deck slab CH{x * 6:03d}-{z}", "L00", [(x, z)], predefined="BASESLAB",
