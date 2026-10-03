@@ -329,6 +329,13 @@
           }
         }
       }
+    },
+    "project_type": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Overrides IFC signature detection"
     }
   }
 }

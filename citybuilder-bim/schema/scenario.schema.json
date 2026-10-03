@@ -356,6 +356,12 @@
                 }
               }
             }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       }
@@ -461,6 +467,12 @@
     "gantt_visible_default": {
       "type": "boolean",
       "default": true
+    },
+    "project_type": {
+      "type": [
+        "string",
+        "null"
+      ]
     }
   }
 }

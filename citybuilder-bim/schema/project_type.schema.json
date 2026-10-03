@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sitebuilder.dev/schema/project_type.schema.json",
+  "title": "Project type: scopes steps, recipes, kits, tiles, events and generators for one kind of project",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "sector",
+    "name",
+    "description",
+    "phases",
+    "trades",
+    "recipes",
+    "kits",
+    "tiles",
+    "zone_tags",
+    "equipment",
+    "scenario_defaults",
+    "generator"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "sector": {
+      "$ref": "common.schema.json#/$defs/sector"
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "typical_duration_weeks": {
+      "type": "array",
+      "items": {
+        "type": "number",
+        "minimum": 0
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "phases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 2
+    },
+    "trades": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "steps": {
+      "type": "object",
+      "properties": {
+        "include_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "include": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/step_id"
+          }
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/$defs/step_id"
+          }
+        }
+      }
+    },
+    "recipes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^rec_[a-z0-9_]+$"
+      }
+    },
+    "kits": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tiles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "zone_tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "equipment": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "events": {
+      "type": "object",
+      "properties": {
+        "include_tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "include": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "scenario_defaults": {
+      "type": "object",
+      "properties": {
+        "contract_factor": {
+          "type": "number"
+        },
+        "budget_factor": {
+          "type": "number"
+        },
+        "crews_available": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "start_cash": {
+          "type": "number"
+        },
+        "shift": {
+          "type": "object"
+        },
+        "gantt_visible_default": {
+          "type": "boolean"
+        }
+      }
+    },
+    "generator": {
+      "type": "object",
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object"
+        }
+      }
+    },
+    "ifc_signature": {
+      "type": "object",
+      "properties": {
+        "classes_any": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "properties_any": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name_regex": {
+          "type": "string"
+        },
+        "min_share": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "camera": {
+      "type": "object"
+    },
+    "tutorial_hints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "week": {
+            "type": "integer"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
