@@ -8,12 +8,18 @@ extends RefCounted
 ##
 ## Rendering approach (follows BimView): flat-shaded triangles with per-vertex colour used as albedo by a
 ## shared StandardMaterial3D. Solid parts go to surface "solid" (opaque), unfilled parts to surface
-## "ghost" (same colour, alpha GHOST_ALPHA, alpha-blended material). Geometry is built straight into
+## "ghost": an outline of the final shape (PRIMITIVE_LINES at GHOST_ALPHA in the layer's discipline colour, no filled
+## volume; only silhouette and crease edges are kept). The LOD box uses a filled "ghost_fill" surface instead. Geometry is built straight into
 ## packed arrays (no SurfaceTool) so the same params always give a byte-identical mesh.
 ##
 ## Subclasses override `_build()` and use `begin_layer(id)` / `set_part(i, n)` / the primitives below.
 
-const GHOST_ALPHA: float = 0.15
+const GHOST_ALPHA: float = 0.35
+## Alpha of the filled translucent LOD box when nothing is built.
+const GHOST_FILL_ALPHA: float = 0.22
+## Ghost edges between faces whose normals differ by more than this angle (cos) are kept; flat and smoothly
+## curved surfaces show no interior lines.
+const CREASE_COS: float = 0.82
 ## Fills are quantised to 1/FILL_STEPS so equal (quantised) params give equal meshes and cache keys.
 const FILL_STEPS: float = 50.0
 const EPS: float = 0.001
@@ -42,6 +48,7 @@ const MED_MAGENTA: Color = Color(0.953, 0.471, 0.941)
 
 static var _solid_material: StandardMaterial3D = null
 static var _ghost_material: StandardMaterial3D = null
+static var _ghost_fill_material: StandardMaterial3D = null
 
 # ---- inputs (set by _configure)
 var kit_id: String = ""
@@ -56,6 +63,7 @@ var seed_value: int = 0
 var kit_params: Dictionary = {}  ## manifest "params" of the kit (tiers, orientation, ...)
 var counts: Dictionary = {}  ## optional quantity hints, e.g. {"pipes": 6}
 var layer_states: Dictionary = {}  ## layer id -> "inspected" | "rework" | ""
+var layer_colors: Dictionary = {}  ## layer id -> Color of its ghost outline (the layer's discipline colour)
 var present_layers: Dictionary = {}  ## layer id -> true; empty = every layer is drawn
 var show_ghost: bool = true
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -77,6 +85,12 @@ var _orient_pushed: bool = false
 var _sv: PackedVector3Array = PackedVector3Array()
 var _sn: PackedVector3Array = PackedVector3Array()
 var _sc: PackedColorArray = PackedColorArray()
+## ghost triangles (outline source): 3 vertices, 1 normal, 1 colour per triangle
+var _gtv: PackedVector3Array = PackedVector3Array()
+var _gtn: PackedVector3Array = PackedVector3Array()
+var _gtc: PackedColorArray = PackedColorArray()
+var _ghost_filled: bool = false  ## true: ghost parts are kept as filled triangles (LOD box)
+var _ghost_col: Color = Color(0, 0, 0, 0)
 var _gv: PackedVector3Array = PackedVector3Array()
 var _gn: PackedVector3Array = PackedVector3Array()
 var _gc: PackedColorArray = PackedColorArray()
@@ -94,15 +108,26 @@ static func solid_material() -> StandardMaterial3D:
     return _solid_material
 
 
+## Material of the ghost outline: unshaded lines, vertex colour with alpha.
 static func ghost_material() -> StandardMaterial3D:
     if _ghost_material == null:
         var m := StandardMaterial3D.new()
         m.vertex_color_use_as_albedo = true
         m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-        m.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
-        m.roughness = 0.8
+        m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
         _ghost_material = m
     return _ghost_material
+
+
+static func ghost_fill_material() -> StandardMaterial3D:
+    if _ghost_fill_material == null:
+        var m := StandardMaterial3D.new()
+        m.vertex_color_use_as_albedo = true
+        m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+        m.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+        m.roughness = 0.8
+        _ghost_fill_material = m
+    return _ghost_fill_material
 
 
 static func quantise_fill(f: float) -> float:
@@ -142,6 +167,7 @@ func _configure(params: Dictionary) -> void:
     kit_params = params.get("kit_params", {})
     counts = params.get("counts", {})
     layer_states = params.get("layer_states", {})
+    layer_colors = params.get("layer_colors", {})
     show_ghost = bool(params.get("show_ghost", true))
     fills = {}
     var lf: Dictionary = params.get("layer_fills", {})
@@ -162,6 +188,11 @@ func _reset() -> void:
     _gv = PackedVector3Array()
     _gn = PackedVector3Array()
     _gc = PackedColorArray()
+    _gtv = PackedVector3Array()
+    _gtn = PackedVector3Array()
+    _gtc = PackedColorArray()
+    _ghost_filled = false
+    _ghost_col = Color(0, 0, 0, 0)
     _xf = Transform3D.IDENTITY
     _has_xf = false
     _xf_stack.clear()
@@ -175,12 +206,89 @@ func _finish() -> ArrayMesh:
     var mesh := ArrayMesh.new()
     if _sv.size() > 0:
         _add_surface(mesh, _sv, _sn, _sc, "solid", solid_material())
+    var lines: Array = _ghost_lines()
+    var lv: PackedVector3Array = lines[0]
+    if lv.size() > 0:
+        var arrays: Array = []
+        arrays.resize(Mesh.ARRAY_MAX)
+        arrays[Mesh.ARRAY_VERTEX] = lv
+        arrays[Mesh.ARRAY_COLOR] = lines[1]
+        mesh.add_surface_from_arrays(Mesh.PRIMITIVE_LINES, arrays)
+        var idx: int = mesh.get_surface_count() - 1
+        mesh.surface_set_name(idx, "ghost")
+        mesh.surface_set_material(idx, ghost_material())
     if _gv.size() > 0:
-        _add_surface(mesh, _gv, _gn, _gc, "ghost", ghost_material())
+        _add_surface(mesh, _gv, _gn, _gc, "ghost_fill", ghost_fill_material())
     mesh.set_meta("solid_vertices", _sv.size())
-    mesh.set_meta("ghost_vertices", _gv.size())
-    mesh.set_meta("triangles", (_sv.size() + _gv.size()) / 3)
+    mesh.set_meta("ghost_vertices", lv.size() + _gv.size())
+    mesh.set_meta("triangles", (_sv.size() + _gv.size()) / 3 + _gtv.size() / 3)
     return mesh
+
+
+static func _pack(v: Vector3) -> int:
+    return (int(roundf(v.x * 100.0)) + 32768) | ((int(roundf(v.y * 100.0)) + 32768) << 16) | ((int(roundf(v.z * 100.0)) + 32768) << 32)
+
+
+## Outline of the ghost triangles: the edges that bound a part or sit on a crease (neighbouring faces turn by more than
+## about 35 degrees). Flat faces lose their diagonals and smooth cylinders their facet lines. Returns [vertices, colours].
+func _ghost_lines() -> Array:
+    var verts := PackedVector3Array()
+    var cols := PackedColorArray()
+    var n: int = _gtv.size() / 3
+    if n == 0:
+        return [verts, cols]
+    var vid: Dictionary = {}
+    var edges: Dictionary = {}  # id pair key -> index into the arrays below
+    var ea := PackedVector3Array()
+    var eb := PackedVector3Array()
+    var en := PackedVector3Array()
+    var ec := PackedColorArray()
+    var keep := PackedByteArray()
+    for t in n:
+        var p: Array[Vector3] = [_gtv[t * 3], _gtv[t * 3 + 1], _gtv[t * 3 + 2]]
+        var nn: Vector3 = _gtn[t]
+        var ids: Array[int] = []
+        for v in p:
+            var k: int = _pack(v)
+            if not vid.has(k):
+                vid[k] = vid.size()
+            ids.append(int(vid[k]))
+        for e in 3:
+            var i0: int = ids[e]
+            var i1: int = ids[(e + 1) % 3]
+            var key: int = (mini(i0, i1) << 24) | maxi(i0, i1)
+            if edges.has(key):
+                var ei: int = edges[key]
+                if keep[ei] == 0:
+                    var d: float = en[ei].dot(nn)
+                    if d < CREASE_COS:
+                        keep[ei] = 1  # crease
+                    elif d < 0.995:
+                        keep[ei] = 3  # facet of a curved surface (thinned out below)
+                    else:
+                        keep[ei] = 2  # coplanar join: no line
+                elif keep[ei] >= 2 and en[ei].dot(nn) < CREASE_COS:
+                    keep[ei] = 1
+            else:
+                edges[key] = ea.size()
+                ea.push_back(p[e])
+                eb.push_back(p[(e + 1) % 3])
+                en.push_back(nn)
+                ec.push_back(_gtc[t])
+                keep.push_back(0)
+    var edge_keys: Array = edges.keys()
+    for i in ea.size():
+        var k: int = keep[i]
+        if k == 3:
+            # curved facets: every third line keeps the silhouette of cylinders without fogging them
+            var key2: int = edge_keys[i]
+            k = 1 if (((key2 >> 24) * 7 + (key2 & 0xFFFFFF) * 13) % 3 == 0) else 2
+        if k != 2:  # boundary (0) and crease (1) edges
+            verts.push_back(ea[i])
+            verts.push_back(eb[i])
+            cols.push_back(ec[i])
+            cols.push_back(ec[i])
+    return [verts, cols]
 
 
 static func _add_surface(mesh: ArrayMesh, v: PackedVector3Array, n: PackedVector3Array, c: PackedColorArray,
@@ -202,6 +310,7 @@ func build_box(params: Dictionary, col: Color, fill: float) -> ArrayMesh:
     _reset()
     _tint_amt = 0.0
     _solid = fill > 0.02
+    _ghost_filled = true
     box_mm(Vector3(-width_m * 0.5, 0, -depth_m * 0.5), Vector3(width_m * 0.5, height_m * 0.9, depth_m * 0.5), col)
     return _finish()
 
@@ -214,6 +323,7 @@ func begin_layer(id: String) -> bool:
     if not present_layers.is_empty() and not present_layers.has(id):
         return false
     _fill = float(fills.get(id, 1.0))
+    _ghost_col = layer_colors.get(id, Color(0, 0, 0, 0))
     _solid = _fill >= 1.0 - EPS
     var st: String = str(layer_states.get(id, ""))
     match st:
@@ -318,7 +428,13 @@ func _paint(col: Color) -> Color:
         c.a = 1.0
         return c
     var g: Color = col
-    g.a = GHOST_ALPHA
+    if _ghost_filled:
+        g.a = GHOST_FILL_ALPHA
+    else:
+        if _ghost_col.a > 0.0:
+            g = _ghost_col
+        g = g.lerp(Color.WHITE, 0.12)
+        g.a = GHOST_ALPHA
     return g
 
 
@@ -354,15 +470,22 @@ func tri(a: Vector3, b: Vector3, c: Vector3, col: Color, hint: Vector3) -> void:
         _sc.push_back(pc)
         _sc.push_back(pc)
     elif show_ghost:
-        _gv.push_back(a)
-        _gv.push_back(c)
-        _gv.push_back(b)
-        _gn.push_back(n)
-        _gn.push_back(n)
-        _gn.push_back(n)
-        _gc.push_back(pc)
-        _gc.push_back(pc)
-        _gc.push_back(pc)
+        if _ghost_filled:
+            _gv.push_back(a)
+            _gv.push_back(c)
+            _gv.push_back(b)
+            _gn.push_back(n)
+            _gn.push_back(n)
+            _gn.push_back(n)
+            _gc.push_back(pc)
+            _gc.push_back(pc)
+            _gc.push_back(pc)
+        else:
+            _gtv.push_back(a)
+            _gtv.push_back(b)
+            _gtv.push_back(c)
+            _gtn.push_back(n)
+            _gtc.push_back(pc)
 
 
 ## Quad a-b-c-d around its perimeter.

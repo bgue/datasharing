@@ -534,6 +534,7 @@ func build(kit: String, params: Dictionary) -> Mesh:
     var p: Dictionary = params.duplicate()
     p["kit"] = kit
     p["kit_params"] = kit_params(kit)
+    p["layer_colors"] = _layer_colors(kit)
     var variant: String = str(p.get("variant", ""))
     var vl: Array[String] = variant_layers(kit, variant)
     if not vl.is_empty():
@@ -553,6 +554,16 @@ func build(kit: String, params: Dictionary) -> Mesh:
     cache_builds += 1
     _cache[key] = mesh
     return mesh
+
+
+## Ghost outline colour per layer: the tint of its first discipline.
+func _layer_colors(kit: String) -> Dictionary:
+    var out: Dictionary = {}
+    for l in kit_layers(kit):
+        var ld: Dictionary = l
+        var discs: Array = ld.get("disciplines", [])
+        out[ld["id"]] = TINTS.get(discs[0], LOD_GREY) if not discs.is_empty() else LOD_GREY
+    return out
 
 
 func clear_cache() -> void:

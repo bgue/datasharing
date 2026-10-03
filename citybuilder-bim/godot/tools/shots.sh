@@ -82,8 +82,9 @@ shot healthcare_standard_zone-L00-Z3_w15 1280x720 $HC --view=zone:L00-Z3 --hide=
 shot healthcare_standard_storey-1_w15 1280x720 $HC --view=storey:1 --hide=gantt
 shot healthcare_standard_overview_w15_gantt_1920 1920x1080 $HC --view=overview --panels=gantt
 shot healthcare_manual_demo_overview_w15_editor_legend 1280x720 --scenario=healthcare_manual_demo --weeks=15 --view=overview --panels=editor,legend --zone=L00-Z3
-shot industrial_standard_installation-24_w20 1280x720 --scenario=industrial_standard --weeks=20 --view=installation:24 --hide=gantt
-shot industrial_standard_installation-31_w20 1280x720 --scenario=industrial_standard --weeks=20 --view=installation:31 --hide=gantt
+shot industrial_standard_installation-24_w20 1280x720 --scenario=industrial_standard --weeks=20 --view=installation:24 --pad=2 --panels=installations --hide=gantt,crews,charts,inspector,procurement
+shot industrial_standard_installation-31_w20 1280x720 --scenario=industrial_standard --weeks=20 --view=installation:31 --pad=1 --panels=installations --hide=gantt,crews,charts,inspector,procurement
+shot industrial_installations 1280x720 --scenario=industrial_standard --weeks=40 --view=installation:25 --pad=4 --panels=installations --hide=gantt,crews,charts,inspector,procurement
 shot industrial_standard_overview_w20_heat 1280x720 --scenario=industrial_standard --weeks=20 --view=overview --panels=heat --hide=gantt
 
 echo "shots.sh: $COUNT images written to $OUT, $FAILED failed"

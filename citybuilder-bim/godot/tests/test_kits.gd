@@ -407,7 +407,7 @@ func test_cache_and_collapsed_mesh() -> void:
     var box0: Mesh = reg.collapsed_mesh("tank", p, 0.0)
     var box1: Mesh = reg.collapsed_mesh("tank", p, 1.0)
     eq(_all_vertices(box0).size(), 30, "collapsed box is 10 triangles (no floor face)")
-    ok(not _surface(box0, "ghost").is_empty() and _surface(box0, "solid").is_empty(), "nothing built: ghost box")
+    ok(not _surface(box0, "ghost_fill").is_empty() and _surface(box0, "solid").is_empty() and _surface(box0, "ghost").is_empty(), "nothing built: translucent filled ghost box (the LOD box keeps its tint)")
     ok(not _surface(box1, "solid").is_empty(), "built: solid box")
     var c0: Color = (_surface(box1, "solid")[Mesh.ARRAY_COLOR] as PackedColorArray)[0]
     var c1: Color = (_surface(reg.collapsed_mesh("tank", p, 0.5), "solid")[Mesh.ARRAY_COLOR] as PackedColorArray)[0]

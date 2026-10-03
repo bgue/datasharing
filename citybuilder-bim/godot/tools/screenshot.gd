@@ -11,16 +11,18 @@ extends SceneTree
 ##   --weeks=<n>            Planner.auto_layout + Planner.autopilot for n weeks, events resolved with choice 0
 ##   --view=<v>             overview | zone:<id> | storey:<index> | installation:<n>
 ##   --panels=<list>        comma list of gantt, editor, whats_needed, procurement, report, final, crews, heat, legend,
-##                          charts, inspector, toast (opens / shows them)
+##                          charts, inspector, toast, installations (opens / shows them; with --view=installation:N the
+##                          instance N is selected in the Installations list and outlined in the 3D view)
 ##   --hide=<list>          comma list of crews, procurement, charts, inspector, gantt, editor to close
 ##   --zone=<id>            zone used by the editor / whats_needed / inspector (default: first zone with manual tasks, else first)
 ##   --size=WxH             1280x720 (default) or 1920x1080 (any WxH accepted)
+##   --pad=<cells>          margin around the framed cells of --view=zone / installation (default 1.5)
 ##   --scale=<f>            downscale factor applied to the saved image (default 1.0)
 ##   --out=<path.png>       output file (required)
 
 const MAIN_SCENE: String = "res://scenes/main.tscn"
 const PANELS: Array[String] = ["gantt", "editor", "whats_needed", "procurement", "report", "final", "crews", "heat",
-        "legend", "charts", "inspector", "toast"]
+        "legend", "charts", "inspector", "toast", "installations"]
 const HIDEABLE: Array[String] = ["crews", "procurement", "charts", "inspector", "gantt", "editor"]
 const SETTLE_FRAMES: int = 12
 
@@ -46,7 +48,7 @@ func _initialize() -> void:
 static func parse_args(args: PackedStringArray) -> Dictionary:
     var o: Dictionary = {"ok": true, "error": "", "scenario": "minimal", "weeks": 0, "view": "overview",
             "view_kind": "overview", "view_arg": "", "panels": [], "hide": [], "size": Vector2i(1280, 720), "out": "",
-            "zone": "", "scale": 1.0}
+            "zone": "", "scale": 1.0, "pad": 1.5}
     for a in args:
         if not a.begins_with("--"):
             return _bad(o, "unexpected argument '%s'" % a)
@@ -98,6 +100,10 @@ static func parse_args(args: PackedStringArray) -> Dictionary:
                 o["size"] = Vector2i(int(parts[0]), int(parts[1]))
             "zone":
                 o["zone"] = val
+            "pad":
+                if not val.is_valid_float() or float(val) < 0.0 or float(val) > 40.0:
+                    return _bad(o, "--pad needs a number of cells in [0, 40], got '%s'" % val)
+                o["pad"] = float(val)
             "scale":
                 if not val.is_valid_float() or float(val) <= 0.05 or float(val) > 1.0:
                     return _bad(o, "--scale needs a number in (0.05, 1], got '%s'" % val)
@@ -165,7 +171,7 @@ static func render(tree: SceneTree, opts: Dictionary) -> Dictionary:
     Input.warp_mouse(Vector2(2, 2))  # no zone hover from a pointer parked mid-screen
     for i in SETTLE_FRAMES:
         await tree.process_frame
-    var framed: String = _frame(main, gs, str(opts["view_kind"]), str(opts["view_arg"]), zone_id)
+    var framed: String = _frame(main, gs, str(opts["view_kind"]), str(opts["view_arg"]), zone_id, float(opts.get("pad", 1.5)))
     if framed != "":
         _cleanup(tree, main)
         return fail.call(framed)
@@ -283,6 +289,10 @@ static func _apply_panels(main: Node, gs: SimState, opts: Dictionary, zone_id: S
         res["budget"] = gs.bundle.contract_budget()
         res["incidents"] = gs.incidents
         (main.get("report") as Report).show_final(res)
+    if is_open.call("installations"):
+        var ip: Variant = main.get("installations")
+        if ip != null and not (ip as Control).visible:
+            (ip as Control).call("toggle")
     if is_open.call("heat"):
         _toggle_heat(main)
     if is_open.call("toast"):
@@ -310,7 +320,7 @@ static func _show_toast(main: Node, gs: SimState) -> void:
 
 
 ## Returns "" on success, else an error message.
-static func _frame(main: Node, gs: SimState, kind: String, arg: String, zone_id: String) -> String:
+static func _frame(main: Node, gs: SimState, kind: String, arg: String, zone_id: String, pad: float = 1.5) -> String:
     var view: Node3D = main.get("view")
     var b: SequenceBundle = gs.bundle
     match kind:
@@ -341,5 +351,8 @@ static func _frame(main: Node, gs: SimState, kind: String, arg: String, zone_id:
                 return "installation %d out of range 0..%d" % [n, inst.size() - 1]
             var d: Dictionary = inst[n]
             main.call("_set_focus", int(d["storey_index"]))
-            view.call("frame_cells", d["cells"], float(d["height_m"]) / b.cell_size_m, 1.5, true)
+            view.call("frame_cells", d["cells"], float(d["height_m"]) / b.cell_size_m, pad, true)
+            var ip: Variant = main.get("installations")
+            if ip != null and (ip as Control).visible:
+                (ip as Control).call("select", n, false, true)
     return ""
