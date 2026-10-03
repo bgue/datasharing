@@ -204,6 +204,13 @@ func _make(kit: String, storey_id: String, members: Array[ElementData]) -> Dicti
     var counts: Dictionary = {}
     if kit == "rack" and systems.size() > 0:
         counts["pipes"] = systems.size()
+    if kit == "pile_cap":
+        var piles: int = 0
+        for el2 in members:
+            if el2.ifc_class == "IfcPile":
+                piles += 1
+        if piles > 0:
+            counts["piles"] = piles
     var storey_index: int = int(bundle.storey_index_by_id.get(storey_id, 0))
     var title: String = registry.kit_title(kit)
     var rect := Rect2i(minx, minz, maxx - minx + 1, maxz - minz + 1)
@@ -277,7 +284,7 @@ func refresh(progress: Callable, task_state: Callable = Callable()) -> void:
 ## refresh() with the progress and states read from a simulation (same rules as KitLayer).
 func refresh_from(gs: SimState) -> void:
     var progress: Callable = func(t: TaskData) -> float:
-        var rt: TaskRuntime = gs.runtime.get(t.task_id)
+        var rt: TaskRuntime = gs.runtime.get_rt(t.task_id)
         if rt == null:
             return 0.0
         match rt.state:
@@ -285,7 +292,7 @@ func refresh_from(gs: SimState) -> void:
                 return t.estimated_crew_days
         return minf(rt.progress, t.estimated_crew_days)
     var state_of: Callable = func(t: TaskData) -> int:
-        var rt: TaskRuntime = gs.runtime.get(t.task_id)
+        var rt: TaskRuntime = gs.runtime.get_rt(t.task_id)
         return TaskRuntime.State.NOT_STARTED if rt == null else rt.state
     refresh(progress, state_of)
 
@@ -297,3 +304,12 @@ func refresh_one(i: int, progress: Callable, task_state: Callable = Callable()) 
     inst["present_layers"] = r["present"]
     inst["layer_states"] = r["states"]
     inst["overall_fill"] = r["overall"]
+    if bool(registry.kit_param(inst["kit"], "active_only", false)):
+        # equipment visuals (piling rig) are shown only while one of their tasks is being worked on
+        var active: bool = false
+        if task_state.is_valid():
+            for t in _tasks[i]:
+                if int(task_state.call(t)) == TaskRuntime.State.ACTIVE:
+                    active = true
+                    break
+        inst["hidden"] = not active

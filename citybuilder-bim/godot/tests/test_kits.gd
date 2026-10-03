@@ -69,9 +69,11 @@ func _task(id: String, step: String, days: float) -> TaskData:
 
 func test_manifest_loads_and_every_kit_has_a_builder() -> void:
     ok(reg.valid, "manifest valid: %s" % ", ".join(reg.errors))
-    eq(reg.kit_ids().size(), 18, "18 kits")
+    eq(reg.kit_ids().size(), 29, "29 kits")
     for id in ["rack", "tank", "turbine", "vessel_v", "vessel_h", "pump_plinth", "exchanger", "compressor", "transformer",
-            "switchroom", "cooling_tower", "stack", "module", "ahu", "chiller", "mri", "bridge_pier", "culvert"]:
+            "switchroom", "cooling_tower", "stack", "module", "ahu", "chiller", "mri", "bridge_pier", "culvert",
+            "ehouse", "substation_bay", "bus_gantry", "duct_bank", "chamber", "pile_cap", "piling_rig", "ground_beam", "bund_wall",
+            "manifold", "building_shell"]:
         ok(reg.has_kit(id), "kit %s present" % id)
     for id in reg.kit_ids():
         var b: KitBuilder = reg.builder_for(id)
@@ -536,7 +538,7 @@ func test_aggregate_member_guids_expand_to_member_tasks() -> void:
     var a: ElementData = b.elements[0]
     var other: ElementData = b.elements[1]
     ok(not b.tasks_by_element[other.guid].is_empty(), "the member has tasks")
-    a.set("visual_kit", "tank")
+    a.set("visual_kit", "ahu")  # the minimal bundle is healthcare: its kits only
     a.set("member_guids", [other.guid] as Array[String])
     var ki := KitInstances.new(b, reg)
     var i: int = ki.instance_of(a.guid)
@@ -549,3 +551,145 @@ func test_aggregate_member_guids_expand_to_member_tasks() -> void:
     for t in b.tasks_by_element[a.guid]:
         ok(ids.has((t as TaskData).task_id), "own task included")
     eq(ki.instance_of(other.guid), -1, "the member itself is not drawn by a kit unless mapped")
+
+
+# ------------------------------------------------------------------ project scope (docs/08) and the kits of the industrial types
+
+func test_manifest_tags_every_kit_with_sectors_and_project_types() -> void:
+    var known: Array[String] = ["process_unit", "pipe_rack", "tank_farm", "piling_foundations", "ug_civil", "building", "ehouse",
+            "substation", "new_wing", "live_fitout", "imaging_suite", "plant_replacement", "road_widening", "bridge",
+            "culvert_drainage", "utility_diversion"]
+    for id in reg.kit_ids():
+        var def: Dictionary = reg.kits[id]
+        ok(not (def.get("sectors", []) as Array).is_empty(), "%s has sectors" % id)
+        ok(not (def.get("project_types", []) as Array).is_empty(), "%s has project types" % id)
+        for pt in def.get("project_types", []):
+            ok(known.has(pt), "%s: project type %s is in the catalogue" % [id, pt])
+    for id in ["mri", "ahu", "chiller"]:
+        eq(reg.kits[id]["sectors"], ["healthcare"], "%s is healthcare only" % id)
+    for id in ["bridge_pier", "culvert"]:
+        eq(reg.kits[id]["sectors"], ["civil"], "%s is civil only" % id)
+    for id in ["ehouse", "substation_bay", "bus_gantry", "bund_wall", "manifold", "building_shell", "ground_beam"]:
+        ok((reg.kits[id]["sectors"] as Array).has("industrial"), "%s is an industrial kit" % id)
+
+
+func test_scope_never_picks_a_kit_outside_the_allowlist() -> void:
+    var mri: Dictionary = {"ifc_class": "IfcMedicalDevice", "name": "MRI scanner"}
+    var ahu: Dictionary = {"ifc_class": "IfcFlowMovingDevice", "name": "Air handling unit AHU-1"}
+    var tank: Dictionary = {"ifc_class": "IfcTank", "name": "Storage tank TK-1"}
+    var pier: Dictionary = {"ifc_class": "IfcColumn", "name": "Pier column P1", "visual": "pier"}
+    eq(reg.kit_for_element(mri), "mri", "unscoped: the MRI is a kit")
+    reg.set_scope("industrial", "process_unit")
+    eq(reg.kit_for_element(mri), "", "industrial project: no healthcare kit")
+    eq(reg.kit_for_element(ahu), "", "industrial project: no AHU kit")
+    eq(reg.kit_for_element(pier), "", "industrial project: no bridge pier")
+    eq(reg.kit_for_element(tank), "tank", "industrial process unit keeps tanks")
+    var hinted: Dictionary = {"ifc_class": "IfcBuildingElementProxy", "name": "Scanner", "visual_kit": "mri"}
+    eq(reg.kit_for_element(hinted), "", "a visual_kit hint outside the scope is ignored")
+    reg.set_scope("industrial", "substation")
+    eq(reg.kit_for_element(tank), "", "a substation project has no tanks (project type tags)")
+    eq(reg.kit_for_element({"ifc_class": "IfcTransformer", "name": "Transformer T-1"}), "transformer", "but transformers")
+    # an explicit allowlist wins over the manifest tags
+    reg.set_scope("industrial", "process_unit", ["tank", "pump_plinth"])
+    eq(reg.kit_for_element(tank), "tank", "allowlisted")
+    eq(reg.kit_for_element({"ifc_class": "IfcTransformer", "name": "Transformer T-1"}), "", "not in the allowlist")
+    ok(reg.is_kit_allowed("pump_plinth") and not reg.is_kit_allowed("rack") and not reg.is_kit_allowed("no_such_kit"), "is_kit_allowed")
+    reg.set_scope("healthcare", "new_wing")
+    eq(reg.kit_for_element(mri), "mri", "healthcare project: the MRI is back")
+    eq(reg.kit_for_element(tank), "", "healthcare project: no tank kit")
+
+
+func test_bundle_scope_follows_sector_and_project_type_definition() -> void:
+    var b := SequenceBundle.load_from_path("res://scenarios/healthcare_standard/sequence.json")
+    ok(b.valid, "healthcare bundle valid")
+    reg.bind_bundle(b)
+    eq(reg.sector, "healthcare", "sector from the bundle")
+    var kinds: Dictionary = {}
+    for e in b.elements:
+        kinds[reg.kit_for_element(e)] = true
+    ok(kinds.has("ahu") and kinds.has("mri"), "healthcare kits chosen in a healthcare bundle")
+    # the same elements under an industrial scope never yield a healthcare kit
+    reg.set_scope("industrial", "process_unit")
+    for e in b.elements:
+        var k: String = reg.kit_for_element(e)
+        ok(not ["mri", "ahu", "chiller"].has(k), "%s -> %s is not offered in an industrial project" % [e.name, k])
+    # the type definition's allowlist from the bundle
+    var ind := SequenceBundle.load_from_path("res://scenarios/industrial_standard/sequence.json")
+    ind.project_raw["project_type"] = "tank_farm"
+    ind.project_raw["project_type_def"] = {"kits": ["tank", "pump_plinth"]}
+    reg.bind_bundle(ind)
+    eq(reg.project_type, "tank_farm", "project type from the bundle")
+    eq(reg.allowed_kits, ["tank", "pump_plinth"] as Array[String], "allowlist from sequence.project_type_def.kits")
+    var picked: Dictionary = {}
+    for e in ind.elements:
+        var k2: String = reg.kit_for_element(e)
+        if k2 != "":
+            picked[k2] = true
+    var ks: Array = picked.keys()
+    ks.sort()
+    eq(ks, ["pump_plinth", "tank"], "only allowlisted kits are chosen for the industrial sample")
+    var ki := KitInstances.new(ind, reg)
+    for inst in ki.instances():
+        ok(["tank", "pump_plinth"].has(inst["kit"]), "instance kit %s is in the allowlist" % inst["kit"])
+
+
+func test_fallback_mapping_for_the_new_classes_and_properties() -> void:
+    var rows: Array = [
+        [{"ifc_class": "IfcBuildingElementProxy", "name": "Prefab unit", "EHouse": true}, "ehouse"],
+        [{"ifc_class": "IfcBuildingElementProxy", "name": "E-house EH-1"}, "ehouse"],
+        [{"ifc_class": "IfcSwitchingDevice", "name": "SF6 breaker CB-1"}, "substation_bay"],
+        [{"ifc_class": "IfcProtectiveDevice", "name": "Surge arrester"}, "substation_bay"],
+        [{"ifc_class": "IfcFlowController", "name": "Disconnector DS-2"}, "substation_bay"],
+        [{"ifc_class": "IfcTransformer", "name": "Transformer T-1"}, "transformer"],
+        [{"ifc_class": "IfcMember", "name": "Gantry member", "props": {"BusGantry": true}}, "bus_gantry"],
+        [{"ifc_class": "IfcCableCarrierSegment", "name": "Run 3", "props": {"Pset_Civil": {"DuctBank": "true"}}}, "duct_bank"],
+        [{"ifc_class": "IfcDistributionChamberElement", "name": "MH-4"}, "chamber"],
+        [{"ifc_class": "IfcFooting", "name": "Footing F1", "PileCap": true}, "pile_cap"],
+        [{"ifc_class": "IfcFooting", "name": "Pile cap PC-3"}, "pile_cap"],
+        [{"ifc_class": "IfcPile", "name": "Bored pile P-12"}, "pile_cap"],
+        [{"ifc_class": "IfcBuildingElementProxy", "name": "Piling rig R-1"}, "piling_rig"],
+        [{"ifc_class": "IfcBeam", "name": "GB-4", "props": {"Ground": true}}, "ground_beam"],
+        [{"ifc_class": "IfcBeam", "name": "Ground beam GB-5"}, "ground_beam"],
+        [{"ifc_class": "IfcWall", "name": "Containment", "Bund": true}, "bund_wall"],
+        [{"ifc_class": "IfcWall", "name": "Tank bund wall N"}, "bund_wall"],
+        [{"ifc_class": "IfcPipeSegment", "name": "Product manifold M-1"}, "manifold"],
+        [{"ifc_class": "IfcColumn", "name": "Portal column C1", "zone_id": "BLD-Z1"}, "building_shell"],
+        [{"ifc_class": "IfcMember", "name": "Purlin P-3"}, "building_shell"],
+        [{"ifc_class": "IfcColumn", "name": "Column C-1", "zone_id": "Z-other"}, ""],
+        [{"ifc_class": "IfcWall", "name": "Partition wall"}, ""],
+        [{"ifc_class": "IfcCableCarrierSegment", "name": "Cable tray"}, ""],
+    ]
+    reg.building_zones["BLD-Z1"] = true
+    reg.set_scope("industrial", "")
+    for r in rows:
+        var d: Dictionary = r[0]
+        eq(reg.kit_for_element(d), r[1], "%s -> %s" % [d.get("name", ""), r[1]])
+    # in a healthcare project none of the industrial kits are offered
+    reg.set_scope("healthcare", "new_wing")
+    for r in rows:
+        var d2: Dictionary = r[0]
+        var k: String = reg.kit_for_element(d2)
+        ok(k == "" or ["pump_plinth", "transformer", "switchroom", "ahu", "chiller", "mri"].has(k), "healthcare: %s -> %s" % [d2.get("name", ""), k])
+
+
+func test_piling_rig_is_only_shown_while_its_tasks_are_active() -> void:
+    var b := SequenceBundle.load_from_path("res://scenarios/industrial_standard/sequence.json")
+    var target: ElementData = null
+    for e in b.elements:
+        if e.ifc_class == "IfcFooting" and not (b.tasks_by_element.get(e.guid, []) as Array).is_empty():
+            target = e
+            break
+    ok(target != null, "an element with tasks")
+    target.set("visual_kit", "piling_rig")
+    var ki := KitInstances.new(b, reg)
+    var i: int = ki.instance_of(target.guid)
+    ok(i >= 0, "the hinted element becomes a piling rig instance")
+    eq(ki.instances()[i]["kit"], "piling_rig", "kit")
+    var progress: Callable = func(_t: TaskData) -> float: return 0.0
+    ki.refresh(progress, func(_t: TaskData) -> int: return TaskRuntime.State.NOT_STARTED)
+    eq(ki.instances()[i]["hidden"], true, "idle: hidden")
+    ki.refresh(progress, func(_t: TaskData) -> int: return TaskRuntime.State.ACTIVE)
+    eq(ki.instances()[i]["hidden"], false, "a task is active: shown")
+    for inst in ki.instances():
+        if inst["kit"] != "piling_rig":
+            ok(not inst.has("hidden") or inst["hidden"] == false, "other kits are never hidden by activity")

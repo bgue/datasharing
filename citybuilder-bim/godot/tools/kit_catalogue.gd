@@ -1,15 +1,15 @@
 extends SceneTree
 ## Kit catalogue sheet: every kit at fills 0, 0.5 and 1.0 (footprint 2x1; rack 4x1, culvert 3x1) in a labelled grid,
 ## one SubViewport per kit, saved as a PNG. Run (needs a display, e.g. xvfb):
-##   xvfb-run -a -s "-screen 0 1600x900x24" godot --path godot --rendering-driver opengl3 \
-##       --script res://tools/kit_catalogue.gd -- [out=/path/kits_catalogue.png] [kits=rack,tank] [width=1600] [height=900]
+##   xvfb-run -a -s "-screen 0 1920x1080x24" godot --path godot --rendering-driver opengl3 \
+##       --script res://tools/kit_catalogue.gd -- [out=/path/kits_catalogue.png] [kits=rack,tank] [width=1920] [height=1080]
 ## `mode=installations [weeks=40] [scenario=industrial_standard]` instead plays the scenario in the real game scene, opens
 ## the Installations panel, selects and hovers the pipe rack and saves docs/img/industrial_installations.png.
 ## The layout helpers are static so tests can check them without rendering.
 
 const DEFAULT_OUT: String = "res://../docs/img/kits_catalogue.png"
 const FILLS: Array[float] = [0.0, 0.5, 1.0]
-const COLUMNS: int = 6
+const COLUMNS: int = 8
 const HEADER_H: float = 40.0
 const BG: Color = Color(0.72, 0.82, 0.92)
 const FOOTPRINTS: Dictionary = {"rack": Vector2i(4, 1), "culvert": Vector2i(3, 1)}
@@ -18,7 +18,7 @@ const CELL_M: float = 6.0
 const WAIT_FRAMES: int = 8
 
 var _out: String = DEFAULT_OUT
-var _size: Vector2i = Vector2i(1600, 900)
+var _size: Vector2i = Vector2i(1920, 1080)
 var _frames: int = 0
 var _reg: KitRegistry = null
 var _kits: Array[String] = []
@@ -247,6 +247,8 @@ func _process(_delta: float) -> bool:
         var img: Image = root.get_viewport().get_texture().get_image()
         if img.get_size() != _size:
             img.resize(_size.x, _size.y, Image.INTERPOLATE_LANCZOS)
+        img.convert(Image.FORMAT_RGB565)  # fewer colours: the PNG stays well under 400 KB
+        img.convert(Image.FORMAT_RGB8)
         DirAccess.make_dir_recursive_absolute(_out.get_base_dir())
         var err: int = img.save_png(_out)
         var bytes: int = FileAccess.get_file_as_bytes(_out).size() if err == OK else 0
@@ -259,7 +261,7 @@ func _process(_delta: float) -> bool:
 
 func _installations_shot() -> void:
     var scenarios: Node = root.get_node("Scenarios")
-    if not bool(scenarios.call("select", "res://scenarios/%s/sequence.json" % _scenario)):
+    if not bool(scenarios.call("select", str(scenarios.call("path_for", _scenario)))):
         printerr("kit_catalogue: cannot load scenario %s" % _scenario)
         quit(1)
         return

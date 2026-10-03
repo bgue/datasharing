@@ -93,6 +93,13 @@
         ]
       },
       "lod_collapse_distance": 100,
+      "sectors": [
+        "industrial"
+      ],
+      "project_types": [
+        "process_unit",
+        "pipe_rack"
+      ],
       "title": "Pipe rack"
     },
     "tank": {
@@ -179,6 +186,13 @@
         }
       ],
       "lod_collapse_distance": 90,
+      "sectors": [
+        "industrial"
+      ],
+      "project_types": [
+        "tank_farm",
+        "process_unit"
+      ],
       "title": "Storage tank"
     },
     "turbine": {
@@ -280,6 +294,12 @@
         }
       ],
       "lod_collapse_distance": 90,
+      "sectors": [
+        "industrial"
+      ],
+      "project_types": [
+        "process_unit"
+      ],
       "title": "Turbine"
     },
     "vessel_v": {
@@ -356,6 +376,13 @@
         }
       ],
       "lod_collapse_distance": 90,
+      "sectors": [
+        "industrial"
+      ],
+      "project_types": [
+        "process_unit",
+        "tank_farm"
+      ],
       "title": "Vertical vessel"
     },
     "vessel_h": {
@@ -432,6 +459,13 @@
         }
       ],
       "lod_collapse_distance": 90,
+      "sectors": [
+        "industrial"
+      ],
+      "project_types": [
+        "process_unit",
+        "tank_farm"
+      ],
       "title": "Horizontal vessel"
     },
     "pump_plinth": {
@@ -497,6 +531,15 @@
         }
       ],
       "lod_collapse_distance": 60,
+      "sectors": [
+        "industrial",
+        "healthcare"
+      ],
+      "project_types": [
+        "process_unit",
+        "tank_farm",
+        "plant_replacement"
+      ],
       "title": "Pump"
     },
     "exchanger": {
@@ -560,6 +603,12 @@
         }
       ],
       "lod_collapse_distance": 80,
+      "sectors": [
+        "industrial"
+      ],
+      "project_types": [
+        "process_unit"
+      ],
       "title": "Heat exchanger"
     },
     "compressor": {
@@ -637,6 +686,12 @@
         }
       ],
       "lod_collapse_distance": 80,
+      "sectors": [
+        "industrial"
+      ],
+      "project_types": [
+        "process_unit"
+      ],
       "title": "Compressor"
     },
     "transformer": {
@@ -713,6 +768,16 @@
         }
       ],
       "lod_collapse_distance": 80,
+      "sectors": [
+        "industrial",
+        "healthcare"
+      ],
+      "project_types": [
+        "process_unit",
+        "substation",
+        "ehouse",
+        "plant_replacement"
+      ],
       "title": "Transformer"
     },
     "switchroom": {
@@ -795,6 +860,17 @@
         }
       ],
       "lod_collapse_distance": 80,
+      "sectors": [
+        "industrial",
+        "healthcare"
+      ],
+      "project_types": [
+        "process_unit",
+        "substation",
+        "ehouse",
+        "building",
+        "plant_replacement"
+      ],
       "title": "Switchroom"
     },
     "cooling_tower": {
@@ -861,6 +937,12 @@
         }
       ],
       "lod_collapse_distance": 100,
+      "sectors": [
+        "industrial"
+      ],
+      "project_types": [
+        "process_unit"
+      ],
       "title": "Cooling tower"
     },
     "stack": {
@@ -920,6 +1002,12 @@
         }
       ],
       "lod_collapse_distance": 120,
+      "sectors": [
+        "industrial"
+      ],
+      "project_types": [
+        "process_unit"
+      ],
       "title": "Stack"
     },
     "module": {
@@ -972,6 +1060,12 @@
         }
       ],
       "lod_collapse_distance": 90,
+      "sectors": [
+        "industrial"
+      ],
+      "project_types": [
+        "process_unit"
+      ],
       "title": "Process module"
     },
     "ahu": {
@@ -1040,6 +1134,15 @@
         }
       ],
       "lod_collapse_distance": 60,
+      "sectors": [
+        "healthcare"
+      ],
+      "project_types": [
+        "new_wing",
+        "live_fitout",
+        "imaging_suite",
+        "plant_replacement"
+      ],
       "title": "Air handling unit"
     },
     "chiller": {
@@ -1127,6 +1230,13 @@
         }
       ],
       "lod_collapse_distance": 60,
+      "sectors": [
+        "healthcare"
+      ],
+      "project_types": [
+        "new_wing",
+        "plant_replacement"
+      ],
       "title": "Chiller"
     },
     "mri": {
@@ -1191,6 +1301,13 @@
         }
       ],
       "lod_collapse_distance": 60,
+      "sectors": [
+        "healthcare"
+      ],
+      "project_types": [
+        "imaging_suite",
+        "new_wing"
+      ],
       "title": "MRI suite"
     },
     "bridge_pier": {
@@ -1257,6 +1374,12 @@
         }
       ],
       "lod_collapse_distance": 100,
+      "sectors": [
+        "civil"
+      ],
+      "project_types": [
+        "bridge"
+      ],
       "title": "Bridge pier"
     },
     "culvert": {
@@ -1306,7 +1429,755 @@
         }
       ],
       "lod_collapse_distance": 100,
+      "sectors": [
+        "civil"
+      ],
+      "project_types": [
+        "culvert_drainage"
+      ],
       "title": "Culvert"
+    },
+    "ehouse": {
+      "builder": "EhouseKit",
+      "description": "Prefabricated electrical house: foundation stubs and skid, box, doors, cable entries, rooftop HVAC",
+      "params": {
+        "instancing": "element",
+        "height_from": "element",
+        "default_height_m": 4.2,
+        "min_height_m": 3.8
+      },
+      "layers": [
+        {
+          "id": "foundation",
+          "disciplines": [
+            "civil",
+            "structure"
+          ],
+          "parts": [
+            "stubs",
+            "skid"
+          ],
+          "grow": "count",
+          "follows": "electrical"
+        },
+        {
+          "id": "building",
+          "disciplines": [
+            "structure",
+            "architecture"
+          ],
+          "parts": [
+            "box",
+            "roof"
+          ],
+          "grow": "height",
+          "follows": "electrical"
+        },
+        {
+          "id": "doors",
+          "disciplines": [
+            "architecture"
+          ],
+          "parts": [
+            "doors",
+            "landings"
+          ],
+          "grow": "count",
+          "follows": "building"
+        },
+        {
+          "id": "electrical",
+          "disciplines": [
+            "electrical",
+            "instrumentation"
+          ],
+          "parts": [
+            "cable_entries",
+            "ladder_rack"
+          ],
+          "grow": "count"
+        },
+        {
+          "id": "hvac",
+          "disciplines": [
+            "mechanical"
+          ],
+          "parts": [
+            "units"
+          ],
+          "grow": "count",
+          "follows": "building"
+        }
+      ],
+      "lod_collapse_distance": 80,
+      "sectors": [
+        "industrial"
+      ],
+      "project_types": [
+        "ehouse",
+        "substation"
+      ],
+      "title": "E-house"
+    },
+    "substation_bay": {
+      "builder": "SubstationBayKit",
+      "description": "Switchyard bay: steel supports, breaker, disconnects, current transformers",
+      "params": {
+        "instancing": "element",
+        "height_from": "element",
+        "default_height_m": 7.0,
+        "min_height_m": 6.0
+      },
+      "layers": [
+        {
+          "id": "foundation",
+          "disciplines": [
+            "civil",
+            "structure"
+          ],
+          "parts": [
+            "pads"
+          ],
+          "grow": "none",
+          "follows": "steel"
+        },
+        {
+          "id": "steel",
+          "disciplines": [
+            "structure"
+          ],
+          "parts": [
+            "posts",
+            "a_frame"
+          ],
+          "grow": "count"
+        },
+        {
+          "id": "breaker",
+          "disciplines": [
+            "electrical"
+          ],
+          "parts": [
+            "tanks",
+            "bushings"
+          ],
+          "grow": "count",
+          "sequence_group": "elec",
+          "weight": 3
+        },
+        {
+          "id": "disconnects",
+          "disciplines": [
+            "electrical"
+          ],
+          "parts": [
+            "blades"
+          ],
+          "grow": "count",
+          "sequence_group": "elec",
+          "weight": 2
+        },
+        {
+          "id": "cts",
+          "disciplines": [
+            "electrical",
+            "instrumentation"
+          ],
+          "parts": [
+            "transformers"
+          ],
+          "grow": "count",
+          "sequence_group": "elec",
+          "weight": 1
+        }
+      ],
+      "lod_collapse_distance": 90,
+      "sectors": [
+        "industrial"
+      ],
+      "project_types": [
+        "substation"
+      ],
+      "title": "Substation bay"
+    },
+    "bus_gantry": {
+      "builder": "BusGantryKit",
+      "description": "Lattice portals with insulator strings and bus tubes, one portal per cell boundary",
+      "params": {
+        "instancing": "group",
+        "height_from": "element",
+        "default_height_m": 9.0,
+        "min_height_m": 7.0
+      },
+      "layers": [
+        {
+          "id": "foundation",
+          "disciplines": [
+            "civil",
+            "structure"
+          ],
+          "parts": [
+            "pads"
+          ],
+          "grow": "none",
+          "follows": "portals"
+        },
+        {
+          "id": "portals",
+          "disciplines": [
+            "structure"
+          ],
+          "parts": [
+            "legs",
+            "beams"
+          ],
+          "grow": "count"
+        },
+        {
+          "id": "insulators",
+          "disciplines": [
+            "electrical"
+          ],
+          "parts": [
+            "strings"
+          ],
+          "grow": "count",
+          "sequence_group": "elec",
+          "weight": 1
+        },
+        {
+          "id": "bus",
+          "disciplines": [
+            "electrical"
+          ],
+          "parts": [
+            "tubes"
+          ],
+          "grow": "length",
+          "sequence_group": "elec",
+          "weight": 2
+        }
+      ],
+      "lod_collapse_distance": 100,
+      "sectors": [
+        "industrial"
+      ],
+      "project_types": [
+        "substation"
+      ],
+      "title": "Bus gantry"
+    },
+    "duct_bank": {
+      "builder": "DuctBankKit",
+      "description": "Duct bank cut-away: open trench, conduit array, concrete encasement",
+      "params": {
+        "instancing": "group",
+        "face": "below_ground",
+        "height_from": "default",
+        "default_height_m": 1.2,
+        "min_height_m": 1.2
+      },
+      "layers": [
+        {
+          "id": "trench",
+          "disciplines": [
+            "civil"
+          ],
+          "parts": [
+            "berms",
+            "bed"
+          ],
+          "grow": "length"
+        },
+        {
+          "id": "conduits",
+          "disciplines": [
+            "electrical",
+            "instrumentation"
+          ],
+          "parts": [
+            "conduits"
+          ],
+          "grow": "length"
+        },
+        {
+          "id": "encasement",
+          "disciplines": [
+            "civil",
+            "structure"
+          ],
+          "parts": [
+            "concrete",
+            "tape"
+          ],
+          "grow": "length"
+        }
+      ],
+      "lod_collapse_distance": 90,
+      "sectors": [
+        "industrial",
+        "civil"
+      ],
+      "project_types": [
+        "ug_civil",
+        "substation",
+        "ehouse",
+        "utility_diversion"
+      ],
+      "title": "Duct bank"
+    },
+    "chamber": {
+      "builder": "ChamberKit",
+      "description": "Manhole / pull chamber: base, shaft rings, benching, cover",
+      "params": {
+        "instancing": "element",
+        "height_from": "default",
+        "default_height_m": 2.5,
+        "min_height_m": 2.5
+      },
+      "layers": [
+        {
+          "id": "base",
+          "disciplines": [
+            "civil"
+          ],
+          "parts": [
+            "slab"
+          ],
+          "grow": "none",
+          "follows": "shaft"
+        },
+        {
+          "id": "shaft",
+          "disciplines": [
+            "civil",
+            "structure"
+          ],
+          "parts": [
+            "rings"
+          ],
+          "grow": "height",
+          "sequence_group": "civil",
+          "weight": 4
+        },
+        {
+          "id": "benching",
+          "disciplines": [
+            "civil"
+          ],
+          "parts": [
+            "benching",
+            "stubs"
+          ],
+          "grow": "count",
+          "sequence_group": "civil",
+          "weight": 1
+        },
+        {
+          "id": "cover",
+          "disciplines": [
+            "civil",
+            "structure"
+          ],
+          "parts": [
+            "frame",
+            "lid"
+          ],
+          "grow": "none",
+          "sequence_group": "civil",
+          "weight": 1
+        }
+      ],
+      "lod_collapse_distance": 70,
+      "sectors": [
+        "industrial",
+        "civil"
+      ],
+      "project_types": [
+        "ug_civil",
+        "substation",
+        "culvert_drainage",
+        "utility_diversion"
+      ],
+      "title": "Chamber"
+    },
+    "pile_cap": {
+      "builder": "PileCapKit",
+      "description": "Pile group stubs with the cap on top and anchor bolts",
+      "params": {
+        "instancing": "group",
+        "height_from": "default",
+        "default_height_m": 1.6,
+        "min_height_m": 1.6
+      },
+      "layers": [
+        {
+          "id": "piles",
+          "disciplines": [
+            "civil"
+          ],
+          "parts": [
+            "pile_stubs"
+          ],
+          "grow": "count"
+        },
+        {
+          "id": "cap",
+          "disciplines": [
+            "structure"
+          ],
+          "parts": [
+            "cap"
+          ],
+          "grow": "height"
+        },
+        {
+          "id": "bolts",
+          "disciplines": [
+            "structure",
+            "mechanical"
+          ],
+          "parts": [
+            "anchor_bolts"
+          ],
+          "grow": "count",
+          "follows": "cap"
+        }
+      ],
+      "lod_collapse_distance": 70,
+      "sectors": [
+        "industrial",
+        "civil"
+      ],
+      "project_types": [
+        "piling_foundations",
+        "bridge",
+        "tank_farm",
+        "process_unit",
+        "building"
+      ],
+      "title": "Pile cap"
+    },
+    "piling_rig": {
+      "builder": "PilingRigKit",
+      "description": "Tracked piling rig with leader and hammer, shown while its tasks are active",
+      "params": {
+        "instancing": "element",
+        "height_from": "default",
+        "default_height_m": 14.0,
+        "min_height_m": 10.0,
+        "active_only": true
+      },
+      "layers": [
+        {
+          "id": "rig",
+          "disciplines": [
+            "civil"
+          ],
+          "parts": [
+            "tracks",
+            "house",
+            "leader",
+            "hammer"
+          ],
+          "grow": "none"
+        }
+      ],
+      "lod_collapse_distance": 80,
+      "sectors": [
+        "industrial",
+        "civil"
+      ],
+      "project_types": [
+        "piling_foundations",
+        "bridge"
+      ],
+      "title": "Piling rig"
+    },
+    "ground_beam": {
+      "builder": "GroundBeamKit",
+      "description": "Ground beam: trench strip, beam growing along its length, column starter bars",
+      "params": {
+        "instancing": "group",
+        "height_from": "default",
+        "default_height_m": 1.0,
+        "min_height_m": 1.0
+      },
+      "layers": [
+        {
+          "id": "trench",
+          "disciplines": [
+            "civil"
+          ],
+          "parts": [
+            "strip"
+          ],
+          "grow": "length",
+          "sequence_group": "gb",
+          "weight": 1
+        },
+        {
+          "id": "beam",
+          "disciplines": [
+            "structure"
+          ],
+          "parts": [
+            "beam"
+          ],
+          "grow": "length",
+          "sequence_group": "gb",
+          "weight": 3
+        },
+        {
+          "id": "starters",
+          "disciplines": [
+            "structure"
+          ],
+          "parts": [
+            "starter_bars"
+          ],
+          "grow": "count",
+          "sequence_group": "gb",
+          "weight": 1
+        }
+      ],
+      "lod_collapse_distance": 80,
+      "sectors": [
+        "industrial"
+      ],
+      "project_types": [
+        "piling_foundations",
+        "building"
+      ],
+      "title": "Ground beam"
+    },
+    "bund_wall": {
+      "builder": "BundWallKit",
+      "description": "Bund: floor with sump, containment wall growing in height, access steps and drain",
+      "params": {
+        "instancing": "group",
+        "height_from": "default",
+        "default_height_m": 1.8,
+        "min_height_m": 1.8
+      },
+      "layers": [
+        {
+          "id": "floor",
+          "disciplines": [
+            "civil"
+          ],
+          "parts": [
+            "slab",
+            "sump"
+          ],
+          "grow": "none",
+          "sequence_group": "bund",
+          "weight": 1
+        },
+        {
+          "id": "wall",
+          "disciplines": [
+            "civil",
+            "structure"
+          ],
+          "parts": [
+            "walls"
+          ],
+          "grow": "height",
+          "sequence_group": "bund",
+          "weight": 4
+        },
+        {
+          "id": "access",
+          "disciplines": [
+            "civil"
+          ],
+          "parts": [
+            "steps",
+            "drain"
+          ],
+          "grow": "count",
+          "sequence_group": "bund",
+          "weight": 1
+        }
+      ],
+      "lod_collapse_distance": 90,
+      "sectors": [
+        "industrial"
+      ],
+      "project_types": [
+        "tank_farm"
+      ],
+      "title": "Bund wall"
+    },
+    "manifold": {
+      "builder": "ManifoldKit",
+      "description": "Pipe manifold: header on supports, branches with valves, small pumps",
+      "params": {
+        "instancing": "group",
+        "height_from": "default",
+        "default_height_m": 1.8,
+        "min_height_m": 1.8
+      },
+      "layers": [
+        {
+          "id": "supports",
+          "disciplines": [
+            "civil",
+            "structure"
+          ],
+          "parts": [
+            "supports"
+          ],
+          "grow": "none",
+          "follows": "header"
+        },
+        {
+          "id": "header",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "header"
+          ],
+          "grow": "length",
+          "sequence_group": "process",
+          "weight": 3
+        },
+        {
+          "id": "branches",
+          "disciplines": [
+            "process"
+          ],
+          "parts": [
+            "branches",
+            "valves"
+          ],
+          "grow": "count",
+          "sequence_group": "process",
+          "weight": 2
+        },
+        {
+          "id": "pumps",
+          "disciplines": [
+            "process",
+            "mechanical"
+          ],
+          "parts": [
+            "pumps"
+          ],
+          "grow": "count",
+          "sequence_group": "process",
+          "weight": 2
+        }
+      ],
+      "lod_collapse_distance": 80,
+      "sectors": [
+        "industrial"
+      ],
+      "project_types": [
+        "tank_farm",
+        "process_unit"
+      ],
+      "title": "Manifold"
+    },
+    "building_shell": {
+      "builder": "BuildingShellKit",
+      "description": "Portal-frame building: frames by bay, purlins, cladding, roof, rooftop units, lighting",
+      "params": {
+        "instancing": "group",
+        "height_from": "element",
+        "default_height_m": 8.0,
+        "min_height_m": 6.0
+      },
+      "layers": [
+        {
+          "id": "foundation",
+          "disciplines": [
+            "civil",
+            "structure"
+          ],
+          "parts": [
+            "pads"
+          ],
+          "grow": "none",
+          "follows": "frames"
+        },
+        {
+          "id": "frames",
+          "disciplines": [
+            "structure"
+          ],
+          "parts": [
+            "columns",
+            "rafters"
+          ],
+          "grow": "count"
+        },
+        {
+          "id": "purlins",
+          "disciplines": [
+            "structure"
+          ],
+          "parts": [
+            "purlins"
+          ],
+          "grow": "length",
+          "follows": "frames"
+        },
+        {
+          "id": "cladding",
+          "disciplines": [
+            "architecture"
+          ],
+          "parts": [
+            "walls"
+          ],
+          "grow": "height",
+          "sequence_group": "arch",
+          "weight": 3
+        },
+        {
+          "id": "roof",
+          "disciplines": [
+            "architecture"
+          ],
+          "parts": [
+            "roof_sheets"
+          ],
+          "grow": "count",
+          "sequence_group": "arch",
+          "weight": 2
+        },
+        {
+          "id": "mechanical",
+          "disciplines": [
+            "mechanical"
+          ],
+          "parts": [
+            "roof_units"
+          ],
+          "grow": "count"
+        },
+        {
+          "id": "electrical",
+          "disciplines": [
+            "electrical"
+          ],
+          "parts": [
+            "lighting"
+          ],
+          "grow": "count"
+        }
+      ],
+      "lod_collapse_distance": 100,
+      "sectors": [
+        "industrial"
+      ],
+      "project_types": [
+        "building"
+      ],
+      "title": "Building shell"
     }
   },
   "markers": {

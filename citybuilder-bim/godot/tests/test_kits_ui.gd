@@ -372,4 +372,5 @@ func test_catalogue_script_parses_and_lays_out_a_grid() -> void:
         ok(Rect2(Vector2.ZERO, sheet).encloses(r), "cell %d inside the sheet" % i)
         for j in range(i + 1, n):
             ok(not r.intersects(script.call("grid_cell", j, n, sheet), false), "cells %d and %d do not overlap" % [i, j])
-    near(area, sheet.x * sheet.y, "the 18 cells tile the sheet", 1.0)
+    var rows: int = int(ceil(float(n) / float(script.get("COLUMNS"))))
+    near(area, sheet.x * sheet.y * float(n) / float(int(script.get("COLUMNS")) * rows), "the cells tile the sheet", 1.0)

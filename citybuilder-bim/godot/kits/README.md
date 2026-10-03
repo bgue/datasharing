@@ -107,3 +107,38 @@ Meshes are built in metres, origin at the footprint centre on the storey floor, 
 3. Add a fallback rule to `KitRegistry._fallback_kit` if the kit should be picked without a `visual_kit` hint.
 4. Run `godot --headless --path godot --import` (new `class_name`) and the kits tests: every manifest kit is built
    at 1x1, 2x1, 2x3 and fills {0, 0.5, 1} and checked for bounds, triangle count and determinism.
+
+
+## Kits for the industrial project types (docs/08 section 4)
+
+| Kit | Builder | Layers (id: disciplines, grow) | Project types |
+| --- | --- | --- | --- |
+| `ehouse` | `EhouseKit` | `foundation` (civil/structure, count); `building` (structure/architecture, height); `doors` (architecture, count); `electrical` (electrical/instrumentation, count); `hvac` (mechanical, count) | ehouse, substation |
+| `substation_bay` | `SubstationBayKit` | `foundation` (civil/structure, none); `steel` (structure, count); `breaker` (electrical, count); `disconnects` (electrical, count); `cts` (electrical/instrumentation, count) | substation |
+| `bus_gantry` | `BusGantryKit` | `foundation` (civil/structure, none); `portals` (structure, count); `insulators` (electrical, count); `bus` (electrical, length) | substation |
+| `duct_bank` | `DuctBankKit` | `trench` (civil, length); `conduits` (electrical/instrumentation, length); `encasement` (civil/structure, length) | ug_civil, substation, ehouse, utility_diversion |
+| `chamber` | `ChamberKit` | `base` (civil, none); `shaft` (civil/structure, height); `benching` (civil, count); `cover` (civil/structure, none) | ug_civil, substation, culvert_drainage, utility_diversion |
+| `pile_cap` | `PileCapKit` | `piles` (civil, count); `cap` (structure, height); `bolts` (structure/mechanical, count) | piling_foundations, bridge, tank_farm, process_unit, building |
+| `piling_rig` | `PilingRigKit` | `rig` (civil, none) | piling_foundations, bridge |
+| `ground_beam` | `GroundBeamKit` | `trench` (civil, length); `beam` (structure, length); `starters` (structure, count) | piling_foundations, building |
+| `bund_wall` | `BundWallKit` | `floor` (civil, none); `wall` (civil/structure, height); `access` (civil, count) | tank_farm |
+| `manifold` | `ManifoldKit` | `supports` (civil/structure, none); `header` (process, length); `branches` (process, count); `pumps` (process/mechanical, count) | tank_farm, process_unit |
+| `building_shell` | `BuildingShellKit` | `foundation` (civil/structure, none); `frames` (structure, count); `purlins` (structure, length); `cladding` (architecture, height); `roof` (architecture, count); `mechanical` (mechanical, count); `electrical` (electrical, count) | building |
+
+`piling_rig` is an equipment visual (`params.active_only`): `KitInstances` marks it `hidden` while none of its tasks is ACTIVE and
+`KitLayer` does not draw hidden instances. `duct_bank` has `params.face = "below_ground"` and is drawn as a cut-away at grade.
+
+## Project scope
+
+Every kit carries `sectors` and `project_types` (schema `visual_kit.schema.json`). `KitRegistry.bind_bundle` reads the bundle's
+sector, `project.project_type` and, when present, `project_type_def.kits` (the project type's kit allowlist);
+`kit_for_element` never returns a kit outside that scope (a `visual_kit` hint outside it is ignored too, the element
+then falls back to generic boxes). Without an allowlist the manifest tags decide: a kit is offered when its `sectors` /
+`project_types` contain the project's. `set_scope(sector, type, allow)` sets the scope directly.
+
+Fallback rules for the new kits (flags are read from the element, or from a `props` / `properties` / `psets` dictionary):
+`EHouse` / name e-house -> ehouse; `IfcSwitchingDevice`, `IfcProtectiveDevice`, breaker / disconnector / current
+transformer -> substation_bay; `BusGantry` -> bus_gantry; `DuctBank` -> duct_bank; `IfcDistributionChamberElement`, manhole ->
+chamber; `PileCap`, pile cap footings and every `IfcPile` -> pile_cap; piling rig -> piling_rig; `Ground` beam / ground beam ->
+ground_beam; `Bund` / bund walls -> bund_wall; manifold -> manifold; portal-frame steel in zones tagged `building`
+(or named portal frame / purlin / rafter) -> building_shell.

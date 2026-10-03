@@ -27,6 +27,7 @@ const NON_EQUIPMENT: Array[String] = [
     "IfcRoof", "IfcCovering", "IfcRailing", "IfcStair", "IfcPipeSegment", "IfcPipeFitting", "IfcCableCarrierSegment",
     "IfcCableSegment", "IfcDuctSegment", "IfcFlowController", "IfcSensor", "IfcCurtainWall", "IfcBearing",
 ]
+const BUILDING_CLASSES: Array[String] = ["IfcColumn", "IfcBeam", "IfcMember", "IfcRoof", "IfcWall", "IfcCovering", "IfcPlate", "IfcSlab"]
 const RACK_CLASSES: Array[String] = [
     "IfcMember", "IfcColumn", "IfcBeam", "IfcPipeSegment", "IfcPipeFitting", "IfcCableCarrierSegment", "IfcCovering",
 ]
@@ -44,6 +45,14 @@ var step_disciplines: Dictionary = {}
 var rack_zones: Dictionary = {}
 var cache_hits: int = 0
 var cache_builds: int = 0
+
+## Project scope (docs/08): the kit allowlist of the project type definition (empty = not restricted), plus the
+## sector and project type that the manifest's `sectors` / `project_types` tags are matched against.
+var sector: String = ""
+var project_type: String = ""
+var allowed_kits: Array[String] = []
+## zone id -> true for zones tagged `building` (portal-frame steel there becomes a building shell)
+var building_zones: Dictionary = {}
 
 var _builders: Dictionary = {}  # builder class name -> KitBuilder
 var _variant_owner: Dictionary = {}  # variant id -> kit id
@@ -180,13 +189,74 @@ func builder_for(kit: String) -> KitBuilder:
 func bind_bundle(b: SequenceBundle) -> void:
     step_disciplines.clear()
     rack_zones.clear()
+    building_zones.clear()
+    set_scope("", "", [])
     if b == null:
         return
+    var def: Variant = b.get("project_type_def")
+    if not (def is Dictionary):
+        def = b.project_raw.get("project_type_def", null)
+    var allow: Array = []
+    if def is Dictionary:
+        allow = (def as Dictionary).get("kits", [])
+    var pt: Variant = b.project_raw.get("project_type", null)
+    set_scope(b.sector, "" if pt == null else str(pt), allow)
     for s in b.steps:
         step_disciplines[(s as StepDef).id] = (s as StepDef).discipline
     for z in b.zones:
         if (z as ZoneData).tags.has("pipe_rack"):
             rack_zones[(z as ZoneData).id] = true
+        if (z as ZoneData).tags.has("building"):
+            building_zones[(z as ZoneData).id] = true
+
+
+## Restricts the kits `kit_for_element` may return: `allow` is the project type's kit allowlist (empty = none given);
+## without one, a kit is allowed when its manifest `sectors` / `project_types` (when set) name this sector / type.
+func set_scope(sector_id: String, type_id: String, allow: Array = []) -> void:
+    sector = sector_id
+    project_type = type_id
+    allowed_kits = []
+    for k in allow:
+        allowed_kits.append(str(k))
+
+
+func is_kit_allowed(kit: String) -> bool:
+    if not kits.has(kit):
+        return false
+    if not allowed_kits.is_empty():
+        return allowed_kits.has(kit)
+    var def: Dictionary = kits[kit]
+    var secs: Array = def.get("sectors", [])
+    if sector != "" and not secs.is_empty() and not secs.has(sector):
+        return false
+    var types: Array = def.get("project_types", [])
+    if project_type != "" and not types.is_empty() and not types.has(project_type):
+        return false
+    return true
+
+
+## Boolean IFC-style property of an element (PileCap, DuctBank, ...): a field, a dictionary key, or an entry of a
+## props / properties / psets dictionary (also one level of property sets).
+func _prop(e: Variant, key: String) -> bool:
+    var v: Variant = _field(e, key, null)
+    if v == null:
+        for bag in ["props", "properties", "psets", "attributes"]:
+            var d: Variant = _field(e, bag, null)
+            if d is Dictionary:
+                if (d as Dictionary).has(key):
+                    v = (d as Dictionary)[key]
+                    break
+                for k in d:
+                    if d[k] is Dictionary and (d[k] as Dictionary).has(key):
+                        v = (d[k] as Dictionary)[key]
+                        break
+                if v != null:
+                    break
+    if v == null:
+        return false
+    if v is bool:
+        return v
+    return ["true", "1", "yes"].has(str(v).to_lower())
 
 
 static func _field(e: Variant, key: String, fallback: Variant) -> Variant:
@@ -215,15 +285,15 @@ func _m(text: String, pattern: String) -> bool:
 func kit_for_element(e: Variant) -> String:
     var hint: String = str(_field(e, "visual_kit", ""))
     if hint != "":
-        if kits.has(hint):
+        if is_kit_allowed(hint):
             return hint
-        if _variant_owner.has(hint):  # the pipeline may hint a variant id such as "rack_ei"
+        if _variant_owner.has(hint) and is_kit_allowed(str(_variant_owner[hint])):  # a variant id such as "rack_ei"
             return _variant_owner[hint]
     var cls: String = str(_field(e, "ifc_class", ""))
     var nm: String = str(_field(e, "name", ""))
     var vis: String = str(_field(e, "visual", ""))
     var found: String = _fallback_kit(e, cls, nm, vis)
-    return found if kits.has(found) else ""
+    return found if is_kit_allowed(found) else ""
 
 
 ## The variant id an element's visual_kit hint names ("" when the hint is a plain kit id or absent).
@@ -239,6 +309,29 @@ func variant_rank(kit: String, variant: String) -> int:
 
 
 func _fallback_kit(e: Variant, cls: String, nm: String, vis: String) -> String:
+    # kits of the industrial project types (docs/08 section 4): flags first, then classes and names
+    if _prop(e, "EHouse") or _m(nm, "e-?house|electrical house"):
+        return "ehouse"
+    if _m(nm, "piling rig|pile rig|drilling rig"):
+        return "piling_rig"
+    if _prop(e, "PileCap") or cls == "IfcPile" or (_m(nm, "pile cap") and (cls == "IfcFooting" or cls == "IfcDeepFoundation")):
+        return "pile_cap"
+    if _prop(e, "DuctBank") or _m(nm, "duct ?bank"):
+        return "duct_bank"
+    if cls == "IfcDistributionChamberElement" or _m(nm, "manhole|pull pit|\\bchamber\\b"):
+        return "chamber"
+    if _prop(e, "Bund") or _m(nm, "\\bbund\\b"):
+        return "bund_wall"
+    if _prop(e, "Ground") and cls == "IfcBeam" or _m(nm, "ground beam"):
+        return "ground_beam"
+    if _prop(e, "BusGantry") or _m(nm, "bus gantry"):
+        return "bus_gantry"
+    if _m(nm, "manifold"):
+        return "manifold"
+    if cls == "IfcSwitchingDevice" or cls == "IfcProtectiveDevice" or _m(nm, "breaker|disconnect(or|ing switch)|current transformer|instrument transformer"):
+        return "substation_bay"
+    if BUILDING_CLASSES.has(cls) and (building_zones.has(str(_field(e, "zone_id", ""))) or _m(nm, "portal frame|purlin|rafter")):
+        return "building_shell"
     # explicit civil / building kits first (they use structural classes)
     if vis == "culvert" or _m(nm, "culvert"):
         return "culvert"
