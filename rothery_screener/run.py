@@ -3,7 +3,7 @@
 python -m rothery_screener.run
 python -m rothery_screener.run --only dogs,graham_defensive --rebalance 6 --cost-bps 20 --mer 0.002
 python -m rothery_screener.run --benchmark SYN_CAPWT --bench-mer 0.0006 --bench-cost-bps 5
-python -m rothery_screener.run --benchmark top60          # equal-weight 60 largest instead
+python -m rothery_screener.run --compare top60            # extra row: equal-weight 60 largest (never primary)
 python -m rothery_screener.run --screen-file my_screens.json --only cheap_yield,dogs
 python -m rothery_screener.run --set graham_defensive.max_pe=18 --set graham_defensive.min_passes=6
 python -m rothery_screener.run --graham-report
@@ -53,7 +53,10 @@ def add_common_args(ap: argparse.ArgumentParser):
     g.add_argument("--mer", type=float, default=0.0, help="annual expense ratio applied to every holding")
     g.add_argument("--security-file", help="CSV with ticker and optional cost_bps, mer columns (overrides)")
     g = ap.add_argument_group("benchmark")
-    g.add_argument("--benchmark", help="index name / ticker to buy and hold, or 'topN' for equal-weight N largest")
+    g.add_argument("--benchmark", help="passive index name / ticker to buy and hold (replaces the default "
+                                       "passive index); 'topN' is accepted but is only a compare row")
+    g.add_argument("--compare", action="append", default=[], metavar="NAME|topN",
+                   help="extra comparison row: an index name or 'topN' equal-weight N largest, repeatable")
     g.add_argument("--bench-mer", type=float, default=0.0, help="benchmark fund's annual MER")
     g.add_argument("--bench-cost-bps", type=float, default=0.0, help="benchmark one-time purchase cost")
 
@@ -153,11 +156,13 @@ def build_lab(a) -> tuple[Lab, list]:
     cfg = build_config(a)
     lab = (Lab.from_csv(*a.csv, config=cfg) if a.csv else
            Lab.synthetic(freq="B" if a.freq == "daily" else "ME", config=cfg))
-    if a.benchmark:
-        b = a.benchmark
-        lab.benchmark = (equal_weight_top(int(b[3:])) if b.lower().startswith("top") and b[3:].isdigit()
-                         else IndexBenchmark(b, mer=a.bench_mer, cost_bps=a.bench_cost_bps))
-    elif isinstance(lab.benchmark, IndexBenchmark):
+    is_top = lambda b: b.lower().startswith("top") and b[3:].isdigit()
+    extra = [a.benchmark] if a.benchmark and is_top(a.benchmark) else []
+    lab.compare = tuple(equal_weight_top(int(b[3:])) if is_top(b) else IndexBenchmark(b)
+                        for b in [*extra, *a.compare])
+    if a.benchmark and not is_top(a.benchmark):
+        lab.benchmark = IndexBenchmark(a.benchmark, mer=a.bench_mer, cost_bps=a.bench_cost_bps)
+    else:                                   # the default passive index, with the fund's MER / cost if given
         lab.benchmark = IndexBenchmark(lab.benchmark.index, a.bench_mer, a.bench_cost_bps)
     for path in a.screen_file:
         for sc in load_screens(path):

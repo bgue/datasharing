@@ -30,7 +30,7 @@ import pandas as pd
 
 from . import backtest, data, metrics
 from .exit_policy import ExitPolicy, Portfolio, as_policy, policy_overlay
-from .benchmarks import IndexBenchmark, ScreenBenchmark, equal_weight_top
+from .benchmarks import IndexBenchmark, ScreenBenchmark, equal_weight_top, passive_index
 from .screens import REGISTRY, Screen, graham_funnel, graham_report
 from .spec import define_screen, graham_tests
 
@@ -48,14 +48,15 @@ def format_table(tbl: pd.DataFrame) -> str:
 class BacktestReport:
     table: pd.DataFrame                       # one row per screen + the benchmark
     results: dict                             # name -> backtest.Result
-    benchmark: pd.Series                      # benchmark equity curve
+    benchmark: pd.Series                      # the PASSIVE index equity curve (primary benchmark)
     benchmark_label: str
     config: backtest.Config
+    compare: dict = field(default_factory=dict)   # label -> extra comparison curve (screen benchmarks etc.)
 
     @property
     def curves(self) -> pd.DataFrame:
         c = {k: r.curve for k, r in self.results.items()}
-        return pd.DataFrame({self.benchmark_label: self.benchmark, **c})
+        return pd.DataFrame({self.benchmark_label: self.benchmark, **self.compare, **c})
 
     def __str__(self):
         span = f"{self.benchmark.index[0]:%Y-%m-%d} to {self.benchmark.index[-1]:%Y-%m-%d}"
@@ -68,13 +69,48 @@ class BacktestReport:
 class Lab:
     market: data.Market
     config: backtest.Config = field(default_factory=backtest.Config)
-    benchmark: IndexBenchmark | ScreenBenchmark | None = None
+    benchmark: IndexBenchmark | ScreenBenchmark | None = None   # primary is always a passive IndexBenchmark
     screens: dict = field(default_factory=lambda: dict(REGISTRY))
+    compare: tuple = ()                       # extra comparison benchmarks shown in every backtest
 
     def __post_init__(self):
+        """Passive index: the explicit IndexBenchmark, else the first loaded index series, else one built
+        from the universe (PASSIVE_CAPWT, or PASSIVE_EW without market caps) and registered in
+        market.indices. A ScreenBenchmark given here is only an extra comparison."""
+        self.compare = tuple(self.compare)
+        if self.benchmark is not None and not isinstance(self.benchmark, IndexBenchmark):
+            self.compare, self.benchmark = (self.benchmark, *self.compare), None
         if self.benchmark is None:
-            idx = list(self.market.indices.columns)
-            self.benchmark = IndexBenchmark(idx[0]) if idx else equal_weight_top(60)
+            self.benchmark = self._passive_default()
+
+    def _passive_default(self) -> IndexBenchmark:
+        ind = self.market.indices
+        if not len(ind.columns):
+            name, series = passive_index(self.market)
+            self.market.indices[name] = series
+            return IndexBenchmark(name)
+        return IndexBenchmark(ind.columns[0])
+
+    def passive(self, benchmark=None) -> IndexBenchmark:
+        """The primary (passive) benchmark: `benchmark` if it is an IndexBenchmark (or an index name),
+        else the lab's own, rebuilt if someone assigned a non-index to `lab.benchmark`."""
+        if isinstance(benchmark, str):
+            return IndexBenchmark(benchmark)
+        if isinstance(benchmark, IndexBenchmark):
+            return benchmark
+        return self.benchmark if isinstance(self.benchmark, IndexBenchmark) else self._passive_default()
+
+    def _extras(self, benchmark, compare) -> list:
+        """Comparison benchmarks: lab.compare, a non-index lab.benchmark / `benchmark`, and `compare`."""
+        cmp = [compare] if isinstance(compare, (str, IndexBenchmark, ScreenBenchmark)) else list(compare or ())
+        raw = [*self.compare, *cmp, *(x for x in (self.benchmark, benchmark) if not isinstance(x, IndexBenchmark))]
+        out = {}
+        for b in raw:
+            if b is None:
+                continue
+            b = IndexBenchmark(b) if isinstance(b, str) else b
+            out.setdefault(b.label, b)
+        return list(out.values())
 
     # ---- construction ---------------------------------------------------
     @classmethod
@@ -118,14 +154,18 @@ class Lab:
 
     # ---- analysis ---------------------------------------------------------
     def backtest(self, screens=None, start=None, end=None, benchmark=None, exit=None,
-                 with_and_without: bool = False, **cfg) -> BacktestReport:
+                 with_and_without: bool = False, compare=(), **cfg) -> BacktestReport:
         """Backtest screens (names, Screens or `Portfolio(name, screen, exit=None, **config_overrides)`).
 
         `exit`: an ExitPolicy (or ExitScreen, wrapped in a default policy) applied to every entry in the
         call that has no policy of its own. `with_and_without=True` runs each such entry twice and labels
-        the rows `name` and `name+exit`. Rows with a policy also report TimeOut and Switches/yr."""
+        the rows `name` and `name+exit`. Rows with a policy also report TimeOut and Switches/yr.
+
+        The primary benchmark (`report.benchmark`, Excess/yr, BeatBenchYrs) is always a passive index:
+        the lab's, or `benchmark` if that is an IndexBenchmark. A ScreenBenchmark passed as `benchmark`,
+        and anything in `compare`, only adds rows labelled "<name> (compare)"."""
         cfg = self._cfg(**cfg)
-        bench = benchmark or self.benchmark
+        bench, extras = self.passive(benchmark), self._extras(benchmark, compare)
         call_exit = as_policy(exit) or cfg.exit
         items = []                                   # (label, screen, config, policy or None)
         for s in (screens or list(self.screens)):
@@ -147,6 +187,11 @@ class Lab:
         start = self.market.trading_day(start)
         bcurve = bench.curve(self.market, cfg, start, end)
         rows = {bench.label: {**metrics.summarize(bcurve), "AvgN": float("nan")}}
+        ccurves = {}
+        for x in extras:
+            lab_x = f"{x.label} (compare)"
+            ccurves[lab_x] = x.curve(self.market, cfg, start, end)
+            rows[lab_x] = {**metrics.summarize(ccurves[lab_x], bcurve), "AvgN": float("nan")}
         results = {}
         for label, sc, c, _ in screens:
             res = backtest.run(sc, self.market, c, start, end)
@@ -158,14 +203,14 @@ class Lab:
                            "Costs/yr": res.costs.sum() / yrs}
             if res.exit is not None:
                 rows[label].update({"TimeOut": res.time_out, "Switches/yr": res.switches / yrs})
-        return BacktestReport(pd.DataFrame(rows).T, results, bcurve, bench.label, cfg)
+        return BacktestReport(pd.DataFrame(rows).T, results, bcurve, bench.label, cfg, ccurves)
 
     def timing(self, screen, mode: str = "phase", stride: int = 1, start=None, end=None,
                offsets=None, benchmark=None, progress: bool = False, **cfg):
         """Rebalance-timing study (see timing.py); returns a timing.TimingResult."""
         from . import timing          # lazy: lets `python -m rothery_screener.timing` run cleanly
         return timing.study(self.screen(screen), self.market, self._cfg(**cfg), start, end, mode,
-                            stride, offsets, benchmark or self.benchmark, progress)
+                            stride, offsets, self.passive(benchmark), progress)
 
     # ---- research --------------------------------------------------------
     def significance(self, report: BacktestReport, n: int = 2000, seed: int = 0) -> pd.DataFrame:
@@ -190,19 +235,21 @@ class Lab:
         from .sweep import Grid, run_sweep
         if isinstance(grid, dict):
             grid = Grid(grid)
-        return run_sweep(self, self.screen(screen), grid, objective, start, end, splits, benchmark)
+        return run_sweep(self, self.screen(screen), grid, objective, start, end, splits, self.passive(benchmark))
 
     def extended(self, report: BacktestReport, macro, spread_over_prime: float = 0.0,
                  leverage: float = 1.0) -> pd.DataFrame:
         """Real / home-currency / net-of-financing / excess-over-rf metrics for every curve in a report."""
         from .metrics_ext import extended_summary
         rows = {report.benchmark_label: extended_summary(report.benchmark, macro, None, spread_over_prime, leverage)}
+        for name, c in report.compare.items():
+            rows[name] = extended_summary(c, macro, report.benchmark, spread_over_prime, leverage)
         for name, res in report.results.items():
             rows[name] = extended_summary(res.curve, macro, report.benchmark, spread_over_prime, leverage)
         return pd.DataFrame(rows).T
 
     def exit_eval(self, exit_screen, target=None, horizons=(1, 3, 12), macro=None, policy=None, **kw):
-        """Evaluate an ExitScreen against a target curve (default: the benchmark index).
+        """Evaluate an ExitScreen against a target curve (default: the passive index).
 
         `exit_screen` may also be an ExitPolicy; with `policy` (or a policy as the first argument) the
         overlay in the result trades that policy (reentry, park, steps, delay, costs) instead of the
@@ -211,7 +258,7 @@ class Lab:
         if isinstance(exit_screen, ExitPolicy):
             policy, exit_screen = exit_screen, exit_screen.screen
         if target is None:
-            target = self.benchmark.curve(self.market, self.config, self.market.index[0])
+            target = self.passive().curve(self.market, self.config, self.market.index[0])
         elif isinstance(target, str):
             target = self.market.series(target)
         macro = macro if macro is not None else (policy.macro if policy is not None else None)
@@ -226,11 +273,11 @@ class Lab:
     def calibrate_exit(self, exit_screen, grid, target=None, objective="Calmar", splits=None,
                        constraints=None, macro=None, **kw):
         """Walk-forward calibration of an ExitScreen's thresholds / timing (see calibration.py).
-        `target`: index name, ticker or curve (default: the benchmark index curve)."""
+        `target`: index name, ticker or curve (default: the passive index curve)."""
         from .calibration import calibrate_exit
         kw.setdefault("rebalance_months", self.config.rebalance_months)
         if target is None:
-            target = self.benchmark.curve(self.market, self.config, self.market.index[0])
+            target = self.passive().curve(self.market, self.config, self.market.index[0])
         return calibrate_exit(exit_screen, self.market, target, grid, objective, splits, constraints, macro, **kw)
 
     def graham(self, tests="defensive", asof=None, **overrides) -> tuple[pd.DataFrame, pd.Series]:

@@ -53,13 +53,19 @@ expressions over the snapshot columns. For anything the spec can't express,
 register a plain function as `Screen(name, fn, n)` with
 `fn(snapshot, n, **params) -> [tickers]`.
 
-**Benchmark.** The default is a buy-and-hold `IndexBenchmark`: one purchase
-on the portfolio's start day, then daily MER drag. Its MER and trading cost
-are set separately from the portfolio's and default to 0. It uses the first
-loaded index series; with the synthetic data that is the cap-weighted
-`SYN_CAPWT`. If no index is loaded, the benchmark falls back to an
-equal-weight portfolio of the 60 largest names, which pays the portfolio's
-costs. CLI flags: `--benchmark NAME|top60 --bench-mer X --bench-cost-bps X`.
+**Benchmark.** Every result is benchmarked against a passive, buy-and-hold
+index: one purchase on the portfolio's start day, then daily MER drag (MER and
+trading cost are set separately from the portfolio's and default to 0). That
+is an explicit `IndexBenchmark`, else the first loaded index series (with the
+synthetic data, the cap-weighted `SYN_CAPWT`), else an index built from the
+universe and registered in `market.indices`: `PASSIVE_CAPWT` (cap-weighted
+total return of all live names) when market caps exist, otherwise
+`PASSIVE_EW` (equal weight at the first date, never rebalanced). Excess/yr,
+BeatBenchYrs, timing, significance, sweeps and the exit-signal default target
+all use it. A screen benchmark such as `equal_weight_top(60)` (passed as
+`benchmark=` or in `compare=`) only adds a `... (compare)` row and never
+replaces it. CLI: `--benchmark NAME` (index, replaces the passive one),
+`--compare NAME|top60`, `--bench-mer X --bench-cost-bps X`.
 
 **Tests.** `python -m pytest rothery_screener/tests -q` runs about 200
 tests in roughly 50 seconds, through the SDK where that makes sense:
@@ -150,8 +156,8 @@ data; `--stride 5` tests weekly offsets instead.
   common for strict Graham screens.
 - When a holding is delisted, its last value is cut by `delist_return` and
   held as cash until the next rebalance.
-- The benchmark is an index bought and held (see SDK above), or optionally a
-  screen.
+- The benchmark is a passive index bought and held (see above); a screen
+  can only be an extra comparison row.
 
 ## Research features
 Each lives in its own module and is reachable from `Lab`; see `DESIGN.md`

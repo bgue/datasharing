@@ -30,12 +30,15 @@ def build_tools(reg: LabRegistry | None = None) -> dict:
 
     def backtest(screens: list[str] | None = None, start: str | None = None, end: str | None = None,
                  config: dict | None = None, lab: str | None = None, max_points: int = DEFAULT_MAX_POINTS,
-                 exit: dict | None = None, with_and_without: bool = False) -> dict:
-        """Backtest screens against the benchmark. config overrides: rebalance_months, cost_bps, commission,
+                 exit: dict | None = None, with_and_without: bool = False, benchmark: str | None = None,
+                 compare: list[str] | None = None) -> dict:
+        """Backtest screens against the passive index (response key "benchmark" names it). `benchmark`: an
+        index name replacing it; `compare`: extra rows (index names or "top60"), never the primary benchmark.
+        config overrides: rebalance_months, cost_bps, commission,
         capital, mer, delist_return, min_holdings, cash_rate. Returns the metrics table and downsampled curves.
         exit: {"signals": [...], "threshold": .., "park": "cash", "reentry": "signal", "reentry_delay_days": ..,
         "reentry_steps": .., ...} applies an exit policy to every screen; with_and_without also runs them without."""
-        return reg.backtest(screens, start, end, config, lab, max_points, exit, with_and_without)
+        return reg.backtest(screens, start, end, config, lab, max_points, exit, with_and_without, benchmark, compare)
 
     def timing(screen: str, mode: str = "phase", stride: int = 1, start: str | None = None,
                end: str | None = None, config: dict | None = None, lab: str | None = None,

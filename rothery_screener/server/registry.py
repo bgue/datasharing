@@ -200,21 +200,25 @@ class LabRegistry:
         return {"screen": screen, "asof": scalar(L._asof(asof)), **table(df)}
 
     def backtest(self, screens=None, start=None, end=None, config=None, lab=None,
-                 max_points=DEFAULT_MAX_POINTS, exit=None, with_and_without=False) -> dict:
+                 max_points=DEFAULT_MAX_POINTS, exit=None, with_and_without=False, benchmark=None,
+                 compare=None) -> dict:
         """`exit`: {"signals": [...], threshold, weights, min_votes, hysteresis, screen_params, + policy fields
         (exposure_when_flagged, park, park_mer, park_cost_bps, switch_cost_bps, reentry, reentry_delay_days,
-        reentry_steps, rescreen_on_reentry, macro)} applied to every screen; with_and_without runs both."""
+        reentry_steps, rescreen_on_reentry, macro)} applied to every screen; with_and_without runs both.
+        The primary benchmark is always a passive index: `benchmark` (an index name) replaces the lab's,
+        while "topN" or `compare` entries (index names / "topN") only add "... (compare)" rows."""
         L = self.get(lab)
         pol = self._policy(L, exit) if exit else None
-        rep = self._call(L.backtest, screens, start, end, exit=pol, with_and_without=bool(with_and_without),
-                         **(config or {}))
+        bm, cmp = self._benchmarks(benchmark, compare)
+        rep = self._call(L.backtest, screens, start, end, benchmark=bm, exit=pol,
+                         with_and_without=bool(with_and_without), compare=cmp, **(config or {}))
         return self._report_json(rep, max_points)
 
     def timing(self, screen, mode="phase", stride=1, start=None, end=None, config=None, lab=None,
                max_points=DEFAULT_MAX_POINTS) -> dict:
         L = self.get(lab)
         tr = self._call(L.timing, screen, mode, stride, start, end, **(config or {}))
-        out = {"screen": tr.screen, "table": table(tr.table), "distribution": table(tr.distribution())}
+        out = {"benchmark": L.passive().label, "screen": tr.screen, "table": table(tr.table), "distribution": table(tr.distribution())}
         if tr.tranche is not None:
             out["tranche"] = curve(tr.tranche, max_points)
         return out
@@ -227,7 +231,7 @@ class LabRegistry:
     def sweep(self, screen, grid, objective="Excess/yr", start=None, end=None, splits=None, lab=None) -> dict:
         L = self.get(lab)
         df = self._call(L.sweep, screen, grid, objective, start, end, splits)
-        out = {"screen": screen, "objective": objective, "table": table(df, index=False)}
+        out = {"benchmark": L.passive().label, "screen": screen, "objective": objective, "table": table(df, index=False)}
         summ = df.attrs.get("summary")
         if summ is not None:
             out["summary"] = jsonify(summ)
@@ -238,7 +242,7 @@ class LabRegistry:
     def significance(self, screens=None, start=None, end=None, config=None, n=2000, seed=0, lab=None) -> dict:
         L = self.get(lab)
         rep = self._call(L.backtest, screens, start, end, **(config or {}))
-        return {"table": table(self._call(L.significance, rep, n, seed))}
+        return {"benchmark": rep.benchmark_label, "table": table(self._call(L.significance, rep, n, seed))}
 
     def extended(self, screens=None, start=None, end=None, config=None, macro=None,
                  spread_over_prime=0.0, leverage=1.0, lab=None) -> dict:
@@ -248,7 +252,8 @@ class LabRegistry:
         if m is None:
             raise ServerError(400, "extended needs `macro`: records [{date, series, value}], "
                                    "a {series: {date: value}} mapping, or \"statsmodels\"")
-        return {"table": table(self._call(L.extended, rep, m, spread_over_prime, leverage))}
+        return {"benchmark": rep.benchmark_label,
+                "table": table(self._call(L.extended, rep, m, spread_over_prime, leverage))}
 
     def exit_evaluate(self, signals, weights=None, threshold=0.7, min_votes=None, hysteresis=0.1,
                       screen_params=None, target=None, horizons=(1, 3, 12), macro=None,
@@ -262,7 +267,7 @@ class LabRegistry:
         ev = self._call(L.exit_eval, es, target, tuple(horizons), self._macro(macro, L), policy=pol,
                         exposure_when_flagged=exposure_when_flagged, cash_rate=cash_rate)
         ov = ev.overlay
-        return {"frac_flagged": scalar(ev.frac_flagged), "forward": table(ev.forward),
+        return {"benchmark": L.passive().label, "frac_flagged": scalar(ev.frac_flagged), "forward": table(ev.forward),
                 "drawdowns": table(ev.drawdowns, index=False), "overlay_stats": table(ov.stats),
                 "switches": ov.switches, "turnover": scalar(ov.turnover),
                 "curves": {"derisked": curve(ov.curve, max_points), "always_in": curve(ov.baseline, max_points)},
@@ -282,7 +287,10 @@ class LabRegistry:
         kw = {"policy": self._policy_from(es, policy, 0.0)} if policy else {}
         res = self._call(fn, es, grid=grid, objective=objective, splits=splits, constraints=constraints,
                          target=target, macro=self._macro(macro, L), **kw)
-        return jsonify(res)
+        out = jsonify(res)
+        if isinstance(out, dict):
+            out = {"benchmark": L.passive().label, **out}
+        return out
 
     def describe_columns(self, lab=None) -> dict:
         L = self.get(lab)
@@ -326,6 +334,20 @@ class LabRegistry:
             if type(e).__name__ in ("UndefinedVariableError", "JSONDecodeError"):
                 raise ServerError(400, f"{type(e).__name__}: {e}") from e
             raise
+
+    @staticmethod
+    def _benchmarks(benchmark, compare):
+        """(IndexBenchmark or None, [extra benchmarks]) from request strings: "topN" is never primary."""
+        from ..benchmarks import IndexBenchmark, equal_weight_top
+        mk = lambda b: (equal_weight_top(int(b[3:])) if b.lower().startswith("top") and b[3:].isdigit()
+                        else IndexBenchmark(b))
+        extra = [compare] if isinstance(compare, str) else list(compare or [])
+        if isinstance(benchmark, str):
+            b = mk(benchmark)
+            if isinstance(b, IndexBenchmark):
+                return b, [mk(x) for x in extra]
+            extra = [benchmark, *extra]
+        return None, [mk(x) for x in extra]
 
     def _report_json(self, rep, max_points) -> dict:
         c = rep.config

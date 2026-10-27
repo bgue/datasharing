@@ -87,8 +87,9 @@ def test_index_benchmark_mer_and_cost(toy):
 
 def test_screen_benchmark_option(toy):
     rep = toy.backtest([flat_three()], benchmark=equal_weight_top(3), rebalance_months=120)
-    assert rep.benchmark_label == "bench_top3"          # A, B, C are the three largest -> flat
-    assert end_value(rep.benchmark) == pytest.approx(1 - 3 * (1 / 3) * 25 / 1e4)
+    assert rep.benchmark_label == "IDX"                 # the passive index stays primary
+    c = rep.curves["bench_top3 (compare)"]              # A, B, C are the three largest -> flat
+    assert end_value(c) == pytest.approx(1 - 3 * (1 / 3) * 25 / 1e4)
 
 
 # --------------------------------------------------------------------------- costs / MER

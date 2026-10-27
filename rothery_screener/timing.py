@@ -103,7 +103,7 @@ def main(argv=None):
     tables = []
     for sc in screens:
         tr = lab.timing(sc, a.mode, a.stride, a.start, a.end, progress=True)
-        bench = lab.benchmark.curve(lab.market, lab.config, tr.curves.index[0], a.end)
+        bench = lab.passive().curve(lab.market, lab.config, tr.curves.index[0], a.end)
         print(report(tr, bench), flush=True)
         tables.append(tr.table.assign(screen=sc.name))
     if a.out:

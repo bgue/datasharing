@@ -31,7 +31,7 @@ Modules:
 """
 from .api import BacktestReport, Lab
 from .backtest import Config, cap_tiered
-from .benchmarks import IndexBenchmark, ScreenBenchmark, equal_weight_top
+from .benchmarks import IndexBenchmark, ScreenBenchmark, equal_weight_top, passive_index
 from .data import Market, synthetic_market
 from .screens import DEFENSIVE, ENTERPRISING, REGISTRY, GrahamTests, Screen
 from .spec import ScreenBuilder, ScreenSpec, define_screen, load_screens
@@ -50,7 +50,7 @@ from .sweep import Grid, random_search, run_sweep, walk_forward
 from .stats import bootstrap_excess, deflated_sharpe, t_stat_excess
 
 __all__ = ["Lab", "BacktestReport", "Config", "cap_tiered", "IndexBenchmark", "ScreenBenchmark",
-           "equal_weight_top", "Market", "synthetic_market", "DEFENSIVE", "ENTERPRISING", "REGISTRY",
+           "equal_weight_top", "passive_index", "Market", "synthetic_market", "DEFENSIVE", "ENTERPRISING", "REGISTRY",
            "GrahamTests", "Screen", "ScreenBuilder", "ScreenSpec", "define_screen", "load_screens",
            "HoldRule", "blend", "union_screen", "MacroSeries", "decompose", "extended_summary",
            "ExitScreen", "TrendBreak", "Breadth", "VolRegime", "DrawdownFromPeak", "ValuationStretch",

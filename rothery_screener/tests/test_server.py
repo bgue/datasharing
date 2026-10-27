@@ -220,3 +220,11 @@ def test_mcp_server_registers_tools(reg):
     from rothery_screener.server.mcp_server import create_server
     srv = create_server(reg)
     assert srv is not None
+
+
+def test_backtest_compare_rows_never_primary(client):
+    j = client.post("/labs/synthetic/backtest", json={"screens": ["dogs"], "benchmark": "top20",
+                                                       "compare": ["top10"], "max_points": 20}).json()
+    assert j["benchmark"] == "SYN_CAPWT"
+    assert {"bench_top20 (compare)", "bench_top10 (compare)"} <= set(j["curves"])
+    assert client.post("/labs/synthetic/timing", json={"screen": "dogs", "stride": 6}).json()["benchmark"] == "SYN_CAPWT"
