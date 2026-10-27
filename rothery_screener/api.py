@@ -24,11 +24,16 @@ without changing `lab.config`.
 """
 from __future__ import annotations
 
+import os
+import threading
+import uuid
 from dataclasses import dataclass, field, replace
 
 import pandas as pd
 
 from . import backtest, data, metrics
+from . import progress as _progress
+from .tracking import grid_points, note_points, tracked
 from .exit_policy import ExitPolicy, Portfolio, as_policy, policy_overlay
 from .benchmarks import IndexBenchmark, ScreenBenchmark, equal_weight_top, parse_benchmark, passive_index
 from .screens import REGISTRY, Screen, graham_funnel, graham_report
@@ -87,8 +92,17 @@ class Lab:
     benchmark: IndexBenchmark | ScreenBenchmark | None = None   # primary is always a passive IndexBenchmark
     screens: dict = field(default_factory=lambda: dict(REGISTRY))
     compare: tuple = ()                       # extra comparison benchmarks shown in every backtest
+    store: object = None                      # RunStore: records runs and counts trials (None = nothing kept)
+    jobs: object = None                       # JobManager for lab.submit (None = a thread pool on first use)
+    name: str | None = None                   # dataset name in RunSpecs (the server sets it)
+    persist: str = "metrics"                  # persist level when a store is on: none|inputs|metrics|full
+    session_id: str = field(default_factory=lambda: uuid.uuid4().hex)
 
     def __post_init__(self):
+        self._tl = threading.local()
+        if self.store is None and os.environ.get("ROTHERY_STORE"):
+            from .store import SQLiteStore
+            self.store = SQLiteStore(os.environ["ROTHERY_STORE"])
         """Passive index: the explicit IndexBenchmark, else the first loaded index series, else one built
         from the universe (PASSIVE_CAPWT, or PASSIVE_EW without market caps) and registered in
         market.indices. A ScreenBenchmark given here is only an extra comparison."""
@@ -168,6 +182,7 @@ class Lab:
     def snapshot(self, asof=None) -> pd.DataFrame:
         return self.market.view(self._asof(asof))
 
+    @tracked("picks")
     def picks(self, screen, asof=None, columns=("sector", "market_cap", "pe", "pb", "div_yield",
                                                   "f_score", "mom_12_1")) -> pd.DataFrame:
         s = self.snapshot(asof)
@@ -175,6 +190,7 @@ class Lab:
         return s.loc[names, [c for c in columns if c in s]]
 
     # ---- analysis ---------------------------------------------------------
+    @tracked("backtest")
     def backtest(self, screens=None, start=None, end=None, benchmark=None, exit=None,
                  with_and_without: bool = False, compare=(), **cfg) -> BacktestReport:
         """Backtest screens (names, Screens or `Portfolio(name, screen, exit=None, **config_overrides)`).
@@ -220,8 +236,9 @@ class Lab:
             ccurves[lab_x] = x.curve(self.market, cfg, start, end)
             rows[lab_x] = {**metrics.summarize(ccurves[lab_x], bcurve), "AvgN": float("nan")}
         results = {}
-        for label, sc, c, _ in screens:
-            res = backtest.run(sc, self.market, c, start, end)
+        for i, (label, sc, c, _) in enumerate(screens):
+            with _progress.scaled(i / len(screens), (i + 1) / len(screens)):
+                res = backtest.run(sc, self.market, c, start, end)
             results[label] = res
             yrs = (res.curve.index[-1] - res.curve.index[0]).days / 365.25
             rows[label] = {**metrics.summarize(res.curve, bcurve),
@@ -232,6 +249,7 @@ class Lab:
                 rows[label].update({"TimeOut": res.time_out, "Switches/yr": res.switches / yrs})
         return BacktestReport(pd.DataFrame(rows).T, results, bcurve, bench.label, cfg, ccurves)
 
+    @tracked("timing")
     def timing(self, screen, mode: str = "phase", stride: int = 1, start=None, end=None,
                offsets=None, benchmark=None, progress: bool = False, **cfg):
         """Rebalance-timing study (see timing.py); returns a timing.TimingResult."""
@@ -240,8 +258,14 @@ class Lab:
                             stride, offsets, self.passive(benchmark), progress)
 
     # ---- research --------------------------------------------------------
+    @tracked("significance", lambda self, report, n=2000, seed=0: {
+        **getattr(report, "_args", {"screens": list(report.results)}), "n": n, "seed": seed})
     def significance(self, report: BacktestReport, n: int = 2000, seed: int = 0) -> pd.DataFrame:
-        """Bootstrap CI on excess return and Newey-West t-stat per screen, plus DSR across screens."""
+        """Bootstrap CI on excess return and Newey-West t-stat per screen, plus DSR across screens.
+
+        The deflated Sharpe uses `n_trials` = the family's trial count (distinct significance runs on this
+        dataset and screen base, from the store or this process) when that exceeds the number of screens;
+        `result.attrs` carries `trials_in_family` and `trials_scope`."""
         from . import stats
         rows = {}
         for name, res in report.results.items():
@@ -252,18 +276,33 @@ class Lab:
         out = pd.DataFrame(rows).T
         out["Sharpe"] = report.table.loc[out.index, "Sharpe"]
         n_obs = int(report.benchmark.pct_change().dropna().shape[0])
-        return stats.summarize_trials(out, n_obs=n_obs,
-                                      periods_per_year=stats.periods_per_year(report.benchmark.index))
+        info = self.last_trials() or {}
+        n_trials = max(len(out), int(info.get("trials_in_family", 0)))
+        res = stats.summarize_trials(out, n_obs=n_obs, n_trials=n_trials,
+                                     periods_per_year=stats.periods_per_year(report.benchmark.index))
+        res.attrs.update(info, n_trials=n_trials)
+        return res
 
+    @tracked("sweep")
     def sweep(self, screen, grid, objective="Excess/yr", start=None, end=None, splits=None,
               benchmark=None) -> pd.DataFrame:
         """Grid / random-search sweep; dotted keys ("dogs.n") hit the screen, bare keys Config.
-        `splits=dict(train_years=.., test_years=..)` adds walk-forward out-of-sample columns."""
+        `splits=dict(train_years=.., test_years=..)` adds walk-forward out-of-sample columns.
+        Every grid point counts as a trial: `result.attrs["n_trials"]` (also `trials_in_family`,
+        `trials_scope`) is what `stats.summarize_trials(result, n_trials=...)` should deflate by."""
         from .sweep import Grid, run_sweep
         if isinstance(grid, dict):
             grid = Grid(grid)
-        return run_sweep(self, self.screen(screen), grid, objective, start, end, splits, self.passive(benchmark))
+        n = note_points(self, "sweep", self._tl.args or {}, grid_points(grid.spec if isinstance(grid, Grid) else grid)) \
+            if getattr(self._tl, "args", None) is not None else 0
+        tbl = run_sweep(self, self.screen(screen), grid, objective, start, end, splits, self.passive(benchmark))
+        info = self.last_trials() or {}
+        tbl.attrs.update(info, n_trials=max(len(tbl), n))
+        return tbl
 
+    @tracked("extended", lambda self, report, macro, spread_over_prime=0.0, leverage=1.0: {
+        **getattr(report, "_args", {"screens": list(report.results)}), "macro": macro,
+        "spread_over_prime": spread_over_prime, "leverage": leverage})
     def extended(self, report: BacktestReport, macro, spread_over_prime: float = 0.0,
                  leverage: float = 1.0) -> pd.DataFrame:
         """Real / home-currency / net-of-financing / excess-over-rf metrics for every curve in a report."""
@@ -275,6 +314,7 @@ class Lab:
             rows[name] = extended_summary(res.curve, macro, report.benchmark, spread_over_prime, leverage)
         return pd.DataFrame(rows).T
 
+    @tracked("exit_evaluate")
     def exit_eval(self, exit_screen, target=None, horizons=(1, 3, 12), macro=None, policy=None, **kw):
         """Evaluate an ExitScreen against a target curve (default: the passive index).
 
@@ -297,6 +337,7 @@ class Lab:
                                     state=ev.state, signal_curve=kw.get("curve"))
         return ev
 
+    @tracked("exit_calibrate")
     def calibrate_exit(self, exit_screen, grid, target=None, objective="Calmar", splits=None,
                        constraints=None, macro=None, **kw):
         """Walk-forward calibration of an ExitScreen's thresholds / timing (see calibration.py).
@@ -305,11 +346,36 @@ class Lab:
         kw.setdefault("rebalance_months", self.config.rebalance_months)
         if target is None:
             target = self.passive().curve(self.market, self.config, self.market.index[0])
-        return calibrate_exit(exit_screen, self.market, target, grid, objective, splits, constraints, macro, **kw)
+        n = (note_points(self, "exit_calibrate", self._tl.args, grid_points(grid))
+             if getattr(self._tl, "args", None) is not None else 0)
+        res = calibrate_exit(exit_screen, self.market, target, grid, objective, splits, constraints, macro,
+                             n_trials=n or None, **kw)
+        res.summary.update(self.last_trials() or {})
+        return res
 
+    @tracked("graham")
     def graham(self, tests="defensive", asof=None, **overrides) -> tuple[pd.DataFrame, pd.Series]:
         """(per-name pass/fail table, cumulative funnel) for a preset or GrahamTests."""
         t = graham_tests(tests)
         t = replace(t, **overrides) if overrides else t
         s = self.snapshot(asof)
         return graham_report(s, t), graham_funnel(s, t)
+
+    # ---- runs, jobs and trials ---------------------------------------------------------------
+    def last_trials(self) -> dict | None:
+        """{"trials_in_family", "trials_scope", ...} of this thread's latest tracked call (None before any)."""
+        return getattr(self._tl, "last", None)
+
+    def submit(self, kind: str, *, label=None, tags=(), force: bool = False, run_seed: int = 0, **args):
+        """Start `kind` ("backtest", "timing", "sweep", "significance", "extended", "exit_evaluate",
+        "exit_calibrate", "graham", "picks") asynchronously with the Lab method's keyword arguments and
+        return a `jobs.Job` (status / progress / cancel / result()). Uses `Lab(jobs=JobManager(...))` when
+        given (this lab's `name` must be one of its datasets), else a private thread pool over this lab.
+        An identical finished run in the store is returned at once (`job.cache_hit`) unless `force`."""
+        from .jobs import JobManager
+        from .runspec import RunSpec
+        if self.jobs is None:
+            self.jobs = JobManager(store=self.store, mode="thread", labs={self.name or "lab": self},
+                                   persist=self.persist)
+        name = self.name or ("lab" if "lab" in self.jobs.labs else None)
+        return self.jobs.submit(RunSpec(kind, name, args, run_seed, label, tuple(tags)), force=force)

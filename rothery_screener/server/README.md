@@ -49,13 +49,32 @@ or `"statsmodels"`. Signals are `{"type": "TrendBreak", "window_months": 10}` (s
     curl -X POST localhost:8000/labs/synthetic/exit/evaluate -H 'content-type: application/json' \
       -d '{"signals":[{"type":"TrendBreak"},{"type":"Breadth"}],"threshold":0.7}'
 
+## Asynchronous runs
+`POST /jobs` takes `{"kind": "timing", "lab": "sp500", "args": {...}}` where `kind` is one of backtest, timing,
+sweep, significance, extended, exit_evaluate, exit_calibrate, graham, picks and `args` are the body of the
+matching synchronous endpoint (GET endpoints: `graham` takes `preset`/`asof`/`overrides`, `picks` takes
+`screen`/`asof`). The response is `{job_id, run_key, status, cache_hit, progress, message, ...}`. An identical
+finished run in the store comes back at once with `cache_hit: true` (pass `force: true` to recompute); an
+identical running run is attached to. `GET /jobs/{id}` polls (`progress` 0-1), `GET /jobs/{id}/result` returns the
+same JSON as the synchronous endpoint (409 while running, failed or cancelled), `DELETE /jobs/{id}` cancels,
+`GET /jobs?status=done` lists. The MCP tools are `submit_run, run_status, run_result, cancel_run, list_runs`.
+Job results use the default `max_points`.
+
+Persistence: `create_app()` / `default_registry()` open `ROTHERY_STORE` (default `~/.rothery/runs.sqlite`; `none`
+disables) and every run, synchronous or not, is recorded with its metrics. `LabRegistry(factories, store=,
+mode="process"|"thread", workers=, sync_timeout=)` configures a custom registry (process mode needs importable
+factories; tests use `mode="thread"` and a temporary store). Synchronous endpoints stop after `sync_timeout`
+seconds (env `ROTHERY_SYNC_TIMEOUT`, default 120, 0 = unlimited) with a 408 telling the client to use `/jobs`.
+Every result JSON carries `trials_in_family` and `trials_scope`.
+
 ## MCP (stdio)
     python -m rothery_screener.server.mcp_server
     claude mcp add rothery -- python -m rothery_screener.server.mcp_server
 
 Tools mirror the endpoints with the same names and arguments: `list_labs, list_screens, define_screen,
 picks, backtest, timing, graham, sweep, significance, extended, exit_evaluate, exit_calibrate`, plus
-`describe_columns` (the fundamentals column contract) and `list_signals`. Every tool takes an optional
+`describe_columns` (the fundamentals column contract), `list_signals`, and the run tools `submit_run, run_status,
+run_result, cancel_run, list_runs`. Every tool takes an optional
 `lab`. Works with both `mcp` 1.x (`FastMCP`) and 2.x (`MCPServer`).
 
 Labs live in the server process: a screen added with `define_screen` stays until the process exits.

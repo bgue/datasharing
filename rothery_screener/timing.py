@@ -21,6 +21,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from . import backtest, metrics
+from . import progress as _progress
 from .data import Market
 from .screens import Screen
 
@@ -52,10 +53,12 @@ def study(screen: Screen, mkt: Market, cfg: backtest.Config, start=None, end=Non
 
     rows, curves, bench_cache = [], {}, {}
     for n, k in enumerate(offsets):
-        if mode == "phase":
-            res = backtest.run(screen, mkt, cfg, start, end, phase_days=k)
-        else:
-            res = backtest.run(screen, mkt, cfg, mkt.index[i0 + k], end)
+        _progress.report(n / len(offsets), f"{screen.name}: offset {n + 1}/{len(offsets)}")
+        with _progress.scaled(n / len(offsets), (n + 1) / len(offsets), f"offset {n + 1}/{len(offsets)}"):
+            if mode == "phase":
+                res = backtest.run(screen, mkt, cfg, start, end, phase_days=k)
+            else:
+                res = backtest.run(screen, mkt, cfg, mkt.index[i0 + k], end)
         d0 = res.curve.index[0]
         if benchmark is not None and d0 not in bench_cache:
             bench_cache[d0] = benchmark.curve(mkt, cfg, d0, end)

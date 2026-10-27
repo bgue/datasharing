@@ -17,6 +17,7 @@ from typing import Callable, Mapping, Union
 import numpy as np
 import pandas as pd
 
+from . import progress
 from .construction import HoldRule, target_weights
 from .data import Market
 from .exit_policy import ExitPolicy
@@ -122,6 +123,7 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
         park_pieces = []
 
     for j, d in enumerate(rebal):
+        progress.report(j / len(rebal), f"{screen.name}: rebalance {j + 1}/{len(rebal)}")
         nxt = rebal[j + 1] if j + 1 < len(rebal) else end
         snap = mkt.view(d)
         picks = mkt.picks(screen, d)
@@ -209,12 +211,14 @@ def run(screen: Screen, mkt: Market, cfg: Config = Config(), start=None, end=Non
     # some signal needs it), then the exposure path decides re-entry rescreens, then the real simulation
     curve = None
     if pol.needs_curve:
-        curve = simulate(screen, mkt, replace(cfg, exit=None), rebal, end).curve
+        with progress.scaled(0.0, 0.5):
+            curve = simulate(screen, mkt, replace(cfg, exit=None), rebal, end).curve
     expo = pol.exposure(mkt, rebal, curve)
     if pol.rescreen_on_reentry:
         stop = pd.Timestamp(end) if end else mkt.index[-1]
         rebal = sorted(set(rebal) | {d for d in pol.reentry_dates if rebal[0] < d < stop})
-    return simulate(screen, mkt, cfg, rebal, end, expo)
+    with progress.scaled(0.5 if curve is not None else 0.0, 1.0):
+        return simulate(screen, mkt, cfg, rebal, end, expo)
 
 
 def benchmark_screen(top: int = 60) -> Screen:

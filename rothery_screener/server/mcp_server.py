@@ -95,8 +95,33 @@ def build_tools(reg: LabRegistry | None = None) -> dict:
         """Built-in exit signals with their parameters and defaults."""
         return reg.list_signals()
 
+    def submit_run(kind: str, args: dict | None = None, lab: str | None = None, seed: int = 0,
+                   label: str | None = None, tags: list[str] | None = None, force: bool = False) -> dict:
+        """Start a long run in the background and return {job_id, status, run_key, cache_hit}. kind: backtest,
+        timing, sweep, significance, extended, exit_evaluate, exit_calibrate, graham or picks; args are that
+        tool's arguments (e.g. {"screen": "dogs", "stride": 1} for timing). An identical finished run is
+        returned from the store at once unless force=true. Poll run_status, then fetch run_result."""
+        return reg.submit_run(kind, args, lab, seed, label, tags, force)
+
+    def run_status(job_id: str) -> dict:
+        """Status (queued/running/done/failed/cancelled), progress 0-1 and message of a run."""
+        return reg.run_status(job_id)
+
+    def run_result(job_id: str) -> dict:
+        """The finished run's result: the same JSON the matching synchronous tool returns (error while not done)."""
+        return reg.run_result(job_id)
+
+    def cancel_run(job_id: str) -> dict:
+        """Ask a queued or running run to stop."""
+        return reg.cancel_run(job_id)
+
+    def list_runs(status: str | None = None) -> dict:
+        """Runs started in this server session, newest first; optionally only those with one status."""
+        return reg.list_runs(status)
+
     fns = [list_labs, list_screens, define_screen, picks, backtest, timing, graham, sweep, significance,
-           extended, exit_evaluate, exit_calibrate, describe_columns, list_signals]
+           extended, exit_evaluate, exit_calibrate, describe_columns, list_signals,
+           submit_run, run_status, run_result, cancel_run, list_runs]
     return {f.__name__: f for f in fns}
 
 

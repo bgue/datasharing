@@ -1,7 +1,8 @@
 """REST app over a LabRegistry. Run: `python -m rothery_screener.server.rest [--host H] [--port P]`.
 
 Bodies are JSON objects whose keys are the keyword arguments of the matching LabRegistry operation
-(see README.md). Errors come back as {"error": message} with 400 / 404 / 501.
+(see README.md). Errors come back as {"error": message} with 400 / 404 / 408 / 409 / 501.
+Long runs: POST /jobs, poll GET /jobs/{id}, fetch GET /jobs/{id}/result.
 """
 from __future__ import annotations
 
@@ -112,6 +113,33 @@ def create_app(registry: LabRegistry | None = None):
     @app.get("/signals")
     def signals():
         return reg.list_signals()
+
+    # ---- asynchronous runs: POST /jobs {kind, lab?, args, seed?, label?, tags?, force?}
+    @app.post("/jobs")
+    def submit_job(body: dict = Body(...)):
+        allowed = ["kind", "lab", "args", "seed", "label", "tags", "force"]
+        bad = [k for k in body if k not in allowed]
+        if bad:
+            raise ServerError(400, f"unknown field {bad[0]!r} for POST /jobs; allowed: {allowed}")
+        if "kind" not in body:
+            raise ServerError(400, "missing required field 'kind'")
+        return reg.submit_run(**body)
+
+    @app.get("/jobs")
+    def list_jobs(status: str | None = None):
+        return reg.list_runs(status)
+
+    @app.get("/jobs/{job_id}")
+    def job_status(job_id: str):
+        return reg.run_status(job_id)
+
+    @app.get("/jobs/{job_id}/result")
+    def job_result(job_id: str):
+        return reg.run_result(job_id)
+
+    @app.delete("/jobs/{job_id}")
+    def cancel_job(job_id: str):
+        return reg.cancel_run(job_id)
 
     return app
 

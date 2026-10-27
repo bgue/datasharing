@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from . import metrics
+from . import progress
 from .stats import periods_per_year
 
 
@@ -129,6 +130,7 @@ class _Evaluator:
         return self.cache[key]
 
     def value(self, point, a=None, b=None) -> float:
+        progress.check_cancel()
         curve, bench, _ = self.run(point)
         c, bn = curve.loc[a:b], bench.loc[a:b]
         if len(c) < 3:
@@ -168,7 +170,13 @@ def run_sweep(lab, screen, grid, objective: str | Callable = "Excess/yr", start=
     points = list(grid)
     if not points:
         raise ValueError("empty grid")
-    tbl = pd.DataFrame([ev.row(p) for p in points])
+    rows = []
+    for i, p in enumerate(points):
+        progress.report(0.9 * i / len(points), f"sweep point {i + 1}/{len(points)}")
+        with progress.scaled(0.9 * i / len(points), 0.9 * (i + 1) / len(points), f"sweep point {i + 1}/{len(points)}"):
+            rows.append(ev.row(p))
+    tbl = pd.DataFrame(rows)
+    progress.report(0.9, "sweep: walk-forward" if splits is not None else "sweep: done")
     pcols = list(dict.fromkeys(k for p in points for k in p))
     if splits is None:
         return tbl

@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 
 from . import metrics
+from . import progress
 from .exit_policy import ExitPolicy, policy_overlay
 from .exit_signals import (ExitScreen, OverlayResult, evaluate_state, overlay)
 from .stats import periods_per_year, summarize_trials
@@ -111,7 +112,7 @@ def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | 
                    splits=None, constraints: Mapping | None = None, macro=None,
                    exposure_when_flagged: float = 0.0, cash_rate: float | pd.Series = 0.0,
                    cost_bps: float = 5.0, policy: ExitPolicy | None = None, rebalance_months: int = 12,
-                   rebalance_dates=None) -> CalibrationResult:
+                   rebalance_dates=None, n_trials: int | None = None) -> CalibrationResult:
     """Grid-search an ExitScreen's parameters against `target` (a series name in `mkt`, or a curve).
 
     grid: {key: [values]} or a list of point dicts. Keys: threshold, hysteresis, check, lag,
@@ -127,6 +128,8 @@ def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | 
     list of (train_start, train_end, test_end).
     `cost_bps` is charged per unit of exposure traded (overlay `cost`), `cash_rate` earns on the
     derisked part.
+    `n_trials`: how many trials the deflated Sharpe corrects for (default: the grid size); Lab passes the
+    family's trial count.
     Policy keys: reentry, reentry_delay_days, reentry_steps, park and exposure_when_flagged may also be
     grid keys (or fixed through `policy`, an ExitPolicy whose other fields -- park_mer, switch_cost_bps,
     ... -- apply to every point; its screen is ignored in favour of `exit_screen`). Such points are traded
@@ -157,7 +160,8 @@ def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | 
         reb = schedule(mkt, curve.index[0], rebalance_months)
     comp_cache: dict = {}
     runs = []
-    for p in points:
+    for i, p in enumerate(points):
+        progress.report(0.6 * i / len(points), f"calibrate: point {i + 1}/{len(points)}")
         scr, expo = _screen_for(exit_screen, p)
         expo = (policy.exposure_when_flagged if policy is not None else exposure_when_flagged) if expo is None else expo
         ck = tuple(sorted((k, _key(v)) for k, v in p.items() if k.startswith("signals.")))
@@ -181,6 +185,7 @@ def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | 
                 and stats["FracFlagged"] >= cons.get("min_time_flagged", 0.0))
 
     def value(r, a, b) -> float:
+        progress.check_cancel()
         c = r["ov"].curve.loc[a:b]
         if len(c) < 3:
             return np.nan
@@ -200,7 +205,8 @@ def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | 
         return float(s.get(objective, np.nan)) if s else np.nan
 
     rows = []
-    for r in runs:
+    for i, r in enumerate(runs):
+        progress.report(0.6 + 0.2 * i / len(runs), f"calibrate: scoring {i + 1}/{len(runs)}")
         full = _slice_stats(r["ov"], r["state"], curve.index[0], curve.index[-1], rf)
         rets = r["ov"].curve.pct_change().dropna()
         row = dict(r["point"])
@@ -222,7 +228,9 @@ def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | 
         if not wins:
             raise ValueError("no walk-forward window fits in the sample; shorten train/test years")
         train = np.array([[value(r, a, b) for (a, b, _) in wins] for r in runs])
+        progress.report(0.85, "calibrate: walk-forward train windows")
         test = np.array([[value(r, b, c) for (_, b, c) in wins] for r in runs])
+        progress.report(0.95, "calibrate: walk-forward test windows")
         ok = np.array([[feasible(_slice_stats(r["ov"], r["state"], a, b, rf)) for (a, b, _) in wins]
                        for r in runs])
         picked = np.zeros(len(points), int)
@@ -250,7 +258,9 @@ def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | 
             raise ValueError("no grid point satisfies the constraints")
         best_i = int(np.argmax(score))
 
-    tr = summarize_trials(tbl.assign(Sharpe=tbl["Sharpe"].astype(float)))
+    n_tr = max(len(tbl), int(n_trials or 0))
+    tr = summarize_trials(tbl.assign(Sharpe=tbl["Sharpe"].astype(float)), n_trials=n_tr)
+    summary["n_trials"] = n_tr
     tbl["DSR"] = tr["DSR"].to_numpy()
     summary["dsr"] = float(tbl["DSR"].iloc[best_i])
     tbl.attrs["walk_forward"], tbl.attrs["summary"] = wf, summary

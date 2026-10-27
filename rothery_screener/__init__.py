@@ -48,6 +48,10 @@ from .exit_inputs import (CorrelationSpike, CreditSpread, DeathCross, DistanceFr
                           VolTermStructure, YieldCurve, YieldSpreadCompression)
 from .sweep import Grid, random_search, run_sweep, walk_forward
 from .stats import bootstrap_excess, deflated_sharpe, t_stat_excess
+from .runspec import RunSpec, code_version, dataset_id
+from .store import NullStore, SQLiteStore
+from .jobs import Job, JobManager
+from .progress import Cancelled
 
 __all__ = ["Lab", "BacktestReport", "Config", "cap_tiered", "IndexBenchmark", "ScreenBenchmark",
            "equal_weight_top", "passive_index", "Market", "synthetic_market", "DEFENSIVE", "ENTERPRISING", "REGISTRY",
@@ -60,4 +64,5 @@ __all__ = ["Lab", "BacktestReport", "Config", "cap_tiered", "IndexBenchmark", "S
            "EarningsBreadth", "NewLowsMinusHighs", "PortfolioStop", "PortfolioVsIndex",
            "VolTermStructure", "YieldCurve", "YieldSpreadCompression",
            "Grid", "random_search", "run_sweep", "walk_forward",
-           "bootstrap_excess", "deflated_sharpe", "t_stat_excess"]
+           "bootstrap_excess", "deflated_sharpe", "t_stat_excess", "RunSpec", "code_version", "dataset_id",
+           "NullStore", "SQLiteStore", "Job", "JobManager", "Cancelled"]
