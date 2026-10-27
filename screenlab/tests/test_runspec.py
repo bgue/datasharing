@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import sys
+import types
 
 import numpy as np
 import pandas as pd
@@ -276,3 +277,51 @@ def test_python_function_lab_parts_make_the_key_none():
     assert R.run_key_for(spec, "d", R.lab_context(f)) is None
     assert R.lab_context(mk(config=Config(weighting=lambda s: s))).reasons
     assert key_of(mk(config=Config(weighting=lambda s: s))) is None
+
+
+# ---------------------------------------------------------------- importable screen functions
+def _sp_fn_a(s, n=3):
+    return s.index[:n].tolist()
+
+
+def _sp_fn_b(s, n=3):
+    return s.index[-n:].tolist()
+
+
+def test_module_level_screen_fn_roundtrips_and_other_fns_stay_unpersistable():
+    from screenlab.realdata.bundled import momentum_12_1
+    sc = Screen("momentum_12_1", momentum_12_1, 7, note="x")
+    d = R.to_dict(sc)
+    assert d["type"] == "screen_fn" and d["fn"] == "screenlab.realdata.bundled:momentum_12_1" and d["n"] == 7
+    back = R.from_dict(json.loads(json.dumps(d)))
+    assert back.fn is momentum_12_1 and back.n == 7 and back.name == "momentum_12_1" and back.note == "x"
+    assert R.RunSpec("backtest", "d", {"screens": [sc]}).persistable
+    assert R.RunSpec("backtest", "d", {"screens": [sc]}).screen_names() == ["momentum_12_1"]
+
+    def closure(s, n=1):
+        return []
+
+    class K:
+        def m(self, s, n=1):
+            return []
+
+    main_fn = type(momentum_12_1)(momentum_12_1.__code__, {}, "main_fn")
+    main_fn.__module__, main_fn.__qualname__ = "__main__", "main_fn"
+    cases = {"lambda": lambda s, n: [], "closure": closure, "bound method": K().m, "__main__": main_fn}
+    for what, fn in cases.items():
+        rs = R.unpersistable_reasons(R.to_dict(Screen("mine", fn, 3)))
+        assert len(rs) == 1 and what in rs[0], rs
+        assert not R.RunSpec("backtest", "d", {"screens": [Screen("mine", fn, 3)]}).persistable
+    assert "importable module" in R.unpersistable_reasons(R.to_dict(Screen("m", main_fn)))[0]
+
+
+def test_lab_context_hash_includes_screen_function():
+    from screenlab.realdata.bundled import low_vol, momentum_12_1
+    a = types.SimpleNamespace(config=Config(), benchmark=None, compare=[],
+                              screens={"momentum_12_1": Screen("momentum_12_1", momentum_12_1, 5)})
+    b = types.SimpleNamespace(config=Config(), benchmark=None, compare=[],
+                              screens={"momentum_12_1": Screen("momentum_12_1", low_vol, 5)})
+    ca, cb = R.lab_context(a), R.lab_context(b)
+    assert not ca.bad_screens and ca.hash != cb.hash
+    sp = R.RunSpec("backtest", "d", {"screens": ["momentum_12_1"]})
+    assert R.run_key_for(sp, "ds", ca) and R.run_key_for(sp, "ds", ca) != R.run_key_for(sp, "ds", cb)

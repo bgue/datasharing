@@ -291,8 +291,11 @@ recomputed. Three independent pieces (DESIGN.md section I):
   ExitScreen and signals by name + params, Portfolio, benchmarks, screens, Grid, MacroSeries by reference).
   `run_key = sha256(kind, args, seed, dataset_id, code_version)`; arguments that are None or equal to the
   default are dropped, so `lab.timing("dogs")` and `{"screen": "dogs", "stride": 1}` are one run. A Python
-  callable input (function weighting, custom cost, `Screen(fn=...)`) still runs, but the spec is not
-  `persistable`: no key, no cache, no `rerun`. A MacroSeries needs `runspec.macro_ref(macro, name)` to be
+  callable input (function weighting, custom cost, a `Screen(fn=...)` whose function is a lambda, closure or
+  lives in `__main__`) still runs, but the spec is not
+  `persistable`: no key, no cache, no `rerun`. A `Screen` whose `fn` is an importable module-level function (like the
+  S&P 500 lab's price-only screens) is persistable: it is stored as `module:qualname` and re-imported, and the
+  reference is part of the lab-context hash. A MacroSeries needs `runspec.macro_ref(macro, name)` to be
   persistable. The `run_key` of an SDK call ignores `lab.config` and `lab.screens`; pass overrides as arguments.
 - **`JobManager(store, workers, mode="process"|"thread", labs={name: factory})`** (`jobs.py`): spawn-based
   process pool (factories must be importable module-level callables; thread mode is for tests and small

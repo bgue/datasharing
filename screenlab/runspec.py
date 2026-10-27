@@ -8,13 +8,14 @@
 
 Serialization (`to_dict` / `from_dict`) is a tagged-dict encoding: JSON natives stay as they are, anything
 else becomes `{"__t": "<Tag>", ...}` (tuples, dates, non-string-keyed dicts, Series, dataclasses by name,
-signals by `BUILTINS` name + params, screens as a built-in name + overrides or as their ScreenSpec dict,
+signals by `BUILTINS` name + params, screens as a built-in name + overrides, their ScreenSpec dict, or an
+importable module-level function reference (`screen_fn`, "module:qualname"),
 `cap_tiered` closures as their tiers, MacroSeries by reference). Defaults are omitted, so adding a field
 with a default to a dataclass does not change existing keys. The encoding is idempotent: `to_dict` of an
 already serialized value returns it unchanged, so a spec may hold live objects or their JSON.
 
-Things that cannot be rebuilt (a Python function weighting, a custom cost function, `Screen(fn=...)`, a
-custom signal, a MacroSeries without a registered reference) become `{"__t": "unpersistable", "reason"}`.
+Things that cannot be rebuilt (a Python function weighting, a custom cost function, `Screen(fn=...)` with a lambda / closure /
+`__main__` function, a custom signal, a MacroSeries without a registered reference) become `{"__t": "unpersistable", "reason"}`.
 Such a spec still runs (in-process) but has `persistable == False`, no `run_key`, and no cache reuse.
 """
 from __future__ import annotations
@@ -192,8 +193,52 @@ def _screen_to_dict(s) -> dict:
             spec = {"name": s.name, "n": s.n, "note": "" if s.note == "spec screen" else s.note, **s.params}
             return {TAG: "Screen", "spec": to_dict(spec)}
         return {TAG: "Screen", "rule": {"name": s.name, "n": s.n, "note": s.note, "params": to_dict(dict(s.params))}}
-    return _unp(f"Screen {s.name!r} wraps a Python function (fn={getattr(s.fn, '__name__', s.fn)!r})",
-                name=s.name)
+    ref, why = _fn_ref(s.fn)
+    if ref is None:
+        return _unp(f"Screen {s.name!r} wraps a Python function that cannot be rebuilt: {why}", name=s.name)
+    return {TAG: "Screen", "type": "screen_fn", "name": s.name, "fn": ref, "n": s.n,
+            "params": to_dict(dict(s.params)), "note": s.note}
+
+
+def _fn_ref(fn) -> tuple:
+    """("module:qualname", None) for an importable module-level function, else (None, reason)."""
+    import importlib
+    import types
+    label = getattr(fn, "__qualname__", None) or repr(fn)
+    if isinstance(fn, types.MethodType):
+        return None, f"{label!r} is a bound method"
+    if not isinstance(fn, types.FunctionType):
+        return None, f"{label!r} is not a plain function"
+    mod, qn = getattr(fn, "__module__", None), getattr(fn, "__qualname__", None)
+    if not mod or not qn:
+        return None, f"{label!r} has no __module__/__qualname__"
+    if "<lambda>" in qn:
+        return None, f"{qn!r} is a lambda"
+    if "<locals>" in qn:
+        return None, f"{qn!r} is a closure or nested function (defined in a function body)"
+    if mod == "__main__":
+        return None, f"{qn!r} is defined in __main__; the function must live in an importable module"
+    try:
+        obj = importlib.import_module(mod)
+        for part in qn.split("."):
+            obj = getattr(obj, part)
+    except Exception as e:
+        return None, f"{mod}:{qn} is not importable ({type(e).__name__}: {e})"
+    if obj is not fn:
+        return None, f"{mod}:{qn} resolves to a different object than the screen's function"
+    return f"{mod}:{qn}", None
+
+
+def _import_fn(ref: str):
+    import importlib
+    try:
+        mod, qn = ref.split(":", 1)
+        obj = importlib.import_module(mod)
+        for part in qn.split("."):
+            obj = getattr(obj, part)
+    except Exception as e:
+        raise Unpersistable(f"cannot import screen function {ref!r} ({type(e).__name__}: {e})") from e
+    return obj
 
 
 def to_dict(obj):
@@ -351,6 +396,8 @@ def from_dict(d):
 def _screen_from_dict(d):
     from .screens import REGISTRY, Screen
     from .spec import ScreenSpec, rule_screen
+    if d.get("type") == "screen_fn":
+        return Screen(d["name"], _import_fn(d["fn"]), d["n"], from_dict(d.get("params", {})), d.get("note", ""))
     if "name" in d and TAG in d and "spec" not in d and "rule" not in d:
         if d["name"] not in REGISTRY:
             raise Unpersistable(f"unknown built-in screen {d['name']!r}")

@@ -423,3 +423,46 @@ def test_labs_differing_only_in_config_never_share_cached_results(tmp_path):
     assert not m.submit(RunSpec("backtest", "synthetic", {"screens": ["dogs"]})).cache_hit
     m.shutdown()
     store.close()
+
+
+# ------------------------------------------------------------------ S&P 500 lab: function screens are persistable
+def _sp500(store=None):
+    from screenlab.realdata.bundled import sp500_lab
+    lab = sp500_lab(store=store)
+    lab.name = "sp500"
+    return lab
+
+
+def test_sp500_backtest_has_run_key_caches_reruns_and_counts_trials(tmp_path):
+    from screenlab.runspec import dataset_id, lab_context, run_key_for
+    from screenlab.tracking import trial_store
+    store = SQLiteStore(tmp_path / "runs.sqlite")
+    lab = _sp500(store)
+    rep = lab.backtest(["momentum_12_1", "low_vol"], rebalance_months=6)
+    spec = RunSpec("backtest", "sp500", {"screens": ["momentum_12_1", "low_vol"], "rebalance_months": 6})
+    key = run_key_for(spec, dataset_id(lab.market), lab_context(lab))
+    assert key and not key.startswith("unpersistable:")
+    assert store.cached(key) is not None
+    assert lab.last_trials()["trials_in_family"] == 1
+    # second submit is a cache hit with identical metrics
+    job = lab.submit("backtest", screens=["momentum_12_1", "low_vol"], rebalance_months=6)
+    assert job.cache_hit
+    pd.testing.assert_frame_equal(job.result().table, rep.table)
+    # rerun from the store reproduces the numbers
+    out = store.rerun(key, lambda sp: execute_spec(sp, lab), dataset_id=dataset_id(lab.market))
+    assert out.match
+    # a new variation is a second trial of the family
+    lab.backtest(["momentum_12_1", "low_vol"], rebalance_months=3)
+    assert lab.last_trials()["trials_in_family"] == 2
+    store.close()
+
+
+def test_sp500_process_mode_matches_sync(tmp_path):
+    sync = _sp500().backtest(["momentum_12_1"], rebalance_months=6)
+    from screenlab.realdata.bundled import sp500_lab
+    with JobManager(store=SQLiteStore(tmp_path / "p.sqlite"), workers=1, mode="process",
+                    labs={"sp500": sp500_lab}) as m:
+        job = m.submit(RunSpec("backtest", "sp500", {"screens": ["momentum_12_1"], "rebalance_months": 6}))
+        res = job.result(180)
+        assert job.run_key and not job.run_key.startswith("unpersistable:")
+        pd.testing.assert_frame_equal(res.table, sync.table, check_exact=True)

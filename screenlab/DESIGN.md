@@ -466,7 +466,8 @@ RunSpec(kind="backtest",              # backtest | timing | sweep | significance
   values), screens (built-ins by name + overrides; spec screens as their
   `ScreenSpec` dict).
 - **Unpersistable inputs** (a Python callable weighting, cost function or
-  `Screen(fn=...)`): the run still executes, but `spec.persistable` is False
+  `Screen(fn=...)` with a lambda/closure/`__main__` function; importable module-level functions serialize
+  as `screen_fn` "module:qualname"): the run still executes, but `spec.persistable` is False
   with a reason, and the store records it without a run_key (metrics only,
   no cache reuse, no `rerun`).
 - `run_key = sha256(canonical_json(spec.kind, spec.args, spec.seed) +
