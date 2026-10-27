@@ -1,0 +1,440 @@
+# LinkML description of the screenlab run store (screenlab/store.py, SQLiteStore).
+# Drift guard: screenlab/tests/test_schema.py compares this file with the tables SQLiteStore really creates.
+id: https://example.org/screenlab/runstore
+name: screenlab_runstore
+title: screenlab run store
+version: 1.0.0
+description: >-
+  The SQLite file written by screenlab's SQLiteStore (store.py, DESIGN.md section I3): a ledger of
+  every backtest, timing study, sweep and other analysis you ran, with the exact inputs (the "spec"),
+  the resulting numbers (one row per portfolio per measure, in the metrics table), optional bulky
+  tables such as equity curves (artifacts), a fingerprint of the data used (datasets), a counter of how
+  many different variants were tried (trials, which feeds the deflated Sharpe ratio), and the live
+  state of background jobs (jobs).
+  Analyst's cheat sheet. Start from runs (one row per run) and join metrics on run_key to get numbers:
+  SELECT r.label, m.row_label, m.value FROM runs r JOIN metrics m USING (run_key) WHERE m.metric = 'CAGR'.
+  Every return, volatility and drawdown figure is stored as a plain decimal fraction per year
+  (0.12 means 12%), never as a percentage; timestamps are seconds since 1970-01-01 UTC. The passive
+  index the portfolios are measured against appears in metrics as a row of its own (its row_label is
+  the index name, e.g. SP500), so always read portfolio numbers next to it.
+  The SQLite file declares no FOREIGN KEY constraints; the foreign keys below are logical links kept
+  by the code (rows of metrics and artifacts are deleted together with their run; trials and jobs
+  rows are kept).
+license: https://creativecommons.org/publicdomain/zero/1.0/
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+  screenlab: https://example.org/screenlab/runstore/
+  xsd: http://www.w3.org/2001/XMLSchema#
+
+default_prefix: screenlab
+default_range: string
+
+imports:
+  - linkml:types
+
+types:
+  JsonText:
+    typeof: string
+    description: Text holding one JSON document (serialized with json.dumps).
+    uri: xsd:string
+  EpochSeconds:
+    typeof: float
+    description: >-
+      A moment in time stored as seconds since 1970-01-01 00:00 UTC (SQLite REAL; time.time()).
+      In pandas: pd.to_datetime(col, unit='s'). In SQL: datetime(col, 'unixepoch').
+    uri: xsd:double
+  Blob:
+    base: bytes
+    uri: xsd:base64Binary
+    description: Raw bytes (SQLite BLOB), here always gzip-compressed text.
+  Fraction:
+    typeof: float
+    description: A decimal fraction per the context (0.05 means 5%). Stored as REAL.
+    uri: xsd:double
+  CommaList:
+    typeof: string
+    description: >-
+      Screen names joined by commas and wrapped in commas (",dogs,low_vol,") so that
+      screens LIKE '%,dogs,%' matches whole names only.
+    uri: xsd:string
+
+classes:
+  Run:
+    description: >-
+      One row per distinct run: what was asked (spec_json), on which data (dataset_id) with which code
+      (code_version), and how it ended (status). A run is one call of a Lab method such as
+      lab.backtest(...) or lab.timing(...), done in the foreground or as a background job.
+      Running the identical request again on identical data and code reuses the same row (it is reset
+      to 'running' and refilled), so the table is a set of distinct experiments, not a log of attempts.
+      Its numbers are in Metric rows, its bulky tables in Artifact rows.
+      The run_key is built as sha256 over the canonical JSON of (kind, arguments, seed), the dataset
+      fingerprint (extended by a hash of the lab's configuration, benchmark and custom screens) and the
+      code version. Arguments left at their default are dropped first, so lab.timing("dogs") and
+      lab.timing("dogs", stride=1) are the same run. label and tags are not part of the key.
+      A run whose inputs contain a Python function cannot be turned into plain data ("unpersistable"):
+      it gets a throw-away key 'unpersistable:<16 hex chars>' (a new one on every call), persistable = 0,
+      is never served from cache and cannot be rerun. The bundled sp500_lab() screens are functions, so
+      their runs are of this kind; use a spec-defined (ScreenBuilder / dict) screen to get a rerunnable run.
+    attributes:
+      run_key:
+        identifier: true
+        required: true
+        range: string
+        description: >-
+          Primary key. 64 hex characters (sha256), or 'unpersistable:<id>' for a run that cannot be
+          reproduced from stored inputs. Metric, Artifact and (logically) Job and Trial rows point here.
+      kind:
+        range: RunKind
+        description: Which analysis was run (the Lab method). See RunKind.
+      status:
+        range: RunStatus
+        description: >-
+          'running' while computing (a run that stays 'running' after a crash is stale), 'done' when
+          finished, 'failed' with the message in error, 'cancelled' if stopped by the user. Only 'done'
+          runs with persist_level metrics or full are reused as a cache hit.
+      created_at:
+        range: EpochSeconds
+        description: When the run was started (reset each time the identical run is repeated).
+      finished_at:
+        range: EpochSeconds
+        description: When the run ended (done, failed or cancelled); empty while running.
+      dataset_id:
+        range: Dataset
+        description: >-
+          Fingerprint of the market data used (24 hex characters, hash of prices, fundamentals and
+          indices). Empty if the run was written without a dataset. Foreign key to datasets.
+      dataset:
+        range: string
+        description: Human name of the dataset as given to the Lab (lab.name), e.g. 'sp500' or 'synthetic'.
+      code_version:
+        range: string
+        description: >-
+          screenlab version plus git commit (e.g. '0.1.0+1a2b3c4d5e6f') when the run was made. A rerun
+          on different code can legitimately differ.
+      spec_json:
+        range: JsonText
+        required: false
+        description: >-
+          The run as plain data: {kind, dataset, args, seed, label, tags, persistable, reason}. Enough to
+          rebuild and rerun the analysis (RunSpec.from_dict). Contains every input you chose (screens,
+          rebalance months, costs, exit policy, ...).
+      label:
+        range: string
+        description: Free-text name you gave the run; used as the column heading by store.compare.
+      tags:
+        range: JsonText
+        description: JSON list of free-text tags, e.g. '["momentum", "monthly"]'. Filter with store.find(tag=).
+      persist_level:
+        range: PersistLevel
+        description: How much of the result was kept for this run. See PersistLevel.
+      error:
+        range: string
+        description: Error message when status is 'failed' (or 'cancelled'); empty otherwise.
+      persistable:
+        range: boolean
+        description: >-
+          Stored as 1/0. 1 if the run can be rebuilt and cached from its spec; 0 if it holds a Python
+          function (then run_key starts with 'unpersistable:').
+      reason:
+        range: string
+        description: Why the run is not persistable (e.g. 'lab context is not persistable'); empty otherwise.
+      screens:
+        range: CommaList
+        description: >-
+          Names of the entry screens used, as ',dogs,low_vol,'. Lets store.find(screen='dogs') filter
+          with a plain LIKE.
+      family:
+        range: string
+        description: >-
+          Trial family: 'kind|dataset|screen names' (for exit kinds, the signal set). Runs of one family
+          are variants of the same question; their count is the number of trials behind a result.
+
+  Metric:
+    description: >-
+      The numbers of a run in long format: one row per (portfolio or statistic row) x measure.
+      For a backtest the row_label is a screen/portfolio name (or the passive index's name; with an exit
+      policy a variant is labelled 'name+exit'); for a timing study it is a measure and the metric is a
+      distribution statistic (mean, 5%, 95%, ...). Values are the raw numbers of the result table
+      (fractions, not percentages). Only numeric cells of the summary tables are stored; equity curves
+      and per-offset tables are Artifacts. Pivot with
+      df.pivot_table(index=['run_key','row_label'], columns='metric', values='value').
+      A missing number (NaN in the result) is stored as an empty value. Rows have no primary key of
+      their own; (run_key, row_label, metric) is unique in practice.
+    attributes:
+      run_key:
+        range: Run
+        required: false
+        description: Foreign key to runs.run_key.
+      row_label:
+        range: string
+        required: false
+        description: >-
+          The portfolio or statistic this number describes. Later tables of a multi-table result are
+          prefixed '<table>/'. Duplicate names are numbered 'dogs', 'dogs#2'.
+      metric:
+        range: string
+        required: false
+        description: >-
+          Name of the measure; for backtest, timing and significance runs one of StandardMetric (see its
+          descriptions for units). Sweeps, extended (real/FX) tables, picks and graham runs add their own
+          column names (pe, pb, div_yield, ...).
+      value:
+        range: float
+        required: false
+        description: The number, in the unit of the metric (see StandardMetric); empty when not defined.
+
+  Artifact:
+    description: >-
+      A bulky table or document kept alongside a run: gzip-compressed CSV of an equity-curve table,
+      a timing study's per-offset table, or the gzip JSON of a server result. Written only at persist
+      level 'full' (tables) or 'metrics' / 'full' (result_json). Read back with
+      store.artifact(run_key, name), which returns a DataFrame (dates as the index for 'index=datetime').
+    unique_keys:
+      artifact_key:
+        unique_key_slots: [run_key, name]
+    attributes:
+      run_key:
+        range: Run
+        required: true
+        description: Foreign key to runs.run_key (part of the primary key).
+      name:
+        range: string
+        required: true
+        description: >-
+          Which table: 'curves' (equity curves, one column per portfolio plus the passive index, starting
+          at 1.0 or the capital), 'offsets' / 'tranche' (timing study), 'table', 'distribution',
+          'result_json' (the JSON a server endpoint returns), or '<part>/<name>' for nested results.
+          Part of the primary key with run_key.
+      format:
+        range: ArtifactFormat
+        description: How bytes is encoded. See ArtifactFormat.
+      bytes:
+        range: Blob
+        description: The gzip-compressed content. Not meant to be read in SQL; use store.artifact().
+
+  Dataset:
+    description: >-
+      One row per market-data fingerprint seen by a recorded run, so a result can always be tied to the
+      data that produced it. If the data change (even one price), the fingerprint changes and old
+      results are not reused.
+    attributes:
+      dataset_id:
+        identifier: true
+        required: true
+        range: string
+        description: Primary key. 24 hex characters of a hash over prices, fundamentals and indices.
+      name:
+        range: string
+        description: Name given to the Lab (lab.name).
+      span:
+        range: string
+        description: First and last date of the price history as 'YYYY-MM-DD/YYYY-MM-DD'.
+      n_names:
+        range: integer
+        description: Number of securities (price columns).
+      benchmark:
+        range: string
+        description: Label of the passive index benchmark in effect when the dataset was first recorded (e.g. 'SP500').
+      benchmark_kind:
+        range: string
+        description: Class of that benchmark, normally 'IndexBenchmark' (a buy-and-hold index).
+      manifest_json:
+        range: JsonText
+        description: Fuller description {name, span, n_names, n_dates, n_fund_rows, indices, benchmark, benchmark_kind}.
+
+  Trial:
+    description: >-
+      The multiple-testing counter. Each distinct run a session asks for is one row; the number of
+      distinct run_keys in a family is how many variants were tried, and the deflated Sharpe ratio
+      (DSR) is reduced by that count, because the more variants you try the more likely the best one
+      is luck. Sweeps and calibrations also add one row per grid point. Trials are counted even at
+      persist level 'none' and are not removed when a run is deleted.
+    unique_keys:
+      trial_key:
+        unique_key_slots: [session_id, run_key]
+    attributes:
+      session_id:
+        range: string
+        required: true
+        description: One Lab object's session (random hex id, new for every Lab). Part of the primary key.
+      run_key:
+        range: string
+        required: true
+        description: >-
+          The run's key, or for a sweep / calibration grid point a hash of that point. A soft reference
+          to runs.run_key (grid points have no run row). Part of the primary key.
+      family:
+        range: string
+        description: Trial family, same format as runs.family. Count with COUNT(DISTINCT run_key) per family.
+      created_at:
+        range: EpochSeconds
+        description: When the trial was first recorded.
+
+  Job:
+    description: >-
+      Live state of a background job, shared between the process that submitted it and its workers.
+      A job is one asynchronous execution (lab.submit(...) or POST /jobs); the finished result is in the
+      linked Run. Rows are overwritten as the job advances and are kept after it finishes.
+    attributes:
+      job_id:
+        identifier: true
+        required: true
+        range: string
+        description: Primary key. Random job id (hex).
+      run_key:
+        range: Run
+        description: The run the job computes (foreign key to runs.run_key); empty if the run could not be keyed.
+      status:
+        range: JobStatus
+        description: Where the job is. See JobStatus.
+      progress:
+        range: Fraction
+        description: Share of the work done, from 0.0 to 1.0.
+      message:
+        range: string
+        description: "Human-readable progress note, e.g. 'momentum_12_1: offset 3/9'."
+      updated_at:
+        range: EpochSeconds
+        description: When status, progress or message last changed.
+      cancel_requested:
+        range: boolean
+        description: Stored as 1/0. 1 once a cancel was requested; the worker stops at its next checkpoint (one rebalance / offset / point).
+
+enums:
+  RunKind:
+    description: >-
+      Which Lab analysis a run is (same list as runspec.BUNDLED_KINDS and the job manager's KINDS; extra
+      kinds can be added with jobs.register_kind and would then be missing here).
+    permissible_values:
+      backtest:
+        description: Compare screen portfolios and the passive index over time (lab.backtest). Table of CAGR, Vol, Sharpe, ...
+      timing:
+        description: Rebalance-timing study, the same portfolio started on many different days (lab.timing). Stored as a distribution.
+      sweep:
+        description: Grid or random search over parameters with optional walk-forward splits (lab.sweep).
+      significance:
+        description: Bootstrap confidence interval, t-statistic and deflated Sharpe of excess return (lab.significance).
+      extended:
+        description: Backtest plus real-return, currency and financing adjusted metrics (lab.extended).
+      exit_evaluate:
+        description: Evaluation of an exit-signal screen (lab.exit_eval).
+      exit_calibrate:
+        description: Walk-forward calibration of an exit screen and policy (lab.calibrate_exit).
+      graham:
+        description: Graham-criteria funnel and per-test pass table (lab.graham).
+      picks:
+        description: Today's selected names with key ratios (lab.picks).
+  RunStatus:
+    description: Lifecycle of a run.
+    permissible_values:
+      running:
+        description: Computing now (or the process died before finishing).
+      done:
+        description: Finished; metrics (and artifacts, per persist_level) are stored.
+      failed:
+        description: Raised an error; see runs.error. Never reused as a cache hit.
+      cancelled:
+        description: Stopped on request; runs.error is 'cancelled'.
+  PersistLevel:
+    description: How much of a run is kept. Set with Lab(persist=...) or SQLiteStore.record(level=...).
+    permissible_values:
+      none:
+        description: Nothing recorded for the run (trials are still counted). Accepted as a setting but never present in runs.persist_level.
+      inputs:
+        description: Only the spec (an audit trail of what was tried); never served as a cache hit; no metrics rows.
+      metrics:
+        description: Spec plus the numeric result tables in metrics (default when a store is on).
+      full:
+        description: Also equity curves and per-offset / per-point tables as artifacts.
+  ArtifactFormat:
+    description: Encoding of artifacts.bytes (all gzip-compressed).
+    permissible_values:
+      "csv.gz;index=datetime":
+        description: CSV with a date index (equity curves, timing tranche); read back with a DatetimeIndex.
+      "csv.gz;index=plain":
+        description: CSV with an ordinary first column as index (per-offset tables, distributions).
+      "json.gz":
+        description: A JSON document (the 'result_json' payload a server endpoint returns).
+  JobStatus:
+    description: Lifecycle of a background job.
+    permissible_values:
+      queued:
+        description: Accepted, waiting for a worker.
+      running:
+        description: A worker is computing it.
+      done:
+        description: Finished; the result is in the linked run.
+      failed:
+        description: Raised an error.
+      cancelled:
+        description: Stopped on request.
+  StandardMetric:
+    description: >-
+      The measure names that appear in metrics.metric, with units. Unless noted, annual figures are
+      decimal fractions per year and 'excess' means portfolio minus the passive index. Computed from
+      weekly/monthly/daily equity curves (see metrics.summarize); Sharpe uses a 0% risk-free rate.
+      The list is not closed: sweep and extended tables add their own column names, and the picks and graham kinds store their own columns (pe, pb, div_yield, mom_12_1, passes, ...) as metrics.
+    permissible_values:
+      CAGR:
+        description: Compound annual growth rate of the equity curve (fraction per year; 0.10 = 10%/yr).
+      Vol:
+        description: Annualised standard deviation of the periodic returns (fraction per year).
+      Sharpe:
+        description: Annualised mean return divided by annualised volatility, risk-free rate 0 (ratio, unitless).
+      MaxDD:
+        description: Maximum drawdown, the worst peak-to-trough fall of the curve (fraction, negative; -0.47 = -47%).
+      Worst12m:
+        description: Worst rolling 12-month return (fraction, negative if a loss).
+      BeatBenchYrs:
+        description: Share of calendar years in which the portfolio beat the passive index (fraction 0 to 1; 0.6 = 6 years in 10).
+      "Excess/yr":
+        description: Portfolio CAGR minus the passive index's CAGR (fraction per year). In a significance run, the mean annualised arithmetic excess return instead.
+      AvgN:
+        description: Average number of holdings (count). Empty for the index.
+      Turnover:
+        description: Average one-way turnover per rebalance (fraction of the portfolio traded; 0.3 = 30% bought and sold).
+      "Costs/yr":
+        description: Trading costs lost per year (fraction of portfolio value per year, from cost_bps and commission).
+      TimeOut:
+        description: Share of days with less than full market exposure because an exit policy was active (fraction 0 to 1). Only for rows with an exit policy.
+      "Switches/yr":
+        description: Number of exposure changes (exit/re-entry) per year (count per year). Only for rows with an exit policy.
+      CI5:
+        description: Significance run; 5th percentile of the bootstrapped annual excess return (fraction per year). If it is above 0 the excess is unlikely to be luck.
+      CI95:
+        description: Significance run; 95th percentile of the bootstrapped annual excess return (fraction per year).
+      "P(>0)":
+        description: Significance run; share of bootstrap samples with positive excess return (probability 0 to 1).
+      t:
+        description: Significance run; Newey-West t-statistic of excess return (unitless; beyond about 2 is conventionally significant).
+      DSR:
+        description: Deflated Sharpe ratio, the probability (0 to 1) that the true Sharpe exceeds what the luckiest of the trials in the family would show by chance. Falls as trials increase.
+      BonfP:
+        description: Bonferroni-adjusted one-sided p-value of Sharpe > 0, times the number of trials, capped at 1.
+      Haircut:
+        description: Share of the Sharpe's z-score lost to the multiple-testing correction (0 to 1; 1 means nothing survives).
+      Obs:
+        description: Sweep table; number of return observations behind the Sharpe (count).
+      PerYr:
+        description: Sweep table; return periods per year (count).
+      mean:
+        description: Timing study distribution; average across start offsets of the measure named in row_label.
+      std:
+        description: Timing study distribution; standard deviation across start offsets.
+      min:
+        description: Timing study distribution; smallest value across start offsets.
+      "5%":
+        description: Timing study distribution; 5th percentile across start offsets.
+      "25%":
+        description: Timing study distribution; 25th percentile.
+      "50%":
+        description: Timing study distribution; median.
+      "75%":
+        description: Timing study distribution; 75th percentile.
+      "95%":
+        description: Timing study distribution; 95th percentile across start offsets.
+      max:
+        description: Timing study distribution; largest value across start offsets.
+      range:
+        description: Timing study distribution; max minus min, the spread caused only by when you started.
