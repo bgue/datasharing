@@ -151,6 +151,31 @@ def test_exit_evaluate(client):
     assert bad.status_code == 400
 
 
+def test_backtest_with_exit_policy(client):
+    exit_ = {"signals": EXIT["signals"], "threshold": 0.6, "park": 0.03, "reentry": "signal_or_rebalance",
+             "reentry_delay_days": 30, "reentry_steps": 2, "rescreen_on_reentry": True}
+    r = client.post("/labs/synthetic/backtest", json={"screens": ["dogs"], "exit": exit_, "with_and_without": True,
+                                                      "max_points": 40})
+    assert r.status_code == 200, r.text
+    j = r.json()
+    json.dumps(j, allow_nan=False)
+    by = {x["index"]: x for x in rows(j["table"])}
+    assert {"dogs", "dogs+exit"} <= set(by) and {"TimeOut", "Switches/yr"} <= set(j["table"]["columns"])
+    assert by["dogs"]["TimeOut"] is None and 0 < by["dogs+exit"]["TimeOut"] < 1
+    assert {"dogs", "dogs+exit"} <= set(j["curves"])
+    bad = client.post("/labs/synthetic/backtest", json={"screens": ["dogs"], "exit": {**exit_, "reentry": "never"}})
+    assert bad.status_code == 400
+    bad = client.post("/labs/synthetic/backtest", json={"screens": ["dogs"], "exit": {**exit_, "bogus": 1}})
+    assert bad.status_code == 400
+    ev = client.post("/labs/synthetic/exit/evaluate", json={**EXIT, "policy": {"park": 0.03, "reentry_steps": 2}})
+    assert ev.status_code == 200, ev.text
+    cal = client.post("/labs/synthetic/exit/calibrate", json={"signals": EXIT["signals"],
+                      "grid": {"reentry": ["signal", "next_rebalance"], "park": ["cash", 0.03]},
+                      "policy": {"reentry_steps": 2}})
+    assert cal.status_code == 200, cal.text
+    assert "reentry" in cal.json()["table"]["columns"]
+
+
 def test_exit_calibrate(client, reg):
     r = client.post("/labs/synthetic/exit/calibrate", json={"signals": EXIT["signals"], "grid": {"threshold": [0.6, 0.8]}})
     if hasattr(reg.get("synthetic"), "calibrate_exit"):

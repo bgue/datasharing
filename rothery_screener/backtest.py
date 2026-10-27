@@ -11,7 +11,7 @@ Per-security inputs (`cost_bps`, `mer`) accept:
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable, Mapping, Union
 
 import numpy as np
@@ -19,6 +19,7 @@ import pandas as pd
 
 from .construction import HoldRule, target_weights
 from .data import Market
+from .exit_policy import ExitPolicy
 from .exit_signals import ExitOverlay
 from .screens import Screen
 
@@ -39,7 +40,8 @@ class Config:
     max_weight: float | None = None   # per-name cap; excess redistributed pro rata, shortfall held in cash
     sector_cap: float | None = None   # per-sector cap, same treatment
     hold_rule: HoldRule | None = None  # turnover control (keep_within / band)
-    exit_overlay: ExitOverlay | None = None   # scale the whole portfolio by an exit flag (None = always in)
+    exit: ExitPolicy | None = None    # exit policy: derisk on the exit screen's flag (None = always in)
+    exit_overlay: ExitOverlay | None = None   # alias for an ExitPolicy(screen, expo, switch_cost_bps=cost_bps, park="cash")
 
 
 @dataclass
@@ -49,8 +51,11 @@ class Result:
     holdings: dict = field(default_factory=dict)   # rebalance date -> tickers
     turnover: pd.Series = None        # one-way turnover per rebalance
     costs: pd.Series = None           # fraction of value lost to trading per rebalance
-    exposure: pd.Series = None        # share of the portfolio invested each bar (1.0 without an exit overlay)
-    switches: int = 0                 # number of exposure changes (exit overlay)
+    exposure: pd.Series = None        # share of the portfolio invested each bar (1.0 without an exit policy)
+    switches: int = 0                 # number of exposure changes (exit policy)
+    time_out: float = 0.0             # fraction of bars with exposure below 1
+    park_curve: pd.Series = None      # growth of 1 in the parked asset (None without an exit policy)
+    exit: ExitPolicy | None = None    # the policy that produced this result
 
     @property
     def returns(self) -> pd.Series:
@@ -104,15 +109,29 @@ def schedule(mkt: Market, start, months: int, phase_days: int = 0, end=None) -> 
     return dates
 
 
-def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None) -> Result:
+def _exit_of(cfg: Config):
+    """(policy, exposure function or None): `cfg.exit`, else the `exit_overlay` alias as an ExitPolicy."""
+    if cfg.exit is not None:
+        return cfg.exit, None
+    ov = cfg.exit_overlay
+    if ov is None:
+        return None, None
+    return ExitPolicy(ov.screen, ov.exposure_when_flagged, switch_cost_bps=ov.cost_bps, macro=ov.macro), ov.exposure
+
+
+def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, exposure=None) -> Result:
+    """Run `screen` on the schedule `rebal`. `exposure`: precomputed (lagged) exposure path of the exit
+    policy; by default it is computed from `cfg.exit` / `cfg.exit_overlay` on this schedule."""
     end = pd.Timestamp(end) if end else mkt.index[-1]
     tri = mkt.prices
     value, prev = 1.0, pd.Series(dtype=float)        # prev = drifted weights of live holdings
     pieces = [pd.Series([1.0], index=[rebal[0]])]
     holdings, turn, costs = {}, {}, {}
-    ov = cfg.exit_overlay
-    held = ov.exposure(mkt) if ov is not None else None
-    dheld = held.diff().abs().fillna(0.0) if ov is not None else None
+    pol, expo_fn = _exit_of(cfg)
+    if pol is not None:
+        held = exposure if exposure is not None else (expo_fn(mkt) if expo_fn else pol.exposure(mkt, rebal))
+        dheld = held.diff().abs().fillna(0.0)
+        park_pieces = []
 
     for j, d in enumerate(rebal):
         nxt = rebal[j + 1] if j + 1 < len(rebal) else end
@@ -134,6 +153,8 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None) ->
         dw = dw[dw > 1e-12]
         trade_cost = float((dw * resolve(cfg.cost_bps, dw.index, snap)).sum()) / 1e4
         trade_cost += cfg.commission * len(dw) / (cfg.capital * value)
+        if pol is not None:
+            trade_cost *= float(held.get(d, 1.0))    # only the invested share of the sleeve is traded
         value *= 1 - trade_cost
         holdings[d], turn[d], costs[d] = picks, dw.sum() / 2, trade_cost
 
@@ -154,31 +175,58 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None) ->
                 path = path + (1 - target.sum()) * (1 + cfg.cash_rate) ** yrs
             alive = ~dead.iloc[-1]
             prev = (g.iloc[-1] * target / path.iloc[-1])[alive]    # dead weight is uninvested cash
-        if ov is not None and not target.empty:
-            # exit overlay: e_t * r_t + (1 - e_t) * cash_t - cost * |de_t|, e_t the lagged exposure
+        if pol is not None:
+            # e_t * r_equity + (1 - e_t) * r_park - switch_cost * |de_t| - park_cost * |d(1 - e_t)|
             e = held.reindex(seg.index).to_numpy()
-            cash_r = np.power(1 + cfg.cash_rate, np.diff(yrs, prepend=yrs[0])) - 1
-            r = path.pct_change().fillna(0.0).to_numpy()
-            ret = e * r + (1 - e) * cash_r - ov.cost_bps / 1e4 * dheld.reindex(seg.index).to_numpy()
-            ret[0] = 0.0
-            path = pd.Series(np.cumprod(1 + ret), index=seg.index)
+            if pol.park == "cash":
+                park_r = np.power(1 + cfg.cash_rate, np.diff(yrs, prepend=yrs[0])) - 1
+                if pol.park_mer:
+                    park_r = pol.park_returns(mkt, seg.index, cfg.cash_rate)
+            else:
+                park_r = pol.park_returns(mkt, seg.index, cfg.cash_rate)
+            park_pieces.append(park_r[1:])
+            if not target.empty:
+                r = path.pct_change().fillna(0.0).to_numpy()
+                de = dheld.reindex(seg.index).to_numpy()
+                ret = (e * r + (1 - e) * park_r - pol.switch_cost_bps / 1e4 * de
+                       - pol.park_cost_bps / 1e4 * de)
+                ret[0] = 0.0
+                path = pd.Series(np.cumprod(1 + ret), index=seg.index)
         pieces.append(value * path.iloc[1:])
         value *= path.iloc[-1]
 
     curve = pd.concat(pieces)
     curve = curve[~curve.index.duplicated(keep="last")]
-    if ov is None:
-        expo, switches = pd.Series(1.0, index=curve.index, name="exposure"), 0
+    park_curve = None
+    if pol is None:
+        expo, switches, time_out = pd.Series(1.0, index=curve.index, name="exposure"), 0, 0.0
     else:
         expo = held.reindex(curve.index)
         switches = int((expo.diff().abs() > 1e-12).sum())
-    return Result(screen.name, curve, holdings, pd.Series(turn), pd.Series(costs), expo, switches)
+        time_out = float((expo < 1 - 1e-12).mean())
+        pr = np.concatenate([np.zeros(1)] + park_pieces)
+        park_curve = pd.Series(np.cumprod(1 + pr), index=curve.index, name="park")
+    return Result(screen.name, curve, holdings, pd.Series(turn), pd.Series(costs), expo, switches,
+                  time_out, park_curve, pol)
 
 
 def run(screen: Screen, mkt: Market, cfg: Config = Config(), start=None, end=None,
         phase_days: int = 0) -> Result:
     start = start or mkt.index[0] + pd.DateOffset(months=13)    # room for 12-1 momentum
-    return simulate(screen, mkt, cfg, schedule(mkt, start, cfg.rebalance_months, phase_days, end), end)
+    rebal = schedule(mkt, start, cfg.rebalance_months, phase_days, end)
+    pol = cfg.exit
+    if pol is None:
+        return simulate(screen, mkt, cfg, rebal, end)
+    # two passes: the fully-invested sleeve gives the curve portfolio-based signals read (only run when
+    # some signal needs it), then the exposure path decides re-entry rescreens, then the real simulation
+    curve = None
+    if pol.needs_curve:
+        curve = simulate(screen, mkt, replace(cfg, exit=None, exit_overlay=None), rebal, end).curve
+    expo = pol.exposure(mkt, rebal, curve)
+    if pol.rescreen_on_reentry:
+        stop = pd.Timestamp(end) if end else mkt.index[-1]
+        rebal = sorted(set(rebal) | {d for d in pol.reentry_dates if rebal[0] < d < stop})
+    return simulate(screen, mkt, cfg, rebal, end, expo)
 
 
 def benchmark_screen(top: int = 60) -> Screen:

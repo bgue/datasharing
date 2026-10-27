@@ -29,11 +29,12 @@ from dataclasses import dataclass, field, replace
 import pandas as pd
 
 from . import backtest, data, metrics
+from .exit_policy import ExitPolicy, Portfolio, as_policy, policy_overlay
 from .benchmarks import IndexBenchmark, ScreenBenchmark, equal_weight_top
 from .screens import REGISTRY, Screen, graham_funnel, graham_report
 from .spec import define_screen, graham_tests
 
-PCT_COLS = ["CAGR", "Vol", "MaxDD", "Worst12m", "BeatBenchYrs", "Excess/yr", "Turnover", "Costs/yr"]
+PCT_COLS = ["CAGR", "Vol", "MaxDD", "Worst12m", "BeatBenchYrs", "Excess/yr", "Turnover", "Costs/yr", "TimeOut"]
 
 
 def format_table(tbl: pd.DataFrame) -> str:
@@ -100,6 +101,9 @@ class Lab:
     def _cfg(self, **kw) -> backtest.Config:
         return replace(self.config, **kw) if kw else self.config
 
+    def _cfg_of(self, base: backtest.Config, overrides: dict) -> backtest.Config:
+        return replace(base, **overrides) if overrides else base
+
     def _asof(self, asof=None) -> pd.Timestamp:
         return self.market.trading_day(asof, "prev") if asof else self.market.index[-1]
 
@@ -113,23 +117,47 @@ class Lab:
         return s.loc[names, [c for c in columns if c in s]]
 
     # ---- analysis ---------------------------------------------------------
-    def backtest(self, screens=None, start=None, end=None, benchmark=None, **cfg) -> BacktestReport:
+    def backtest(self, screens=None, start=None, end=None, benchmark=None, exit=None,
+                 with_and_without: bool = False, **cfg) -> BacktestReport:
+        """Backtest screens (names, Screens or `Portfolio(name, screen, exit=None, **config_overrides)`).
+
+        `exit`: an ExitPolicy (or ExitScreen, wrapped in a default policy) applied to every entry in the
+        call that has no policy of its own. `with_and_without=True` runs each such entry twice and labels
+        the rows `name` and `name+exit`. Rows with a policy also report TimeOut and Switches/yr."""
         cfg = self._cfg(**cfg)
         bench = benchmark or self.benchmark
-        screens = [self.screen(s) for s in (screens or list(self.screens))]
+        call_exit = as_policy(exit) or cfg.exit
+        items = []                                   # (label, screen, config, policy or None)
+        for s in (screens or list(self.screens)):
+            if isinstance(s, Portfolio):
+                sc, c, pol = self.screen(s.screen), self._cfg_of(cfg, s.config_overrides), s.exit or call_exit
+                label = s.name
+            else:
+                sc, c, pol = self.screen(s), cfg, call_exit
+                label = sc.name
+            if pol is None:
+                items.append((label, sc, c, None))
+                continue
+            if with_and_without:
+                items.append((label, sc, replace(c, exit=None, exit_overlay=None), None))
+                label += "+exit"
+            items.append((label, sc, replace(c, exit=pol, exit_overlay=None), pol))
+        screens = items
         start = start or self.market.index[0] + pd.DateOffset(months=13)
         start = self.market.trading_day(start)
         bcurve = bench.curve(self.market, cfg, start, end)
         rows = {bench.label: {**metrics.summarize(bcurve), "AvgN": float("nan")}}
         results = {}
-        for sc in screens:
-            res = backtest.run(sc, self.market, cfg, start, end)
-            results[sc.name] = res
+        for label, sc, c, _ in screens:
+            res = backtest.run(sc, self.market, c, start, end)
+            results[label] = res
             yrs = (res.curve.index[-1] - res.curve.index[0]).days / 365.25
-            rows[sc.name] = {**metrics.summarize(res.curve, bcurve),
-                             "AvgN": pd.Series({k: len(v) for k, v in res.holdings.items()}).mean(),
-                             "Turnover": res.turnover.iloc[1:].mean(),
-                             "Costs/yr": res.costs.sum() / yrs}
+            rows[label] = {**metrics.summarize(res.curve, bcurve),
+                           "AvgN": pd.Series({k: len(v) for k, v in res.holdings.items()}).mean(),
+                           "Turnover": res.turnover.iloc[1:].mean(),
+                           "Costs/yr": res.costs.sum() / yrs}
+            if res.exit is not None:
+                rows[label].update({"TimeOut": res.time_out, "Switches/yr": res.switches / yrs})
         return BacktestReport(pd.DataFrame(rows).T, results, bcurve, bench.label, cfg)
 
     def timing(self, screen, mode: str = "phase", stride: int = 1, start=None, end=None,
@@ -173,20 +201,34 @@ class Lab:
             rows[name] = extended_summary(res.curve, macro, report.benchmark, spread_over_prime, leverage)
         return pd.DataFrame(rows).T
 
-    def exit_eval(self, exit_screen, target=None, horizons=(1, 3, 12), macro=None, **kw):
-        """Evaluate an ExitScreen against a target curve (default: the benchmark index)."""
+    def exit_eval(self, exit_screen, target=None, horizons=(1, 3, 12), macro=None, policy=None, **kw):
+        """Evaluate an ExitScreen against a target curve (default: the benchmark index).
+
+        `exit_screen` may also be an ExitPolicy; with `policy` (or a policy as the first argument) the
+        overlay in the result trades that policy (reentry, park, steps, delay, costs) instead of the
+        plain flag. `cash_rate` is the rate for park="cash"."""
         from .exit_signals import evaluate
+        if isinstance(exit_screen, ExitPolicy):
+            policy, exit_screen = exit_screen, exit_screen.screen
         if target is None:
             target = self.benchmark.curve(self.market, self.config, self.market.index[0])
         elif isinstance(target, str):
             target = self.market.series(target)
-        return evaluate(exit_screen, self.market, target, horizons, macro, **kw)
+        macro = macro if macro is not None else (policy.macro if policy is not None else None)
+        if policy is None:
+            return evaluate(exit_screen, self.market, target, horizons, macro, **kw)
+        ev = evaluate(exit_screen, self.market, target, horizons, macro, **kw)
+        rebal = backtest.schedule(self.market, target.dropna().index[0], self.config.rebalance_months)
+        ev.overlay = policy_overlay(target, policy, self.market, rebal, float(kw.get("cash_rate", 0.0)),
+                                    state=ev.state, signal_curve=kw.get("curve"))
+        return ev
 
     def calibrate_exit(self, exit_screen, grid, target=None, objective="Calmar", splits=None,
                        constraints=None, macro=None, **kw):
         """Walk-forward calibration of an ExitScreen's thresholds / timing (see calibration.py).
         `target`: index name, ticker or curve (default: the benchmark index curve)."""
         from .calibration import calibrate_exit
+        kw.setdefault("rebalance_months", self.config.rebalance_months)
         if target is None:
             target = self.benchmark.curve(self.market, self.config, self.market.index[0])
         return calibrate_exit(exit_screen, self.market, target, grid, objective, splits, constraints, macro, **kw)

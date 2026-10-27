@@ -14,6 +14,7 @@ Macro inputs are plain pandas Series, passed as a dict or any object with `.get(
 """
 from __future__ import annotations
 
+import inspect
 import warnings
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
@@ -84,13 +85,51 @@ def _blank(mkt) -> pd.Series:
     return pd.Series(np.nan, index=mkt.index)
 
 
+def _takes(fn, param: str) -> bool:
+    try:
+        return param in inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return False
+
+
+def uses_curve(sig) -> bool:
+    """Does this signal read the portfolio curve? (explicit `uses_curve`, a `needs` tuple, else its signature)
+
+    `ExitPolicy` caches curve-free signals per Market and recomputes only the curve-dependent ones.
+    """
+    flag = getattr(sig, "uses_curve", None)
+    if flag is not None:
+        return bool(flag)
+    needs = getattr(sig, "needs", None)          # exit_inputs declares e.g. needs = ("curve", "index")
+    if needs is not None:
+        return "curve" in needs
+    cls = type(sig)
+    if isinstance(sig, _Base):
+        own = cls.compute not in (_Base.compute, _MonthlySampled.compute)
+        return (_takes(cls.raw, "curve") or (own and _takes(cls.compute, "curve"))
+                or _takes(getattr(cls, "monthly", None), "curve"))
+    return _takes(getattr(cls, "compute", None), "curve")
+
+
+def _compute(sig, mkt, macro, curve) -> pd.Series:
+    """`sig.compute`, handing over `curve` only when there is one (older two-argument signals keep working)."""
+    if curve is None or not _takes(sig.compute, "curve"):
+        return sig.compute(mkt, macro)
+    return sig.compute(mkt, macro, curve=curve)
+
+
 # --------------------------------------------------------------------------- protocol
 @runtime_checkable
 class Signal(Protocol):
-    """Anything with a `name` and `compute(mkt, macro=None) -> Series` (percentile scores, higher = riskier)."""
+    """Anything with a `name` and `compute(mkt, macro=None, curve=None) -> Series` (percentile scores, higher = riskier).
+
+    `curve` is the portfolio's own fully-invested equity curve, passed by `ExitPolicy` for signals that
+    look at the portfolio itself; it is `None` when evaluating against an index. Signals that do not
+    need it ignore it.
+    """
     name: str
 
-    def compute(self, mkt, macro=None) -> pd.Series: ...
+    def compute(self, mkt, macro=None, curve=None) -> pd.Series: ...
 
 
 class _Base:
@@ -108,8 +147,10 @@ class _Base:
     def normalize(self, x: pd.Series) -> pd.Series:
         return rolling_percentile(x, self.lookback_years, self.min_obs)
 
-    def compute(self, mkt, macro=None) -> pd.Series:
-        return self.normalize(self.raw(mkt, macro)).reindex(mkt.index)
+    def compute(self, mkt, macro=None, curve=None) -> pd.Series:
+        # `raw` only receives the curve when it declares a `curve` parameter (portfolio-based signals)
+        raw = self.raw(mkt, macro, curve=curve) if _takes(self.raw, "curve") else self.raw(mkt, macro)
+        return self.normalize(raw).reindex(mkt.index)
 
     def __repr__(self):
         return f"{self.name}()"
@@ -128,8 +169,8 @@ class _MonthlySampled(_Base):
     def raw(self, mkt, macro=None):
         return self.monthly(mkt, macro).reindex(mkt.index, method="pad")
 
-    def compute(self, mkt, macro=None) -> pd.Series:
-        m = self.monthly(mkt, macro)
+    def compute(self, mkt, macro=None, curve=None) -> pd.Series:
+        m = self.monthly(mkt, macro, curve=curve) if _takes(self.monthly, "curve") else self.monthly(mkt, macro)
         return self.normalize(m).reindex(mkt.index, method="pad")
 
 
@@ -296,8 +337,9 @@ class Dispersion(_Base):
         return pd.Series(np.where(valid, sd, np.nan), index=idx)
 
 
-BUILTINS = (TrendBreak, Breadth, VolRegime, DrawdownFromPeak, ValuationStretch, MomentumCrash,
-            RateShock, Dispersion)
+# name -> class; a plain dict so other modules (exit_inputs) can `.update()` it on import
+BUILTINS = {c.__name__: c for c in (TrendBreak, Breadth, VolRegime, DrawdownFromPeak, ValuationStretch,
+                                    MomentumCrash, RateShock, Dispersion)}
 
 
 # --------------------------------------------------------------------------- the screen
@@ -386,11 +428,13 @@ class ExitScreen:
     lag: int = 1
     min_hold_days: int = 0
 
-    def components(self, mkt, macro=None) -> pd.DataFrame:
-        """Per-signal percentile scores (columns by signal name; all-NaN signals left out)."""
+    def components(self, mkt, macro=None, curve=None) -> pd.DataFrame:
+        """Per-signal percentile scores (columns by signal name; all-NaN signals left out).
+
+        `curve`: the portfolio's own fully-invested curve for signals that need it (None = index evaluation)."""
         cols = {}
         for s in self.signals:
-            c = s.compute(mkt, macro).reindex(mkt.index)
+            c = _compute(s, mkt, macro, curve).reindex(mkt.index)
             if c.notna().any():
                 cols[s.name] = c
         return pd.DataFrame(cols, index=mkt.index)
@@ -399,8 +443,8 @@ class ExitScreen:
         w = np.array([(self.weights or {}).get(c, 1.0) for c in cols], float)
         return w
 
-    def score(self, mkt, macro=None, components: pd.DataFrame | None = None) -> pd.Series:
-        comp = self.components(mkt, macro) if components is None else components
+    def score(self, mkt, macro=None, components: pd.DataFrame | None = None, curve=None) -> pd.Series:
+        comp = self.components(mkt, macro, curve) if components is None else components
         if comp.empty:
             return _blank(mkt).rename("score")
         w = self._weights(comp.columns)
@@ -411,10 +455,10 @@ class ExitScreen:
             sc = np.where(den > 0, np.where(ok, x, 0).dot(w) / den, np.nan)
         return pd.Series(sc, index=comp.index, name="score")
 
-    def state(self, mkt, macro=None, components: pd.DataFrame | None = None) -> pd.Series:
+    def state(self, mkt, macro=None, components: pd.DataFrame | None = None, curve=None) -> pd.Series:
         """Bool per bar, True = flagged (elevated risk, derisk). Enter at `threshold`, leave below threshold - hysteresis;
         changes only at `check` points and not within `min_hold_days` of the previous change."""
-        comp = self.components(mkt, macro) if components is None else components
+        comp = self.components(mkt, macro, curve) if components is None else components
         sc = self.score(mkt, macro, comp)
         votes = None
         if self.min_votes:
@@ -531,14 +575,15 @@ def drawdown_episodes(curve: pd.Series, top: int = 3) -> pd.DataFrame:
 
 def evaluate(exit_screen: ExitScreen, mkt, target_curve: pd.Series, horizons=(1, 3, 12), macro=None,
              top_drawdowns: int = 3, exposure_when_flagged: float = 0.0,
-             cash_rate: float | pd.Series = 0.0, cost: float = 0.0) -> ExitEvaluation:
+             cash_rate: float | pd.Series = 0.0, cost: float = 0.0, curve=None) -> ExitEvaluation:
     """What the flag would have told you about `target_curve` (an index or a screen's equity curve).
 
     Forward returns over each horizon (in calendar months) split by state on the start day; fraction
     of time flagged; for the deepest drawdowns, how many days before the trough the flag first fired
     (within peak..trough) and how much of the fall was still ahead at that moment; and the overlay.
+    `curve` is handed to signals that need the portfolio's own curve (None when `target_curve` is an index).
     """
-    comp = exit_screen.components(mkt, macro)
+    comp = exit_screen.components(mkt, macro, curve)
     score = exit_screen.score(mkt, macro, comp)
     state = exit_screen.state(mkt, macro, comp)
     return evaluate_state(score, state, target_curve, horizons, top_drawdowns, exposure_when_flagged,

@@ -7,17 +7,21 @@ python -m rothery_screener.run --benchmark top60          # equal-weight 60 larg
 python -m rothery_screener.run --screen-file my_screens.json --only cheap_yield,dogs
 python -m rothery_screener.run --set graham_defensive.max_pe=18 --set graham_defensive.min_passes=6
 python -m rothery_screener.run --graham-report
+python -m rothery_screener.run --exit "TrendBreak:index=SYN_CAPWT,Breadth" --exit-threshold 0.7 \\
+    --exit-park cash --exit-reentry signal --exit-compare      # with and without an exit policy
 """
 from __future__ import annotations
 
 import argparse
 import ast
+import dataclasses
 
 import pandas as pd
 
 from . import backtest
 from .api import Lab
 from .benchmarks import IndexBenchmark, equal_weight_top
+from .exit_policy import ExitPolicy
 from .spec import load_screens
 
 
@@ -52,6 +56,80 @@ def add_common_args(ap: argparse.ArgumentParser):
     g.add_argument("--benchmark", help="index name / ticker to buy and hold, or 'topN' for equal-weight N largest")
     g.add_argument("--bench-mer", type=float, default=0.0, help="benchmark fund's annual MER")
     g.add_argument("--bench-cost-bps", type=float, default=0.0, help="benchmark one-time purchase cost")
+
+
+def add_exit_args(ap: argparse.ArgumentParser):
+    g = ap.add_argument_group("exit policy")
+    g.add_argument("--exit", metavar="SIGNALS",
+                   help='exit signals, e.g. "TrendBreak:index=SYN_CAPWT,window_months=10,Breadth" '
+                        '(a Name:param=v,param=v group per signal, comma-separated)')
+    g.add_argument("--exit-threshold", type=float, default=0.7)
+    g.add_argument("--exit-hysteresis", type=float, default=0.1)
+    g.add_argument("--exit-check", default="D", help="decision cadence: D, W-FRI, ME, ...")
+    g.add_argument("--exit-lag", type=int, default=1, help="execution lag in bars")
+    g.add_argument("--exit-min-hold-days", type=int, default=0)
+    g.add_argument("--exit-expo", type=float, default=0.0, help="exposure while flagged (0 = fully out)")
+    g.add_argument("--exit-park", default="cash", help="'cash', an annual rate (0.03) or an index/ticker name")
+    g.add_argument("--exit-park-mer", type=float, default=0.0)
+    g.add_argument("--exit-park-cost-bps", type=float, default=0.0)
+    g.add_argument("--exit-switch-bps", type=float, default=5.0)
+    g.add_argument("--exit-reentry", choices=["signal", "next_rebalance", "signal_or_rebalance"], default="signal")
+    g.add_argument("--exit-delay", type=int, default=0, help="days the flag must stay clear before re-entry")
+    g.add_argument("--exit-steps", type=int, default=1, help="scale back in over this many check periods")
+    g.add_argument("--exit-rescreen", action="store_true", help="run the entry screen fresh on re-entry")
+    g.add_argument("--exit-compare", action="store_true", help="run every screen with and without the exit policy")
+
+
+def parse_exit_signals(text: str, lab: Lab) -> list:
+    """'TrendBreak:index=X,window_months=6,Breadth' -> signal objects (items with ':' start a signal,
+    bare 'k=v' items extend the previous one, other bare names start a parameterless signal)."""
+    from . import exit_signals as es
+    try:
+        from . import exit_inputs  # noqa: F401  (registers the extra inputs)
+    except ImportError:
+        pass
+    specs: list = []
+    for item in (t.strip() for t in text.split(",") if t.strip()):
+        if ":" in item:
+            name, kv = item.split(":", 1)
+            specs.append((name.strip(), {}))
+            item = kv
+        elif "=" not in item:
+            specs.append((item, {}))
+            continue
+        if "=" in item:
+            if not specs:
+                raise SystemExit(f"--exit: parameter {item!r} before any signal name")
+            k, v = item.split("=", 1)
+            specs[-1][1][k.strip()] = _value(v.strip())
+    out = []
+    for name, params in specs:
+        if name not in es.BUILTINS:
+            raise SystemExit(f"--exit: unknown signal {name!r}; available: {sorted(es.BUILTINS)}")
+        cls = es.BUILTINS[name]
+        fields = {f.name for f in dataclasses.fields(cls)}
+        idx_cols = list(lab.market.indices.columns)
+        if "index" in fields and "index" not in params and "SP500" not in idx_cols and idx_cols:
+            params["index"] = idx_cols[0]
+        out.append(cls(**params))
+    return out
+
+
+def build_exit(a, lab: Lab) -> ExitPolicy | None:
+    if not a.exit:
+        return None
+    park = _value(a.exit_park)
+    screen = es_screen(parse_exit_signals(a.exit, lab), a)
+    return ExitPolicy(screen, a.exit_expo, park=park, park_mer=a.exit_park_mer,
+                      park_cost_bps=a.exit_park_cost_bps, switch_cost_bps=a.exit_switch_bps,
+                      reentry=a.exit_reentry, reentry_delay_days=a.exit_delay, reentry_steps=a.exit_steps,
+                      rescreen_on_reentry=a.exit_rescreen)
+
+
+def es_screen(signals, a):
+    from .exit_signals import ExitScreen
+    return ExitScreen(signals, threshold=a.exit_threshold, hysteresis=a.exit_hysteresis, check=a.exit_check,
+                      lag=a.exit_lag, min_hold_days=a.exit_min_hold_days)
 
 
 def build_config(a) -> backtest.Config:
@@ -97,6 +175,7 @@ def build_lab(a) -> tuple[Lab, list]:
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     add_common_args(ap)
+    add_exit_args(ap)
     ap.add_argument("--graham-report", action="store_true", help="show Graham test funnel as of the last date")
     a = ap.parse_args(argv)
     lab, screens = build_lab(a)
@@ -115,7 +194,7 @@ def main(argv=None):
             print("names by tests passed:", rep["passes"].value_counts().sort_index(ascending=False).to_dict())
         return
 
-    rep = lab.backtest(screens, a.start, a.end)
+    rep = lab.backtest(screens, a.start, a.end, exit=build_exit(a, lab), with_and_without=a.exit_compare)
     print("\n" + str(rep))
     print(f"\nCurrent picks as of {asof:%Y-%m-%d}")
     for sc in screens:

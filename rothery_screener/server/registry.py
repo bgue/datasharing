@@ -200,9 +200,14 @@ class LabRegistry:
         return {"screen": screen, "asof": scalar(L._asof(asof)), **table(df)}
 
     def backtest(self, screens=None, start=None, end=None, config=None, lab=None,
-                 max_points=DEFAULT_MAX_POINTS) -> dict:
+                 max_points=DEFAULT_MAX_POINTS, exit=None, with_and_without=False) -> dict:
+        """`exit`: {"signals": [...], threshold, weights, min_votes, hysteresis, screen_params, + policy fields
+        (exposure_when_flagged, park, park_mer, park_cost_bps, switch_cost_bps, reentry, reentry_delay_days,
+        reentry_steps, rescreen_on_reentry, macro)} applied to every screen; with_and_without runs both."""
         L = self.get(lab)
-        rep = self._call(L.backtest, screens, start, end, **(config or {}))
+        pol = self._policy(L, exit) if exit else None
+        rep = self._call(L.backtest, screens, start, end, exit=pol, with_and_without=bool(with_and_without),
+                         **(config or {}))
         return self._report_json(rep, max_points)
 
     def timing(self, screen, mode="phase", stride=1, start=None, end=None, config=None, lab=None,
@@ -247,10 +252,14 @@ class LabRegistry:
 
     def exit_evaluate(self, signals, weights=None, threshold=0.7, min_votes=None, hysteresis=0.1,
                       screen_params=None, target=None, horizons=(1, 3, 12), macro=None,
-                      exposure_when_flagged=0.0, cash_rate=0.0, lab=None, max_points=DEFAULT_MAX_POINTS) -> dict:
+                      exposure_when_flagged=0.0, cash_rate=0.0, lab=None, max_points=DEFAULT_MAX_POINTS,
+                      policy=None) -> dict:
+        """`policy`: ExitPolicy fields (park, reentry, reentry_delay_days, reentry_steps, park_mer, ...);
+        when given, the overlay trades that policy."""
         L = self.get(lab)
         es = self._exit_screen(L, signals, weights, threshold, min_votes, hysteresis, screen_params)
-        ev = self._call(L.exit_eval, es, target, tuple(horizons), self._macro(macro, L),
+        pol = self._policy_from(es, policy, exposure_when_flagged) if policy else None
+        ev = self._call(L.exit_eval, es, target, tuple(horizons), self._macro(macro, L), policy=pol,
                         exposure_when_flagged=exposure_when_flagged, cash_rate=cash_rate)
         ov = ev.overlay
         return {"frac_flagged": scalar(ev.frac_flagged), "forward": table(ev.forward),
@@ -262,14 +271,17 @@ class LabRegistry:
 
     def exit_calibrate(self, signals, grid, weights=None, threshold=0.7, min_votes=None, hysteresis=0.1,
                        screen_params=None, objective="Calmar", splits=None, constraints=None, target=None,
-                       macro=None, lab=None) -> dict:
+                       macro=None, lab=None, policy=None) -> dict:
+        """`policy`: fixed ExitPolicy fields for every grid point; the grid may sweep reentry,
+        reentry_delay_days, reentry_steps, park and exposure_when_flagged."""
         L = self.get(lab)
         fn = getattr(L, "calibrate_exit", None)
         if fn is None:
             raise ServerError(501, "Lab.calibrate_exit is not available in this build of rothery_screener")
         es = self._exit_screen(L, signals, weights, threshold, min_votes, hysteresis, screen_params)
+        kw = {"policy": self._policy_from(es, policy, 0.0)} if policy else {}
         res = self._call(fn, es, grid=grid, objective=objective, splits=splits, constraints=constraints,
-                         target=target, macro=self._macro(macro, L))
+                         target=target, macro=self._macro(macro, L), **kw)
         return jsonify(res)
 
     def describe_columns(self, lab=None) -> dict:
@@ -279,10 +291,20 @@ class LabRegistry:
                             for k, v in COLUMNS.items()],
                 "note": "filters and derive expressions are pandas expressions over these snapshot columns"}
 
-    def list_signals(self) -> dict:
+    @staticmethod
+    def _signals():
+        """exit_signals.BUILTINS, with the optional extra inputs registered when that module exists."""
         from .. import exit_signals as es
+        try:
+            from .. import exit_inputs  # noqa: F401  (registers itself into BUILTINS)
+        except ImportError:
+            pass
+        return es
+
+    def list_signals(self) -> dict:
+        es = self._signals()
         out = []
-        for cls in es.BUILTINS:
+        for cls in es.BUILTINS.values():
             params = {f.name: scalar(f.default) for f in dataclasses.fields(cls)}
             doc = (cls.__doc__ or "").strip().splitlines()
             out.append({"type": cls.__name__, "params": params, "doc": doc[0] if doc else ""})
@@ -331,9 +353,34 @@ class LabRegistry:
             raise ServerError(400, f"bad macro payload: {e}") from e
         raise ServerError(400, "macro must be a record list, a {series: {date: value}} mapping, or \"statsmodels\"")
 
+    POLICY_FIELDS = ("exposure_when_flagged", "park", "park_mer", "park_cost_bps", "switch_cost_bps", "reentry",
+                     "reentry_delay_days", "reentry_steps", "rescreen_on_reentry")
+
+    def _policy_from(self, es, spec, exposure_when_flagged):
+        """ExitPolicy from an ExitScreen and a dict of policy fields."""
+        from ..exit_policy import ExitPolicy
+        bad = set(spec) - set(self.POLICY_FIELDS)
+        if bad:
+            raise ServerError(400, f"unknown policy fields {sorted(bad)}; use {list(self.POLICY_FIELDS)}")
+        kw = {"exposure_when_flagged": exposure_when_flagged, **spec}
+        return self._call(ExitPolicy, es, **kw)
+
+    def _policy(self, L, spec):
+        """ExitPolicy from a backtest `exit` object: signals + screen fields + policy fields."""
+        spec = dict(spec)
+        sig = spec.pop("signals", None)
+        macro = self._macro(spec.pop("macro", None), L)
+        screen_keys = ("weights", "threshold", "min_votes", "hysteresis", "screen_params")
+        sk = {k: spec.pop(k) for k in screen_keys if k in spec}
+        es = self._exit_screen(L, sig, sk.get("weights"), sk.get("threshold", 0.7), sk.get("min_votes"),
+                               sk.get("hysteresis", 0.1), sk.get("screen_params"))
+        pol = self._policy_from(es, spec, spec.pop("exposure_when_flagged", 0.0))
+        pol.macro = macro
+        return pol
+
     def _exit_screen(self, L, signals, weights, threshold, min_votes, hysteresis, screen_params):
-        from .. import exit_signals as es
-        known = {c.__name__: c for c in es.BUILTINS}
+        es = self._signals()
+        known = dict(es.BUILTINS)
         sigs = []
         for s in signals or []:
             s = {"type": s} if isinstance(s, str) else dict(s)

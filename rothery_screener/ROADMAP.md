@@ -25,6 +25,9 @@
 - Exit-signal screen with causal signals, hysteresis, its own decision
   cadence (daily default), in-backtest overlay, and walk-forward
   calibration with stability and constraints.
+- Exit policy (park in cash / rate / series, re-entry rules, rescreen on
+  re-entry), per-portfolio toggle with side-by-side backtests, twelve more
+  exit inputs.
 - REST (FastAPI) and MCP servers over the `Lab` SDK.
 
 ## 1. Real data and correctness (next)

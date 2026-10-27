@@ -10,7 +10,9 @@ Public API (see api.py for a walkthrough):
     HoldRule, blend, union_screen                            construction research
     MacroSeries, extended_summary, decompose                 real / FX / financing metrics
     ExitScreen + signals, evaluate_exit, overlay, ExitOverlay   exit-signal screen (own daily clock)
-    calibrate_exit                                           walk-forward calibration of an exit screen
+    ExitPolicy, Portfolio                                    where exited money goes, when/how it re-enters
+    exit_inputs.*                                            twelve more exit signals (price, portfolio, fundamentals, macro)
+    calibrate_exit                                           walk-forward calibration of an exit screen + policy
     Grid, run_sweep, walk_forward, bootstrap_excess, ...     sweeps and statistics
 
 Modules:
@@ -39,6 +41,11 @@ from .metrics_ext import decompose, extended_summary
 from .exit_signals import (Breadth, Dispersion, DrawdownFromPeak, ExitOverlay, ExitScreen, MomentumCrash,
                            RateShock, TrendBreak, ValuationStretch, VolRegime, evaluate as evaluate_exit, overlay)
 from .calibration import CalibrationResult, calibrate_exit
+from .exit_policy import ExitPolicy, Portfolio
+from . import exit_inputs  # registers the additional exit signals into exit_signals.BUILTINS
+from .exit_inputs import (CorrelationSpike, CreditSpread, DeathCross, DistanceFromHigh, DownsideDeviation,
+                          EarningsBreadth, NewLowsMinusHighs, PortfolioStop, PortfolioVsIndex,
+                          VolTermStructure, YieldCurve, YieldSpreadCompression)
 from .sweep import Grid, random_search, run_sweep, walk_forward
 from .stats import bootstrap_excess, deflated_sharpe, t_stat_excess
 
@@ -48,6 +55,9 @@ __all__ = ["Lab", "BacktestReport", "Config", "cap_tiered", "IndexBenchmark", "S
            "HoldRule", "blend", "union_screen", "MacroSeries", "decompose", "extended_summary",
            "ExitScreen", "TrendBreak", "Breadth", "VolRegime", "DrawdownFromPeak", "ValuationStretch",
            "MomentumCrash", "RateShock", "Dispersion", "evaluate_exit", "overlay", "ExitOverlay",
-           "CalibrationResult", "calibrate_exit",
+           "CalibrationResult", "calibrate_exit", "ExitPolicy", "Portfolio",
+           "CorrelationSpike", "CreditSpread", "DeathCross", "DistanceFromHigh", "DownsideDeviation",
+           "EarningsBreadth", "NewLowsMinusHighs", "PortfolioStop", "PortfolioVsIndex",
+           "VolTermStructure", "YieldCurve", "YieldSpreadCompression",
            "Grid", "random_search", "run_sweep", "walk_forward",
            "bootstrap_excess", "deflated_sharpe", "t_stat_excess"]

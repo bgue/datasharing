@@ -29,10 +29,13 @@ def build_tools(reg: LabRegistry | None = None) -> dict:
         return reg.picks(screen, asof, lab)
 
     def backtest(screens: list[str] | None = None, start: str | None = None, end: str | None = None,
-                 config: dict | None = None, lab: str | None = None, max_points: int = DEFAULT_MAX_POINTS) -> dict:
+                 config: dict | None = None, lab: str | None = None, max_points: int = DEFAULT_MAX_POINTS,
+                 exit: dict | None = None, with_and_without: bool = False) -> dict:
         """Backtest screens against the benchmark. config overrides: rebalance_months, cost_bps, commission,
-        capital, mer, delist_return, min_holdings, cash_rate. Returns the metrics table and downsampled curves."""
-        return reg.backtest(screens, start, end, config, lab, max_points)
+        capital, mer, delist_return, min_holdings, cash_rate. Returns the metrics table and downsampled curves.
+        exit: {"signals": [...], "threshold": .., "park": "cash", "reentry": "signal", "reentry_delay_days": ..,
+        "reentry_steps": .., ...} applies an exit policy to every screen; with_and_without also runs them without."""
+        return reg.backtest(screens, start, end, config, lab, max_points, exit, with_and_without)
 
     def timing(screen: str, mode: str = "phase", stride: int = 1, start: str | None = None,
                end: str | None = None, config: dict | None = None, lab: str | None = None,
@@ -67,18 +70,19 @@ def build_tools(reg: LabRegistry | None = None) -> dict:
                       min_votes: int | None = None, hysteresis: float = 0.1, screen_params: dict | None = None,
                       target: str | None = None, horizons: list[int] | None = None, macro=None,
                       exposure_when_flagged: float = 0.0, cash_rate: float = 0.0, lab: str | None = None,
-                      max_points: int = DEFAULT_MAX_POINTS) -> dict:
-        """Evaluate an exit screen. signals: [{"type": "TrendBreak", "window_months": 10}, ...] (see list_signals)."""
+                      max_points: int = DEFAULT_MAX_POINTS, policy: dict | None = None) -> dict:
+        """Evaluate an exit screen (policy: ExitPolicy fields such as park, reentry, reentry_steps). signals: [{"type": "TrendBreak", "window_months": 10}, ...] (see list_signals)."""
         return reg.exit_evaluate(signals, weights, threshold, min_votes, hysteresis, screen_params, target,
-                                 horizons or (1, 3, 12), macro, exposure_when_flagged, cash_rate, lab, max_points)
+                                 horizons or (1, 3, 12), macro, exposure_when_flagged, cash_rate, lab, max_points, policy)
 
     def exit_calibrate(signals: list, grid: dict, weights: dict | None = None, threshold: float = 0.7,
                        min_votes: int | None = None, hysteresis: float = 0.1, screen_params: dict | None = None,
                        objective: str = "Calmar", splits: dict | None = None, constraints: dict | None = None,
-                       target: str | None = None, macro=None, lab: str | None = None) -> dict:
+                       target: str | None = None, macro=None, lab: str | None = None,
+                       policy: dict | None = None) -> dict:
         """Walk-forward calibration of an exit screen (needs Lab.calibrate_exit; errors with 501 otherwise)."""
         return reg.exit_calibrate(signals, grid, weights, threshold, min_votes, hysteresis, screen_params,
-                                  objective, splits, constraints, target, macro, lab)
+                                  objective, splits, constraints, target, macro, lab, policy)
 
     def describe_columns(lab: str | None = None) -> dict:
         """The fundamentals / snapshot column contract usable in filters, derive and rank."""

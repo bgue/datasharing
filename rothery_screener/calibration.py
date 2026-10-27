@@ -24,12 +24,14 @@ import numpy as np
 import pandas as pd
 
 from . import metrics
+from .exit_policy import ExitPolicy, policy_overlay
 from .exit_signals import (ExitOverlay, ExitScreen, OverlayResult, evaluate_state, overlay)
 from .stats import periods_per_year, summarize_trials
 from .sweep import walk_forward
 
 SCREEN_KEYS = ("threshold", "hysteresis", "check", "lag", "min_hold_days", "weights", "min_votes")
 OVERLAY_KEYS = ("exposure_when_flagged",)
+POLICY_KEYS = ("reentry", "reentry_delay_days", "reentry_steps", "park", "exposure_when_flagged")
 OBJECTIVES = ("Calmar", "Sharpe", "CAGR", "MaxDD", "ForwardGap")
 
 
@@ -41,6 +43,7 @@ class CalibrationResult:
     best: dict                        # the modal grid point (most windows won), or best in-sample if no splits
     screen: ExitScreen                # ExitScreen built from `best`
     exit_overlay: ExitOverlay         # `screen` + best exposure_when_flagged, ready for Config.exit_overlay
+    policy: ExitPolicy = None         # `screen` + every best policy key, ready for Config.exit / Lab.backtest(exit=)
 
     @property
     def stability(self) -> float:
@@ -54,6 +57,7 @@ class CalibrationResult:
 def _screen_for(base: ExitScreen, point: Mapping) -> tuple[ExitScreen, float | None]:
     """(ExitScreen with the point applied, exposure_when_flagged override)."""
     fields, sig_over, expo = {}, {}, None
+    point = {k: v for k, v in point.items() if k not in POLICY_KEYS or k == "exposure_when_flagged"}
     for k, v in point.items():
         if k.startswith("signals."):
             try:
@@ -66,7 +70,7 @@ def _screen_for(base: ExitScreen, point: Mapping) -> tuple[ExitScreen, float | N
         elif k in OVERLAY_KEYS:
             expo = float(v)
         else:
-            raise ValueError(f"unknown grid key {k!r}; use {SCREEN_KEYS + OVERLAY_KEYS} or signals.<Name>.<param>")
+            raise ValueError(f"unknown grid key {k!r}; use {SCREEN_KEYS + POLICY_KEYS} or signals.<Name>.<param>")
     if sig_over:
         names = {s.name for s in base.signals}
         missing = set(sig_over) - names
@@ -74,6 +78,17 @@ def _screen_for(base: ExitScreen, point: Mapping) -> tuple[ExitScreen, float | N
             raise ValueError(f"grid targets signals {sorted(missing)} that are not in the screen {sorted(names)}")
         fields["signals"] = [replace(s, **sig_over[s.name]) if s.name in sig_over else s for s in base.signals]
     return replace(base, **fields), expo
+
+
+def _policy_for(base: ExitPolicy | None, scr: ExitScreen, point: Mapping, expo: float,
+                cost_bps: float, macro) -> ExitPolicy | None:
+    """ExitPolicy for a grid point when it (or the base policy) sets anything beyond the plain flag, else None."""
+    over = {k: point[k] for k in POLICY_KEYS if k in point and k != "exposure_when_flagged"}
+    if base is None and not over:
+        return None
+    if base is None:
+        base = ExitPolicy(scr, switch_cost_bps=cost_bps, macro=macro)
+    return replace(base, screen=scr, exposure_when_flagged=expo, **over)
 
 
 def _key(x):
@@ -96,7 +111,8 @@ def _slice_stats(ov: OverlayResult, state: pd.Series, a, b, rf: float) -> dict:
 def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | Callable = "Calmar",
                    splits=None, constraints: Mapping | None = None, macro=None,
                    exposure_when_flagged: float = 0.0, cash_rate: float | pd.Series = 0.0,
-                   cost_bps: float = 5.0) -> CalibrationResult:
+                   cost_bps: float = 5.0, policy: ExitPolicy | None = None, rebalance_months: int = 12,
+                   rebalance_dates=None) -> CalibrationResult:
     """Grid-search an ExitScreen's parameters against `target` (a series name in `mkt`, or a curve).
 
     grid: {key: [values]} or a list of point dicts. Keys: threshold, hysteresis, check, lag,
@@ -112,6 +128,12 @@ def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | 
     list of (train_start, train_end, test_end).
     `cost_bps` is charged per unit of exposure traded (overlay `cost`), `cash_rate` earns on the
     derisked part.
+    Policy keys: reentry, reentry_delay_days, reentry_steps, park and exposure_when_flagged may also be
+    grid keys (or fixed through `policy`, an ExitPolicy whose other fields -- park_mer, switch_cost_bps,
+    ... -- apply to every point; its screen is ignored in favour of `exit_screen`). Such points are traded
+    by `exit_policy.policy_overlay`; the "next_rebalance" modes use the entry rebalance dates
+    (`rebalance_dates`, else every `rebalance_months` from the target's first date). A callable objective
+    still gets the plain-flag `evaluate_state` overlay, not the policy one.
     """
     curve = (mkt.series(target) if isinstance(target, str) else target).dropna().astype(float)
     spec = grid if isinstance(grid, Mapping) else None
@@ -129,19 +151,28 @@ def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | 
     cost = cost_bps / 1e4
     obj_name = objective if isinstance(objective, str) else "objective"
 
+    reb = rebalance_dates
+    if reb is None and (policy is not None or any(k in POLICY_KEYS and k != "exposure_when_flagged"
+                                                   for p in points for k in p)):
+        from .backtest import schedule
+        reb = schedule(mkt, curve.index[0], rebalance_months)
     comp_cache: dict = {}
     runs = []
     for p in points:
         scr, expo = _screen_for(exit_screen, p)
-        expo = exposure_when_flagged if expo is None else expo
+        expo = (policy.exposure_when_flagged if policy is not None else exposure_when_flagged) if expo is None else expo
         ck = tuple(sorted((k, _key(v)) for k, v in p.items() if k.startswith("signals.")))
         if ck not in comp_cache:
             comp_cache[ck] = scr.components(mkt, macro)
         comp = comp_cache[ck]
         score, state = scr.score(mkt, macro, comp), scr.state(mkt, macro, comp)
         st = state.reindex(curve.index, method="pad").fillna(False)
-        ov = overlay(curve, st, expo, cash_rate, cost, scr.lag)
-        runs.append(dict(point=p, screen=scr, expo=expo, score=score, state=st, ov=ov))
+        pol = _policy_for(policy, scr, p, expo, cost_bps, macro)
+        if pol is None:
+            ov = overlay(curve, st, expo, cash_rate, cost, scr.lag)
+        else:
+            ov = policy_overlay(curve, pol, mkt, reb, rf, state=state)
+        runs.append(dict(point=p, screen=scr, expo=expo, score=score, state=st, ov=ov, policy=pol))
 
     def feasible(stats: dict) -> bool:
         if not stats:
@@ -227,4 +258,6 @@ def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | 
     best = dict(points[best_i])
     scr = runs[best_i]["screen"]
     return CalibrationResult(tbl, wf, summary, best, scr,
-                             ExitOverlay(scr, runs[best_i]["expo"], cost_bps, macro))
+                             ExitOverlay(scr, runs[best_i]["expo"], cost_bps, macro),
+                             runs[best_i]["policy"] or ExitPolicy(scr, runs[best_i]["expo"],
+                                                                  switch_cost_bps=cost_bps, macro=macro))

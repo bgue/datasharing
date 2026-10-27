@@ -61,8 +61,8 @@ loaded index series; with the synthetic data that is the cap-weighted
 equal-weight portfolio of the 60 largest names, which pays the portfolio's
 costs. CLI flags: `--benchmark NAME|top60 --bench-mer X --bench-cost-bps X`.
 
-**Tests.** `python -m pytest rothery_screener/tests -q` runs about 140
-tests in roughly 40 seconds, through the SDK where that makes sense:
+**Tests.** `python -m pytest rothery_screener/tests -q` runs about 200
+tests in roughly 50 seconds, through the SDK where that makes sense:
 - exact cost, MER, commission, delisting and benchmark arithmetic on a
   hand-built market;
 - spec screens reproducing the built-in screens;
@@ -190,6 +190,27 @@ for the design and `tests/` for worked examples.
   the largest drawdowns and a derisking overlay; `Config(exit_overlay=
   ExitOverlay(screen))` applies the flag day by day inside a backtest
   without the entry screen ever seeing it.
+- **Exit policy** (`exit_policy.py`): the screen says *when*; `ExitPolicy`
+  says *what happens*. `park` = cash, a fixed rate, or any loaded series
+  (a T-bill or bond ETF total-return index) with its own MER and cost;
+  `exposure_when_flagged` (0 = fully out); `reentry` = `"signal"` (flag
+  clears), `"next_rebalance"` (stay out until the entry screen's next
+  scheduled date) or `"signal_or_rebalance"`; `reentry_delay_days`
+  (confirmation), `reentry_steps` (scale back in gradually);
+  `rescreen_on_reentry` (re-run the entry screen on the way back in instead
+  of returning to the paper portfolio). `lab.backtest(screens, exit=policy,
+  with_and_without=True)` runs every screen with and without it (rows
+  `name` / `name+exit`, columns `TimeOut`, `Switches/yr`); `Portfolio(name,
+  screen, exit=...)` lets portfolios in one report carry different
+  policies. CLI: `--exit "TrendBreak:index=SP500,Breadth" --exit-compare
+  --exit-park cash --exit-reentry signal`. The entry picks never depend on
+  the flag.
+- **More exit inputs** (`exit_inputs.py`): correlation spike, new lows minus
+  new highs, short/long vol ratio, death cross, distance from 52-week high,
+  downside deviation, a trailing stop on the portfolio's own drawdown,
+  portfolio-vs-index drawdown, earnings breadth, earnings yield minus rf,
+  yield-curve inversion, credit spread. Each declares what data it needs
+  and returns NaN without it.
 - **Calibration** (`calibration.py`): `lab.calibrate_exit(screen, grid,
   splits=...)` sweeps threshold, hysteresis, cadence, lag, hold period,
   signal weights and signal parameters, scored by Calmar (default), Sharpe,
