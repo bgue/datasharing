@@ -256,6 +256,9 @@ def result_json(kind: str, L, kw: dict, res, max_points=DEFAULT_MAX_POINTS) -> d
         out = {"screen": kw["screen"], "asof": scalar(L._asof(kw.get("asof"))), **table(res)}
     else:
         out = jsonify(res)
+    card = getattr(res, "data_card", None) or (L.data_card() if hasattr(L, "data_card") else None)
+    if isinstance(out, dict) and card is not None:
+        out["data_card"] = card.to_dict()
     info = L.last_trials() if hasattr(L, "last_trials") else None
     if isinstance(out, dict) and info:
         out["trials_in_family"] = info["trials_in_family"]

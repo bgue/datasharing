@@ -32,6 +32,7 @@ from dataclasses import dataclass, field, replace
 import pandas as pd
 
 from . import backtest, data, metrics
+from .dataset import CSVBuilder, DataCard, Dataset, SyntheticBuilder
 from . import progress as _progress
 from .tracking import grid_points, note_points, tracked
 from .exit_policy import ExitPolicy, Portfolio, as_policy, policy_overlay
@@ -72,6 +73,7 @@ class BacktestReport:
     benchmark_label: str
     config: backtest.Config
     compare: dict = field(default_factory=dict)   # label -> extra comparison curve (screen benchmarks etc.)
+    data_card: DataCard | None = None             # what the data is (benchmark kind, survivorship, ...)
 
     @property
     def curves(self) -> pd.DataFrame:
@@ -98,7 +100,10 @@ class BacktestReport:
         span =f"{self.benchmark.index[0]:%Y-%m-%d} to {self.benchmark.index[-1]:%Y-%m-%d}"
         head = (f"Backtest {span}, rebalance {self._rebalance_text()}, "
                 f"benchmark {self.benchmark_label}\n")
-        return head + "\n" + format_table(self.table.sort_values("CAGR", ascending=False))
+        card = ""
+        if self.data_card is not None:
+            card = "\n".join([self.data_card.line(), *self.data_card.warnings()]) + "\n"
+        return head + card + "\n" + format_table(self.table.sort_values("CAGR", ascending=False))
 
 
 @dataclass
@@ -133,6 +138,7 @@ class Lab:
         if not len(ind.columns):
             name, series = passive_index(self.market)
             self.market.indices[name] = series
+            self.market.dataset = self.market.dataset.with_index(name, series, "total_return")
             return IndexBenchmark(name)
         return IndexBenchmark(ind.columns[0])
 
@@ -159,12 +165,21 @@ class Lab:
     # ---- construction ---------------------------------------------------
     @classmethod
     def synthetic(cls, freq: str = "B", n_stocks: int = 250, years: int = 25, seed: int = 7, **kw) -> "Lab":
-        fund, prices, indices = data.synthetic_market(n_stocks=n_stocks, years=years, freq=freq, seed=seed)
-        return cls(data.Market(fund, prices, indices), **kw)
+        return cls.from_dataset(SyntheticBuilder(n_stocks=n_stocks, years=years, freq=freq, seed=seed).build(), **kw)
 
     @classmethod
     def from_csv(cls, fundamentals: str, prices: str, indices: str | None = None, **kw) -> "Lab":
-        return cls(data.Market(*data.load_csv(fundamentals, prices, indices)), **kw)
+        return cls.from_dataset(CSVBuilder(fundamentals, prices, indices).build(), **kw)
+
+    @classmethod
+    def from_dataset(cls, dataset: Dataset, max_views: int | None = data.DEFAULT_MAX_VIEWS, **kw) -> "Lab":
+        """A Lab on a Dataset (see dataset.py for the builders)."""
+        return cls(data.Market(dataset, max_views=max_views), **kw)
+
+    def data_card(self, benchmark=None) -> DataCard:
+        """The data card, with the kind and survivorship score taken against `benchmark` (the passive
+        index of this lab by default)."""
+        return self.market.dataset.card_for(self.passive(benchmark).index)
 
     # ---- screens ----------------------------------------------------------
     def define(self, spec) -> Screen:
@@ -274,7 +289,8 @@ class Lab:
                            "Costs/yr": res.costs.sum() / yrs}
             if res.exit is not None:
                 rows[label].update({"TimeOut": res.time_out, "Switches/yr": res.switches / yrs})
-        return BacktestReport(pd.DataFrame(rows).T, results, bcurve, bench.label, cfg, ccurves)
+        return BacktestReport(pd.DataFrame(rows).T, results, bcurve, bench.label, cfg, ccurves,
+                              self.data_card(benchmark))
 
     @tracked("timing")
     def timing(self, screen, mode: str = "phase", stride: int = 1, start=None, end=None,

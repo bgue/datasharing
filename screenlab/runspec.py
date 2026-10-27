@@ -599,6 +599,9 @@ def dataset_id(market) -> str:
         except TypeError:
             hv = pd.util.hash_pandas_object(df.astype(str), index=ix)
         h.update(hv.to_numpy().tobytes())
+    uni = getattr(market, "universe", None)
+    if uni is not None and uni.fingerprint() != "AllListed()":   # unchanged (AllListed) datasets keep their ids
+        h.update(b"universe" + uni.fingerprint().encode())
     did = h.hexdigest()[:24]
     try:
         market._screenlab_dataset_id = did

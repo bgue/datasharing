@@ -154,3 +154,9 @@ def to_fundamentals(sub: pd.DataFrame, num: pd.DataFrame, tickers_map: dict, for
     out = pd.DataFrame(rows, columns=OUT_COLS)
     out["date"] = pd.to_datetime(out["date"])
     return out.sort_values(["date", "ticker"]).reset_index(drop=True)
+
+
+def builder(zips, tickers_map, prices, indices=None, forms=("10-K",), **kw):
+    """Builder-style entry point: `SECBuilder` over saved quarterly zips (`build()` -> Dataset)."""
+    from ..dataset import SECBuilder
+    return SECBuilder(tuple(zips), tickers_map, prices, indices, tuple(forms), **kw)

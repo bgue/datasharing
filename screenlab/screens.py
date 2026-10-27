@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from .data import f_score
+from .universe import TopN
 
 
 @dataclass
@@ -52,13 +53,9 @@ class Screen:
         return Screen(self.name, self.fn, kw.get("n", self.n), params, self.note)
 
 
-def _largest(s, k):  # liquidity / size filter used by most screens
-    return s.nlargest(k, "market_cap")
-
-
 # --- Dividend dogs: highest yielders among the biggest names -----------------
 def dogs(s, n=10, universe=30):
-    u = _largest(s, universe)
+    u = TopN(universe).cut(s)
     return u[u["div_yield"] > 0].nlargest(n, "div_yield").index.tolist()
 
 
@@ -168,7 +165,7 @@ def piotroski(s, n=10, pb_quantile=0.2, min_score=8):
 
 # --- Greenblatt's Magic Formula: rank on earnings yield + return on capital --
 def magic_formula(s, n=15, min_cap_rank=200, exclude=("Fin", "Util")):
-    u = _largest(s, min_cap_rank)
+    u = TopN(min_cap_rank).cut(s)
     u = u[~u["sector"].isin(exclude) & (u["ebit"] > 0)]
     rank = u["earnings_yield"].rank(ascending=False) + u["roic"].rank(ascending=False)
     return rank.nsmallest(n).index.tolist()
@@ -183,7 +180,7 @@ def value_momentum(s, n=10, value_pool=40):
 
 # --- Low-volatility dividend payers -----------------------------------------
 def low_vol_dividend(s, n=15, universe=100):
-    u = _largest(s, universe)
+    u = TopN(universe).cut(s)
     u = u[(u["div_yield"] > 0) & (u["eps"] > 0)].dropna(subset=["vol_1y"])
     return u.nsmallest(n, "vol_1y").index.tolist()
 
@@ -195,13 +192,13 @@ GLOBE_UNIVERSE = 300
 
 
 def _payers(s, universe):
-    u = _largest(s, universe)
+    u = TopN(universe).cut(s)
     return u[u["dividend"] > 0]
 
 
 def screaming_value(s, n=10, universe=GLOBE_UNIVERSE):
     """The n lowest EV/EBIT among the largest `universe` (EBIT <= 0 is NaN, hence excluded)."""
-    u = _largest(s, universe)
+    u = TopN(universe).cut(s)
     return u["ev_ebit"].dropna().nsmallest(n).index.tolist()
 
 
@@ -224,18 +221,18 @@ def stable_high_yield(s, n=10, universe=GLOBE_UNIVERSE, vol_pool=50):
 
 def basic_buyback(s, n=20, universe=GLOBE_UNIVERSE):
     """The n highest buyback yields (1 - shares / year-ago shares) among the largest; net issuers excluded."""
-    y = _largest(s, universe)["buyback_yield"].dropna()
+    y = TopN(universe).cut(s)["buyback_yield"].dropna()
     return y[y > 0].nlargest(n).index.tolist()
 
 
 def momentum_6m(s, n=10, universe=GLOBE_UNIVERSE):
     """The n highest prior 6-month returns among the largest `universe`."""
-    return _largest(s, universe)["mom_6m"].dropna().nlargest(n).index.tolist()
+    return TopN(universe).cut(s)["mom_6m"].dropna().nlargest(n).index.tolist()
 
 
 def momentum_12m(s, n=10, universe=GLOBE_UNIVERSE):
     """The n highest prior 12-month returns among the largest `universe`."""
-    return _largest(s, universe)["mom_12m"].dropna().nlargest(n).index.tolist()
+    return TopN(universe).cut(s)["mom_12m"].dropna().nlargest(n).index.tolist()
 
 
 def bluechip_dividend_growth(s, n=12, universe=60, min_div_years=10):

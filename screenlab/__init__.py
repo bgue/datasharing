@@ -48,6 +48,9 @@ from .exit_inputs import (CorrelationSpike, CreditSpread, DeathCross, DistanceFr
                           VolTermStructure, YieldCurve, YieldSpreadCompression)
 from .sweep import Grid, random_search, run_sweep, walk_forward
 from .stats import bootstrap_excess, deflated_sharpe, t_stat_excess
+from .dataset import (BoCMacro, BundledSP500Builder, CSVBuilder, DataCard, Dataset, DatasetBuilder, SECBuilder,
+                      SyntheticBuilder)
+from .universe import AllListed, Filtered, Membership, TopN, Universe
 from .runspec import RunSpec, code_version, dataset_id
 from .store import NullStore, SQLiteStore
 from .jobs import Job, JobManager
@@ -65,4 +68,6 @@ __all__ = ["Lab", "BacktestReport", "Config", "cap_tiered", "IndexBenchmark", "S
            "VolTermStructure", "YieldCurve", "YieldSpreadCompression",
            "Grid", "random_search", "run_sweep", "walk_forward",
            "bootstrap_excess", "deflated_sharpe", "t_stat_excess", "RunSpec", "code_version", "dataset_id",
+           "Dataset", "DataCard", "DatasetBuilder", "SyntheticBuilder", "BundledSP500Builder", "CSVBuilder",
+           "SECBuilder", "BoCMacro", "Universe", "AllListed", "TopN", "Membership", "Filtered",
            "NullStore", "SQLiteStore", "Job", "JobManager", "Cancelled"]

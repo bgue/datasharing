@@ -60,3 +60,9 @@ def to_macro_csv(df: pd.DataFrame, out_path) -> Path:
             .dropna(subset=["value"]).sort_values(["series", "date"]))
     long.to_csv(out_path, index=False)
     return Path(out_path)
+
+
+def builder(cache_path="boc_valet.json"):
+    """Builder-style entry point: `BoCMacro` over a saved Valet json (`build()` -> MacroSeries)."""
+    from ..dataset import BoCMacro
+    return BoCMacro(str(cache_path))

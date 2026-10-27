@@ -107,7 +107,5 @@ def price_only_fundamentals(prices: pd.DataFrame, sectors: dict | None = None) -
 
 def sp500_lab(path_prices=None, path_index=None, n: int = 5, **kw) -> Lab:
     """Lab on the 20 bundled S&P 500 names, benchmarked on the S&P 500 index."""
-    prices = sp500_prices(path_prices)
-    idx = sp500_index(path_index)
-    fund = price_only_fundamentals(prices, SECTORS)
-    return Lab(Market(fund, prices, idx), screens=price_screens(n), **kw)
+    from ..dataset import BundledSP500Builder
+    return Lab.from_dataset(BundledSP500Builder(path_prices, path_index).build(), screens=price_screens(n), **kw)

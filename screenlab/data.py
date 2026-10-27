@@ -131,8 +131,18 @@ class Market:
     used evicted first (a monthly backtest over 25 years needs ~300; None = unbounded). Results do not
     depend on it: an evicted view is recomputed identically."""
 
-    def __init__(self, fund: pd.DataFrame, prices: pd.DataFrame, indices: pd.DataFrame | None = None,
+    def __init__(self, fund, prices: pd.DataFrame | None = None, indices: pd.DataFrame | None = None,
                  max_views: int | None = DEFAULT_MAX_VIEWS):
+        from .dataset import Dataset
+        if isinstance(fund, Dataset):                 # Market(dataset); frames are taken from it
+            if prices is not None or indices is not None:
+                raise TypeError("Market(dataset) takes no prices / indices")
+            ds = fund
+        else:                                         # Market(fund, prices, indices): wrap in a Dataset
+            ds = Dataset.from_frames(fund, prices, indices)
+        self.dataset = ds
+        self.universe = ds.universe
+        fund, prices, indices = ds.fundamentals, ds.prices, (ds.indices if len(ds.indices.columns) else None)
         self.fund = fund.sort_values("date")
         self.prices = prices.sort_index()
         self.index = self.prices.index
@@ -231,7 +241,7 @@ class Market:
         s["market_cap"] += d_mcap
         s["enterprise_value"] += d_mcap
         s = add_ratios(s).join(self.trailing_stats(asof))
-        return self._views.put(asof, s)
+        return self._views.put(asof, self.universe.restrict(s, asof))
 
     def picks(self, screen, asof) -> list[str]:
         # Keep the screen in the entry: a freed screen's id() can be reused by a new one.
