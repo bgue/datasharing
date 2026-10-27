@@ -1,0 +1,11 @@
+{
+  "name": "momentum_12m",
+  "n": 10,
+  "note": "Follows the Globe's momentum portfolios: 10 best prior 12-month returns of the 300 largest",
+  "universe": {
+    "top": 300
+  },
+  "rank": {
+    "mom_12m": "desc"
+  }
+}

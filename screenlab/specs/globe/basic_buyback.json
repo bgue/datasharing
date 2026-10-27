@@ -1,0 +1,14 @@
+{
+  "name": "basic_buyback",
+  "n": 20,
+  "note": "Follows the Globe's Basic Buyback: 20 highest buyback yield among the 300 largest",
+  "universe": {
+    "top": 300
+  },
+  "filters": [
+    "buyback_yield > 0"
+  ],
+  "rank": {
+    "buyback_yield": "desc"
+  }
+}

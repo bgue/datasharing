@@ -1,0 +1,11 @@
+{
+  "name": "screaming_value",
+  "n": 10,
+  "note": "Follows the Globe's Screaming Value: 300 largest, 10 lowest EV/EBIT",
+  "universe": {
+    "top": 300
+  },
+  "rank": {
+    "ev_ebit": "asc"
+  }
+}

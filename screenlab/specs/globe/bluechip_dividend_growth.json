@@ -1,0 +1,17 @@
+{
+  "name": "bluechip_dividend_growth",
+  "n": 12,
+  "note": "APPROXIMATION of a discretionary model dividend portfolio (Strategy Lab): 60 largest, long dividend record, EPS up, 12 lowest 260-day vol",
+  "universe": {
+    "top": 60
+  },
+  "filters": [
+    "dividend > 0",
+    "div_years >= 10",
+    "eps > 0",
+    "eps > eps_prev"
+  ],
+  "rank": {
+    "vol_260d": "asc"
+  }
+}

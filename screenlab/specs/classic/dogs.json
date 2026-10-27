@@ -1,0 +1,14 @@
+{
+  "name": "dogs",
+  "n": 10,
+  "note": "Top-10 yield from the 30 largest (Dogs/Beat the TSX)",
+  "universe": {
+    "top": 30
+  },
+  "filters": [
+    "div_yield > 0"
+  ],
+  "rank": {
+    "div_yield": "desc"
+  }
+}

@@ -11,8 +11,12 @@ import pytest
 
 from screenlab import GLOBE_PORTFOLIOS, Lab, Market, REGISTRY
 from screenlab.data import add_ratios
-from screenlab.screens import (basic_buyback, bluechip_dividend_growth, frugal_dividend, momentum_6m,
-                               momentum_12m, screaming_value, stable_dividend, stable_high_yield)
+from screenlab.screens import (_legacy_basic_buyback as basic_buyback,        # the registered screens are JSON specs
+                               _legacy_bluechip_dividend_growth as bluechip_dividend_growth,
+                               _legacy_frugal_dividend as frugal_dividend, _legacy_momentum_6m as momentum_6m,
+                               _legacy_momentum_12m as momentum_12m, _legacy_screaming_value as screaming_value,
+                               _legacy_stable_dividend as stable_dividend,
+                               _legacy_stable_high_yield as stable_high_yield)
 
 NEW = ["screaming_value", "stable_dividend", "frugal_dividend", "stable_high_yield", "basic_buyback",
        "momentum_6m", "momentum_12m", "bluechip_dividend_growth"]

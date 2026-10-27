@@ -1,0 +1,11 @@
+{
+  "name": "momentum_6m",
+  "n": 10,
+  "note": "Follows the Globe's momentum portfolios: 10 best prior 6-month returns of the 300 largest",
+  "universe": {
+    "top": 300
+  },
+  "rank": {
+    "mom_6m": "desc"
+  }
+}

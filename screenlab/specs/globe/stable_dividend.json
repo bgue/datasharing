@@ -1,0 +1,14 @@
+{
+  "name": "stable_dividend",
+  "n": 20,
+  "note": "Follows the Globe's Stable Dividend: payers among 300 largest, 20 lowest 260-day volatility",
+  "universe": {
+    "top": 300
+  },
+  "filters": [
+    "dividend > 0"
+  ],
+  "rank": {
+    "vol_260d": "asc"
+  }
+}

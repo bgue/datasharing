@@ -1,0 +1,24 @@
+{
+  "name": "stable_high_yield",
+  "n": 10,
+  "note": "Follows the Globe's Stable High-Yield: payers, 50 lowest 260-day vol, 10 highest yield",
+  "stages": [
+    {
+      "universe": {
+        "top": 300
+      },
+      "filters": [
+        "dividend > 0"
+      ],
+      "rank": {
+        "vol_260d": "asc"
+      },
+      "keep": 50
+    },
+    {
+      "rank": {
+        "div_yield": "desc"
+      }
+    }
+  ]
+}

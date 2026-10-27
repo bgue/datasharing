@@ -1,0 +1,22 @@
+{
+  "name": "value_momentum",
+  "n": 10,
+  "note": "Low P/E+P/B, best 12-1 momentum",
+  "stages": [
+    {
+      "filters": [
+        "pe.notna() & pb.notna() & mom_12_1.notna()"
+      ],
+      "rank": {
+        "pe": "asc",
+        "pb": "asc"
+      },
+      "keep": 40
+    },
+    {
+      "rank": {
+        "mom_12_1": "desc"
+      }
+    }
+  ]
+}

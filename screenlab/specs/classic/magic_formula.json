@@ -1,0 +1,19 @@
+{
+  "name": "magic_formula",
+  "n": 15,
+  "note": "Greenblatt EY + ROIC rank",
+  "universe": {
+    "top": 200,
+    "exclude_sectors": [
+      "Fin",
+      "Util"
+    ]
+  },
+  "filters": [
+    "ebit > 0"
+  ],
+  "rank": {
+    "earnings_yield": "desc",
+    "roic": "desc"
+  }
+}

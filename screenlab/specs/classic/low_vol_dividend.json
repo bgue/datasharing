@@ -1,0 +1,15 @@
+{
+  "name": "low_vol_dividend",
+  "n": 15,
+  "note": "Least volatile dividend payers",
+  "universe": {
+    "top": 100
+  },
+  "filters": [
+    "div_yield > 0",
+    "eps > 0"
+  ],
+  "rank": {
+    "vol_1y": "asc"
+  }
+}

@@ -9,7 +9,9 @@ tune, and the README notes which rules follow a published description.
 """
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import Callable
 
 import numpy as np
@@ -40,6 +42,10 @@ class Screen:
 
     def with_overrides(self, **kw) -> "Screen":
         """Copy with params changed; keys naming a GrahamTests field update `tests`."""
+        if self.fn.__name__ == "rule_screen":           # spec screens: legacy `universe=<int>`, stages, ...
+            from .spec import override_params
+            rest = {k: v for k, v in kw.items() if k != "n"}
+            return Screen(self.name, self.fn, kw.get("n", self.n), override_params(self.params, **rest), self.note)
         params, tests = dict(self.params), self.params.get("tests")
         for k, v in kw.items():
             if k == "n":
@@ -54,7 +60,7 @@ class Screen:
 
 
 # --- Dividend dogs: highest yielders among the biggest names -----------------
-def dogs(s, n=10, universe=30):
+def _legacy_dogs(s, n=10, universe=30):
     u = TopN(universe).cut(s)
     return u[u["div_yield"] > 0].nlargest(n, "div_yield").index.tolist()
 
@@ -164,7 +170,7 @@ def piotroski(s, n=10, pb_quantile=0.2, min_score=8):
 
 
 # --- Greenblatt's Magic Formula: rank on earnings yield + return on capital --
-def magic_formula(s, n=15, min_cap_rank=200, exclude=("Fin", "Util")):
+def _legacy_magic_formula(s, n=15, min_cap_rank=200, exclude=("Fin", "Util")):
     u = TopN(min_cap_rank).cut(s)
     u = u[~u["sector"].isin(exclude) & (u["ebit"] > 0)]
     rank = u["earnings_yield"].rank(ascending=False) + u["roic"].rank(ascending=False)
@@ -172,14 +178,14 @@ def magic_formula(s, n=15, min_cap_rank=200, exclude=("Fin", "Util")):
 
 
 # --- Cheap & strong: low P/E + low P/B, then the best 12-1 momentum ----------
-def value_momentum(s, n=10, value_pool=40):
+def _legacy_value_momentum(s, n=10, value_pool=40):
     u = s.dropna(subset=["pe", "pb", "mom_12_1"])
     v = (u["pe"].rank() + u["pb"].rank()).nsmallest(value_pool).index
     return u.loc[v].nlargest(n, "mom_12_1").index.tolist()
 
 
 # --- Low-volatility dividend payers -----------------------------------------
-def low_vol_dividend(s, n=15, universe=100):
+def _legacy_low_vol_dividend(s, n=15, universe=100):
     u = TopN(universe).cut(s)
     u = u[(u["div_yield"] > 0) & (u["eps"] > 0)].dropna(subset=["vol_1y"])
     return u.nsmallest(n, "vol_1y").index.tolist()
@@ -196,46 +202,46 @@ def _payers(s, universe):
     return u[u["dividend"] > 0]
 
 
-def screaming_value(s, n=10, universe=GLOBE_UNIVERSE):
+def _legacy_screaming_value(s, n=10, universe=GLOBE_UNIVERSE):
     """The n lowest EV/EBIT among the largest `universe` (EBIT <= 0 is NaN, hence excluded)."""
     u = TopN(universe).cut(s)
     return u["ev_ebit"].dropna().nsmallest(n).index.tolist()
 
 
-def stable_dividend(s, n=20, universe=GLOBE_UNIVERSE):
+def _legacy_stable_dividend(s, n=20, universe=GLOBE_UNIVERSE):
     """Dividend payers among the largest `universe`, the n with the lowest 260-day volatility."""
     return _payers(s, universe)["vol_260d"].dropna().nsmallest(n).index.tolist()
 
 
-def frugal_dividend(s, n=10, universe=GLOBE_UNIVERSE, vol_pool=50):
+def _legacy_frugal_dividend(s, n=10, universe=GLOBE_UNIVERSE, vol_pool=50):
     """Payers -> the `vol_pool` lowest 260-day volatility -> the n lowest P/E (P/E is NaN for losses)."""
     low = _payers(s, universe)["vol_260d"].dropna().nsmallest(vol_pool).index
     return s.loc[low, "pe"].dropna().nsmallest(n).index.tolist()
 
 
-def stable_high_yield(s, n=10, universe=GLOBE_UNIVERSE, vol_pool=50):
+def _legacy_stable_high_yield(s, n=10, universe=GLOBE_UNIVERSE, vol_pool=50):
     """Payers -> the `vol_pool` lowest 260-day volatility -> the n highest dividend yields."""
     low = _payers(s, universe)["vol_260d"].dropna().nsmallest(vol_pool).index
     return s.loc[low, "div_yield"].dropna().nlargest(n).index.tolist()
 
 
-def basic_buyback(s, n=20, universe=GLOBE_UNIVERSE):
+def _legacy_basic_buyback(s, n=20, universe=GLOBE_UNIVERSE):
     """The n highest buyback yields (1 - shares / year-ago shares) among the largest; net issuers excluded."""
     y = TopN(universe).cut(s)["buyback_yield"].dropna()
     return y[y > 0].nlargest(n).index.tolist()
 
 
-def momentum_6m(s, n=10, universe=GLOBE_UNIVERSE):
+def _legacy_momentum_6m(s, n=10, universe=GLOBE_UNIVERSE):
     """The n highest prior 6-month returns among the largest `universe`."""
     return TopN(universe).cut(s)["mom_6m"].dropna().nlargest(n).index.tolist()
 
 
-def momentum_12m(s, n=10, universe=GLOBE_UNIVERSE):
+def _legacy_momentum_12m(s, n=10, universe=GLOBE_UNIVERSE):
     """The n highest prior 12-month returns among the largest `universe`."""
     return TopN(universe).cut(s)["mom_12m"].dropna().nlargest(n).index.tolist()
 
 
-def bluechip_dividend_growth(s, n=12, universe=60, min_div_years=10):
+def _legacy_bluechip_dividend_growth(s, n=12, universe=60, min_div_years=10):
     """Rules-based stand-in for a discretionary model dividend portfolio: the `universe` largest names,
     paying a dividend with at least `min_div_years` of record and EPS above last year's, then the n with
     the lowest 260-day volatility. Pair with an annual rebalance and a HoldRule (see GLOBE_PORTFOLIOS)."""
@@ -244,33 +250,37 @@ def bluechip_dividend_growth(s, n=12, universe=60, min_div_years=10):
     return u["vol_260d"].dropna().nsmallest(n).index.tolist()
 
 
-REGISTRY: dict[str, Screen] = {sc.name: sc for sc in [
-    Screen("dogs", dogs, 10, note="Top-10 yield from the 30 largest (Dogs/Beat the TSX)"),
+# Spec screens live as JSON in specs/classic and specs/globe (copy and edit them to make your own). The
+# `_legacy_*` functions above are the original Python versions, kept only so tests can prove the specs pick
+# identically; they are not registered. Graham, net-nets and Piotroski stay Python (see README).
+_PYTHON = {sc.name: sc for sc in [
     Screen("graham_defensive", graham, 10, {"tests": DEFENSIVE}, "Graham defensive investor"),
     Screen("graham_enterprising", graham, 10, {"tests": ENTERPRISING}, "Graham enterprising investor"),
     Screen("net_nets", net_nets, 15, note="Price < NCAV"),
     Screen("piotroski", piotroski, 10, note="F-score >= 8 in cheapest P/B quintile"),
-    Screen("magic_formula", magic_formula, 15, note="Greenblatt EY + ROIC rank"),
-    Screen("value_momentum", value_momentum, 10, note="Low P/E+P/B, best 12-1 momentum"),
-    Screen("low_vol_dividend", low_vol_dividend, 15, note="Least volatile dividend payers"),
-    Screen("screaming_value", screaming_value, 10,
-           note="Follows the Globe's Screaming Value: 300 largest, 10 lowest EV/EBIT"),
-    Screen("stable_dividend", stable_dividend, 20,
-           note="Follows the Globe's Stable Dividend: payers among 300 largest, 20 lowest 260-day volatility"),
-    Screen("frugal_dividend", frugal_dividend, 10,
-           note="Follows the Globe's Frugal Dividend: payers, 50 lowest 260-day vol, 10 lowest P/E"),
-    Screen("stable_high_yield", stable_high_yield, 10,
-           note="Follows the Globe's Stable High-Yield: payers, 50 lowest 260-day vol, 10 highest yield"),
-    Screen("basic_buyback", basic_buyback, 20,
-           note="Follows the Globe's Basic Buyback: 20 highest buyback yield among the 300 largest"),
-    Screen("momentum_6m", momentum_6m, 10,
-           note="Follows the Globe's momentum portfolios: 10 best prior 6-month returns of the 300 largest"),
-    Screen("momentum_12m", momentum_12m, 10,
-           note="Follows the Globe's momentum portfolios: 10 best prior 12-month returns of the 300 largest"),
-    Screen("bluechip_dividend_growth", bluechip_dividend_growth, 12,
-           note="APPROXIMATION of a discretionary model dividend portfolio (Strategy Lab): 60 largest, "
-                "long dividend record, EPS up, 12 lowest 260-day vol"),
 ]}
+_ORDER = ["dogs", "graham_defensive", "graham_enterprising", "net_nets", "piotroski", "magic_formula",
+          "value_momentum", "low_vol_dividend", "screaming_value", "stable_dividend", "frugal_dividend",
+          "stable_high_yield", "basic_buyback", "momentum_6m", "momentum_12m", "bluechip_dividend_growth"]
+SPEC_DIR = Path(__file__).parent / "specs"
+REGISTRY: dict[str, Screen] = dict(_PYTHON)
+
+
+def spec_files() -> list[Path]:
+    return sorted(SPEC_DIR.glob("*/*.json"))
+
+
+def _register_spec_screens(ScreenSpec) -> None:
+    """Fill REGISTRY with the JSON spec screens, in the historical order (called by spec.py once it is defined)."""
+    specs = {}
+    for f in spec_files():
+        d = json.loads(f.read_text())
+        specs[d["name"]] = ScreenSpec.from_dict(d).build()
+    unknown = set(specs) - set(_ORDER)
+    REGISTRY.clear()
+    REGISTRY.update({k: (specs.get(k) or _PYTHON[k]) for k in _ORDER if k in specs or k in _PYTHON})
+    REGISTRY.update({k: specs[k] for k in sorted(unknown)})
+
 
 # Ready-made portfolios carrying the published rebalance frequency of each Globe portfolio.
 # GLOBE_PORTFOLIOS (dict name -> Portfolio, built lazily). bluechip is annual with a hold rule (keep a holding while it ranks within 2x n; leave names untraded
@@ -297,3 +307,6 @@ def __getattr__(name):                      # PEP 562: GLOBE_PORTFOLIOS is built
             _globe = _build_globe_portfolios()
         return _globe
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+from . import spec as _spec  # noqa: E402,F401  (registers the JSON spec screens; spec.py imports this module)

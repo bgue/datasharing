@@ -1,0 +1,24 @@
+{
+  "name": "frugal_dividend",
+  "n": 10,
+  "note": "Follows the Globe's Frugal Dividend: payers, 50 lowest 260-day vol, 10 lowest P/E",
+  "stages": [
+    {
+      "universe": {
+        "top": 300
+      },
+      "filters": [
+        "dividend > 0"
+      ],
+      "rank": {
+        "vol_260d": "asc"
+      },
+      "keep": 50
+    },
+    {
+      "rank": {
+        "pe": "asc"
+      }
+    }
+  ]
+}
