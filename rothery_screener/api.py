@@ -13,6 +13,10 @@
     rep.table, rep.curves                                   # raw numbers / equity curves
     tr = lab.timing("dogs", stride=5)                       # daily-start timing study
     lab.graham("defensive", max_pe=18)                      # funnel + per-test pass table
+    lab.significance(rep)                                   # bootstrap CI, t-stat, deflated Sharpe
+    lab.sweep("dogs", {"dogs.n": [5, 10], "cost_bps": [10, 50]}, splits=dict(train_years=5, test_years=1))
+    lab.extended(rep, MacroSeries.from_csv("macro.csv"), spread_over_prime=0.01)   # real / FX / financing
+    lab.exit_eval(ExitScreen([TrendBreak("SYN_CAPWT"), Breadth()]))              # exit-signal evaluation
 
 Every call takes Config fields as keyword overrides (rebalance_months,
 cost_bps, commission, capital, mer, delist_return, min_holdings, cash_rate)
@@ -134,6 +138,49 @@ class Lab:
         from . import timing          # lazy: lets `python -m rothery_screener.timing` run cleanly
         return timing.study(self.screen(screen), self.market, self._cfg(**cfg), start, end, mode,
                             stride, offsets, benchmark or self.benchmark, progress)
+
+    # ---- research --------------------------------------------------------
+    def significance(self, report: BacktestReport, n: int = 2000, seed: int = 0) -> pd.DataFrame:
+        """Bootstrap CI on excess return and Newey-West t-stat per screen, plus DSR across screens."""
+        from . import stats
+        rows = {}
+        for name, res in report.results.items():
+            b = stats.bootstrap_excess(res.curve, report.benchmark, n=n, seed=seed, curves=True)
+            rows[name] = {"Excess/yr": b["mean"], "CI5": b["ci_low"], "CI95": b["ci_high"],
+                          "P(>0)": b["p_positive"],
+                          "t": stats.t_stat_excess(res.curve, report.benchmark, curves=True)}
+        out = pd.DataFrame(rows).T
+        out["Sharpe"] = report.table.loc[out.index, "Sharpe"]
+        n_obs = int(report.benchmark.pct_change().dropna().shape[0])
+        return stats.summarize_trials(out, n_obs=n_obs,
+                                      periods_per_year=stats.periods_per_year(report.benchmark.index))
+
+    def sweep(self, screen, grid, objective="Excess/yr", start=None, end=None, splits=None,
+              benchmark=None) -> pd.DataFrame:
+        """Grid / random-search sweep; dotted keys ("dogs.n") hit the screen, bare keys Config.
+        `splits=dict(train_years=.., test_years=..)` adds walk-forward out-of-sample columns."""
+        from .sweep import Grid, run_sweep
+        if isinstance(grid, dict):
+            grid = Grid(grid)
+        return run_sweep(self, self.screen(screen), grid, objective, start, end, splits, benchmark)
+
+    def extended(self, report: BacktestReport, macro, spread_over_prime: float = 0.0,
+                 leverage: float = 1.0) -> pd.DataFrame:
+        """Real / home-currency / net-of-financing / excess-over-rf metrics for every curve in a report."""
+        from .metrics_ext import extended_summary
+        rows = {report.benchmark_label: extended_summary(report.benchmark, macro, None, spread_over_prime, leverage)}
+        for name, res in report.results.items():
+            rows[name] = extended_summary(res.curve, macro, report.benchmark, spread_over_prime, leverage)
+        return pd.DataFrame(rows).T
+
+    def exit_eval(self, exit_screen, target=None, horizons=(1, 3, 12), macro=None, **kw):
+        """Evaluate an ExitScreen against a target curve (default: the benchmark index)."""
+        from .exit_signals import evaluate
+        if target is None:
+            target = self.benchmark.curve(self.market, self.config, self.market.index[0])
+        elif isinstance(target, str):
+            target = self.market.series(target)
+        return evaluate(exit_screen, self.market, target, horizons, macro, **kw)
 
     def graham(self, tests="defensive", asof=None, **overrides) -> tuple[pd.DataFrame, pd.Series]:
         """(per-name pass/fail table, cumulative funnel) for a preset or GrahamTests."""

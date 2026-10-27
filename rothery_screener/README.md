@@ -61,8 +61,8 @@ loaded index series; with the synthetic data that is the cap-weighted
 equal-weight portfolio of the 60 largest names, which pays the portfolio's
 costs. CLI flags: `--benchmark NAME|top60 --bench-mer X --bench-cost-bps X`.
 
-**Tests.** `python -m pytest rothery_screener/tests -q` runs 20 tests in
-about 10 seconds, all through the SDK:
+**Tests.** `python -m pytest rothery_screener/tests -q` runs about 105
+tests in roughly 25 seconds, through the SDK where that makes sense:
 - exact cost, MER, commission, delisting and benchmark arithmetic on a
   hand-built market;
 - spec screens reproducing the built-in screens;
@@ -152,6 +152,39 @@ data; `--stride 5` tests weekly offsets instead.
   held as cash until the next rebalance.
 - The benchmark is an index bought and held (see SDK above), or optionally a
   screen.
+
+## Research features
+Each lives in its own module and is reachable from `Lab`; see `DESIGN.md`
+for the design and `tests/` for worked examples.
+
+- **Real data** (`realdata/`): `sp500_lab()` runs on 20 real S&P 500 names
+  and the S&P 500 index (1990–2022, bundled with `skfolio`); `macro_us()`
+  gives real US CPI and T-bill rates (bundled with `statsmodels`). Adapters
+  for the Bank of Canada Valet API (FX, prime, CPI) and the SEC Financial
+  Statement Data Sets (point-in-time US fundamentals) are written and tested
+  on fixtures; `realdata/ACQUIRE.md` lists what to acquire and from where.
+- **Construction** (`construction.py`, `Config`): `weighting` = equal / cap /
+  inverse-vol / callable, `max_weight`, `sector_cap`, `HoldRule(keep_within,
+  band)` for turnover control, `union_screen` and `blend` for
+  screen-of-screens portfolios.
+- **Statistics and sweeps** (`stats.py`, `sweep.py`): `lab.significance(rep)`
+  gives a block-bootstrap CI and Newey–West t-stat on excess return plus the
+  deflated Sharpe ratio across the screens tried; `lab.sweep(screen, grid,
+  splits=...)` runs grid or random sweeps with walk-forward out-of-sample
+  scoring. `bayes_search` uses `optuna` when installed;
+  `docs/BAYESIAN_SWEEPS.md` explains when (rarely) that is a good idea.
+- **Extended metrics** (`macro.py`, `metrics_ext.py`): `lab.extended(rep,
+  macro)` adds real (CPI-deflated) returns, home-currency returns via an FX
+  series, net-of-financing returns against prime plus a spread (with a
+  breakeven spread and a borrow-to-invest levered curve), and excess over a
+  time-varying risk-free rate, plus a geometric decomposition.
+- **Exit-signal screen** (`exit_signals.py`): a dated risk score built from
+  causal signals (trend break, breadth, volatility regime, drawdown,
+  valuation stretch, momentum crash, rate shock, dispersion) with
+  hysteresis. `lab.exit_eval(ExitScreen([...]), target)` reports forward
+  returns in flagged vs unflagged states, lead time before the largest
+  drawdowns, and a derisking overlay against always-in. It is evaluated on
+  its own, never tuned together with an entry screen.
 
 ## Next steps
 See [ROADMAP.md](ROADMAP.md).
