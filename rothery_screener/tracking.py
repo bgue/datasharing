@@ -19,7 +19,7 @@ import logging
 from collections.abc import Mapping
 
 from . import progress
-from .runspec import RunSpec, canonical_json, code_version, dataset_id, dataset_manifest
+from .runspec import RunSpec, canonical_json, code_version, dataset_id, dataset_manifest, lab_context, run_key_for
 from .store import NullStore
 
 _log = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ def note_trial(lab, kind, args) -> int:
         fam_own = fam + "|runs"
     else:
         fam_own = fam
-    key = spec.run_key(dataset_id(lab.market))
+    key = run_key_for(spec, dataset_id(lab.market), lab_context(lab))
     if key is not None and not progress.active():
         trial_store(lab).record_trial(lab.session_id, key, fam_own)
     return _publish(lab, kind, args, fam)
@@ -68,7 +68,7 @@ def note_points(lab, kind, args, points) -> int:
     try:
         base = {k: v for k, v in args.items() if k not in ("grid", "splits")}
         base_json = canonical_json({"kind": kind + "_point", "args": base})
-        did, cv = dataset_id(lab.market), code_version()
+        did, cv = dataset_id(lab.market) + ":" + lab_context(lab).hash, code_version()
         for p in points:
             key = hashlib.sha256(f"{base_json}|{canonical_json(dict(p))}|{did}|{cv}".encode()).hexdigest()
             st.record_trial(lab.session_id, key, fam)
@@ -137,7 +137,7 @@ def _after(lab, kind, args, res) -> None:
         if not getattr(lab, "_dataset_put", False):
             st.put_dataset(did, dataset_manifest(lab.market, lab.name, lab))
             lab._dataset_put = True
-        key = spec.run_key(did)
+        key = run_key_for(spec, did, lab_context(lab))
         if key is not None and st.cached(key) is not None:      # identical run already stored (maybe with JSON)
             return
         st.record(spec, res, key, did, lab.persist)

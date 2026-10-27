@@ -569,6 +569,40 @@ def dataset_manifest(market, name: str | None = None, lab=None) -> dict:
             "benchmark": getattr(bm, "label", None), "benchmark_kind": type(bm).__name__ if bm is not None else None}
 
 
+@dataclass
+class LabContext:
+    """What a Lab contributes to a run besides the call's arguments: its Config, benchmark / compare list and
+    every screen in `lab.screens` that is not an unmodified built-in."""
+    hash: str
+    bad_screens: frozenset      # screens (by name) that cannot be rebuilt: a Python function
+    reasons: tuple              # lab-wide reasons (e.g. a callable in lab.config): nothing is persistable
+
+
+def lab_context(lab) -> LabContext:
+    cfg = to_dict(lab.config)
+    bench = to_dict([lab.benchmark, list(lab.compare)])
+    reasons = unpersistable_reasons(cfg) + unpersistable_reasons(bench)
+    screens, bad = {}, set()
+    for n, sc in lab.screens.items():
+        d = to_dict(sc)
+        if d == {TAG: "Screen", "name": n}:                      # unmodified built-in
+            continue
+        if unpersistable_reasons(d):
+            bad.add(n)
+            d = {TAG: "unpersistable", "name": n}
+        screens[n] = d
+    h = hashlib.sha256(canonical_json({"config": cfg, "bench": bench, "screens": screens}).encode()).hexdigest()
+    return LabContext(h[:16], frozenset(bad), tuple(reasons))
+
+
+def run_key_for(spec: RunSpec, did: str, ctx: LabContext, code_version_: str | None = None) -> str | None:
+    """`spec.run_key` for a run on a lab: the dataset id is extended by the lab context, and the key is None
+    when the lab's config / benchmark is unpersistable or the call uses a screen defined by a Python function."""
+    if ctx.reasons or (ctx.bad_screens & set(spec.screen_names())):
+        return None
+    return spec.run_key(f"{did}:{ctx.hash}", code_version_)
+
+
 @functools.lru_cache(maxsize=1)
 def code_version() -> str:
     """Package `__version__` (runspec's own fallback if the package has none) plus the git commit when

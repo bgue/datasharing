@@ -404,7 +404,8 @@ class SQLiteStore:
                 " persist_level=excluded.persist_level, spec_json=excluded.spec_json",
                 (key, spec.kind, "running", now, dataset_id, spec.dataset, code_version_ or code_version(),
                  json.dumps(d, sort_keys=True), spec.label, json.dumps(list(spec.tags)), level,
-                 int(d["persistable"]), d["reason"], screens, spec.family()))
+                 int(d["persistable"] and run_key is not None), d["reason"] or (None if run_key else "lab context is not persistable"),
+                 screens, spec.family()))
         return key
 
     def finish_run(self, run_key, result=None, level="metrics", payload=None) -> None:

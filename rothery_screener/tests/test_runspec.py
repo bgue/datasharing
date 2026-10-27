@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from rothery_screener import (Screen, Breadth, Config, ExitPolicy, ExitScreen, GrahamTests, HoldRule, IndexBenchmark,
+from rothery_screener import (equal_weight_top, Screen, Breadth, Config, ExitPolicy, ExitScreen, GrahamTests, HoldRule, IndexBenchmark,
                               Lab, MacroSeries, REGISTRY, ScreenBuilder, ScreenSpec, TrendBreak, backtest,
                               cap_tiered, equal_weight_top)
 from rothery_screener import exit_signals, runspec as R
@@ -237,3 +237,42 @@ def test_family_and_screen_names():
     assert R.RunSpec("timing", "sp500", {"screen": "dogs"}).family() == "timing|sp500|dogs"
     ex = R.RunSpec("exit_calibrate", "sp500", {"exit_screen": ExitScreen([TrendBreak(), Breadth()]), "grid": {}})
     assert ex.family() == "exit_calibrate|sp500|exit:Breadth+TrendBreak"
+
+
+# ---------------------------------------------------------------- lab context in the key
+def key_of(lab_, **args):
+    spec = R.RunSpec("backtest", "synthetic", {"screens": ["dogs"], **args})
+    return R.run_key_for(spec, R.dataset_id(lab_.market), R.lab_context(lab_))
+
+
+def mk(**kw):
+    return Lab.synthetic(freq="ME", n_stocks=60, years=6, seed=3, **kw)
+
+
+def test_lab_config_benchmark_and_screens_change_the_key():
+    a, b = mk(), mk()
+    assert key_of(a) == key_of(b) and key_of(a) is not None                     # identical labs dedup
+    assert key_of(mk(config=Config(cost_bps=50.0))) != key_of(a)                # config
+    assert key_of(mk(config=Config(cost_bps=cap_tiered({0: 75, 1000: 30})))) not in (key_of(a), None)
+    assert key_of(mk(benchmark=IndexBenchmark("SYN_CAPWT", mer=0.01))) != key_of(a)
+    assert key_of(mk(compare=(equal_weight_top(20),))) != key_of(a)
+    # a redefined screen with the same name; an unrelated extra screen also changes the lab, a built-in does not
+    c = mk()
+    c.define(ScreenBuilder("dogs").universe(top=20).rank(div_yield="desc").take(5))
+    assert key_of(c) != key_of(a)
+    d = mk()
+    d.define(ScreenBuilder("dogs").universe(top=20).rank(div_yield="desc").take(5))
+    assert key_of(c) == key_of(d)
+    e = mk()
+    e.screens["dogs"] = REGISTRY["dogs"].with_overrides(universe=15)
+    assert key_of(e) != key_of(a)
+
+
+def test_python_function_lab_parts_make_the_key_none():
+    f = mk()
+    f.screens["mine"] = Screen("mine", lambda s, n: list(s.index[:n]), 3)
+    assert key_of(f) is not None                                                 # not used by this call
+    spec = R.RunSpec("backtest", "synthetic", {"screens": ["mine"]})
+    assert R.run_key_for(spec, "d", R.lab_context(f)) is None
+    assert R.lab_context(mk(config=Config(weighting=lambda s: s))).reasons
+    assert key_of(mk(config=Config(weighting=lambda s: s))) is None

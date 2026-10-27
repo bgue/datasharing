@@ -398,3 +398,28 @@ def test_server_store_default_and_override(tmp_path, monkeypatch):
     s = default_store()
     assert s.path == str(tmp_path / "home" / ".rothery" / "runs.sqlite")
     s.close()
+
+
+# ------------------------------------------------------------------ the lab is part of the key
+def test_labs_differing_only_in_config_never_share_cached_results(tmp_path):
+    from rothery_screener import Config
+    store = SQLiteStore(tmp_path / "shared.sqlite")
+    a, b, a2 = (Lab.synthetic(freq="ME", n_stocks=60, years=6, seed=3, config=Config(cost_bps=c))
+                for c in (25.0, 80.0, 25.0))
+    for L in (a, b, a2):
+        L.store, L.name = store, "synthetic"
+    ra, rb = a.backtest(["dogs"]), b.backtest(["dogs"])
+    assert ra.table.loc["dogs", "CAGR"] != rb.table.loc["dogs", "CAGR"]
+    assert store.find(kind="backtest")["run_key"].nunique() == 2
+    a2.backtest(["dogs"])                                                        # identical lab: same run
+    assert store.find(kind="backtest")["run_key"].nunique() == 2
+    for L, want in ((a, ra), (b, rb)):
+        m = JobManager(store=store, mode="thread", labs={"synthetic": L})
+        job = m.submit(RunSpec("backtest", "synthetic", {"screens": ["dogs"]}))
+        assert job.cache_hit and job.result().metrics.loc["dogs", "CAGR"] == pytest.approx(want.table.loc["dogs", "CAGR"])
+        m.shutdown()
+    c = Lab.synthetic(freq="ME", n_stocks=60, years=6, seed=3, config=Config(cost_bps=40.0))
+    m = JobManager(store=store, mode="thread", labs={"synthetic": c})
+    assert not m.submit(RunSpec("backtest", "synthetic", {"screens": ["dogs"]})).cache_hit
+    m.shutdown()
+    store.close()

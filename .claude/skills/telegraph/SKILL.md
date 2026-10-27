@@ -46,7 +46,8 @@ TST <n>p <n>f <n>s <secs>s `<exact command>`
 DEV <deviation from the brief and why>; ... | DEV nil
 LIM <known limitation>; ...
 BUG `<file>:<line>` <what is wrong> REPRO `<command or snippet>`
-NUM <metric>=<value>; ...
+NUM <metric>=<value>; ...                   (measurements only: counts, timings, returns)
+HOW <how it was done, terse>; ...           (implementation notes; not NUM)
 ASK <question for the coordinator>          (only with 92 / 99)
 PROSE <≤5 sentences, plain English>          (only when a finding needs reasoning)
 NXT <suggested next step>
@@ -69,6 +70,12 @@ implemented, `cfg` config, `fn` function, `req` required, `ret` returns,
 `ok` / `nok`, `nil` none. If an abbreviation could be read two ways, spell
 it out. Clarity beats compression: when a sentence would be clearer,
 write the sentence (or a `PROSE` line).
+
+## Common mistakes
+- Putting implementation notes or test names under `NUM`: `NUM` is for
+  measurements; use `HOW` for how, and `TST` for which tests.
+- A `DEV` or `LIM` item longer than about 30 words: it probably needs a
+  `PROSE` line.
 
 ## Example
 A 400-word hand-back becomes:

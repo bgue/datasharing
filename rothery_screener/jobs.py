@@ -37,7 +37,8 @@ import pandas as pd
 
 from . import progress
 from .progress import Cancelled
-from .runspec import RunSpec, _cap_tiers, dataset_id, dataset_manifest, set_defaults_provider
+from .runspec import (RunSpec, _cap_tiers, dataset_id, dataset_manifest, lab_context, run_key_for,
+                      set_defaults_provider)
 from .store import LEVELS, NullStore, extract
 
 STATUSES = ("queued", "running", "done", "failed", "cancelled")
@@ -375,7 +376,7 @@ def _init_worker(factories, encoder):
 def _probe(name):
     """(dataset_id, manifest) of a named lab, computed inside a worker."""
     lab = _RT.lab(name)
-    return dataset_id(lab.market), dataset_manifest(lab.market, name, lab)
+    return dataset_id(lab.market), dataset_manifest(lab.market, name, lab), lab_context(lab)
 
 
 def _run_job(p: dict):
@@ -550,6 +551,7 @@ class JobManager:
         self._rt = _Runtime(self.labs, encoder)                 # this process: probes and thread-mode runs
         self._jobs: dict[str, Job] = {}
         self._inflight: dict[str, Job] = {}
+        self._ctxs: dict = {}
         self._dsids: dict = {k: (v, None) for k, v in (dataset_ids or {}).items()}
         self._lock = threading.RLock()
         self._probe_lock = threading.Lock()
@@ -596,7 +598,7 @@ class JobManager:
                     lab = self._rt.lab(name)
                     did, man = dataset_id(lab.market), dataset_manifest(lab.market, name, lab)
                 else:
-                    did, man = self._executor(False).submit(_probe, name).result()
+                    did, man, self._ctxs[name] = self._executor(False).submit(_probe, name).result()
                 self._dsids[name] = (did, man)
                 self.store.put_dataset(did, man)
             return self._dsids[name]
@@ -620,8 +622,10 @@ class JobManager:
             spec = RunSpec(spec.kind, next(iter(self.labs)), spec.args, spec.seed, spec.label, spec.tags)
         dsid, _ = self.dataset_info(spec.dataset)
         sargs = spec.serialized_args()
-        persistable = spec.persistable
-        key = spec.run_key(dsid) if persistable else None
+        ctx = lab_context(self._rt.lab(spec.dataset)) if self.mode == "thread" else self._ctxs.get(spec.dataset)
+        key = run_key_for(spec, dsid, ctx) if ctx is not None and spec.persistable else (
+            spec.run_key(dsid) if spec.persistable and ctx is None else None)
+        persistable = key is not None
         with self._lock:
             if key is not None:
                 fam = spec.family() + ("|runs" if spec.kind in ("sweep", "exit_calibrate") else "")
