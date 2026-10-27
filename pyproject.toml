@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "screenlab"
+version = "0.1.0"
+description = "Multi-portfolio stock screener and backtester (CLI, Python SDK, notebook, REST and MCP servers)"
+readme = "screenlab/README.md"
+# The code itself parses on Python 3.8 (checked with vermin), but pandas>=2.2 needs 3.9 and the
+# `mcp` and `skfolio` extras need 3.10, so 3.10 is the lowest version where every extra installs.
+# Tested on Python 3.13 (the interpreter available when this file was written).
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",     # freq="ME" month-end alias needs pandas 2.2
+]
+
+[project.optional-dependencies]
+# Bundled S&P 500 data (skfolio) and the macro sample (statsmodels).
+data = ["skfolio", "statsmodels"]
+# REST (FastAPI) and MCP servers; mirrors screenlab/requirements-server.txt.
+server = ["fastapi", "uvicorn", "httpx", "mcp"]
+# Notebook screenlab/notebooks/explore_runs.ipynb.
+notebook = ["jupyterlab", "ipykernel", "matplotlib", "nbclient", "nbformat"]
+# Optional Bayesian search (sweep.bayes_search), see screenlab/docs/BAYESIAN_SWEEPS.md.
+bayes = ["optuna"]
+dev = ["pytest", "pyyaml"]
+all = ["screenlab[data,server,notebook,bayes,dev]"]
+
+[project.scripts]
+screenlab-run = "screenlab._cli:run"
+screenlab-timing = "screenlab._cli:timing"
+screenlab-rest = "screenlab.server.rest:main"
+screenlab-mcp = "screenlab.server.mcp_server:main"
+
+[project.urls]
+Repository = "https://github.com/bgue/datasharing"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["screenlab", "screenlab.*"]
+
+[tool.setuptools.package-data]
+screenlab = [
+    "specs/*/*.json",
+    "schema/*.yaml",
+    "notebooks/*.ipynb",
+    "notebooks/*.md",
+    "tests/golden/*.json",
+    "tests/fixtures/*",
+    "research/*.md",
+    "research/*.py",
+    "research/results/*",
+    "docs/*.md",
+    "realdata/*.md",
+    "server/*.md",
+    "*.md",
+    "requirements-server.txt",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["screenlab/tests"]
