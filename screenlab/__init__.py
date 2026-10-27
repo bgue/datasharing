@@ -5,7 +5,8 @@ Public API (see api.py for a walkthrough):
     Lab                      data + screens + benchmark + config in one object
     ScreenBuilder, ScreenSpec, define_screen, load_screens   screen definitions
     IndexBenchmark, ScreenBenchmark                          benchmarks
-    Config, cap_tiered                                       costs / MER / rebalancing
+    Config, cap_tiered                                       costs / MER / rebalancing (grouped by pipeline stage)
+    simulate_paths                                           portfolio + passive index on many return paths (K)
     GrahamTests, DEFENSIVE, ENTERPRISING                     Graham criteria
     HoldRule, blend, union_screen                            construction research
     MacroSeries, extended_summary, decompose                 real / FX / financing metrics
@@ -19,7 +20,8 @@ Modules:
     data.py        point-in-time Market (+ synthetic market for testing)
     screens.py     built-in screens and Graham tests
     spec.py        declarative screen definitions (builder / dict / JSON)
-    backtest.py    periodic-rebalance, equal-weight simulator
+    backtest.py    periodic-rebalance simulator (orchestrates pipeline.py's stages)
+    pipeline.py    stage protocols (selection, weighting, costs, overlay, accrual) + simulate_paths
     benchmarks.py  buy-and-hold index or screen benchmarks
     timing.py      daily-start rebalance-timing study
     metrics.py     CAGR / volatility / drawdown / hit-rate stats
@@ -37,6 +39,7 @@ except Exception:                      # not installed (plain checkout on sys.pa
 
 from .api import BacktestReport, Lab
 from .backtest import Config, cap_tiered
+from .pipeline import PathWealth, simulate_paths
 from .benchmarks import IndexBenchmark, ScreenBenchmark, equal_weight_top, passive_index
 from .data import Market, synthetic_market
 from .screens import DEFENSIVE, ENTERPRISING, GLOBE_PORTFOLIOS, REGISTRY, GrahamTests, Screen
@@ -62,7 +65,7 @@ from .store import NullStore, SQLiteStore
 from .jobs import Job, JobManager
 from .progress import Cancelled
 
-__all__ = ["__version__", "Lab", "BacktestReport", "Config", "cap_tiered", "IndexBenchmark", "ScreenBenchmark",
+__all__ = ["__version__", "Lab", "BacktestReport", "Config", "cap_tiered", "simulate_paths", "PathWealth", "IndexBenchmark", "ScreenBenchmark",
            "equal_weight_top", "passive_index", "Market", "synthetic_market", "DEFENSIVE", "ENTERPRISING", "REGISTRY", "GLOBE_PORTFOLIOS",
            "GrahamTests", "Screen", "ScreenBuilder", "ScreenSpec", "define_screen", "load_screens",
            "HoldRule", "blend", "union_screen", "MacroSeries", "decompose", "extended_summary",

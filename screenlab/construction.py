@@ -155,6 +155,39 @@ class HoldRule:
         return out
 
 
+# --- the default Weighting stage (pipeline.Weighting) -------------------------
+@serializable("Weighting")
+@dataclass(frozen=True)
+class StandardWeighting:
+    """Weighting scheme + per-name / per-sector caps + hold rule: what `Config.construction` holds by default.
+
+    weighting   "equal" | "cap" | "inv_vol" | f(snapshot.loc[picks]) -> weights
+    max_weight  per-name cap; excess redistributed pro rata, shortfall held in cash
+    sector_cap  per-sector cap, same treatment
+    hold_rule   turnover control (keep_within / band)"""
+    weighting: object = "equal"
+    max_weight: float | None = None
+    sector_cap: float | None = None
+    hold_rule: HoldRule | None = None
+
+    def retain(self, picks, screen, snap, prev, min_holdings):
+        hr = self.hold_rule
+        if hr and hr.keep_within and len(picks) >= min_holdings and len(prev):
+            return hr.keep(picks, screen.ranked(snap), prev.index, screen.n)
+        return picks
+
+    def target(self, snap, picks, prev, min_holdings):
+        if len(picks) < min_holdings:
+            target = pd.Series(dtype=float)
+        elif self.weighting == "equal" and self.max_weight is None and self.sector_cap is None:
+            target = pd.Series(1 / len(picks), index=picks)
+        else:
+            target = target_weights(snap, picks, self.weighting, self.max_weight, self.sector_cap)
+        if self.hold_rule and self.hold_rule.band:
+            target = self.hold_rule.apply_band(target, prev)
+        return target
+
+
 # --- screen of screens --------------------------------------------------------
 def union_screen(screens: Sequence[Screen], n: int = 30, name: str | None = None) -> Screen:
     """Union of several screens' picks: dedup'd, round-robin ordered, capped at n."""

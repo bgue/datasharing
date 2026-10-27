@@ -33,7 +33,8 @@ import pandas as pd
 
 from . import metrics
 from .serial import register_tag, TAG, from_dict as _from, serializable, to_dict as _to
-from .exit_signals import (ExitScreen, OverlayResult, _check_dates, _compute, uses_curve)
+from .exit_signals import (ExitScreen, OverlayResult, TrendBreak, _check_dates, _compute, calendar_window,
+                           uses_curve, window_not_full)
 
 REENTRY_MODES = ("signal", "next_rebalance", "signal_or_rebalance")
 _EPS = 1e-12
@@ -174,6 +175,203 @@ class ExitPolicy:
 
     def with_screen(self, screen: ExitScreen, **kw) -> "ExitPolicy":
         return replace(self, screen=screen, **kw)
+
+
+class PolicyOverlay:
+    """The default `pipeline.Overlay`: an `ExitPolicy` as exposure path + parked-money returns.
+
+    Per bar: e_t * r_equity + (1 - e_t) * r_park - switch_cost * |de_t| - park_cost * |d(1 - e_t)|."""
+
+    def __init__(self, policy: ExitPolicy):
+        self.policy = policy
+
+    @property
+    def needs_curve(self) -> bool:
+        return self.policy.needs_curve
+
+    @property
+    def rescreen_on_reentry(self) -> bool:
+        return self.policy.rescreen_on_reentry
+
+    @property
+    def reentry_dates(self) -> list:
+        return self.policy.reentry_dates
+
+    def exposure(self, mkt, rebalance_dates=None, curve=None) -> pd.Series:
+        return self.policy.exposure(mkt, rebalance_dates, curve)
+
+    def exposure_paths(self, dates: pd.DatetimeIndex, levels_of, rebalance_dates=None) -> np.ndarray:
+        """`ExitPolicy.exposure` on many paths at once: float [P, N] (lagged, values in [0, 1]).
+
+        `levels_of(name)` -> index levels [P, N] on `dates`. Needs signals with a vectorized form (TrendBreak);
+        portfolio-curve signals and `rescreen_on_reentry` (extra rebalance dates differ by path) are refused."""
+        pol = self.policy
+        if pol.needs_curve:
+            raise NotImplementedError("signals that read the portfolio curve have no per-path form in simulate_paths")
+        if pol.rescreen_on_reentry:
+            raise NotImplementedError("rescreen_on_reentry makes the rebalance dates path dependent; not in simulate_paths")
+        flag = flags_paths(pol.screen, dates, levels_of)                 # [N, P]
+        n, P = flag.shape
+        f, K, delay = float(pol.exposure_when_flagged), int(pol.reentry_steps), int(pol.reentry_delay_days)
+        days = dates.to_numpy("datetime64[D]").astype(np.int64)
+        reb = np.sort(pd.DatetimeIndex([] if rebalance_dates is None else rebalance_dates)
+                      .to_numpy("datetime64[D]").astype(np.int64))
+        chk = pol.screen.check
+        if chk in (None, "D", "B"):
+            is_check = np.ones(n, bool)
+        else:
+            is_check = np.zeros(n, bool)
+            pos = dates.searchsorted(_check_dates(dates, chk), side="right") - 1
+            is_check[pos[pos >= 0]] = True
+        IN, OUT, RAMP = 0, 1, 2                                          # the scalar state machine, per path
+        level = np.ones((n, P))
+        mode, cur, k = np.zeros(P, int), np.ones(P), np.zeros(P, int)
+        clear_since, next_reb = np.full(P, np.nan), np.full(P, np.inf)
+        for i in range(n):
+            fl = flag[i]
+            clear_since = np.where(fl, np.nan, np.where(np.isnan(clear_since), days[i], clear_since))
+            exit_ = fl & (mode != OUT)
+            back = ~fl & (mode == OUT)
+            ramp = ~fl & (mode == RAMP) & is_check[i]
+            if exit_.any():
+                j = np.searchsorted(reb, days[i], side="right")
+                next_reb[exit_] = float(reb[j]) if j < len(reb) else np.inf
+                mode[exit_], cur[exit_], k[exit_] = OUT, f, 0
+            if back.any():
+                clear_ok = days[i] - clear_since >= delay
+                reb_ok = days[i] >= next_reb
+                go = back & {"signal": clear_ok, "next_rebalance": reb_ok,
+                             "signal_or_rebalance": clear_ok | reb_ok}[pol.reentry]
+                k[go] = 1
+                cur[go] = f + (1.0 - f) * 1 / K
+                mode[go] = IN if K <= 1 else RAMP
+            if ramp.any():
+                k[ramp] += 1
+                cur[ramp] = f + (1.0 - f) * k[ramp] / K
+                mode[ramp & (k >= K)] = IN
+            level[i] = cur
+        held = np.ones((P, n))
+        lag = pol.screen.lag
+        if lag < n:
+            held[:, lag:] = level.T[:, :n - lag]
+        return held
+
+    def park_returns(self, mkt, index, yrs, accrual) -> np.ndarray:
+        pol = self.policy
+        if pol.park == "cash" and not pol.park_mer:
+            return accrual.cash_returns(yrs)
+        return pol.park_returns(mkt, index, accrual.cash_rate)
+
+    def apply(self, path, e, de, park_r) -> np.ndarray:
+        """`path` (..., T) sleeve growth -> growth after mixing in the parked asset (first bar 1.0 x path[..., 0])."""
+        pol = self.policy
+        r = np.zeros_like(path)
+        r[..., 1:] = path[..., 1:] / path[..., :-1] - 1
+        ret = (e * r + (1 - e) * park_r - pol.switch_cost_bps / 1e4 * de - pol.park_cost_bps / 1e4 * de)
+        ret[..., 0] = 0.0
+        return np.cumprod(1 + ret, axis=-1)
+
+
+# --- many price paths at once (pipeline.simulate_paths, DESIGN.md K) -----------------------------------------
+def _percentile_paths(x: np.ndarray, idx: pd.DatetimeIndex, years: float, min_obs: int) -> np.ndarray:
+    """`exit_signals.rolling_percentile` along axis 0 of x [N, P] (same dates for every path)."""
+    n = len(idx)
+    lo = idx.searchsorted(idx - pd.DateOffset(years=years)) if years else np.zeros(n, int)
+    bad = np.isnan(x)
+    if not (bad.all(axis=1) | ~bad.any(axis=1)).all():
+        raise NotImplementedError("a signal that is NaN on some paths only has no vectorized form")
+    rowok = ~bad[:, 0]
+    cs = np.concatenate([[0], np.cumsum(rowok)])
+    out = np.full(x.shape, np.nan)
+    for t in range(n):
+        if not rowok[t]:
+            continue
+        cnt = cs[t + 1] - cs[lo[t]]
+        if cnt < min_obs:
+            continue
+        w, v = x[lo[t]:t + 1], x[t]
+        out[t] = (np.count_nonzero(w < v, axis=0) + 0.5 * np.count_nonzero(w == v, axis=0)) / cnt
+    return out
+
+
+def signal_paths(sig, dates: pd.DatetimeIndex, levels_of) -> np.ndarray:
+    """Percentile score [N, P] of exit signal `sig` on every path. `levels_of(name)` -> index levels [P, N].
+
+    A signal class may define `compute_paths(dates, levels_of) -> [N, P]` itself; TrendBreak is built in."""
+    f = getattr(sig, "compute_paths", None)
+    if f is not None:
+        return f(dates, levels_of)
+    if not isinstance(sig, TrendBreak):
+        raise NotImplementedError(f"exit signal {sig.name} has no vectorized form for simulate_paths "
+                                  f"(TrendBreak does; or give the signal compute_paths(dates, levels_of))")
+    if sig.index is None:
+        raise NotImplementedError("TrendBreak(index=None) uses the equal-weight universe curve; name an index")
+    try:
+        lev = levels_of(sig.index)
+    except KeyError as ex:
+        raise NotImplementedError(f"TrendBreak index {sig.index!r} is not among the path set's indices") from ex
+    days = calendar_window(dates, months=sig.window_months)
+    sma = pd.DataFrame(lev.T, index=dates).rolling(f"{days}D").mean().to_numpy()
+    raw = -(lev.T / sma - 1)
+    raw[window_not_full(dates, days)] = np.nan
+    n = sig.min_obs if sig.min_obs is not None else (12 if sig.sampling == "monthly" else 20)
+    return _percentile_paths(raw, dates, sig.lookback_years, n)
+
+
+def flags_paths(screen: ExitScreen, dates: pd.DatetimeIndex, levels_of) -> np.ndarray:
+    """`ExitScreen.state` for every path: bool [N, P]."""
+    cols = {}
+    for s in screen.signals:
+        c = signal_paths(s, dates, levels_of)
+        if np.isfinite(c).any():
+            cols[s.name] = c
+    N = len(dates)
+    P = next(iter(cols.values())).shape[1] if cols else 0
+    if not cols:
+        return np.zeros((N, P), bool)
+    x = np.stack(list(cols.values()), axis=-1)                     # [N, P, C]
+    w = screen._weights(list(cols))
+    ok = np.isfinite(x)
+    den = (ok * w).sum(axis=-1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        sc = np.where(den > 0, np.where(ok, x, 0).dot(w) / den, np.nan)
+    votes = (x >= screen.threshold).sum(axis=-1) >= screen.min_votes if screen.min_votes else None
+    enter, leave = screen.threshold, screen.threshold - screen.hysteresis
+    on, flag = np.zeros(P, bool), np.zeros((N, P), bool)
+    for i in range(N):                                             # hysteresis (exit_signals.hysteresis)
+        s = sc[i]
+        known = ~np.isnan(s)
+        turn_off = on & known & (s < leave)
+        turn_on = ~on & known & (s >= enter) & (True if votes is None else votes[i])
+        on = (on & ~turn_off) | turn_on
+        flag[i] = on
+    chk = screen.check
+    if chk not in (None, "D", "B"):                                # sample_at_checks
+        pos = dates.searchsorted(_check_dates(dates, chk), side="right") - 1
+        pos = np.unique(pos[pos >= 0])
+        if len(pos):
+            k = np.searchsorted(pos, np.arange(N), side="right") - 1
+            flag = np.where((k >= 0)[:, None], flag[pos][np.maximum(k, 0)], False)
+        else:
+            flag = np.zeros((N, P), bool)
+    if screen.min_hold_days and screen.min_hold_days > 0:           # hold_min_days
+        t = dates.to_numpy("datetime64[D]").astype(np.int64)
+        cur, since, out = flag[0].copy(), np.full(P, -10**12), np.empty_like(flag)
+        for i in range(N):
+            ch = (flag[i] != cur) & (t[i] - since >= screen.min_hold_days)
+            cur = np.where(ch, flag[i], cur)
+            since = np.where(ch, t[i], since)
+            out[i] = cur
+        flag = out
+    return flag
+
+
+def as_overlay(x):
+    """The `pipeline.Overlay` behind `Config.exit`: None stays None, an ExitPolicy is wrapped in a `PolicyOverlay`,
+    anything already implementing the Overlay protocol (has `apply`) is used as it is."""
+    if x is None or hasattr(x, "apply"):
+        return x
+    return PolicyOverlay(x)
 
 
 def as_policy(x) -> ExitPolicy | None:

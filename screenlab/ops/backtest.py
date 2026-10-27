@@ -83,8 +83,7 @@ class BacktestReport:
 
 def report_json(rep, max_points) -> dict:
     c = rep.config
-    cfg = {f.name: scalar(getattr(c, f.name)) for f in dataclasses.fields(c)
-           if isinstance(getattr(c, f.name), (int, float, str, type(None)))}
+    cfg = {k: scalar(v) for k, v in c.flat().items() if isinstance(v, (int, float, str, type(None)))}
     return {"benchmark": rep.benchmark_label, "config": cfg, "table": table(rep.table),
             "curves": curves(rep.curves, max_points)}
 

@@ -676,6 +676,18 @@ exposure, park asset) → `Accrual` (cash, delisting). `Config` groups them
 fields kept as aliases for one release. A stage may be vectorized over many
 price paths (needed by K).
 
+*Implemented (J5 notes).* `pipeline.py` holds the stage protocols (`Selection`, `Weighting`, `CostModel`, `Overlay`,
+`Accrual`) and their defaults (`ScreenSelection`, `construction.StandardWeighting`, `StandardCosts`,
+`exit_policy.PolicyOverlay`, `CashAccrual`); `backtest.simulate` is an orchestrator over them with unchanged numbers.
+`Config` stores `costs`, `construction`, `cash`, `exit` (+ `rebalance_months`, `min_holdings`); the 13 flat fields stay
+as constructor keywords, `replace()` overrides and attributes, and serialize in the flat form so run keys of unchanged
+inputs are identical. A custom stage is any object implementing the protocol (`@serializable` to survive a RunSpec):
+`Config(costs=MyCosts())`. `simulate_paths(screen, cfg, pathset, base=...)` runs the same stages over a `PathSet` with
+numpy and returns portfolio and passive-index wealth `[paths, dates]`: `selection="fixed"` (picks from the base data at
+each step's source date) or `"per_path"` (momentum / vol ranks per path, equal weight). Exit exposure is computed per
+path for TrendBreak (or any signal with `compute_paths`); other signals, `rescreen_on_reentry`, hold rules with
+per_path, and per-snapshot cost callables (`cap_tiered`) raise NotImplementedError.
+
 ---------------------------------------------------------------------------
 ## K. Monte Carlo (after J) — sketch
 
