@@ -19,6 +19,7 @@ import pandas as pd
 
 from .construction import HoldRule, target_weights
 from .data import Market
+from .exit_signals import ExitOverlay
 from .screens import Screen
 
 PerSecurity = Union[float, Mapping, pd.Series, Callable[[pd.DataFrame], pd.Series]]
@@ -38,6 +39,7 @@ class Config:
     max_weight: float | None = None   # per-name cap; excess redistributed pro rata, shortfall held in cash
     sector_cap: float | None = None   # per-sector cap, same treatment
     hold_rule: HoldRule | None = None  # turnover control (keep_within / band)
+    exit_overlay: ExitOverlay | None = None   # scale the whole portfolio by an exit flag (None = always in)
 
 
 @dataclass
@@ -47,6 +49,8 @@ class Result:
     holdings: dict = field(default_factory=dict)   # rebalance date -> tickers
     turnover: pd.Series = None        # one-way turnover per rebalance
     costs: pd.Series = None           # fraction of value lost to trading per rebalance
+    exposure: pd.Series = None        # share of the portfolio invested each bar (1.0 without an exit overlay)
+    switches: int = 0                 # number of exposure changes (exit overlay)
 
     @property
     def returns(self) -> pd.Series:
@@ -106,6 +110,9 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None) ->
     value, prev = 1.0, pd.Series(dtype=float)        # prev = drifted weights of live holdings
     pieces = [pd.Series([1.0], index=[rebal[0]])]
     holdings, turn, costs = {}, {}, {}
+    ov = cfg.exit_overlay
+    held = ov.exposure(mkt) if ov is not None else None
+    dheld = held.diff().abs().fillna(0.0) if ov is not None else None
 
     for j, d in enumerate(rebal):
         nxt = rebal[j + 1] if j + 1 < len(rebal) else end
@@ -147,12 +154,25 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None) ->
                 path = path + (1 - target.sum()) * (1 + cfg.cash_rate) ** yrs
             alive = ~dead.iloc[-1]
             prev = (g.iloc[-1] * target / path.iloc[-1])[alive]    # dead weight is uninvested cash
+        if ov is not None and not target.empty:
+            # exit overlay: e_t * r_t + (1 - e_t) * cash_t - cost * |de_t|, e_t the lagged exposure
+            e = held.reindex(seg.index).to_numpy()
+            cash_r = np.power(1 + cfg.cash_rate, np.diff(yrs, prepend=yrs[0])) - 1
+            r = path.pct_change().fillna(0.0).to_numpy()
+            ret = e * r + (1 - e) * cash_r - ov.cost_bps / 1e4 * dheld.reindex(seg.index).to_numpy()
+            ret[0] = 0.0
+            path = pd.Series(np.cumprod(1 + ret), index=seg.index)
         pieces.append(value * path.iloc[1:])
         value *= path.iloc[-1]
 
     curve = pd.concat(pieces)
-    return Result(screen.name, curve[~curve.index.duplicated(keep="last")],
-                  holdings, pd.Series(turn), pd.Series(costs))
+    curve = curve[~curve.index.duplicated(keep="last")]
+    if ov is None:
+        expo, switches = pd.Series(1.0, index=curve.index, name="exposure"), 0
+    else:
+        expo = held.reindex(curve.index)
+        switches = int((expo.diff().abs() > 1e-12).sum())
+    return Result(screen.name, curve, holdings, pd.Series(turn), pd.Series(costs), expo, switches)
 
 
 def run(screen: Screen, mkt: Market, cfg: Config = Config(), start=None, end=None,

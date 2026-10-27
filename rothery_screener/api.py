@@ -182,6 +182,15 @@ class Lab:
             target = self.market.series(target)
         return evaluate(exit_screen, self.market, target, horizons, macro, **kw)
 
+    def calibrate_exit(self, exit_screen, grid, target=None, objective="Calmar", splits=None,
+                       constraints=None, macro=None, **kw):
+        """Walk-forward calibration of an ExitScreen's thresholds / timing (see calibration.py).
+        `target`: index name, ticker or curve (default: the benchmark index curve)."""
+        from .calibration import calibrate_exit
+        if target is None:
+            target = self.benchmark.curve(self.market, self.config, self.market.index[0])
+        return calibrate_exit(exit_screen, self.market, target, grid, objective, splits, constraints, macro, **kw)
+
     def graham(self, tests="defensive", asof=None, **overrides) -> tuple[pd.DataFrame, pd.Series]:
         """(per-name pass/fail table, cumulative funnel) for a preset or GrahamTests."""
         t = graham_tests(tests)

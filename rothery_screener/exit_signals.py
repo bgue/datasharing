@@ -15,7 +15,7 @@ Macro inputs are plain pandas Series, passed as a dict or any object with `.get(
 from __future__ import annotations
 
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 import numpy as np
@@ -316,6 +316,49 @@ def hysteresis(score: pd.Series, enter: float, exit_: float, votes: pd.Series | 
     return pd.Series(out, index=score.index, name="flagged")
 
 
+def _check_dates(index: pd.DatetimeIndex, check: str) -> pd.DatetimeIndex:
+    """Check dates for a cadence alias, covering the index span (month aliases "M"/"Q"/"Y" accepted)."""
+    alias = {"M": "ME", "Q": "QE", "Y": "YE", "A": "YE"}.get(check, check)
+    try:
+        return pd.date_range(index[0].normalize(), index[-1], freq=alias)
+    except ValueError:
+        return pd.date_range(index[0].normalize(), index[-1], freq=check)
+
+
+def sample_at_checks(flag: pd.Series, check: str = "D") -> pd.Series:
+    """Let `flag` change only at check points: value at the last bar on/before each check date, padded forward.
+
+    Check dates run from the first bar at the `check` cadence; before the first one the flag is off.
+    "D" returns the flag unchanged.
+    """
+    if check in (None, "D", "B"):
+        return flag
+    idx = flag.index
+    pos = idx.searchsorted(_check_dates(idx, check), side="right") - 1
+    pos = np.unique(pos[pos >= 0])
+    out = np.zeros(len(idx), bool)
+    if len(pos):
+        v = flag.to_numpy()[pos]
+        k = np.searchsorted(pos, np.arange(len(idx)), side="right") - 1
+        out = np.where(k >= 0, v[np.maximum(k, 0)], False)
+    return pd.Series(out, index=idx, name=flag.name)
+
+
+def hold_min_days(flag: pd.Series, days: int) -> pd.Series:
+    """Ignore changes of `flag` until `days` calendar days have passed since the last accepted change."""
+    if not days or days <= 0:
+        return flag
+    t = flag.index.to_numpy("datetime64[D]").astype(np.int64)
+    v = flag.to_numpy()
+    out = np.empty(len(v), bool)
+    cur, since = bool(v[0]) if len(v) else False, -10**12
+    for i in range(len(v)):
+        if bool(v[i]) != cur and t[i] - since >= days:
+            cur, since = bool(v[i]), t[i]
+        out[i] = cur
+    return pd.Series(out, index=flag.index, name=flag.name)
+
+
 @dataclass
 class ExitScreen:
     """Weighted average of signal percentiles, plus a hysteresis flag.
@@ -324,12 +367,24 @@ class ExitScreen:
     are dropped, and per day the weights are renormalized over the signals that have a value.
     `min_votes`: if set, the flag can only turn on when at least that many signals are individually at
     or above `threshold`. The flag turns off when the score drops below `threshold - hysteresis`.
+
+    Two clocks, kept separate. The *rebalance clock* belongs to the entry screen (`rebalance_months`
+    in `backtest.Config`) and nothing here changes it. The *exit clock* belongs to this screen:
+    `check` is the cadence at which the flag may change (pandas offset alias; "D" = every bar,
+    "W-FRI", "M"/"ME"; "H" is reserved for intraday bars). `state()` is computed on the market index,
+    sampled at the last bar on/before each check date and padded forward; before the first check
+    point the flag is off. `check` and `rebalance_months` are independent. `lag` is the execution lag
+    in bars (signal at close t, exposure from close t+lag) and is used by `overlay`/`evaluate`.
+    `min_hold_days` keeps either state at least that many calendar days after it changes.
     """
     signals: list
     weights: dict | None = None
     threshold: float = 0.7
     min_votes: int | None = None
     hysteresis: float = 0.1
+    check: str = "D"
+    lag: int = 1
+    min_hold_days: int = 0
 
     def components(self, mkt, macro=None) -> pd.DataFrame:
         """Per-signal percentile scores (columns by signal name; all-NaN signals left out)."""
@@ -357,13 +412,16 @@ class ExitScreen:
         return pd.Series(sc, index=comp.index, name="score")
 
     def state(self, mkt, macro=None, components: pd.DataFrame | None = None) -> pd.Series:
-        """Bool per day, True = flagged (elevated risk, derisk). Enter at `threshold`, leave below threshold - 0.1."""
+        """Bool per bar, True = flagged (elevated risk, derisk). Enter at `threshold`, leave below threshold - hysteresis;
+        changes only at `check` points and not within `min_hold_days` of the previous change."""
         comp = self.components(mkt, macro) if components is None else components
         sc = self.score(mkt, macro, comp)
         votes = None
         if self.min_votes:
             votes = (comp >= self.threshold).sum(axis=1) >= self.min_votes
-        return hysteresis(sc, self.threshold, self.threshold - self.hysteresis, votes)
+        flag = hysteresis(sc, self.threshold, self.threshold - self.hysteresis, votes)
+        flag = sample_at_checks(flag, self.check)
+        return hold_min_days(flag, self.min_hold_days)
 
 
 # --------------------------------------------------------------------------- overlay
@@ -404,6 +462,32 @@ def overlay(curve: pd.Series, state: pd.Series, exposure_when_flagged: float = 0
     stats["Switches"] = [0, switches]
     return OverlayResult(derisked, base, held, stats, switches, float(trade.sum()),
                          float(st.mean()))
+
+
+@dataclass
+class ExitOverlay:
+    """Backtest hook (`backtest.Config.exit_overlay`): scale the whole portfolio by the exit flag.
+
+    While flagged the portfolio holds `exposure_when_flagged` of its value (rest in cash at the
+    backtest's `cash_rate`); `cost_bps` is charged per unit of exposure traded. Exposure is lagged by
+    `screen.lag` bars. The series is computed once per Market (cached on `id(mkt)`) and applied
+    inside each rebalance segment by `simulate`, so picks and weights never see the flag.
+    """
+    screen: ExitScreen
+    exposure_when_flagged: float = 0.0
+    cost_bps: float = 5.0
+    macro: object = None
+    _cache: dict = field(default_factory=dict, repr=False, compare=False)
+
+    def exposure(self, mkt) -> pd.Series:
+        """Exposure held over each bar of `mkt.index` (lagged; 1.0 until the first flag takes effect)."""
+        hit = self._cache.get(id(mkt))
+        if hit is None or hit[0] is not mkt:
+            st = self.screen.state(mkt, self.macro)
+            e = pd.Series(np.where(st, self.exposure_when_flagged, 1.0), index=st.index)
+            hit = (mkt, e.shift(self.screen.lag).fillna(1.0).rename("exposure"))
+            self._cache[id(mkt)] = hit
+        return hit[1]
 
 
 # --------------------------------------------------------------------------- evaluation
@@ -447,7 +531,7 @@ def drawdown_episodes(curve: pd.Series, top: int = 3) -> pd.DataFrame:
 
 def evaluate(exit_screen: ExitScreen, mkt, target_curve: pd.Series, horizons=(1, 3, 12), macro=None,
              top_drawdowns: int = 3, exposure_when_flagged: float = 0.0,
-             cash_rate: float | pd.Series = 0.0) -> ExitEvaluation:
+             cash_rate: float | pd.Series = 0.0, cost: float = 0.0) -> ExitEvaluation:
     """What the flag would have told you about `target_curve` (an index or a screen's equity curve).
 
     Forward returns over each horizon (in calendar months) split by state on the start day; fraction
@@ -457,6 +541,14 @@ def evaluate(exit_screen: ExitScreen, mkt, target_curve: pd.Series, horizons=(1,
     comp = exit_screen.components(mkt, macro)
     score = exit_screen.score(mkt, macro, comp)
     state = exit_screen.state(mkt, macro, comp)
+    return evaluate_state(score, state, target_curve, horizons, top_drawdowns, exposure_when_flagged,
+                          cash_rate, cost, exit_screen.lag)
+
+
+def evaluate_state(score: pd.Series, state: pd.Series, target_curve: pd.Series, horizons=(1, 3, 12),
+                   top_drawdowns: int = 3, exposure_when_flagged: float = 0.0,
+                   cash_rate: float | pd.Series = 0.0, cost: float = 0.0, lag: int = 1) -> ExitEvaluation:
+    """`evaluate` for a precomputed score and flag (what calibration reuses on window slices)."""
     curve = target_curve.dropna().astype(float)
     st = state.reindex(curve.index, method="pad").fillna(False)
     scored = score.reindex(curve.index, method="pad").notna()
@@ -488,6 +580,6 @@ def evaluate(exit_screen: ExitScreen, mkt, target_curve: pd.Series, horizons=(1,
             left.append(np.nan)
     dd["first_flag"], dd["lead_days"], dd["fall_after_flag"] = first, lead, left
 
-    ov = overlay(curve, st, exposure_when_flagged, cash_rate)
+    ov = overlay(curve, st, exposure_when_flagged, cash_rate, cost, lag)
     return ExitEvaluation(forward, float(st[scored].mean()) if scored.any() else float("nan"),
                           dd, ov, score, state)

@@ -22,8 +22,10 @@
   random / optional Bayesian sweeps with walk-forward scoring.
 - Extended metrics: real, home-currency, net-of-financing (prime + spread,
   leverage), excess over time-varying rf, geometric decomposition.
-- Exit-signal screen with causal signals, hysteresis, conditional forward
-  returns and a derisking overlay.
+- Exit-signal screen with causal signals, hysteresis, its own decision
+  cadence (daily default), in-backtest overlay, and walk-forward
+  calibration with stability and constraints.
+- REST (FastAPI) and MCP servers over the `Lab` SDK.
 
 ## 1. Real data and correctness (next)
 Nothing the tool says about real stocks counts until this phase is done.
@@ -46,17 +48,16 @@ Nothing the tool says about real stocks counts until this phase is done.
 ## 2. Research features (remaining)
 - **Taxes.** Taxable / TFSA / RRSP accounts (dividend tax credit, capital
   gains inclusion, US withholding).
-- **Exit signals on real data.** Calibrate thresholds and hysteresis
-  walk-forward on the S&P 500 set; add credit-spread and yield-curve
-  signals once FRED is reachable; combine with entry screens only at the
-  evaluation stage (overlay), never in the screen definition.
+- **Exit signals on real data.** Add credit-spread and yield-curve signals
+  once FRED is reachable; intraday cadence once intraday bars exist; keep
+  entry and exit screens combined only through the overlay.
 - **Faster timing studies.** Parallelize the offset sweep and cache views.
 - **Charts.** Equity curves, CAGR by rebalance date, Graham funnel over
   time, exit-signal score over the index.
 
 ## 3. Service and reports
-- **REST API.** Expose `define`, `picks`, `backtest`, `timing` and `graham`
-  over HTTP (FastAPI). The JSON screen specs are already the wire format.
+- **Harden the servers.** Typed request models and OpenAPI schema, auth,
+  per-request labs instead of a mutable shared registry, async long runs.
 - **Saved screens.** Version screen specs and keep a results history keyed
   by spec, data snapshot and config.
 - **HTML report.** Build a shareable report page per run.

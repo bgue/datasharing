@@ -61,8 +61,8 @@ loaded index series; with the synthetic data that is the cap-weighted
 equal-weight portfolio of the 60 largest names, which pays the portfolio's
 costs. CLI flags: `--benchmark NAME|top60 --bench-mer X --bench-cost-bps X`.
 
-**Tests.** `python -m pytest rothery_screener/tests -q` runs about 105
-tests in roughly 25 seconds, through the SDK where that makes sense:
+**Tests.** `python -m pytest rothery_screener/tests -q` runs about 140
+tests in roughly 40 seconds, through the SDK where that makes sense:
 - exact cost, MER, commission, delisting and benchmark arithmetic on a
   hand-built market;
 - spec screens reproducing the built-in screens;
@@ -181,10 +181,29 @@ for the design and `tests/` for worked examples.
 - **Exit-signal screen** (`exit_signals.py`): a dated risk score built from
   causal signals (trend break, breadth, volatility regime, drawdown,
   valuation stretch, momentum crash, rate shock, dispersion) with
-  hysteresis. `lab.exit_eval(ExitScreen([...]), target)` reports forward
-  returns in flagged vs unflagged states, lead time before the largest
-  drawdowns, and a derisking overlay against always-in. It is evaluated on
-  its own, never tuned together with an entry screen.
+  hysteresis (on at `threshold`, off again only below `threshold −
+  hysteresis`, so the flag doesn't flicker). It runs on its own clock,
+  separate from the rebalance calendar: `check="D"` (default), `"W-FRI"` or
+  `"M"` says how often the flag may change, `lag` is the bars between
+  signal and trade, `min_hold_days` stops whipsaw. `lab.exit_eval(...)`
+  reports forward returns in flagged vs unflagged states, lead time before
+  the largest drawdowns and a derisking overlay; `Config(exit_overlay=
+  ExitOverlay(screen))` applies the flag day by day inside a backtest
+  without the entry screen ever seeing it.
+- **Calibration** (`calibration.py`): `lab.calibrate_exit(screen, grid,
+  splits=...)` sweeps threshold, hysteresis, cadence, lag, hold period,
+  signal weights and signal parameters, scored by Calmar (default), Sharpe,
+  CAGR, MaxDD or the flagged/unflagged forward-return gap, walk-forward,
+  under constraints (max switches per year, time flagged). It reports
+  out-of-sample vs in-sample, **stability** (how often the same point wins
+  across windows) and the deflated Sharpe of the winner, and hands back a
+  ready `ExitOverlay`.
+- **Servers** (`server/`): a FastAPI REST API and an MCP server expose the
+  same operations (define, picks, backtest, timing, graham, sweep,
+  significance, extended, exit evaluate / calibrate) as JSON over one
+  `LabRegistry`. `pip install -r rothery_screener/requirements-server.txt`,
+  then `python -m rothery_screener.server.rest` or `claude mcp add rothery
+  -- python -m rothery_screener.server.mcp_server`. See `server/README.md`.
 
 ## Next steps
 See [ROADMAP.md](ROADMAP.md).
