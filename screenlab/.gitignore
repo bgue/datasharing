@@ -3,3 +3,6 @@ __pycache__/
 research/results/
 notebooks/*.sqlite*
 notebooks/.ipynb_checkpoints/
+
+# Local market data (vendor licences forbid redistribution)
+/data/

@@ -40,10 +40,18 @@ OUT_COLS = ["date", "ticker", "price", "market_cap", "sector", "eps", "eps_prev"
             "enterprise_value", "invested_capital"]
 
 
-def fetch(period: str, dest) -> str:
-    """Download e.g. '2024q1' to `dest` (a file path). SEC requires a descriptive User-Agent."""
+def fetch(period: str, dest, user_agent: str | None = None) -> str:
+    """Download e.g. '2024q1' to `dest` (a file path).
+
+    The SEC requires a descriptive User-Agent naming you and a contact email, e.g.
+    "Jane Doe jane@example.com"; pass it as `user_agent` or set SEC_USER_AGENT."""
+    import os
+    user_agent = user_agent or os.environ.get("SEC_USER_AGENT")
+    if not user_agent or "@" not in user_agent:
+        raise ValueError("SEC requires a User-Agent with your name and email: "
+                         "fetch(..., user_agent='Your Name you@example.com') or set SEC_USER_AGENT")
     from urllib.request import Request, urlopen
-    req = Request(URL.format(period=period), headers={"User-Agent": "screenlab research you@example.com"})
+    req = Request(URL.format(period=period), headers={"User-Agent": user_agent})
     with urlopen(req, timeout=120) as r, open(dest, "wb") as f:
         f.write(r.read())
     return str(dest)
