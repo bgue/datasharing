@@ -45,7 +45,13 @@ def f_score(s: pd.DataFrame) -> pd.Series:
 
 
 def add_ratios(f: pd.DataFrame) -> pd.DataFrame:
+    """Derived ratios; absent fundamental columns are filled with NaN and ratios whose inputs
+    are absent are skipped, so price-only tables work."""
     f = f.copy()
+    for c in ("price", "eps", "eps_avg3", "bvps", "dividend", "ebit", "enterprise_value",
+              "invested_capital", "net_current_assets", "market_cap"):
+        if c not in f:
+            f[c] = np.nan
     f["pe"] = f["price"] / f["eps"].where(f["eps"] > 0)
     f["pe_avg3"] = f["price"] / f["eps_avg3"].where(f["eps_avg3"] > 0)
     f["pb"] = f["price"] / f["bvps"].where(f["bvps"] > 0)
@@ -139,6 +145,9 @@ class Market:
         if asof in self._views:
             return self._views[asof]
         s = self._snapshot(asof)
+        for c in ("price", "market_cap", "enterprise_value"):
+            if c not in s:
+                s = s.assign(**{c: np.nan})
         cols = self.prices.columns.get_indexer(s.index)
         i_now = self.index.get_loc(asof)
         tradable = (cols >= 0)

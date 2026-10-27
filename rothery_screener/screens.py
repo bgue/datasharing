@@ -28,6 +28,14 @@ class Screen:
     def __call__(self, s: pd.DataFrame) -> list[str]:
         return self.fn(s, n=self.n, **self.params)
 
+    def ranked(self, s: pd.DataFrame) -> list[str]:
+        """Ordered candidates beyond n (best first), for hold rules that keep names ranked just outside n.
+
+        Default: call the screen with a very large n. Spec screens (spec.rule_screen)
+        take n as a plain cut after ranking, so this yields their full ranking too.
+        """
+        return self.fn(s, n=max(len(s), self.n) * 2, **self.params)
+
     def with_overrides(self, **kw) -> "Screen":
         """Copy with params changed; keys naming a GrahamTests field update `tests`."""
         params, tests = dict(self.params), self.params.get("tests")

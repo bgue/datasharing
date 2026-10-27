@@ -17,6 +17,7 @@ from typing import Callable, Mapping, Union
 import numpy as np
 import pandas as pd
 
+from .construction import HoldRule, target_weights
 from .data import Market
 from .screens import Screen
 
@@ -33,6 +34,10 @@ class Config:
     delist_return: float = -0.30      # applied when a holding vanishes mid-period
     min_holdings: int = 3             # fewer passes than this -> hold cash
     cash_rate: float = 0.0            # annual return on cash
+    weighting: str | Callable = "equal"   # "equal" | "cap" | "inv_vol" | f(snapshot.loc[picks]) -> weights
+    max_weight: float | None = None   # per-name cap; excess redistributed pro rata, shortfall held in cash
+    sector_cap: float | None = None   # per-sector cap, same treatment
+    hold_rule: HoldRule | None = None  # turnover control (keep_within / band)
 
 
 @dataclass
@@ -106,8 +111,17 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None) ->
         nxt = rebal[j + 1] if j + 1 < len(rebal) else end
         snap = mkt.view(d)
         picks = mkt.picks(screen, d)
-        target = (pd.Series(1 / len(picks), index=picks) if len(picks) >= cfg.min_holdings
-                  else pd.Series(dtype=float))
+        hr = cfg.hold_rule
+        if hr and hr.keep_within and len(picks) >= cfg.min_holdings and len(prev):
+            picks = hr.keep(picks, screen.ranked(snap), prev.index, screen.n)
+        if len(picks) < cfg.min_holdings:
+            target = pd.Series(dtype=float)
+        elif (cfg.weighting == "equal" and cfg.max_weight is None and cfg.sector_cap is None):
+            target = pd.Series(1 / len(picks), index=picks)
+        else:
+            target = target_weights(snap, picks, cfg.weighting, cfg.max_weight, cfg.sector_cap)
+        if hr and hr.band:
+            target = hr.apply_band(target, prev)
 
         dw = target.sub(prev, fill_value=0).abs()
         dw = dw[dw > 1e-12]
@@ -129,6 +143,8 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None) ->
             mer = resolve(cfg.mer, target.index, snap).to_numpy()
             g = g * np.power(1 - mer[None, :], yrs[:, None])         # expense drag accrues daily
             path = (g * target).sum(axis=1)
+            if target.sum() < 1 - 1e-9:                              # unallocated remainder sits in cash
+                path = path + (1 - target.sum()) * (1 + cfg.cash_rate) ** yrs
             alive = ~dead.iloc[-1]
             prev = (g.iloc[-1] * target / path.iloc[-1])[alive]    # dead weight is uninvested cash
         pieces.append(value * path.iloc[1:])
