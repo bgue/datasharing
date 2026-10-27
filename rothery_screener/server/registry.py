@@ -7,6 +7,9 @@ most `max_points`, NaN/inf as null. REST and MCP are thin wrappers, so their sha
 from __future__ import annotations
 
 import dataclasses
+import functools
+import inspect
+import logging
 import math
 import threading
 from datetime import date, datetime
@@ -143,6 +146,38 @@ def _make_sp500():
     return sp500_lab()
 
 
+_log = logging.getLogger(__name__)
+
+
+def _translate(e: Exception) -> ServerError:
+    """SDK exception -> ServerError with a clean message: KeyError -> 404, bad input -> 400, anything
+    unexpected -> 500 "internal error" (the traceback goes to the log, not the response)."""
+    if isinstance(e, ServerError):
+        return e
+    if isinstance(e, KeyError):
+        return ServerError(404, str(e.args[0]) if e.args else "not found")
+    if isinstance(e, NotImplementedError):
+        return ServerError(501, str(e) or "not implemented")
+    if (isinstance(e, (ValueError, TypeError, SyntaxError, AttributeError, IndexError, FileNotFoundError))
+            or type(e).__name__ in ("UndefinedVariableError", "JSONDecodeError")):
+        return ServerError(400, str(e) or "bad request")
+    _log.error("unexpected error", exc_info=e)
+    return ServerError(500, "internal error")
+
+
+def _guarded(fn):
+    """Run a registry operation so that every failure leaves as a ServerError."""
+    @functools.wraps(fn)
+    def inner(*a, **kw):
+        try:
+            return fn(*a, **kw)
+        except ServerError:
+            raise
+        except Exception as e:
+            raise _translate(e) from e
+    return inner
+
+
 class LabRegistry:
     """Named labs, built on first use. `factories` maps name -> zero-arg callable (or a ready Lab)."""
 
@@ -180,25 +215,35 @@ class LabRegistry:
         return {"default": self.default,
                 "labs": [{"name": n, "loaded": n in self._labs} for n in self.factories]}
 
+    @_guarded
     def list_screens(self, lab=None) -> dict:
         L = self.get(lab)
         rows = [{"name": n, "n": s.n, "note": s.note, "params": jsonify(dict(s.params))}
                 for n, s in L.screens.items()]
         return {"lab": lab or self.default, "screens": rows}
 
+    @_guarded
     def define_screen(self, spec, lab=None) -> dict:
         L = self.get(lab)
+        if isinstance(spec, dict):
+            from ..spec import ScreenSpec
+            known = [f.name for f in dataclasses.fields(ScreenSpec)]
+            bad = sorted(set(spec) - set(known))
+            if bad:
+                raise ServerError(400, f"unknown screen spec field {bad[0]!r}; use {known}")
         with self._lock:
             sc = self._call(L.define, spec)
         return {"lab": lab or self.default, "name": sc.name, "n": sc.n, "note": sc.note,
                 "screens": list(L.screens)}
 
+    @_guarded
     def picks(self, screen, asof=None, lab=None, columns=None) -> dict:
         L = self.get(lab)
         kw = {"columns": tuple(columns)} if columns else {}
-        df = self._call(L.picks, screen, asof, **kw)
+        df = self._call(L.picks, screen, self._date("asof", asof), **kw)
         return {"screen": screen, "asof": scalar(L._asof(asof)), **table(df)}
 
+    @_guarded
     def backtest(self, screens=None, start=None, end=None, config=None, lab=None,
                  max_points=DEFAULT_MAX_POINTS, exit=None, with_and_without=False, benchmark=None,
                  compare=None) -> dict:
@@ -208,29 +253,45 @@ class LabRegistry:
         The primary benchmark is always a passive index: `benchmark` (an index name) replaces the lab's,
         while "topN" or `compare` entries (index names / "topN") only add "... (compare)" rows."""
         L = self.get(lab)
+        cfg = self._config(config)
+        start, end = self._date("start", start), self._date("end", end)
+        if exit is not None and not isinstance(exit, dict):
+            raise ServerError(400, "`exit` must be an object (see list_signals)")
         pol = self._policy(L, exit) if exit else None
         bm, cmp = self._benchmarks(benchmark, compare)
         rep = self._call(L.backtest, screens, start, end, benchmark=bm, exit=pol,
-                         with_and_without=bool(with_and_without), compare=cmp, **(config or {}))
+                         with_and_without=bool(with_and_without), compare=cmp, **cfg)
         return self._report_json(rep, max_points)
 
+    @_guarded
     def timing(self, screen, mode="phase", stride=1, start=None, end=None, config=None, lab=None,
                max_points=DEFAULT_MAX_POINTS) -> dict:
         L = self.get(lab)
-        tr = self._call(L.timing, screen, mode, stride, start, end, **(config or {}))
+        cfg = self._config(config)
+        tr = self._call(L.timing, screen, mode, stride, self._date("start", start), self._date("end", end), **cfg)
         out = {"benchmark": L.passive().label, "screen": tr.screen, "table": table(tr.table), "distribution": table(tr.distribution())}
         if tr.tranche is not None:
             out["tranche"] = curve(tr.tranche, max_points)
         return out
 
+    @_guarded
     def graham(self, preset="defensive", asof=None, overrides=None, lab=None) -> dict:
         L = self.get(lab)
-        rep, funnel = self._call(L.graham, preset, asof, **(overrides or {}))
+        if overrides is not None and not isinstance(overrides, dict):
+            raise ServerError(400, "`overrides` must be an object of GrahamTests fields")
+        from ..screens import GrahamTests
+        known = [f.name for f in dataclasses.fields(GrahamTests)]
+        bad = sorted(set(overrides or {}) - set(known))
+        if bad:
+            raise ServerError(400, f"unknown graham override {bad[0]!r}; use {known}")
+        rep, funnel = self._call(L.graham, preset, self._date("asof", asof), **(overrides or {}))
         return {"preset": preset, "table": table(rep), "funnel": series_table(funnel, "step", "count")}
 
+    @_guarded
     def sweep(self, screen, grid, objective="Excess/yr", start=None, end=None, splits=None, lab=None) -> dict:
         L = self.get(lab)
-        df = self._call(L.sweep, screen, grid, objective, start, end, splits)
+        df = self._call(L.sweep, screen, grid, objective, self._date("start", start), self._date("end", end),
+                        splits)
         out = {"benchmark": L.passive().label, "screen": screen, "objective": objective, "table": table(df, index=False)}
         summ = df.attrs.get("summary")
         if summ is not None:
@@ -239,15 +300,19 @@ class LabRegistry:
             out["walk_forward"] = jsonify(df.attrs["walk_forward"])
         return out
 
+    @_guarded
     def significance(self, screens=None, start=None, end=None, config=None, n=2000, seed=0, lab=None) -> dict:
         L = self.get(lab)
-        rep = self._call(L.backtest, screens, start, end, **(config or {}))
+        rep = self._call(L.backtest, screens, self._date("start", start), self._date("end", end),
+                         **self._config(config))
         return {"benchmark": rep.benchmark_label, "table": table(self._call(L.significance, rep, n, seed))}
 
+    @_guarded
     def extended(self, screens=None, start=None, end=None, config=None, macro=None,
                  spread_over_prime=0.0, leverage=1.0, lab=None) -> dict:
         L = self.get(lab)
-        rep = self._call(L.backtest, screens, start, end, **(config or {}))
+        rep = self._call(L.backtest, screens, self._date("start", start), self._date("end", end),
+                         **self._config(config))
         m = self._macro(macro, L)
         if m is None:
             raise ServerError(400, "extended needs `macro`: records [{date, series, value}], "
@@ -255,6 +320,7 @@ class LabRegistry:
         return {"benchmark": rep.benchmark_label,
                 "table": table(self._call(L.extended, rep, m, spread_over_prime, leverage))}
 
+    @_guarded
     def exit_evaluate(self, signals, weights=None, threshold=0.7, min_votes=None, hysteresis=0.1,
                       screen_params=None, target=None, horizons=(1, 3, 12), macro=None,
                       exposure_when_flagged=0.0, cash_rate=0.0, lab=None, max_points=DEFAULT_MAX_POINTS,
@@ -274,6 +340,7 @@ class LabRegistry:
                 "score": curve(ev.score, max_points),
                 "state": [[d, bool(v)] for d, v in curve(ev.state.astype(float), max_points)]}
 
+    @_guarded
     def exit_calibrate(self, signals, grid, weights=None, threshold=0.7, min_votes=None, hysteresis=0.1,
                        screen_params=None, objective="Calmar", splits=None, constraints=None, target=None,
                        macro=None, lab=None, policy=None) -> dict:
@@ -292,6 +359,7 @@ class LabRegistry:
             out = {"benchmark": L.passive().label, **out}
         return out
 
+    @_guarded
     def describe_columns(self, lab=None) -> dict:
         L = self.get(lab)
         present = set(L.snapshot().columns)
@@ -309,6 +377,7 @@ class LabRegistry:
             pass
         return es
 
+    @_guarded
     def list_signals(self) -> dict:
         es = self._signals()
         out = []
@@ -321,26 +390,66 @@ class LabRegistry:
     # ---- helpers
     @staticmethod
     def _call(fn, *a, **kw):
-        """Run an SDK call, mapping bad input to 400 / unknown names to 404."""
+        """Run an SDK call, mapping bad input to 400 / unknown names to 404 (see `_translate`)."""
         try:
             return fn(*a, **kw)
         except ServerError:
             raise
-        except KeyError as e:
-            raise ServerError(404, f"unknown name: {e}") from e
-        except (ValueError, TypeError, SyntaxError, AttributeError, IndexError) as e:
-            raise ServerError(400, f"{type(e).__name__}: {e}") from e
         except Exception as e:
-            if type(e).__name__ in ("UndefinedVariableError", "JSONDecodeError"):
-                raise ServerError(400, f"{type(e).__name__}: {e}") from e
-            raise
+            raise _translate(e) from e
+
+    # fields a JSON `config` may override (Config fields that are plain numbers / strings / per-security maps)
+    CONFIG_INT = ("rebalance_months", "min_holdings")
+    CONFIG_NUM = ("commission", "capital", "delist_return", "cash_rate")
+    CONFIG_NUM_OR_MAP = ("cost_bps", "mer")
+    CONFIG_OPT_NUM = ("max_weight", "sector_cap")
+    CONFIG_FIELDS = CONFIG_INT + CONFIG_NUM + CONFIG_NUM_OR_MAP + CONFIG_OPT_NUM + ("weighting",)
+
+    @classmethod
+    def _config(cls, config) -> dict:
+        """Validated Config overrides from a request: unknown keys and wrongly typed values are a 400 that
+        names the field. `exit` is not a config field here: pass the top-level `exit` object."""
+        if config is None:
+            return {}
+        if not isinstance(config, dict):
+            raise ServerError(400, "`config` must be an object of Config overrides")
+        num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)
+        for k, v in config.items():
+            if k == "exit":
+                raise ServerError(400, "config.exit is not allowed; pass the top-level `exit` object")
+            if k not in cls.CONFIG_FIELDS:
+                raise ServerError(400, f"unknown config field {k!r}; use {list(cls.CONFIG_FIELDS)}")
+            if k in cls.CONFIG_INT and not (isinstance(v, int) and not isinstance(v, bool)):
+                raise ServerError(400, f"config.{k} must be an integer, got {v!r}")
+            if k in cls.CONFIG_NUM and not num(v):
+                raise ServerError(400, f"config.{k} must be a number, got {v!r}")
+            if k in cls.CONFIG_NUM_OR_MAP and not (num(v) or isinstance(v, dict)):
+                raise ServerError(400, f"config.{k} must be a number or a {{ticker: value}} object, got {v!r}")
+            if k in cls.CONFIG_OPT_NUM and v is not None and not num(v):
+                raise ServerError(400, f"config.{k} must be a number or null, got {v!r}")
+            if k == "weighting" and v not in ("equal", "cap", "inv_vol"):
+                raise ServerError(400, f"config.weighting must be 'equal', 'cap' or 'inv_vol', got {v!r}")
+        return dict(config)
+
+    @staticmethod
+    def _date(name, v):
+        """`v` unchanged if it parses as a date (or is None), else a 400 naming the field."""
+        if v is None:
+            return None
+        try:
+            if pd.isna(pd.Timestamp(v)):
+                raise ValueError(v)
+        except (ValueError, TypeError, OverflowError):
+            raise ServerError(400, f"`{name}` is not a valid date: {v!r}") from None
+        return v
 
     @staticmethod
     def _benchmarks(benchmark, compare):
         """(IndexBenchmark or None, [extra benchmarks]) from request strings: "topN" is never primary."""
-        from ..benchmarks import IndexBenchmark, equal_weight_top
-        mk = lambda b: (equal_weight_top(int(b[3:])) if b.lower().startswith("top") and b[3:].isdigit()
-                        else IndexBenchmark(b))
+        from ..benchmarks import IndexBenchmark, parse_benchmark as mk
+        for name, v in (("benchmark", benchmark), ("compare", compare)):
+            if v is not None and not isinstance(v, (str, list, tuple)):
+                raise ServerError(400, f"`{name}` must be a string" + (" or a list of strings" if name == "compare" else ""))
         extra = [compare] if isinstance(compare, str) else list(compare or [])
         if isinstance(benchmark, str):
             b = mk(benchmark)

@@ -101,7 +101,7 @@ def _run_policy(scr, curve, point, park="cash"):
     if park != "cash":
         pol = replace(pol, park=park)
     reb = schedule(MKT, curve.index[0], 1)
-    return policy_overlay(curve, pol, MKT, reb, 0.0)
+    return policy_overlay(curve, pol, MKT, reb, 0.0, signal_curve=curve)    # curve feeds PortfolioStop-type signals
 
 
 def worker(task):
@@ -190,7 +190,7 @@ def causality_check(scr_key="trend_breadth_vol", cuts=("2000-06-30", "2008-12-31
 
 def stop_reference() -> pd.DataFrame:
     """Uncalibrated reference: PortfolioStop (flag when the portfolio is 15% below its peak, clear at 7.5%).
-    calibrate_exit cannot tune it (it never hands the portfolio curve to the signals), so it is only run at fixed settings."""
+    It is also calibrated with the study's grid by `stop_calibration()` (calibrate_exit hands the target curve to curve-based signals)."""
     from rothery_screener.exit_inputs import PortfolioStop
     from rothery_screener.exit_policy import ExitPolicy
     rows = []
@@ -210,6 +210,31 @@ def stop_reference() -> pd.DataFrame:
                                  exit_MaxDD=perf(ex_)["MaxDD"], noexit_MaxDD=perf(bs)["MaxDD"],
                                  TimeOut=float((e < 1 - 1e-9).mean()), SwitchesPerYr=float((np.abs(np.diff(e)) > 1e-9).sum() / yrs)))
     return pd.DataFrame(rows)
+
+
+def stop_calibration(targets=("momentum_12_1", "low_vol"), splitkey="8/4", obj="Calmar") -> pd.DataFrame:
+    """Walk-forward calibration of PortfolioStop(0.15) on the two portfolio curves with the study's grid and
+    sampled points, stitched out of sample like the main study (not part of `main()`'s 48 runs).
+    `python -c "from rothery_screener.research import calibrate_sp500 as c; c.setup(); print(c.stop_calibration())"`"""
+    from rothery_screener.exit_inputs import PortfolioStop
+    base = make_screens
+    globals()["make_screens"] = lambda: {**base(), "portfolio_stop": ExitScreen([PortfolioStop(0.15)])}
+    try:
+        rows = []
+        for tgt in targets:
+            _, meta, tbl, wf, summ, best, oos = worker(("portfolio_stop", tgt, splitkey, obj))
+            start = oos["base_date"].iloc[0]
+            ex, ne = chain(oos["exit"], start), chain(oos["noexit"], start)
+            row = dict(target=tgt, oos_start=ex.index[1].date(), oos_end=ex.index[-1].date(), windows=len(wf),
+                       feasible_points=summ["feasible_points"], stability=summ["stability"],
+                       frac_flagged_grid_max=float(tbl["FracFlagged"].max()), dsr=summ["dsr"])
+            for lab_, cur, e in (("exit", ex, oos["expo"]), ("noexit", ne, None)):
+                for k, v in perf(cur, e).items():
+                    row[f"{lab_}_{k}"] = v
+            rows.append(row)
+        return pd.DataFrame(rows)
+    finally:
+        globals()["make_screens"] = base
 
 
 def main():

@@ -23,7 +23,9 @@ move with the price index, so P/E, P/B and yield are current on that day.
 """
 from __future__ import annotations
 
+import threading
 import warnings
+from collections import OrderedDict
 
 import numpy as np
 import pandas as pd
@@ -81,10 +83,51 @@ def periods_per_year(index: pd.DatetimeIndex) -> float:
     return (len(index) - 1) / yrs
 
 
-class Market:
-    """Fundamentals + prices with cached per-day views for the screens."""
+DEFAULT_MAX_VIEWS = 2048
 
-    def __init__(self, fund: pd.DataFrame, prices: pd.DataFrame, indices: pd.DataFrame | None = None):
+
+class _LRU:
+    """Small thread-safe least-recently-used mapping (`get`, `put`, `in`, `len`); `maxsize` None = unbounded."""
+
+    def __init__(self, maxsize: int | None):
+        self.maxsize, self._d, self._lock = maxsize, OrderedDict(), threading.Lock()
+
+    def get(self, key, default=None):
+        with self._lock:
+            try:
+                self._d.move_to_end(key)
+            except KeyError:
+                return default
+            return self._d[key]
+
+    def put(self, key, value):
+        with self._lock:
+            self._d[key] = value
+            self._d.move_to_end(key)
+            while self.maxsize is not None and len(self._d) > self.maxsize:
+                self._d.popitem(last=False)
+        return value
+
+    def __contains__(self, key):
+        return key in self._d
+
+    def __len__(self):
+        return len(self._d)
+
+    def clear(self):
+        with self._lock:
+            self._d.clear()
+
+
+class Market:
+    """Fundamentals + prices with cached per-day views for the screens.
+
+    `max_views` bounds the per-day view cache (and the picks cache) to that many entries, least recently
+    used evicted first (a monthly backtest over 25 years needs ~300; None = unbounded). Results do not
+    depend on it: an evicted view is recomputed identically."""
+
+    def __init__(self, fund: pd.DataFrame, prices: pd.DataFrame, indices: pd.DataFrame | None = None,
+                 max_views: int | None = DEFAULT_MAX_VIEWS):
         self.fund = fund.sort_values("date")
         self.prices = prices.sort_index()
         self.index = self.prices.index
@@ -95,8 +138,9 @@ class Market:
         self._tri = self.prices.to_numpy()
         self._fund_dates = np.sort(self.fund["date"].unique())
         self._snaps: dict = {}
-        self._views: dict = {}
-        self._picks: dict = {}
+        self.max_views = max_views
+        self._views = _LRU(max_views)
+        self._picks = _LRU(max_views)
 
     def series(self, name: str) -> pd.Series:
         """An index series by name, or a single security's total-return index."""
@@ -142,8 +186,9 @@ class Market:
     def view(self, asof) -> pd.DataFrame:
         """Snapshot for screening on trading day `asof`: tradable names only, marked to market."""
         asof = pd.Timestamp(asof)
-        if asof in self._views:
-            return self._views[asof]
+        hit = self._views.get(asof)
+        if hit is not None:
+            return hit
         s = self._snapshot(asof)
         for c in ("price", "market_cap", "enterprise_value"):
             if c not in s:
@@ -163,15 +208,14 @@ class Market:
         s["market_cap"] += d_mcap
         s["enterprise_value"] += d_mcap
         s = add_ratios(s).join(self.trailing_stats(asof))
-        self._views[asof] = s
-        return s
+        return self._views.put(asof, s)
 
     def picks(self, screen, asof) -> list[str]:
         # Keep the screen in the entry: a freed screen's id() can be reused by a new one.
         key = (id(screen), pd.Timestamp(asof))
         hit = self._picks.get(key)
         if hit is None or hit[0] is not screen:
-            hit = self._picks[key] = (screen, screen(self.view(asof)))
+            hit = self._picks.put(key, (screen, screen(self.view(asof))))
         return hit[1]
 
 

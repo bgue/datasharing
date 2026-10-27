@@ -9,7 +9,7 @@ Public API (see api.py for a walkthrough):
     GrahamTests, DEFENSIVE, ENTERPRISING                     Graham criteria
     HoldRule, blend, union_screen                            construction research
     MacroSeries, extended_summary, decompose                 real / FX / financing metrics
-    ExitScreen + signals, evaluate_exit, overlay, ExitOverlay   exit-signal screen (own daily clock)
+    ExitScreen + signals, evaluate_exit, overlay   exit-signal screen (own daily clock)
     ExitPolicy, Portfolio                                    where exited money goes, when/how it re-enters
     exit_inputs.*                                            twelve more exit signals (price, portfolio, fundamentals, macro)
     calibrate_exit                                           walk-forward calibration of an exit screen + policy
@@ -38,7 +38,7 @@ from .spec import ScreenBuilder, ScreenSpec, define_screen, load_screens
 from .construction import HoldRule, blend, union_screen
 from .macro import MacroSeries
 from .metrics_ext import decompose, extended_summary
-from .exit_signals import (Breadth, Dispersion, DrawdownFromPeak, ExitOverlay, ExitScreen, MomentumCrash,
+from .exit_signals import (Breadth, Dispersion, DrawdownFromPeak, ExitScreen, MomentumCrash,
                            RateShock, TrendBreak, ValuationStretch, VolRegime, evaluate as evaluate_exit, overlay)
 from .calibration import CalibrationResult, calibrate_exit
 from .exit_policy import ExitPolicy, Portfolio
@@ -54,7 +54,7 @@ __all__ = ["Lab", "BacktestReport", "Config", "cap_tiered", "IndexBenchmark", "S
            "GrahamTests", "Screen", "ScreenBuilder", "ScreenSpec", "define_screen", "load_screens",
            "HoldRule", "blend", "union_screen", "MacroSeries", "decompose", "extended_summary",
            "ExitScreen", "TrendBreak", "Breadth", "VolRegime", "DrawdownFromPeak", "ValuationStretch",
-           "MomentumCrash", "RateShock", "Dispersion", "evaluate_exit", "overlay", "ExitOverlay",
+           "MomentumCrash", "RateShock", "Dispersion", "evaluate_exit", "overlay",
            "CalibrationResult", "calibrate_exit", "ExitPolicy", "Portfolio",
            "CorrelationSpike", "CreditSpread", "DeathCross", "DistanceFromHigh", "DownsideDeviation",
            "EarningsBreadth", "NewLowsMinusHighs", "PortfolioStop", "PortfolioVsIndex",

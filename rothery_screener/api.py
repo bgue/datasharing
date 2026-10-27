@@ -30,7 +30,7 @@ import pandas as pd
 
 from . import backtest, data, metrics
 from .exit_policy import ExitPolicy, Portfolio, as_policy, policy_overlay
-from .benchmarks import IndexBenchmark, ScreenBenchmark, equal_weight_top, passive_index
+from .benchmarks import IndexBenchmark, ScreenBenchmark, equal_weight_top, parse_benchmark, passive_index
 from .screens import REGISTRY, Screen, graham_funnel, graham_report
 from .spec import define_screen, graham_tests
 
@@ -42,6 +42,21 @@ def format_table(tbl: pd.DataFrame) -> str:
     for c in tbl.columns:
         out[c] = tbl[c].map(lambda x: "" if pd.isna(x) else (f"{x:.1%}" if c in PCT_COLS else f"{x:.2f}"))
     return out.to_string()
+
+
+def _unique_label(label: str, used: set, reserved: str, suffix: str | None) -> str:
+    """Row label that collides with nothing so far: `dogs`, then `dogs#2`, `dogs#3`, ... (also avoids the
+    benchmark's label and, with `suffix` ("+exit"), the suffixed variant). Records the labels it takes."""
+    def taken(x):
+        return x == reserved or x in used or (suffix is not None and x + suffix in used)
+    out, k = label, 1
+    while taken(out):
+        k += 1
+        out = f"{label}#{k}"
+    used.add(out)
+    if suffix is not None:
+        used.add(out + suffix)
+    return out
 
 
 @dataclass
@@ -94,8 +109,7 @@ class Lab:
     def passive(self, benchmark=None) -> IndexBenchmark:
         """The primary (passive) benchmark: `benchmark` if it is an IndexBenchmark (or an index name),
         else the lab's own, rebuilt if someone assigned a non-index to `lab.benchmark`."""
-        if isinstance(benchmark, str):
-            return IndexBenchmark(benchmark)
+        benchmark = parse_benchmark(benchmark)       # "topN" is a screen benchmark: never the primary
         if isinstance(benchmark, IndexBenchmark):
             return benchmark
         return self.benchmark if isinstance(self.benchmark, IndexBenchmark) else self._passive_default()
@@ -108,7 +122,7 @@ class Lab:
         for b in raw:
             if b is None:
                 continue
-            b = IndexBenchmark(b) if isinstance(b, str) else b
+            b = parse_benchmark(b)
             out.setdefault(b.label, b)
         return list(out.values())
 
@@ -130,8 +144,16 @@ class Lab:
         return sc
 
     def screen(self, s, **overrides) -> Screen:
-        sc = s if isinstance(s, Screen) else (self.screens[s] if isinstance(s, str) and s in self.screens
-                                               else define_screen(s))
+        """A Screen from a registered name, a Screen, or an inline spec (dict / builder / JSON text / .json path).
+        A plain string that is neither a registered name nor JSON / a path raises KeyError("unknown screen: ...")."""
+        if isinstance(s, Screen):
+            sc = s
+        elif isinstance(s, str) and s in self.screens:
+            sc = self.screens[s]
+        elif isinstance(s, str) and not (s.lstrip().startswith(("{", "[")) or s.endswith(".json")):
+            raise KeyError(f"unknown screen: {s}")
+        else:
+            sc = define_screen(s)
         return sc.with_overrides(**overrides) if overrides else sc
 
     def _cfg(self, **kw) -> backtest.Config:
@@ -159,7 +181,10 @@ class Lab:
 
         `exit`: an ExitPolicy (or ExitScreen, wrapped in a default policy) applied to every entry in the
         call that has no policy of its own. `with_and_without=True` runs each such entry twice and labels
-        the rows `name` and `name+exit`. Rows with a policy also report TimeOut and Switches/yr.
+        the rows `name` and `name+exit`.
+        Row labels are unique: a repeated name (two entries called "dogs", or a Portfolio named like a
+        screen or like the benchmark) is kept and numbered in order of appearance, `dogs`, `dogs#2`, `dogs#3`.
+        Rows with a policy also report TimeOut and Switches/yr.
 
         The primary benchmark (`report.benchmark`, Excess/yr, BeatBenchYrs) is always a passive index:
         the lab's, or `benchmark` if that is an IndexBenchmark. A ScreenBenchmark passed as `benchmark`,
@@ -167,7 +192,7 @@ class Lab:
         cfg = self._cfg(**cfg)
         bench, extras = self.passive(benchmark), self._extras(benchmark, compare)
         call_exit = as_policy(exit) or cfg.exit
-        items = []                                   # (label, screen, config, policy or None)
+        items, used = [], set()                      # (label, screen, config, policy or None)
         for s in (screens or list(self.screens)):
             if isinstance(s, Portfolio):
                 sc, c, pol = self.screen(s.screen), self._cfg_of(cfg, s.config_overrides), s.exit or call_exit
@@ -175,13 +200,15 @@ class Lab:
             else:
                 sc, c, pol = self.screen(s), cfg, call_exit
                 label = sc.name
+            both = pol is not None and with_and_without
+            label = _unique_label(label, used, bench.label, "+exit" if both else None)
             if pol is None:
                 items.append((label, sc, c, None))
                 continue
-            if with_and_without:
-                items.append((label, sc, replace(c, exit=None, exit_overlay=None), None))
+            if both:
+                items.append((label, sc, replace(c, exit=None), None))
                 label += "+exit"
-            items.append((label, sc, replace(c, exit=pol, exit_overlay=None), pol))
+            items.append((label, sc, replace(c, exit=pol), pol))
         screens = items
         start = start or self.market.index[0] + pd.DateOffset(months=13)
         start = self.market.trading_day(start)

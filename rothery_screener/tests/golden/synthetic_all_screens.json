@@ -1,0 +1,65 @@
+{
+  "SYN_CAPWT": {
+    "CAGR": 0.094449,
+    "Excess/yr": null,
+    "MaxDD": -0.266452,
+    "Turnover": null,
+    "Vol": 0.178255
+  },
+  "dogs": {
+    "CAGR": 0.062292,
+    "Excess/yr": -0.032158,
+    "MaxDD": -0.375506,
+    "Turnover": 0.483964,
+    "Vol": 0.199648
+  },
+  "graham_defensive": {
+    "CAGR": 0.041316,
+    "Excess/yr": -0.053133,
+    "MaxDD": -0.071095,
+    "Turnover": 0.0625,
+    "Vol": 0.084192
+  },
+  "graham_enterprising": {
+    "CAGR": 0.037164,
+    "Excess/yr": -0.057285,
+    "MaxDD": -0.094647,
+    "Turnover": 0.0625,
+    "Vol": 0.089498
+  },
+  "low_vol_dividend": {
+    "CAGR": 0.057228,
+    "Excess/yr": -0.037222,
+    "MaxDD": -0.333798,
+    "Turnover": 0.857159,
+    "Vol": 0.17075
+  },
+  "magic_formula": {
+    "CAGR": 0.098801,
+    "Excess/yr": 0.004352,
+    "MaxDD": -0.341117,
+    "Turnover": 0.55567,
+    "Vol": 0.207891
+  },
+  "net_nets": {
+    "CAGR": 0.069228,
+    "Excess/yr": -0.025221,
+    "MaxDD": -0.297011,
+    "Turnover": 0.3125,
+    "Vol": 0.151193
+  },
+  "piotroski": {
+    "CAGR": 0.084413,
+    "Excess/yr": -0.010036,
+    "MaxDD": -0.290863,
+    "Turnover": 0.3125,
+    "Vol": 0.145751
+  },
+  "value_momentum": {
+    "CAGR": 0.147605,
+    "Excess/yr": 0.053155,
+    "MaxDD": -0.328595,
+    "Turnover": 0.796785,
+    "Vol": 0.224821
+  }
+}

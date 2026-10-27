@@ -20,7 +20,6 @@ import pandas as pd
 from .construction import HoldRule, target_weights
 from .data import Market
 from .exit_policy import ExitPolicy
-from .exit_signals import ExitOverlay
 from .screens import Screen
 
 PerSecurity = Union[float, Mapping, pd.Series, Callable[[pd.DataFrame], pd.Series]]
@@ -41,7 +40,6 @@ class Config:
     sector_cap: float | None = None   # per-sector cap, same treatment
     hold_rule: HoldRule | None = None  # turnover control (keep_within / band)
     exit: ExitPolicy | None = None    # exit policy: derisk on the exit screen's flag (None = always in)
-    exit_overlay: ExitOverlay | None = None   # alias for an ExitPolicy(screen, expo, switch_cost_bps=cost_bps, park="cash")
 
 
 @dataclass
@@ -109,27 +107,17 @@ def schedule(mkt: Market, start, months: int, phase_days: int = 0, end=None) -> 
     return dates
 
 
-def _exit_of(cfg: Config):
-    """(policy, exposure function or None): `cfg.exit`, else the `exit_overlay` alias as an ExitPolicy."""
-    if cfg.exit is not None:
-        return cfg.exit, None
-    ov = cfg.exit_overlay
-    if ov is None:
-        return None, None
-    return ExitPolicy(ov.screen, ov.exposure_when_flagged, switch_cost_bps=ov.cost_bps, macro=ov.macro), ov.exposure
-
-
 def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, exposure=None) -> Result:
     """Run `screen` on the schedule `rebal`. `exposure`: precomputed (lagged) exposure path of the exit
-    policy; by default it is computed from `cfg.exit` / `cfg.exit_overlay` on this schedule."""
+    policy; by default it is computed from `cfg.exit` on this schedule."""
     end = pd.Timestamp(end) if end else mkt.index[-1]
     tri = mkt.prices
     value, prev = 1.0, pd.Series(dtype=float)        # prev = drifted weights of live holdings
     pieces = [pd.Series([1.0], index=[rebal[0]])]
     holdings, turn, costs = {}, {}, {}
-    pol, expo_fn = _exit_of(cfg)
+    pol = cfg.exit
     if pol is not None:
-        held = exposure if exposure is not None else (expo_fn(mkt) if expo_fn else pol.exposure(mkt, rebal))
+        held = exposure if exposure is not None else pol.exposure(mkt, rebal)
         dheld = held.diff().abs().fillna(0.0)
         park_pieces = []
 
@@ -221,7 +209,7 @@ def run(screen: Screen, mkt: Market, cfg: Config = Config(), start=None, end=Non
     # some signal needs it), then the exposure path decides re-entry rescreens, then the real simulation
     curve = None
     if pol.needs_curve:
-        curve = simulate(screen, mkt, replace(cfg, exit=None, exit_overlay=None), rebal, end).curve
+        curve = simulate(screen, mkt, replace(cfg, exit=None), rebal, end).curve
     expo = pol.exposure(mkt, rebal, curve)
     if pol.rescreen_on_reentry:
         stop = pd.Timestamp(end) if end else mkt.index[-1]

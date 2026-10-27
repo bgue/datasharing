@@ -193,9 +193,9 @@ for the design and `tests/` for worked examples.
   `"M"` says how often the flag may change, `lag` is the bars between
   signal and trade, `min_hold_days` stops whipsaw. `lab.exit_eval(...)`
   reports forward returns in flagged vs unflagged states, lead time before
-  the largest drawdowns and a derisking overlay; `Config(exit_overlay=
-  ExitOverlay(screen))` applies the flag day by day inside a backtest
-  without the entry screen ever seeing it.
+  the largest drawdowns and a derisking overlay; `Config(exit=
+  ExitPolicy(screen))` (or `lab.backtest(..., exit=...)`) applies the flag
+  day by day inside a backtest without the entry screen ever seeing it.
 - **Exit policy** (`exit_policy.py`): the screen says *when*; `ExitPolicy`
   says *what happens*. `park` = cash, a fixed rate, or any loaded series
   (a T-bill or bond ETF total-return index) with its own MER and cost;
@@ -208,7 +208,9 @@ for the design and `tests/` for worked examples.
   with_and_without=True)` runs every screen with and without it (rows
   `name` / `name+exit`, columns `TimeOut`, `Switches/yr`); `Portfolio(name,
   screen, exit=...)` lets portfolios in one report carry different
-  policies. CLI: `--exit "TrendBreak:index=SP500,Breadth" --exit-compare
+  policies. Row labels are unique: two entries with the same name are both
+  kept as `dogs`, `dogs#2`, ... (a name equal to the benchmark's gets `#2`
+  too). `Config.exit` is the only way to attach an exit. CLI: `--exit "TrendBreak:index=SP500,Breadth" --exit-compare
   --exit-park cash --exit-reentry signal`. The entry picks never depend on
   the flag.
 - **More exit inputs** (`exit_inputs.py`): correlation spike, new lows minus
@@ -224,13 +226,17 @@ for the design and `tests/` for worked examples.
   under constraints (max switches per year, time flagged). It reports
   out-of-sample vs in-sample, **stability** (how often the same point wins
   across windows) and the deflated Sharpe of the winner, and hands back a
-  ready `ExitOverlay`.
+  ready `ExitPolicy` (`result.policy`).
 - **Servers** (`server/`): a FastAPI REST API and an MCP server expose the
   same operations (define, picks, backtest, timing, graham, sweep,
   significance, extended, exit evaluate / calibrate) as JSON over one
   `LabRegistry`. `pip install -r rothery_screener/requirements-server.txt`,
   then `python -m rothery_screener.server.rest` or `claude mcp add rothery
   -- python -m rothery_screener.server.mcp_server`. See `server/README.md`.
+  Every error is `{"error": message}` with a status: 400 bad input (the
+  message names the offending field), 404 unknown lab / screen, 501 not
+  supported; unexpected failures are a bare 500 `internal error`. In the SDK,
+  `Lab.screen` / `Lab.picks` raise `KeyError("unknown screen: <name>")`.
 
 ## Next steps
 See [ROADMAP.md](ROADMAP.md).

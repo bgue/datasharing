@@ -508,32 +508,6 @@ def overlay(curve: pd.Series, state: pd.Series, exposure_when_flagged: float = 0
                          float(st.mean()))
 
 
-@dataclass
-class ExitOverlay:
-    """Backtest hook (`backtest.Config.exit_overlay`): scale the whole portfolio by the exit flag.
-
-    While flagged the portfolio holds `exposure_when_flagged` of its value (rest in cash at the
-    backtest's `cash_rate`); `cost_bps` is charged per unit of exposure traded. Exposure is lagged by
-    `screen.lag` bars. The series is computed once per Market (cached on `id(mkt)`) and applied
-    inside each rebalance segment by `simulate`, so picks and weights never see the flag.
-    """
-    screen: ExitScreen
-    exposure_when_flagged: float = 0.0
-    cost_bps: float = 5.0
-    macro: object = None
-    _cache: dict = field(default_factory=dict, repr=False, compare=False)
-
-    def exposure(self, mkt) -> pd.Series:
-        """Exposure held over each bar of `mkt.index` (lagged; 1.0 until the first flag takes effect)."""
-        hit = self._cache.get(id(mkt))
-        if hit is None or hit[0] is not mkt:
-            st = self.screen.state(mkt, self.macro)
-            e = pd.Series(np.where(st, self.exposure_when_flagged, 1.0), index=st.index)
-            hit = (mkt, e.shift(self.screen.lag).fillna(1.0).rename("exposure"))
-            self._cache[id(mkt)] = hit
-        return hit[1]
-
-
 # --------------------------------------------------------------------------- evaluation
 @dataclass
 class ExitEvaluation:

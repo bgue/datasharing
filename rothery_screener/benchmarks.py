@@ -64,6 +64,17 @@ def equal_weight_top(n: int = 60) -> ScreenBenchmark:
     return ScreenBenchmark(backtest.benchmark_screen(n))
 
 
+def parse_benchmark(b):
+    """A benchmark from a request-style string: "topN" -> equal-weight top-N ScreenBenchmark, any other
+    string -> IndexBenchmark of that index / ticker. Benchmark objects pass through."""
+    if isinstance(b, str):
+        t = b.strip()
+        if t.lower().startswith("top") and t[3:].isdigit():
+            return equal_weight_top(int(t[3:]))
+        return IndexBenchmark(t)
+    return b
+
+
 def passive_index(mkt: Market) -> tuple[str, pd.Series]:
     """Build the passive buy-and-hold index of a market that ships none: (name, series from 1.0).
 

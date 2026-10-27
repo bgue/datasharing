@@ -65,6 +65,8 @@ def graham_tests(g: dict | str | GrahamTests | None) -> GrahamTests | None:
     if g is None or isinstance(g, GrahamTests):
         return g
     if isinstance(g, str):
+        if g not in PRESETS:
+            raise KeyError(f"unknown graham preset: {g}")
         return PRESETS[g]
     g = dict(g)
     base = PRESETS[g.pop("preset", "defensive")]

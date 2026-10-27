@@ -43,6 +43,8 @@ def study(screen: Screen, mkt: Market, cfg: backtest.Config, start=None, end=Non
           benchmark=None, progress: bool = False) -> TimingResult:
     """`benchmark` is any object with .curve(mkt, cfg, start, end) (see benchmarks.py);
     it is bought on each variant's own start date."""
+    if mode not in ("phase", "start"):
+        raise ValueError(f"mode must be 'phase' or 'start', got {mode!r}")
     start = mkt.trading_day(start or mkt.index[0] + pd.DateOffset(months=13))
     i0 = mkt.index.get_loc(start)
     period = mkt.index.searchsorted(start + pd.DateOffset(months=cfg.rebalance_months)) - i0

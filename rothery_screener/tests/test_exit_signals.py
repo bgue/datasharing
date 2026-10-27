@@ -10,7 +10,8 @@ import pytest
 
 from rothery_screener import Lab, Market
 from rothery_screener.backtest import Config, simulate
-from rothery_screener.exit_signals import (Breadth, Dispersion, DrawdownFromPeak, ExitOverlay, ExitScreen,
+from rothery_screener.exit_policy import ExitPolicy
+from rothery_screener.exit_signals import (Breadth, Dispersion, DrawdownFromPeak, ExitScreen,
                                            MomentumCrash, RateShock, Signal, TrendBreak, ValuationStretch,
                                            VolRegime, evaluate, hold_min_days, overlay, rolling_percentile,
                                            sample_at_checks)
@@ -267,11 +268,10 @@ def tiny_market():
 def test_backtest_overlay_exact_arithmetic():
     mkt, d = tiny_market()
     scr = Screen("all3", lambda s, n: ["A", "B", "C"], 3)
-    ov = ExitOverlay(ExitScreen([]), exposure_when_flagged=0.5, cost_bps=10.0)
+    pol = ExitPolicy(ExitScreen([]), exposure_when_flagged=0.5, switch_cost_bps=10.0)
     e = pd.Series([1.0, 1.0, 0.5, 0.5, 1.0], index=d)               # hand-set (already lagged) exposure
-    ov._cache[id(mkt)] = (mkt, e)
-    cfg = Config(cost_bps=0.0, min_holdings=3, cash_rate=0.0365, exit_overlay=ov)
-    res = simulate(scr, mkt, cfg, [d[0]], end=d[-1])
+    cfg = Config(cost_bps=0.0, min_holdings=3, cash_rate=0.0365, exit=pol)
+    res = simulate(scr, mkt, cfg, [d[0]], end=d[-1], exposure=e)
     c = 1.0365 ** (1 / 365.25) - 1                                  # one calendar day of cash
     r = [0.10, -0.10, 0.0, 0.10]
     expect, v = [1.0], 1.0
@@ -290,9 +290,9 @@ def test_backtest_overlay_on_synthetic_market():
     lab = Lab.synthetic(freq="ME", n_stocks=150, years=10, seed=3)
     plain = lab.backtest(["dogs"])
     scr = ExitScreen([TrendBreak("SYN_CAPWT", window_months=6)], threshold=0.6)
-    flat = lab.backtest(["dogs"], exit_overlay=ExitOverlay(scr, exposure_when_flagged=1.0, cost_bps=0.0))
+    flat = lab.backtest(["dogs"], exit=ExitPolicy(scr, exposure_when_flagged=1.0, switch_cost_bps=0.0))
     assert flat.results["dogs"].curve.to_numpy() == pytest.approx(plain.results["dogs"].curve.to_numpy())
-    off = lab.backtest(["dogs"], exit_overlay=ExitOverlay(scr, exposure_when_flagged=0.0, cost_bps=5.0))
+    off = lab.backtest(["dogs"], exit=ExitPolicy(scr, exposure_when_flagged=0.0, switch_cost_bps=5.0))
     res = off.results["dogs"]
     assert res.switches >= 1 and 0.0 <= res.exposure.min() < 1.0
     assert res.exposure.index.equals(res.curve.index)

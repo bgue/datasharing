@@ -25,7 +25,7 @@ import pandas as pd
 
 from . import metrics
 from .exit_policy import ExitPolicy, policy_overlay
-from .exit_signals import (ExitOverlay, ExitScreen, OverlayResult, evaluate_state, overlay)
+from .exit_signals import (ExitScreen, OverlayResult, evaluate_state, overlay)
 from .stats import periods_per_year, summarize_trials
 from .sweep import walk_forward
 
@@ -42,8 +42,7 @@ class CalibrationResult:
     summary: dict                     # mean_oos, mean_is, oos_over_is, stability, dsr, ...
     best: dict                        # the modal grid point (most windows won), or best in-sample if no splits
     screen: ExitScreen                # ExitScreen built from `best`
-    exit_overlay: ExitOverlay         # `screen` + best exposure_when_flagged, ready for Config.exit_overlay
-    policy: ExitPolicy = None         # `screen` + every best policy key, ready for Config.exit / Lab.backtest(exit=)
+    policy: ExitPolicy                # `screen` + every best policy key, ready for Config.exit / Lab.backtest(exit=)
 
     @property
     def stability(self) -> float:
@@ -258,6 +257,5 @@ def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | 
     best = dict(points[best_i])
     scr = runs[best_i]["screen"]
     return CalibrationResult(tbl, wf, summary, best, scr,
-                             ExitOverlay(scr, runs[best_i]["expo"], cost_bps, macro),
                              runs[best_i]["policy"] or ExitPolicy(scr, runs[best_i]["expo"],
                                                                   switch_cost_bps=cost_bps, macro=macro))

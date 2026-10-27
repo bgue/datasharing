@@ -10,7 +10,8 @@ import pytest
 
 from rothery_screener import Lab, Market, metrics
 from rothery_screener.calibration import CalibrationResult, calibrate_exit
-from rothery_screener.exit_signals import ExitOverlay, ExitScreen, TrendBreak, VolRegime
+from rothery_screener.exit_policy import ExitPolicy
+from rothery_screener.exit_signals import ExitScreen, TrendBreak, VolRegime
 
 CRASHES = (("2004-03-01", "2004-10-01"), ("2010-03-01", "2010-10-01"))
 
@@ -51,7 +52,7 @@ def test_result_shape_and_tables(cal):
     assert cal.summary["mean_oos"] == pytest.approx(cal.windows["oos"].mean())
     assert cal.summary["oos_over_is"] == pytest.approx(cal.summary["mean_oos"] / cal.summary["mean_is"])
     assert 0 < cal.summary["dsr"] <= 1 and cal.summary["stability"] == cal.stability
-    assert isinstance(cal.screen, ExitScreen) and isinstance(cal.exit_overlay, ExitOverlay)
+    assert isinstance(cal.screen, ExitScreen) and isinstance(cal.policy, ExitPolicy)
     assert cal.screen.threshold == cal.best["threshold"] and cal.screen.check == cal.best["check"]
     wf = cal.windows
     assert (wf["train_start"] < wf["train_end"]).all() and (wf["train_end"] < wf["test_end"]).all()
@@ -106,7 +107,7 @@ def test_dotted_signal_keys_rebuild_signals_and_other_keys(daily):
                                            "min_hold_days": [0, 30], "exposure_when_flagged": [0.0, 0.5]})
     assert len(res.table) == 16 and res.table["Calmar"].nunique() > 4
     assert res.screen.signals[0].window_months == res.best["signals.TrendBreak.window_months"]
-    assert res.exit_overlay.exposure_when_flagged == res.best["exposure_when_flagged"]
+    assert res.policy.exposure_when_flagged == res.best["exposure_when_flagged"]
     assert scr.signals[0].window_months == 10                            # base screen untouched
     with pytest.raises(ValueError, match="unknown grid key"):
         calibrate_exit(scr, mkt, "IDX", {"bogus": [1]})
@@ -136,7 +137,7 @@ def test_best_overlay_plugs_into_backtest_and_lab_method():
     res = lab.calibrate_exit(ExitScreen([TrendBreak("SYN_CAPWT", window_months=6)]),
                              {"threshold": [0.6, 0.8]}, splits=dict(train_years=4, test_years=2))
     assert len(res.windows) >= 2
-    rep = lab.backtest(["dogs"], exit_overlay=res.exit_overlay)
+    rep = lab.backtest(["dogs"], exit=res.policy)
     assert rep.results["dogs"].exposure.min() <= 1.0
 
 

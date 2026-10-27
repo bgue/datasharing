@@ -142,7 +142,7 @@ Does not hold up:
 
 Other checks:
 * **Calmar versus Sharpe objective:** results are similar (average Sharpe change +0.02 for both; slightly less return give-up with Sharpe, -2.1 vs -2.5 points).
-* **Fixed portfolio stop** (leave when the portfolio is 10/15/20% below its own peak; not calibrated, see bug note): it reduced return a lot (e.g. momentum 22.5% to 13.1% full-period at 15%) for little drawdown benefit (-47% to -44%), and Sharpe fell. It whipsaws. Table: `results/fixed_portfolio_stop_reference.csv`. Not recommended.
+* **Fixed portfolio stop** (leave when the portfolio is 10/15/20% below its own peak; fixed settings, not calibrated; the calibrated version is in the last section): it reduced return a lot (e.g. momentum 22.5% to 13.1% full-period at 15%) for little drawdown benefit (-47% to -44%), and Sharpe fell. It whipsaws. Table: `results/fixed_portfolio_stop_reference.csv`. Not recommended. Calibrating the stop did not rescue it (see "Calibrated portfolio stop" below).
 
 ## Look-ahead checks
 
@@ -163,18 +163,21 @@ Other checks:
 ## What was trimmed
 
 * Grid: 768 combinations in full; each calibration used the same fixed random sample of 256 (`sweep.random_search`, seed 0), to stay under the time limit. Runs take about 10 minutes on 4 cores.
-* The portfolio-stop screen was not calibrated, because `calibrate_exit` cannot calibrate it (see below); a fixed-setting version is included as a reference.
+* The portfolio-stop screen is not one of the four screens in the 48 runs above. It is covered by a separate, smaller calibration (two portfolios, 8/4 split, Calmar) described in the last section, plus the fixed-setting reference.
 
-## Software issue found (not fixed)
+## Calibrated portfolio stop (curve-based signals now calibrate)
 
-`calibrate_exit` never passes the portfolio curve to the signals, so any curve-based signal (`PortfolioStop`, `PortfolioVsIndex`) silently produces no score, the screen never flags and every grid point equals buy-and-hold with no warning. Repro:
+An earlier version of this study found that `calibrate_exit` never handed the portfolio curve to curve-based signals (`PortfolioStop`, `PortfolioVsIndex`), so they silently produced no score, the screen never flagged and every grid point equalled buy-and-hold. **That is fixed**: `calibrate_exit` now passes the target curve to the signals (a drawdown from the running peak only looks backward, so using the curve inside a training window is causal), and the research script's stitching step does the same. The check from the old note now gives a real screen: `ExitScreen([PortfolioStop(0.15)]).components(mkt, curve=c).shape` is `(8313, 1)` and the calibration table shows `FracFlagged` up to 0.42 and 2-4 switches a year.
 
-```python
-sc = ExitScreen([PortfolioStop(0.15)])
-sc.components(mkt).shape                      # (8313, 0): the signal was dropped
-calibrate_exit(sc, mkt, curve, dict(threshold=[0.9, 1.0]), "Calmar").table   # FracFlagged 0.0, MaxDD identical to buy-and-hold
-```
+Re-run, same recipe as the main study (`PortfolioStop(0.15)`, the same 256 sampled grid points of the 768-point grid, 8-year train / 4-year test, Calmar objective, at most 4 switches a year, 5 bps per unit traded, cash earning 0%), out of sample 1999-02-02 to 2019-02-01, five windows each (`stop_calibration()` in `calibrate_sp500.py`; about 1 minute):
 
-A fix would pass `curve=` to `scr.components` / `policy.components` in `calibrate_exit` (in-sample use of the full-period curve is causal because the signal only looks backward).
+| Portfolio | Strategy | CAGR | Vol | Sharpe | MaxDD | Worst 12m | Time out | Switches/yr | Stability |
+|---|---|---|---|---|---|---|---|---|---|
+| momentum_12_1 | No exit | 14.2% | 22.9% | 0.69 | -46.7% | -39.0% | 0.0% | 0.0 | |
+| momentum_12_1 | Calibrated portfolio stop | 7.5% | 16.9% | 0.51 | -45.9% | -30.2% | 38.4% | 3.7 | 20% |
+| low_vol | No exit | 8.1% | 14.8% | 0.60 | -37.9% | -31.4% | 0.0% | 0.0 | |
+| low_vol | Calibrated portfolio stop | 5.8% | 11.8% | 0.54 | -27.1% | -20.6% | 19.1% | 2.0 | 20% |
 
-*Files: `results/oos_summary.csv` (all 48 runs, every metric), `oos_tests.csv`, `grid_tables.csv` (every setting's full-period and out-of-sample numbers), `walk_forward_windows.csv`, `param_stability.csv`, `oos_exit_curves.csv`, `causality_check.csv`, `fixed_portfolio_stop_reference.csv`.*
+**Reading:** calibrating the stop does not make it work. For the momentum portfolio it gave up half the return (14.2% to 7.5%) for almost no reduction in the worst fall (-46.7% to -45.9%) and a lower Sharpe; for low-vol it cut the worst fall (-37.9% to -27.1%) but also lowered return and Sharpe. The picked settings changed from window to window (the same setting won 1 window in 5). This agrees with the fixed-setting reference above (a stop on the portfolio's own drawdown whipsaws), and it is worse than the fixed trend-only rule on both portfolios. The recommendation in the bottom line is unchanged. These two runs use the same data and windows as the main study and are not independent evidence.
+
+*Files: `results/oos_summary.csv` (all 48 runs, every metric), `oos_tests.csv`, `grid_tables.csv` (every setting's full-period and out-of-sample numbers), `walk_forward_windows.csv`, `param_stability.csv`, `oos_exit_curves.csv`, `causality_check.csv`, `fixed_portfolio_stop_reference.csv` (the CSVs are not tracked in git; regenerate with `python -m rothery_screener.research.calibrate_sp500`, see `README.md` in this folder).*

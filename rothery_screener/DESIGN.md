@@ -263,14 +263,14 @@ Two clocks, kept separate:
 - Keep every signal strictly causal (test exists). Document in the class
   docstring that `check` and `rebalance_months` are independent.
 
-### F2. Backtest integration — `backtest.Config.exit_overlay`
+### F2. Backtest integration (superseded by H2: the `ExitOverlay` alias has been removed)
 `ExitOverlay(screen: ExitScreen, exposure_when_flagged=0.0, cost_bps=5.0,
 macro=None)` precomputes the exposure series once per Market (cache on
 `id(mkt)`), then `simulate()` applies it *inside* each rebalance segment:
 daily portfolio return = e_t · r_t + (1 − e_t) · cash_t − cost · |Δe_t|,
 with e_t the lagged exposure. Picks and weights are untouched (the entry
 screen never sees the flag). The `Result` gains `exposure: pd.Series` and
-`switches: int`. Default `exit_overlay=None` must reproduce today's curves
+`switches: int`. Default `exit=None` must reproduce today's curves
 exactly (existing tests pin them).
 
 ### F3. `calibration.py`
@@ -371,9 +371,8 @@ is the list of days exposure returns to 1 from below; with
 `rescreen_on_reentry` those days become extra rebalance dates.
 
 ### H2. Backtest integration (replaces F2's `ExitOverlay` as the public hook)
-- `Config.exit: ExitPolicy | None = None`. Keep `exit_overlay` working as a
-  thin alias that builds an `ExitPolicy(screen, exposure_when_flagged,
-  switch_cost_bps=cost_bps, park="cash")`.
+- `Config.exit: ExitPolicy | None = None` is the single way to attach an exit
+  (the `exit_overlay` alias was removed in Phase 0).
 - `run()` becomes two-pass when a policy is set: pass 1 simulates the
   fully-invested sleeve (as today) to obtain the curve some signals need
   (`PortfolioStop`), computes the exposure path from the policy, extends

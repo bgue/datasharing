@@ -5,11 +5,15 @@ Bodies are JSON objects whose keys are the keyword arguments of the matching Lab
 """
 from __future__ import annotations
 
+import inspect
+import logging
+
 from .registry import LabRegistry, ServerError, default_registry
 
 
 def create_app(registry: LabRegistry | None = None):
     from fastapi import Body, FastAPI, Query
+    from fastapi.exceptions import RequestValidationError
     from fastapi.responses import JSONResponse
 
     reg = registry or default_registry()
@@ -20,9 +24,32 @@ def create_app(registry: LabRegistry | None = None):
     async def _server_error(_, e: ServerError):
         return JSONResponse({"error": e.message}, status_code=e.status)
 
-    @app.exception_handler(TypeError)
-    async def _bad_args(_, e: TypeError):          # unknown / missing keys in a request body
-        return JSONResponse({"error": f"bad request body: {e}"}, status_code=400)
+    @app.exception_handler(RequestValidationError)
+    async def _invalid(_, e: RequestValidationError):      # malformed path / query / body: name the field
+        errs = e.errors()
+        loc = ".".join(str(x) for x in errs[0].get("loc", ()) if x != "body") if errs else ""
+        msg = errs[0].get("msg", "invalid value") if errs else "invalid request"
+        return JSONResponse({"error": f"invalid {loc}: {msg}" if loc else f"invalid request body: {msg}"},
+                            status_code=400)
+
+    @app.exception_handler(Exception)
+    async def _unexpected(_, e: Exception):
+        logging.getLogger(__name__).error("unexpected error", exc_info=e)
+        return JSONResponse({"error": "internal error"}, status_code=500)
+
+    def run(op: str, lab: str, body):
+        """Call registry operation `op` with a JSON body whose keys are its keyword arguments."""
+        if not isinstance(body, dict):
+            raise ServerError(400, "request body must be a JSON object")
+        params = inspect.signature(getattr(reg, op)).parameters
+        allowed = [n for n in params if n != "lab"]
+        bad = [k for k in body if k not in allowed]
+        if bad:
+            raise ServerError(400, f"unknown field {bad[0]!r} for {op}; allowed: {allowed}")
+        missing = [n for n in allowed if params[n].default is inspect.Parameter.empty and n not in body]
+        if missing:
+            raise ServerError(400, f"missing required field {missing[0]!r}")
+        return getattr(reg, op)(lab=lab, **body)
 
     @app.get("/labs")
     def list_labs():
@@ -42,11 +69,11 @@ def create_app(registry: LabRegistry | None = None):
 
     @app.post("/labs/{lab}/backtest")
     def backtest(lab: str, body: dict = Body(default={})):
-        return reg.backtest(lab=lab, **body)
+        return run("backtest", lab, body)
 
     @app.post("/labs/{lab}/timing")
     def timing(lab: str, body: dict = Body(...)):
-        return reg.timing(lab=lab, **body)
+        return run("timing", lab, body)
 
     @app.get("/labs/{lab}/graham")
     def graham(lab: str, preset: str = "defensive", asof: str | None = None,
@@ -55,28 +82,28 @@ def create_app(registry: LabRegistry | None = None):
         try:
             ov = json.loads(overrides) if overrides else {}
         except ValueError as e:
-            raise ServerError(400, f"overrides is not valid JSON: {e}")
+            raise ServerError(400, f"`overrides` is not valid JSON: {e}") from None
         return reg.graham(preset, asof, ov, lab)
 
     @app.post("/labs/{lab}/sweep")
     def sweep(lab: str, body: dict = Body(...)):
-        return reg.sweep(lab=lab, **body)
+        return run("sweep", lab, body)
 
     @app.post("/labs/{lab}/significance")
     def significance(lab: str, body: dict = Body(default={})):
-        return reg.significance(lab=lab, **body)
+        return run("significance", lab, body)
 
     @app.post("/labs/{lab}/extended")
     def extended(lab: str, body: dict = Body(...)):
-        return reg.extended(lab=lab, **body)
+        return run("extended", lab, body)
 
     @app.post("/labs/{lab}/exit/evaluate")
     def exit_evaluate(lab: str, body: dict = Body(...)):
-        return reg.exit_evaluate(lab=lab, **body)
+        return run("exit_evaluate", lab, body)
 
     @app.post("/labs/{lab}/exit/calibrate")
     def exit_calibrate(lab: str, body: dict = Body(...)):
-        return reg.exit_calibrate(lab=lab, **body)
+        return run("exit_calibrate", lab, body)
 
     @app.get("/labs/{lab}/columns")
     def columns(lab: str):
