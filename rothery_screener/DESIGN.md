@@ -430,3 +430,174 @@ Macro-based (NaN without the series):
   change of a credit-spread series.
 Each ships with the same causality test as the existing signals; a
 `describe()` classmethod returns its parameters for `list_signals`.
+
+---------------------------------------------------------------------------
+## I. Asynchronous runs and optional persistence (Phase 0)
+
+Why now: a daily timing study takes about 5 minutes per screen, a
+calibration study about 10, and an 8-screen monthly backtest about a minute.
+The server runs them synchronously inside an HTTP request, and nothing is
+kept afterwards, so every comparison is recomputed and the trial counter the
+critique asks for has nothing to count. These are UI blockers (CRITIQUE.md
+§5), and the minimal version below is small enough for Phase 0. Typed
+schemas, auth and per-session labs stay in Phase 2.
+
+Three pieces, each usable without the others:
+
+```
+RunSpec ──► run_key ──► JobManager (async, progress, cancel) ──► Result
+                │                                                  │
+                └──────────── RunStore (optional) ◄────────────────┘
+                              runs · metrics · artifacts · trials · datasets
+```
+
+### I1. `RunSpec`: every run as plain data (`runspec.py`)
+A run is fully described by a JSON-serializable spec:
+```
+RunSpec(kind="backtest",              # backtest | timing | sweep | significance | extended
+                                      # | exit_evaluate | exit_calibrate | graham | picks
+        dataset="sp500",              # registry name; resolved to a dataset_id (below)
+        args={...},                   # the Lab method's keyword arguments, serialized
+        seed=0, label=None, tags=[])
+```
+- Every input type gets `to_dict()` / `from_dict()`: `Config` (incl.
+  `HoldRule`, `ExitPolicy`, per-security cost/MER maps, `cap_tiered` stored
+  as its tiers), `ExitScreen` and each signal (by `BUILTINS` name + params),
+  `Portfolio`, `IndexBenchmark`, `MacroSeries` (by dataset reference, not
+  values), screens (built-ins by name + overrides; spec screens as their
+  `ScreenSpec` dict).
+- **Unpersistable inputs** (a Python callable weighting, cost function or
+  `Screen(fn=...)`): the run still executes, but `spec.persistable` is False
+  with a reason, and the store records it without a run_key (metrics only,
+  no cache reuse, no `rerun`).
+- `run_key = sha256(canonical_json(spec.kind, spec.args, spec.seed) +
+  dataset_id + code_version)`. Canonical JSON: sorted keys, floats via
+  `repr`, dates as ISO strings, so the key is stable across processes and
+  dict ordering.
+- `dataset_id` = hash of the Market's prices, fundamentals and indices
+  (`pd.util.hash_pandas_object`, computed once per Market and cached).
+  `code_version` = package `__version__` + git commit when available, so a
+  code change invalidates the cache instead of silently reusing old numbers.
+
+### I2. `JobManager`: asynchronous runs (`jobs.py`)
+- `submit(spec, force=False) -> Job`. A Job has `id`, `status` (queued /
+  running / done / failed / cancelled), `progress` (0–1 plus a short
+  message), `result()`, `cancel()`, `error`.
+- **Dedup:** if the store holds a finished run with the same `run_key`,
+  return it at once (`cache_hit=True`) unless `force`. If the same key is
+  already queued or running, attach to that job instead of starting a
+  second one.
+- **Executor:** `ProcessPoolExecutor` (pandas work is CPU-bound and holds
+  the GIL; separate processes also sidestep the unguarded `Market` caches
+  the critique flagged). Each worker loads the registry's base labs once in
+  its initializer and treats them as read-only; a job that defines screens
+  works on a copy. `max_workers` defaults to cores − 1. A
+  `ThreadPoolExecutor` mode (`workers="thread"`) exists for tests and small
+  machines.
+- **Progress and cancellation:** one hook, `progress(frac, msg)`, threaded
+  through the long loops: rebalance dates in `simulate`, offsets in
+  `timing.study`, points in `run_sweep`, points and windows in
+  `calibrate_exit`. The hook also checks a cancel flag and raises
+  `Cancelled`. Workers report through the store's `jobs` table (or a
+  `multiprocessing.Queue` when there is no store), so the API process only
+  polls.
+- **SDK:** the existing synchronous methods are unchanged. New:
+  `lab.submit("timing", screen="dogs", stride=1) -> Job`, and
+  `Lab(jobs=JobManager(...))` to share a pool. Notebook use stays
+  synchronous by default.
+- **REST:** `POST /jobs` (body = RunSpec) → `{job_id, run_key, status,
+  cache_hit}`; `GET /jobs/{id}` → status and progress; `GET
+  /jobs/{id}/result` → the same JSON the synchronous endpoint returns (409
+  until done); `DELETE /jobs/{id}` → cancel; `GET /jobs?status=` → list.
+  The synchronous endpoints stay, with a timeout that suggests `/jobs`
+  instead of hanging.
+- **MCP:** `submit_run`, `run_status`, `run_result`, `cancel_run`,
+  `list_runs`, so an agent can start a timing study and come back for it.
+- **Out of scope for Phase 0:** a distributed queue (Celery, RQ, Redis),
+  multiple hosts, priorities, auth. The JobManager interface is the seam for
+  those later.
+
+### I3. `RunStore`: optional persistence of inputs and output metrics (`store.py`)
+- **Off by default in the SDK, on by default in the server.**
+  `Lab(store=None)` keeps today's behaviour, with no files written.
+  `Lab(store=SQLiteStore("runs.sqlite"))` or env `ROTHERY_STORE=path`
+  turns it on. The server defaults to `~/.rothery/runs.sqlite`.
+- **Levels:** `persist="none" | "inputs" | "metrics" | "full"`.
+  - `inputs`: the spec only (an audit trail of what was tried).
+  - `metrics`: also the output tables (the default when a store is on).
+  - `full`: also the equity curves and per-offset / per-point tables as
+    artifacts.
+- **Backend:** stdlib `sqlite3`, so there are no new dependencies. Curves
+  are stored as gzip CSV (parquet only if `pyarrow` is installed, which it
+  isn't here). A `RunStore` protocol lets a Postgres or DuckDB backend drop
+  in later.
+- **Schema:**
+
+  | table | columns | purpose |
+  |---|---|---|
+  | `runs` | run_key PK, kind, status, created_at, finished_at, dataset_id, code_version, spec_json, label, tags, persist_level, error | one row per distinct run |
+  | `metrics` | run_key, row_label, metric, value | long format: one row per portfolio row × metric (CAGR, Excess/yr, CI5, DSR, TimeOut…), so "every run where Excess/yr > 2%" is one SQL query |
+  | `artifacts` | run_key, name, format, bytes | curves, timing offset tables, sweep tables (level `full` only) |
+  | `datasets` | dataset_id PK, name, span, n_names, benchmark, benchmark_kind, manifest_json | links each result to its data; Phase 1's data card and survivorship score land here |
+  | `trials` | session_id, run_key, family, created_at | every distinct run a session asked for; feeds the trial counter and DSR |
+  | `jobs` | job_id PK, run_key, status, progress, message, updated_at | live job state shared by worker processes |
+
+- **API:**
+  - `store.get(run_key)` returns the result.
+  - `store.find(kind=, screen=, dataset=, since=, where={"Excess/yr": (">", 0.02)})`
+    returns a DataFrame of runs × metrics.
+  - `store.compare([run_keys])` gives the side-by-side table the UI shows.
+  - `store.rerun(run_key)` rebuilds the spec and recomputes. If the
+    dataset and code version are unchanged, the metrics must match.
+  - Also `store.export(path)`, `store.delete(run_key)`, and retention by
+    count or age.
+- **Trial counting (guardrail):** a trial is a distinct run_key per session,
+  grouped into a *family* (same kind + dataset + screen base). `significance`,
+  `sweep` and `calibrate_exit` read the family count from the store and use
+  it as `n_trials` in the deflated Sharpe, and every result JSON carries
+  `trials_in_family`. Without a store, the count is per process and the
+  JSON says so.
+- **Privacy:** the store is a local file only. Nothing is sent anywhere.
+
+### I4. Phase 0 tasks and definition of done
+Work items:
+1. `to_dict` / `from_dict` for every input type.
+2. `runspec.py`.
+3. `store.py` (SQLite).
+4. `jobs.py`.
+5. The progress/cancel hook in the four long loops.
+6. `Lab.submit` and `Lab(store=, jobs=)`.
+7. REST `/jobs*` and the MCP run tools.
+8. Trial counter wiring.
+9. Docs.
+
+Tests (`tests/test_runspec.py`, `test_store.py`, `test_jobs.py`):
+- **Serialization:**
+  - Round-trip every Config, ExitPolicy and signal through
+    `to_dict` / `from_dict`, and the rebuilt object reproduces the same
+    curve.
+  - `run_key` is identical across two processes and under dict
+    reordering.
+  - A callable input marks the spec unpersistable.
+- **Jobs:**
+  - A job's result equals the synchronous call bit for bit, in both
+    process and thread mode.
+  - A cache hit returns without recomputing (assert the worker isn't
+    called).
+  - Progress is monotonic and reaches 1.0.
+  - Cancelling mid-way through a timing study ends in `cancelled` within
+    one offset.
+  - A failed job stores its error.
+- **Store:**
+  - `NullStore` writes no files.
+  - A store survives a restart: reopen it, then `get` and `compare` still
+    work.
+  - `rerun` reproduces the stored metrics.
+  - The trial counter rises only on distinct run_keys.
+  - Retention deletes the oldest runs first.
+
+*Done when:* a REST client can start a daily timing study, poll its
+progress, close the connection, and fetch the result later by id. A second
+identical request returns instantly from the store. Two runs can be
+compared with `store.compare`. The trial count appears in every result JSON.
+And the whole suite passes with persistence off, which is the SDK default.

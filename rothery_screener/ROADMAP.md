@@ -30,43 +30,103 @@
   exit inputs.
 - REST (FastAPI) and MCP servers over the `Lab` SDK.
 
-## 1. Real data and correctness (next)
-Nothing the tool says about real stocks counts until this phase is done.
-- **Open the network** for www.sec.gov, www.bankofcanada.ca, stooq.com (or
-  eodhd.com), fred.stlouisfed.org and run the adapters for real; the
-  bundled 20-name S&P 500 set is survivor-biased and only shows the
-  pipeline works.
-- **Fundamentals.** SEC FSDS for US names today (adapter ready); Canadian
-  point-in-time fundamentals need a paid source (EODHD cheapest, TMX /
-  Capital IQ / Refinitiv proper).
-- **Price vs total return.** Load a price series alongside the total-return
-  index so P/E and yield are marked to price only.
-- **Universe history.** Historical TSX / S&P 500 membership and delisting
-  proceeds instead of the flat `delist_return`.
-- **Benchmarks and currency.** Real index TR series, ETF presets with real
-  MERs, USD/CAD from the Bank of Canada.
-- **Reconciliation.** Re-create published Globe screen portfolios and check
-  picks and returns against the columns.
+The phases below follow the review in `CRITIQUE.md` §6, which has the
+reasoning and measured numbers. Data correctness comes before features, and
+items marked **[UI blocker]** must be done before the interactive UI starts.
 
-## 2. Research features (remaining)
-- **Taxes.** Taxable / TFSA / RRSP accounts (dividend tax credit, capital
-  gains inclusion, US withholding).
-- **Exit signals on real data.** Add credit-spread and yield-curve signals
-  once FRED is reachable; intraday cadence once intraday bars exist; keep
-  entry and exit screens combined only through the overlay.
-- **Faster timing studies.** Parallelize the offset sweep and cache views.
-- **Charts.** Equity curves, CAGR by rebalance date, Graham funnel over
-  time, exit-signal score over the index.
+## Phase 0: Freeze, fix, and make runs asynchronous and storable **[UI blocker]**
+- **Bugs:** fix B1–B6 from `CRITIQUE.md` §3 (duplicate portfolio names
+  collapse, `with_and_without` ignored via the alias, unknown screen gives
+  a JSON error, `benchmark="top60"` fails in the SDK, server error leaks).
+  Update `research/CALIBRATION_SP500.md` now that curve-based signals
+  calibrate (B7).
+- **Simplify:** remove the `ExitOverlay` / `exit_overlay` alias so there is
+  one way to attach an exit, and route all server errors through
+  `ServerError`.
+- **Guard:** add golden-value regression tests for one full synthetic
+  backtest and one bundled-data backtest. Put an LRU bound on
+  `Market._views`, and move `research/results/*.csv` out of git.
+- **Asynchronous runs** (DESIGN.md §I2): a `JobManager` on a process pool,
+  with progress, cancel, and dedup by run key. `lab.submit(...)` in the
+  SDK, `/jobs` endpoints in REST, and run tools in MCP. Synchronous calls
+  stay as they are.
+- **Optional persistence** (DESIGN.md §I1, §I3):
+  - Every run is a serializable `RunSpec` with a stable `run_key` (inputs +
+    dataset fingerprint + code version).
+  - An optional SQLite `RunStore` keeps inputs, output metrics and
+    optionally curves. It is off in the SDK by default and on in the
+    server.
+  - The store offers `find` / `compare` / `rerun`, and keeps a trial
+    counter that feeds the deflated Sharpe.
 
-## 3. Service and reports
-- **Harden the servers.** Typed request models and OpenAPI schema, auth,
-  per-request labs instead of a mutable shared registry, async long runs.
-- **Saved screens.** Version screen specs and keep a results history keyed
-  by spec, data snapshot and config.
-- **HTML report.** Build a shareable report page per run.
+*Done when:* the bug repros no longer reproduce; a `Portfolio` named like a
+screen produces two rows; a REST client can start a daily timing study,
+poll progress, disconnect and fetch the result later, with an identical
+second request returning from the store; every result carries its trial
+count; and the suite passes with persistence off.
 
-## 4. Live tracking
-- **Scheduled picks.** Refresh "current picks" on a schedule and flag adds
-  and drops.
-- **Paper portfolios.** Track paper portfolios started on chosen dates,
-  reported against the index benchmark.
+## Phase 1: Data correctness **[UI blocker]**
+- **Network:** open www.sec.gov, www.bankofcanada.ca, stooq.com (or
+  eodhd.com) and fred.stlouisfed.org, and run the adapters for real.
+- **Benchmark kind:** `IndexBenchmark(kind="price"|"total_return")`, with
+  a warning (or refusal) when a price index is compared against
+  total-return portfolios. Load TR proxies: SPY adjusted close, and
+  XIC/XIU for Canada.
+- **Dataset manifest and survivorship score:** computed at load and stored
+  in the run store's `datasets` table. Shown on every result.
+- **Universe history:** index membership and delisting proceeds. SEC FSDS
+  as the first real point-in-time fundamentals, then a Canadian source
+  (EODHD cheapest; TMX / Capital IQ / Refinitiv proper).
+- **Reconciliation:** reproduce one published Globe screen portfolio
+  within a stated tolerance.
+
+*Done when:* bundled-data results carry red survivorship and price-index
+warnings; a US backtest runs on a universe that includes delisted names
+against a TR benchmark; and one Globe portfolio reconciles.
+
+## Phase 2: Service hardening **[UI blocker]**
+- **Typed models:** request/response models (pydantic) and a real OpenAPI
+  document, with MCP tools generated from the same models.
+- **Session state:** per-session labs over read-only base labs, so a
+  screen defined by one client no longer changes it for everyone.
+- **Auth:** a minimal token.
+- **Concurrency:** thread-safe caches.
+
+*Done when:* a client generated from the OpenAPI document can run a
+backtest job and retrieve it later, and the document has no untyped
+bodies.
+
+## Phase 3: UI v1 (scenarios and comparisons)
+- **Scenarios:** a form for screen, rebalance period, costs, dates and
+  dataset, then compare up to about 6 scenarios side by side.
+- **Pinned benchmark:** the passive index is always the first row and
+  curve.
+- **Panels:** a timing-luck panel, current picks and the Graham funnel.
+- **Guardrails:** a data card on every result, a trial counter, and
+  confidence intervals on excess return.
+- **Saved runs:** come from the run store.
+- **Left out:** calibration, sweeps, leverage and financing metrics, and
+  the extra exit inputs.
+
+*Done when:* a user can build two scenarios, compare them against the
+index, see the data warnings, reopen yesterday's runs, and export a report.
+
+## Phase 4: Exit as drawdown control
+- **One toggle:** the fixed trend rule from `research/CALIBRATION_SP500.md`,
+  labelled as drawdown control, not a return enhancer.
+- **Rows:** "with and without" rows in the comparison.
+- **Cash:** earns a loaded T-bill series.
+- **Calibration:** stays an SDK diagnostic.
+
+*Done when:* the toggle adds a `+exit` row with time out and switches per
+year, and the UI states that it lowers drawdown and does not raise return.
+
+## Phase 5: Later
+- **Taxes:** taxable, TFSA and RRSP accounts.
+- **Credit and yield-curve exit inputs:** once FRED is reachable.
+- **Intraday exit cadence:** once intraday bars exist.
+- **Charts and an HTML report.**
+- **Advanced mode:** sweeps and significance tests, with the trial counter
+  wired in.
+- **Extended metrics:** on Bank of Canada data.
+- **Tracking:** scheduled picks and paper portfolios.
