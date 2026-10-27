@@ -6,8 +6,11 @@ Rothery tracks his screen portfolios in The Globe and Mail: pick the stocks,
 hold them for a year, compare against the index, then repeat.
 
 ```
-python -m rothery_screener.run                      # synthetic market, all screens
-python -m rothery_screener.run --only dogs,piotroski --rebalance 6 --cost-bps 30
+python -m rothery_screener.run                          # synthetic daily market, all screens
+python -m rothery_screener.run --only dogs,piotroski --rebalance 6 --cost-bps 20 --mer 0.002
+python -m rothery_screener.run --graham-report           # funnel: survivors after each Graham test
+python -m rothery_screener.run --set graham_defensive.max_pe=18 --set graham_defensive.min_passes=6
+python -m rothery_screener.timing --screens dogs --stride 1    # every daily start, one year of offsets
 python -m rothery_screener.run --csv fundamentals.csv prices.csv --start 2005-01-31
 ```
 
@@ -27,31 +30,77 @@ All thresholds are keyword arguments, so you can change them through
 `fn(snapshot, n, **params) -> list[ticker]` and register it.
 
 ## Data contract
-- `fundamentals.csv` has columns `date,ticker,...` (see the `data.py` docstring).
+- `fundamentals.csv` has columns `date,ticker,...` (see the `data.py` docstring;
+  the Graham tests need `sales, eps_avg3, eps_avg3_10y_ago, loss_years_5y, loss_years_10y`).
   Each row must hold only what was **known** on that date, so shift each value
   by its reporting lag before you load the file.
-- `prices.csv` has columns `date,ticker,tri`: a monthly total-return index.
+- `prices.csv` has columns `date,ticker,tri`: a total-return index. Use daily
+  data for timing studies; monthly is enough for everything else.
 - Delisted names have to stay in both files. The backtester charges
   `delist_return` when a holding disappears.
 
+## Parameters
+| flag | what it does |
+|---|---|
+| `--rebalance N` | months between rebalances (12 = annual, like the Globe screen portfolios) |
+| `--cost-bps X` | one-way cost per security in bps (spread + slippage), charged on each trade's weight change |
+| `--cost-tiers '0:75,1000:30,10000:10'` | bps by market cap in $M, so small caps cost more to trade |
+| `--commission $ --capital $` | flat dollar commission per trade, scaled by portfolio size |
+| `--mer X` | annual expense ratio on every holding (e.g. 0.0025), accrued daily |
+| `--security-file f.csv` | per-ticker `cost_bps` and/or `mer` overrides (columns: `ticker,cost_bps,mer`) |
+| `--set screen.param=value` | override any screen parameter or Graham test; repeatable |
+
+In code, `Config.cost_bps` and `Config.mer` take a float, a `{ticker: value}`
+dict (with an optional `"_default"` key), or a function of the snapshot.
+
+### Graham tests
+`GrahamTests` (in `screens.py`) holds one threshold per test. Set a threshold
+to `None` to drop that test, or set `min_passes` to accept names that fail a
+few. There are two presets, `DEFENSIVE` (ch. 14) and `ENTERPRISING` (ch. 15):
+
+size (sales), current ratio, debt (LT debt vs net current assets; utilities
+use debt/equity instead), earnings stability (years with losses in a 5- or
+10-year window), dividend record, earnings growth (3-yr average EPS vs 10
+years ago), P/E (on 3-yr average or trailing EPS), and P/B *or* P/E x P/B.
+
+`--graham-report` prints how many names survive each test in turn, and how
+many tests each name passes.
+
+## Timing (daily starts)
+`timing.py` reruns one screen with its rebalance date moved forward one
+trading day at a time, across a full rebalance period. There are two modes:
+
+- `--mode phase` (default): every variant starts and ends on the same days,
+  and only the rebalance anniversary moves. Differences between the variants
+  are therefore pure timing luck. The tool also reports a **tranche blend**:
+  capital split evenly across all anniversaries, the usual cure for timing luck.
+- `--mode start`: actually start investing on each day and hold to the end.
+  Compare these runs on excess return, because each covers a different window.
+
+The output shows the spread of CAGR, excess return, drawdown, volatility and
+the share of years that beat the benchmark (min / 5% / median / 95% / max),
+plus the best and worst anniversary. `--out file.csv` saves the per-offset
+table. A full daily sweep takes about 70 seconds per screen on the synthetic
+data; `--stride 5` tests weekly offsets instead.
+
 ## Backtest mechanics
-- On each rebalance date the backtester takes a snapshot, runs the screen and
-  equal-weights the picks. If fewer than `min_holdings` stocks pass, the
-  portfolio sits in cash.
-- Costs are charged on one-way turnover (`cost_bps`). Weights drift between
-  rebalances.
+- Each rebalance day screens a snapshot of the latest *reported*
+  fundamentals. Price, market cap and EV are marked to that day's price, so
+  P/E, P/B and yield are current.
+- Picks are equal-weighted, and weights drift between rebalances. If fewer
+  than `min_holdings` stocks pass, the portfolio sits in cash, which is
+  common for strict Graham screens.
+- When a holding is delisted, its last value is cut by `delist_return` and
+  held as cash until the next rebalance.
 - The benchmark is an equal-weight portfolio of the 60 largest names, standing
-  in for the TSX 60. Swap in a real index series if you have one.
-- Reported stats: CAGR, volatility, Sharpe, max drawdown, worst 12 months, the
-  share of years that beat the benchmark, excess CAGR, average holdings and
-  turnover.
+  in for the TSX 60. It pays the same costs and MER.
 
 ## Next steps
 - Use real data. A TMX/Refinitiv/EODHD export works, or a Globe screener
   export for the current picks only.
 - Add a TSX/S&P 500 universe switch and country benchmarks.
-- Run staggered rebalance months to average out timing luck. Rothery often
-  notes how much the start date matters.
+- Run the timing sweep in parallel (offsets are independent), and plot
+  CAGR against anniversary date.
 - Add a combo or "screen of screens" portfolio, plus bootstrap confidence
   intervals on excess returns.
 - Write an HTML report with wealth curves and yearly return tables.
