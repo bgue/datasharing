@@ -20,7 +20,7 @@ All are optional and imported only by the server modules.
 
 | Endpoint | Body / query |
 |---|---|
-| `GET /labs`, `GET /signals` | |
+| `GET /labs`, `GET /signals`, `GET /operations` | operations with their typed arguments |
 | `GET /labs/{lab}/screens`, `GET /labs/{lab}/columns` | |
 | `POST /labs/{lab}/screens` | ScreenSpec JSON |
 | `GET /labs/{lab}/picks/{screen}?asof=` | |
@@ -35,7 +35,7 @@ All are optional and imported only by the server modules.
 
 `config` holds Config overrides (rebalance_months, cost_bps, commission, capital, mer, delist_return,
 min_holdings, cash_rate). `macro` is `[{date, series, value}]` records, a `{series: {date: value}}` map,
-or `"statsmodels"`. Signals are `{"type": "TrendBreak", "window_months": 10}` (see `GET /signals`).
+or `"statsmodels"`. Signals are `{"type": "TrendBreak", "window_months": 10}` (calendar months) or `{"type": "Breadth", "days": 138}` (trading days); `GET /signals` lists every signal's parameters, units and deprecated names. Request bodies are typed per operation (see `/openapi.json`); an operation registered in code is routed automatically.
 
     curl localhost:8000/labs
     curl -X POST localhost:8000/labs/synthetic/screens -H 'content-type: application/json' \
@@ -73,7 +73,7 @@ Every result JSON carries `trials_in_family` and `trials_scope`.
 
 Tools mirror the endpoints with the same names and arguments: `list_labs, list_screens, define_screen,
 picks, backtest, timing, graham, sweep, significance, extended, exit_evaluate, exit_calibrate`, plus
-`describe_columns` (the fundamentals column contract), `list_signals`, and the run tools `submit_run, run_status,
+`describe_columns` (the fundamentals column contract), `list_signals`, `list_operations`, one tool for every registered operation, and the run tools `submit_run, run_status,
 run_result, cancel_run, list_runs`. Every tool takes an optional
 `lab`. Works with both `mcp` 1.x (`FastMCP`) and 2.x (`MCPServer`).
 

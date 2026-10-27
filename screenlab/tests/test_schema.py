@@ -246,3 +246,43 @@ def test_values_written_have_declared_shapes(written):
     assert t > 1e9 and pers in (0, 1)
     sj, tags, scr = written.execute("SELECT spec_json, tags, screens FROM runs WHERE run_key NOT LIKE 'k\\_%' ESCAPE '\\' LIMIT 1").fetchone()
     assert json.loads(sj)["kind"] and isinstance(json.loads(tags), list) and scr.startswith(",") and scr.endswith(",")
+
+
+# ---------------------------------------------------------------------------------------------------
+# metric registry <-> StandardMetric, DataCard in datasets
+# ---------------------------------------------------------------------------------------------------
+def test_standard_metric_enum_is_the_metric_registry(schema):
+    from screenlab.metrics import METRICS, linkml_enum_values
+    pv = schema["enums"]["StandardMetric"]["permissible_values"]
+    assert list(pv) == list(METRICS), "regenerate the enum: python -m screenlab.metrics --linkml"
+    assert {k: {"description": v["description"]} for k, v in pv.items()} == linkml_enum_values()
+    for name, m in METRICS.items():
+        assert m.unit and m.format in ("pct", "num") and m.direction in ("higher", "lower", None) and m.label
+        assert m.description.strip(), name
+
+
+def test_datasets_table_stores_the_data_card(tmp_path):
+    st = SQLiteStore(tmp_path / "c.sqlite")
+    lab = Lab.synthetic(freq="ME", n_stocks=60, years=8, seed=3, store=st, persist="metrics")
+    lab.name = "synthetic"
+    lab.backtest(["dogs"], rebalance_months=6)
+    did = R.dataset_id(lab.market)
+    card = st.data_card(did)
+    assert card and card["name"] == lab.data_card().name and card["benchmark_kind"] == "total_return"
+    row = st.datasets().set_index("dataset_id").loc[did]
+    assert row["source"] == card["source"] and row["pit"] in (0, 1, None)
+    assert st._db().execute("SELECT survivorship_score, card_json FROM datasets").fetchone()[1]
+
+
+def test_old_store_files_gain_the_card_columns(tmp_path):
+    p = tmp_path / "old.sqlite"
+    con = sqlite3.connect(p)
+    con.execute("CREATE TABLE datasets (dataset_id TEXT PRIMARY KEY, name TEXT, span TEXT, n_names INTEGER,"
+                " benchmark TEXT, benchmark_kind TEXT, manifest_json TEXT)")
+    con.execute("INSERT INTO datasets VALUES ('d1','x','a/b',3,'B','IndexBenchmark','{}')")
+    con.commit()
+    con.close()
+    st = SQLiteStore(p)
+    assert {"source", "pit", "delisted_included", "survivorship_score", "card_json"} <= {
+        r[1] for r in st._db().execute("PRAGMA table_info(datasets)")}
+    assert st.data_card("d1") is None and st.dataset("d1") == {}

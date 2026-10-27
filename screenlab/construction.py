@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 
 from .screens import Screen
+from .serial import serializable
 
 
 # --- weight functions: f(snapshot rows of the picks) -> weights summing to 1 --
@@ -111,6 +112,7 @@ def clip_weights(w: pd.Series, max_weight: float | None = None, sector_cap: floa
 
 
 # --- turnover control -----------------------------------------------------------
+@serializable("HoldRule")
 @dataclass
 class HoldRule:
     """keep_within: keep a current holding while it ranks within keep_within * n.

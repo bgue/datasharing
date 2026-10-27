@@ -1,15 +1,64 @@
 """MCP server (stdio) over a LabRegistry. Run: `python -m screenlab.server.mcp_server`.
 
 Works with the `mcp` package's FastMCP (mcp 1.x: mcp.server.fastmcp) and its renamed MCPServer (mcp 2.x).
-`build_tools(registry)` returns plain functions (one per REST endpoint, same names/JSON shapes) so tests
+`build_tools(registry)` returns plain functions (same names/JSON shapes as the REST endpoints) so tests
 and other hosts can call them in-process; `create_server` registers them with the MCP framework.
+One tool per registered operation is generated from its `Args` (name, parameters, documentation); the tools
+for labs, screens, columns, signals and runs are fixed. Exit signals are `{"type": "TrendBreak",
+"window_months": 10}` (calendar months) or `{"type": "Breadth", "days": 138}` (trading days); `list_signals`
+shows every signal's parameters, units and deprecated names.
 """
 from __future__ import annotations
 
+import inspect
+
+from ..operations import OPERATIONS, _load_builtins
 from .registry import DEFAULT_MAX_POINTS, LabRegistry, ServerError, default_registry
 
 
-def build_tools(reg: LabRegistry | None = None) -> dict:
+def _tool_doc(op) -> str:
+    lines = [inspect.getdoc(type(op)) or op.name, ""]
+    for s in op.arg_specs():
+        lines.append(f"{s.name}{'' if s.required else ' (optional)'}: {s.doc}")
+    if op.takes_max_points:
+        lines.append(f"max_points: most points per returned curve (default {DEFAULT_MAX_POINTS})")
+    lines.append("lab: the named lab (default: the server's default lab)")
+    if op.long_running:
+        lines.append("Long-running: start it with submit_run and fetch the result with run_result.")
+    return "\n".join(lines)
+
+
+def operation_tool(reg: LabRegistry, op, typed: bool = False):
+    """The MCP tool of one operation. `typed`: annotate with pydantic models (what a framework needs for its
+    input schema); otherwise plain JSON types."""
+    from ..operations import pydantic_type
+    specs = {s.name: s for s in op.arg_specs()}
+    order = list(op.tool_order or op.registry_order or [*specs, "lab", *(["max_points"] if op.takes_max_points else [])])
+    order += [n for n in [*specs, "lab", *(["max_points"] if op.takes_max_points else [])] if n not in order]
+    params = []
+    for n in order:
+        if n == "lab":
+            ann, d = str | None, None
+        elif n == "max_points":
+            ann, d = int, DEFAULT_MAX_POINTS
+        else:
+            s = specs[n]
+            ann = pydantic_type(s.annotation) if typed else s.annotation
+            d = inspect.Parameter.empty if s.required else s.default_value()
+        params.append(inspect.Parameter(n, inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=ann, default=d))
+
+    def tool(*a, **kw):
+        vals = dict(inspect.Signature(params).bind(*a, **kw).arguments)
+        lab, mp = vals.pop("lab", None), vals.pop("max_points", DEFAULT_MAX_POINTS)
+        return reg.run_operation(op.name, vals, lab, mp)
+    tool.__name__ = op.name
+    tool.__doc__ = _tool_doc(op)
+    tool.__signature__ = inspect.Signature(params)
+    return tool
+
+
+def build_tools(reg: LabRegistry | None = None, typed: bool = False) -> dict:
+    _load_builtins()
     reg = reg or default_registry()
 
     def list_labs() -> dict:
@@ -21,86 +70,29 @@ def build_tools(reg: LabRegistry | None = None) -> dict:
         return reg.list_screens(lab)
 
     def define_screen(spec: dict, lab: str | None = None) -> dict:
-        """Define a screen from a ScreenSpec JSON object: {name, n, universe, derive, filters, graham, rank}."""
+        """Define a screen from a ScreenSpec JSON object: {name, n, universe, derive, filters, graham, rank},
+        or {name, n, stages: [{universe, derive, filters, graham, rank, keep}, ...]} for a multi-stage screen."""
         return reg.define_screen(spec, lab)
-
-    def picks(screen: str, asof: str | None = None, lab: str | None = None) -> dict:
-        """Names a screen selects on a date (default: latest), with key ratios."""
-        return reg.picks(screen, asof, lab)
-
-    def backtest(screens: list[str] | None = None, start: str | None = None, end: str | None = None,
-                 config: dict | None = None, lab: str | None = None, max_points: int = DEFAULT_MAX_POINTS,
-                 exit: dict | None = None, with_and_without: bool = False, benchmark: str | None = None,
-                 compare: list[str] | None = None) -> dict:
-        """Backtest screens against the passive index (response key "benchmark" names it). `benchmark`: an
-        index name replacing it; `compare`: extra rows (index names or "top60"), never the primary benchmark.
-        config overrides: rebalance_months, cost_bps, commission,
-        capital, mer, delist_return, min_holdings, cash_rate. Returns the metrics table and downsampled curves.
-        exit: {"signals": [...], "threshold": .., "park": "cash", "reentry": "signal", "reentry_delay_days": ..,
-        "reentry_steps": .., ...} applies an exit policy to every screen; with_and_without also runs them without."""
-        return reg.backtest(screens, start, end, config, lab, max_points, exit, with_and_without, benchmark, compare)
-
-    def timing(screen: str, mode: str = "phase", stride: int = 1, start: str | None = None,
-               end: str | None = None, config: dict | None = None, lab: str | None = None,
-               max_points: int = DEFAULT_MAX_POINTS) -> dict:
-        """Rebalance-timing study: how much the result depends on the start date / phase."""
-        return reg.timing(screen, mode, stride, start, end, config, lab, max_points)
-
-    def graham(preset: str = "defensive", asof: str | None = None, overrides: dict | None = None,
-               lab: str | None = None) -> dict:
-        """Graham tests: per-name pass table and cumulative funnel. overrides are GrahamTests fields."""
-        return reg.graham(preset, asof, overrides, lab)
-
-    def sweep(screen: str, grid: dict, objective: str = "Excess/yr", start: str | None = None,
-              end: str | None = None, splits: dict | None = None, lab: str | None = None) -> dict:
-        """Parameter sweep. grid: {"dogs.n": [5, 10], "cost_bps": [10, 50]} (dotted = screen, bare = Config).
-        splits {train_years, test_years} adds walk-forward out-of-sample columns."""
-        return reg.sweep(screen, grid, objective, start, end, splits, lab)
-
-    def significance(screens: list[str] | None = None, start: str | None = None, end: str | None = None,
-                     config: dict | None = None, n: int = 2000, seed: int = 0, lab: str | None = None) -> dict:
-        """Bootstrap CI, t-stat and deflated Sharpe for screens' excess return over the benchmark."""
-        return reg.significance(screens, start, end, config, n, seed, lab)
-
-    def extended(macro, screens: list[str] | None = None, start: str | None = None, end: str | None = None,
-                 config: dict | None = None, spread_over_prime: float = 0.0, leverage: float = 1.0,
-                 lab: str | None = None) -> dict:
-        """Real / FX / financing-adjusted metrics. macro: [{date, series, value}] records, a
-        {series: {date: value}} mapping, or "statsmodels"."""
-        return reg.extended(screens, start, end, config, macro, spread_over_prime, leverage, lab)
-
-    def exit_evaluate(signals: list, weights: dict | None = None, threshold: float = 0.7,
-                      min_votes: int | None = None, hysteresis: float = 0.1, screen_params: dict | None = None,
-                      target: str | None = None, horizons: list[int] | None = None, macro=None,
-                      exposure_when_flagged: float = 0.0, cash_rate: float = 0.0, lab: str | None = None,
-                      max_points: int = DEFAULT_MAX_POINTS, policy: dict | None = None) -> dict:
-        """Evaluate an exit screen (policy: ExitPolicy fields such as park, reentry, reentry_steps). signals: [{"type": "TrendBreak", "window_months": 10}, ...] (see list_signals)."""
-        return reg.exit_evaluate(signals, weights, threshold, min_votes, hysteresis, screen_params, target,
-                                 horizons or (1, 3, 12), macro, exposure_when_flagged, cash_rate, lab, max_points, policy)
-
-    def exit_calibrate(signals: list, grid: dict, weights: dict | None = None, threshold: float = 0.7,
-                       min_votes: int | None = None, hysteresis: float = 0.1, screen_params: dict | None = None,
-                       objective: str = "Calmar", splits: dict | None = None, constraints: dict | None = None,
-                       target: str | None = None, macro=None, lab: str | None = None,
-                       policy: dict | None = None) -> dict:
-        """Walk-forward calibration of an exit screen (needs Lab.calibrate_exit; errors with 501 otherwise)."""
-        return reg.exit_calibrate(signals, grid, weights, threshold, min_votes, hysteresis, screen_params,
-                                  objective, splits, constraints, target, macro, lab, policy)
 
     def describe_columns(lab: str | None = None) -> dict:
         """The fundamentals / snapshot column contract usable in filters, derive and rank."""
         return reg.describe_columns(lab)
 
     def list_signals() -> dict:
-        """Built-in exit signals with their parameters and defaults."""
+        """Built-in exit signals with their parameters, defaults and units (`days` = trading days, `months` =
+        calendar months, `*_calendar_days` = calendar days) and the deprecated names still accepted."""
         return reg.list_signals()
+
+    def list_operations() -> dict:
+        """Every registered operation (analysis) with its arguments and documentation."""
+        return reg.list_operations()
 
     def submit_run(kind: str, args: dict | None = None, lab: str | None = None, seed: int = 0,
                    label: str | None = None, tags: list[str] | None = None, force: bool = False) -> dict:
-        """Start a long run in the background and return {job_id, status, run_key, cache_hit}. kind: backtest,
-        timing, sweep, significance, extended, exit_evaluate, exit_calibrate, graham or picks; args are that
-        tool's arguments (e.g. {"screen": "dogs", "stride": 1} for timing). An identical finished run is
-        returned from the store at once unless force=true. Poll run_status, then fetch run_result."""
+        """Start a long run in the background and return {job_id, status, run_key, cache_hit}. kind: any
+        operation (see list_operations); args are that tool's arguments (e.g. {"screen": "dogs", "stride": 1}
+        for timing). An identical finished run is returned from the store at once unless force=true.
+        Poll run_status, then fetch run_result."""
         return reg.submit_run(kind, args, lab, seed, label, tags, force)
 
     def run_status(job_id: str) -> dict:
@@ -119,10 +111,17 @@ def build_tools(reg: LabRegistry | None = None) -> dict:
         """Runs started in this server session, newest first; optionally only those with one status."""
         return reg.list_runs(status)
 
-    fns = [list_labs, list_screens, define_screen, picks, backtest, timing, graham, sweep, significance,
-           extended, exit_evaluate, exit_calibrate, describe_columns, list_signals,
-           submit_run, run_status, run_result, cancel_run, list_runs]
-    return {f.__name__: f for f in fns}
+    fixed = [list_labs, list_screens, define_screen, describe_columns, list_signals, list_operations,
+             submit_run, run_status, run_result, cancel_run, list_runs]
+    tools = {op.name: operation_tool(reg, op, typed) for op in OPERATIONS.values() if not _internal(op)}
+    tools.update({f.__name__: f for f in fixed})
+    return tools
+
+
+def _internal(op) -> bool:
+    """Operations registered only as job kinds (`register_kind` functions) are not tools."""
+    from ..operations import FunctionOperation
+    return isinstance(op, FunctionOperation)
 
 
 def create_server(reg: LabRegistry | None = None):
@@ -130,10 +129,23 @@ def create_server(reg: LabRegistry | None = None):
         from mcp.server.fastmcp import FastMCP as Server          # mcp 1.x
     except ImportError:
         from mcp.server.mcpserver import MCPServer as Server      # mcp 2.x
+    reg = reg or default_registry()
     srv = Server("screenlab")
-    for name, fn in build_tools(reg).items():
+    for name, fn in build_tools(reg, typed=True).items():
         srv.tool(name=name)(_wrap(fn))
     return srv
+
+
+def _plain(x):
+    """Pydantic models (what the framework builds from the typed signature) back to the plain JSON dicts the
+    registry takes; only the fields the caller set."""
+    if hasattr(x, "model_dump"):
+        return x.model_dump(exclude_unset=True)
+    if isinstance(x, dict):
+        return {k: _plain(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return type(x)(_plain(v) for v in x) if isinstance(x, list) else tuple(_plain(v) for v in x)
+    return x
 
 
 def _wrap(fn):
@@ -143,7 +155,7 @@ def _wrap(fn):
     @functools.wraps(fn)
     def inner(*a, **kw):
         try:
-            return fn(*a, **kw)
+            return fn(*[_plain(x) for x in a], **{k: _plain(v) for k, v in kw.items()})
         except ServerError as e:
             raise ValueError(f"[{e.status}] {e.message}") from None
     return inner

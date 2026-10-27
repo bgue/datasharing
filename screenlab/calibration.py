@@ -3,7 +3,8 @@
     from screenlab.calibration import calibrate_exit
     res = calibrate_exit(ExitScreen([TrendBreak("SP500"), VolRegime("SP500")]), mkt, "SP500",
                          grid={"threshold": [0.6, 0.7, 0.8], "check": ["D", "W-FRI"],
-                               "signals.TrendBreak.window_months": [8, 10, 12]},
+                               "signals.TrendBreak.window_months": [8, 10, 12],
+                               "signals.VolRegime.days": [42, 63]},
                          splits=dict(train_years=8, test_years=4))
     res.table, res.windows, res.summary, res.best, res.screen
 
@@ -24,6 +25,7 @@ import numpy as np
 import pandas as pd
 
 from . import metrics
+from .metrics import M
 from . import progress
 from .exit_policy import ExitPolicy, policy_overlay
 from .exit_signals import (ExitScreen, OverlayResult, evaluate_state, overlay)
@@ -33,7 +35,7 @@ from .sweep import walk_forward
 SCREEN_KEYS = ("threshold", "hysteresis", "check", "lag", "min_hold_days", "weights", "min_votes")
 OVERLAY_KEYS = ("exposure_when_flagged",)
 POLICY_KEYS = ("reentry", "reentry_delay_days", "reentry_steps", "park", "exposure_when_flagged")
-OBJECTIVES = ("Calmar", "Sharpe", "CAGR", "MaxDD", "ForwardGap")
+OBJECTIVES = (M.CALMAR, M.SHARPE, M.CAGR, M.MAXDD, "ForwardGap")
 
 
 @dataclass
@@ -102,13 +104,13 @@ def _slice_stats(ov: OverlayResult, state: pd.Series, a, b, rf: float) -> dict:
     s = metrics.summarize(c, rf=rf)
     yrs = max((c.index[-1] - c.index[0]).days / 365.25, 1e-9)
     sw = int((ov.exposure.loc[a:b].diff().abs() > 1e-12).sum())
-    s["Calmar"] = s["CAGR"] / max(abs(s["MaxDD"]), 1e-9)
+    s[M.CALMAR] = s[M.CAGR] / max(abs(s[M.MAXDD]), 1e-9)
     s["Switches"], s["SwitchesPerYr"] = sw, sw / yrs
     s["FracFlagged"] = float(state.loc[a:b].mean())
     return s
 
 
-def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | Callable = "Calmar",
+def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | Callable = M.CALMAR,
                    splits=None, constraints: Mapping | None = None, macro=None,
                    exposure_when_flagged: float = 0.0, cash_rate: float | pd.Series = 0.0,
                    cost_bps: float = 5.0, policy: ExitPolicy | None = None, rebalance_months: int = 12,
@@ -117,7 +119,9 @@ def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | 
 
     grid: {key: [values]} or a list of point dicts. Keys: threshold, hysteresis, check, lag,
     min_hold_days, min_votes, weights (list of weight dicts), exposure_when_flagged, and dotted
-    "signals.<Name>.<param>" which rebuilds that signal (e.g. signals.TrendBreak.window_months).
+    "signals.<Name>.<param>" which rebuilds that signal (e.g. signals.TrendBreak.window_months in calendar
+    months, signals.Breadth.days / signals.VolRegime.days in trading days; the old window_days / window names
+    still work but are deprecated).
     objective: "Calmar" (CAGR / |MaxDD| of the overlay curve), "Sharpe", "CAGR", "MaxDD", "ForwardGap"
     (unflagged minus flagged mean 12m forward return, horizons clipped at the window end) or a callable
     (OverlayResult, ExitEvaluation) -> float, evaluated on each window slice. Higher is better.
@@ -210,11 +214,11 @@ def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | 
         full = _slice_stats(r["ov"], r["state"], curve.index[0], curve.index[-1], rf)
         rets = r["ov"].curve.pct_change().dropna()
         row = dict(r["point"])
-        row.update(CAGR=full["CAGR"], MaxDD=full["MaxDD"], Sharpe=full["Sharpe"], Calmar=full["Calmar"],
+        row.update({M.CAGR: full[M.CAGR], M.MAXDD: full[M.MAXDD], M.SHARPE: full[M.SHARPE], M.CALMAR: full[M.CALMAR]},
                    FracFlagged=full["FracFlagged"], Switches=full["Switches"],
                    SwitchesPerYr=full["SwitchesPerYr"], Feasible=feasible(full))
         row[obj_name] = value(r, curve.index[0], curve.index[-1])
-        row.update(Obs=len(rets), PerYr=periods_per_year(r["ov"].curve.index),
+        row.update({M.OBS: len(rets), M.PERYR: periods_per_year(r["ov"].curve.index)},
                    Skew=float(rets.skew()), Kurt=float(rets.kurt() + 3))
         rows.append(row)
     tbl = pd.DataFrame(rows)
@@ -259,10 +263,10 @@ def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | 
         best_i = int(np.argmax(score))
 
     n_tr = max(len(tbl), int(n_trials or 0))
-    tr = summarize_trials(tbl.assign(Sharpe=tbl["Sharpe"].astype(float)), n_trials=n_tr)
+    tr = summarize_trials(tbl.assign(**{M.SHARPE: tbl[M.SHARPE].astype(float)}), n_trials=n_tr)
     summary["n_trials"] = n_tr
-    tbl["DSR"] = tr["DSR"].to_numpy()
-    summary["dsr"] = float(tbl["DSR"].iloc[best_i])
+    tbl[M.DSR] = tr[M.DSR].to_numpy()
+    summary["dsr"] = float(tbl[M.DSR].iloc[best_i])
     tbl.attrs["walk_forward"], tbl.attrs["summary"] = wf, summary
     best = dict(points[best_i])
     scr = runs[best_i]["screen"]

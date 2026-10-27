@@ -659,6 +659,14 @@ golden-identical picks; Python screens remain allowed.
   format, description). Every metric literal elsewhere references it; the
   LinkML `StandardMetric` enum is generated from it (test keeps them equal).
 
+*Implemented (J4 notes).* Operations live one per module in `ops/` (a registered class is all it takes; the
+framework is `operations.py`, request helpers `ops/_request.py`). The `Args` of an operation are stdlib
+dataclasses (no pydantic import in the SDK); `pydantic_model()` builds the pydantic request model lazily for
+REST / MCP. Types own their serialization through `serial.py` (`@serializable(tag)`; adapters in
+`screen_codec.py` for Screen / GrahamTests / ScreenSpec, which this layer must not edit). Run keys of
+unchanged inputs are identical to before (tests/fixtures/run_keys_pre_j4.json). The REST layer keeps the
+legacy plain-language messages by running `Operation.precheck` on a rejected body.
+
 ### J5. Simulation pipeline (wave 3) — `backtest.py`, `construction.py`, `exit_policy.py`
 `simulate` becomes a sequence of stages with a small interface:
 `Selection` (screen picks) → `Weighting` (incl. caps, hold rule) →

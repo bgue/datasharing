@@ -31,14 +31,15 @@ import traceback
 import types
 import uuid
 from dataclasses import dataclass, field
+from collections.abc import Mapping
 from typing import Any, Callable
 
 import pandas as pd
 
 from . import progress
 from .progress import Cancelled
-from .runspec import (RunSpec, _cap_tiers, dataset_id, dataset_manifest, lab_context, run_key_for,
-                      set_defaults_provider)
+from .operations import OPERATIONS, register_function
+from .runspec import RunSpec, dataset_id, dataset_manifest, lab_context, run_key_for
 from .store import LEVELS, NullStore, extract
 
 STATUSES = ("queued", "running", "done", "failed", "cancelled")
@@ -53,65 +54,39 @@ class JobError(RuntimeError):
 
 
 # ---------------------------------------------------------------------------------------------------
-# what a kind runs
+# what a kind runs: the registered operations (operations.py)
 # ---------------------------------------------------------------------------------------------------
-def _k_significance(lab, n=2000, seed=0, **bt):
-    return lab.significance(lab.backtest(**bt), n=n, seed=seed)
+class _Kinds(Mapping):
+    """`KINDS[name]` -> a function `fn(lab, **kw)` that runs operation `name`; a live view of OPERATIONS
+    (so `sorted(KINDS)` lists every registered kind and an operation registered later is a kind at once)."""
+
+    def __getitem__(self, name):
+        op = OPERATIONS[name]
+        return lambda lab, **kw: op.execute(lab, **kw)
+
+    def __iter__(self):
+        return iter(OPERATIONS)
+
+    def __len__(self):
+        return len(OPERATIONS)
+
+    def __contains__(self, name):
+        return name in OPERATIONS
 
 
-def _k_extended(lab, macro=None, spread_over_prime=0.0, leverage=1.0, **bt):
-    return lab.extended(lab.backtest(**bt), macro, spread_over_prime, leverage)
-
-
-def _method(name):
-    return lambda lab, **kw: getattr(lab, name)(**kw)
-
-
-KINDS: dict[str, Callable] = {
-    "backtest": _method("backtest"), "timing": _method("timing"), "sweep": _method("sweep"),
-    "significance": _k_significance, "extended": _k_extended, "exit_evaluate": _method("exit_eval"),
-    "exit_calibrate": _method("calibrate_exit"), "graham": _method("graham"), "picks": _method("picks"),
-}
-
-
-def _sig_defaults(*fns) -> dict:
-    out = {}
-    for f in fns:
-        try:
-            ps = inspect.signature(f).parameters
-        except (TypeError, ValueError):
-            continue
-        out.update({n: p.default for n, p in ps.items() if p.default is not inspect.Parameter.empty})
-    return out
+KINDS = _Kinds()
 
 
 def kind_defaults(kind: str) -> dict:
-    """Default argument values of a kind's function (what an omitted argument means)."""
-    from .api import Lab
-    if kind == "significance":
-        return _sig_defaults(Lab.backtest, _k_significance)
-    if kind == "extended":
-        return _sig_defaults(Lab.backtest, _k_extended)
-    meth = {"exit_evaluate": "exit_eval", "exit_calibrate": "calibrate_exit"}.get(kind, kind)
-    if kind in KINDS and hasattr(Lab, meth) and KINDS[kind].__qualname__.endswith("<lambda>"):
-        return _sig_defaults(getattr(Lab, meth))
-    return _sig_defaults(KINDS[kind]) if kind in KINDS else {}
-
-
-set_defaults_provider(kind_defaults)
+    """Default argument values of a kind (what an omitted argument means)."""
+    op = OPERATIONS.get(kind)
+    return op.defaults() if op is not None else {}
 
 
 def register_kind(name: str, fn: Callable) -> None:
     """Add (or replace) a run kind: `fn(lab, **args) -> result`. Process workers only see kinds registered
-    at import time of an importable module."""
-    KINDS[name] = fn
-
-
-def _takes_seed(fn) -> bool:
-    try:
-        return "seed" in inspect.signature(fn).parameters
-    except (TypeError, ValueError):
-        return False
+    at import time of an importable module. (For a typed, tracked, servable analysis register an `Operation`.)"""
+    register_function(name, fn)
 
 
 def live_args(spec: RunSpec) -> dict:
@@ -142,14 +117,14 @@ def _align_macros(x, index):
 
 def execute_spec(spec: RunSpec, lab, args: dict | None = None):
     """Run `spec` on `lab` synchronously (what a worker does). `args`: already-built keyword arguments."""
-    if spec.kind not in KINDS:
-        raise ValueError(f"unknown run kind {spec.kind!r}; available: {sorted(KINDS)}")
+    op = OPERATIONS.get(spec.kind)
+    if op is None:
+        raise ValueError(f"unknown run kind {spec.kind!r}; available: {sorted(OPERATIONS)}")
     kw = dict(args if args is not None else live_args(spec))
     _align_macros(kw, lab.market.index)
-    fn = KINDS[spec.kind]
-    if "seed" not in kw and _takes_seed(fn):
+    if "seed" not in kw and op.accepts_seed():
         kw["seed"] = spec.seed
-    return fn(lab, **kw)
+    return op.execute(lab, **kw)
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -157,11 +132,6 @@ def execute_spec(spec: RunSpec, lab, args: dict | None = None):
 # ---------------------------------------------------------------------------------------------------
 def _none():
     return None
-
-
-def _cap(tiers):
-    from .backtest import cap_tiered
-    return cap_tiered(tiers)
 
 
 @dataclass
@@ -178,15 +148,14 @@ class DetachedResult:
 
 class _SlimPickler(pickle.Pickler):
     """Pickles results without the live Market / unimportable callables they may drag along (policy caches,
-    benchmark caches): those become None, `cap_tiered` closures are rebuilt from their tiers."""
+    benchmark caches): those become None (`CapTiered` and the other serializable types pickle as they are)."""
 
     def reducer_override(self, obj):
         from .data import Market
         if isinstance(obj, Market):
             return _none, ()
         if isinstance(obj, types.FunctionType) and ("<locals>" in obj.__qualname__ or obj.__name__ == "<lambda>"):
-            tiers = _cap_tiers(obj)
-            return (_cap, (tiers,)) if tiers is not None else (_none, ())
+            return _none, ()
         return NotImplemented
 
 
@@ -614,8 +583,8 @@ class JobManager:
             raise RuntimeError("JobManager is shut down")
         if isinstance(spec, dict):
             spec = RunSpec.from_dict(spec)
-        if spec.kind not in KINDS:
-            raise ValueError(f"unknown run kind {spec.kind!r}; available: {sorted(KINDS)}")
+        if spec.kind not in OPERATIONS:
+            raise ValueError(f"unknown run kind {spec.kind!r}; available: {sorted(OPERATIONS)}")
         if spec.dataset is None:
             if len(self.labs) != 1:
                 raise ValueError(f"spec.dataset is required (labs: {sorted(self.labs)})")
@@ -628,7 +597,8 @@ class JobManager:
         persistable = key is not None
         with self._lock:
             if key is not None:
-                fam = spec.family() + ("|runs" if spec.kind in ("sweep", "exit_calibrate") else "")
+                op = OPERATIONS[spec.kind]
+                fam = spec.family() + ("|runs" if op.counts_points else "")
                 self.store.record_trial(self.session_id, key, fam)
                 if not force:
                     hit = self.store.cached(key)

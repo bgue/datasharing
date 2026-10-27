@@ -10,17 +10,18 @@ import dataclasses
 import functools
 import inspect
 import logging
-import math
 import os
 import threading
-from datetime import date, datetime
 
-import numpy as np
 import pandas as pd
 
 from .. import progress
-
-DEFAULT_MAX_POINTS = 500
+from ..errors import ServerError
+from ..jsonout import (DEFAULT_MAX_POINTS, curve, curves, downsample_index, jsonify, scalar,  # noqa: F401  (re-exported)
+                       series_table, table)
+from ..operations import OPERATIONS, _load_builtins
+from ..ops import _request
+from ..ops.backtest import report_json                                                       # noqa: F401
 
 # the fundamentals column contract (data.py), with a one-line meaning each
 COLUMNS = {
@@ -44,90 +45,6 @@ COLUMNS = {
     "book_equity": "derived: book equity", "f_score": "derived: Piotroski 0-9",
     "mom_12_1": "snapshot: 12-1 month price momentum", "vol_1y": "snapshot: one-year annualized volatility",
 }
-
-
-class ServerError(Exception):
-    """An error with an HTTP-style status (400 bad input, 404 unknown name, 501 not implemented)."""
-
-    def __init__(self, status: int, message: str):
-        super().__init__(message)
-        self.status, self.message = status, message
-
-
-# ------------------------------------------------------------------ JSON serializers
-def scalar(x):
-    """One value -> JSON-safe Python (NaN/inf/NaT -> None, timestamps -> ISO strings)."""
-    if x is None or x is pd.NaT:
-        return None
-    if isinstance(x, (pd.Timestamp, datetime, date, np.datetime64)):
-        t = pd.Timestamp(x)
-        return None if pd.isna(t) else t.isoformat()[:10] if (t == t.normalize()) else t.isoformat()
-    if isinstance(x, (pd.Timedelta, np.timedelta64)):
-        return None if pd.isna(x) else pd.Timedelta(x).days
-    if isinstance(x, (np.bool_, bool)):
-        return bool(x)
-    if isinstance(x, (np.integer, int)):
-        return int(x)
-    if isinstance(x, (np.floating, float)):
-        f = float(x)
-        return f if math.isfinite(f) else None
-    if isinstance(x, (str,)):
-        return x
-    return str(x)
-
-
-def table(df: pd.DataFrame, index: bool = True) -> dict:
-    """DataFrame -> {"columns", "rows"}; the index (or each level of a MultiIndex) becomes leading column(s)."""
-    d = df
-    if index:
-        names = [n if n is not None else "index" for n in d.index.names]
-        d = d.reset_index()
-        d.columns = [str(c) for c in names] + [str(c) for c in d.columns[len(names):]]
-    else:
-        d = d.copy()
-        d.columns = [str(c) for c in d.columns]
-    rows = [[scalar(v) for v in r] for r in d.astype(object).itertuples(index=False, name=None)]
-    return {"columns": list(d.columns), "rows": rows}
-
-
-def series_table(s: pd.Series, key: str = "key", value: str = "value") -> dict:
-    return {"columns": [key, value], "rows": [[scalar(k), scalar(v)] for k, v in s.items()]}
-
-
-def downsample_index(n: int, max_points: int) -> np.ndarray:
-    if max_points is None or max_points <= 0 or n <= max_points:
-        return np.arange(n)
-    return np.unique(np.linspace(0, n - 1, max_points).round().astype(int))
-
-
-def curve(s: pd.Series, max_points: int = DEFAULT_MAX_POINTS) -> list:
-    """Series -> [[iso_date, value], ...], at most `max_points` evenly spaced (first and last kept)."""
-    s = s.dropna() if s.dtype != object else s
-    pos = downsample_index(len(s), max_points)
-    return [[scalar(s.index[i]), scalar(s.iloc[i])] for i in pos]
-
-
-def curves(df, max_points: int = DEFAULT_MAX_POINTS) -> dict:
-    if isinstance(df, pd.Series):
-        df = df.to_frame(df.name or "value")
-    return {str(c): curve(df[c], max_points) for c in df.columns}
-
-
-def jsonify(x, max_points: int = DEFAULT_MAX_POINTS):
-    """Best-effort conversion of results (DataFrames, Series, dataclasses, dicts, scalars) to JSON."""
-    if isinstance(x, pd.DataFrame):
-        return table(x)
-    if isinstance(x, pd.Series):
-        if isinstance(x.index, pd.DatetimeIndex) and len(x) > 50:
-            return curve(x, max_points)
-        return series_table(x)
-    if isinstance(x, dict):
-        return {str(k): jsonify(v, max_points) for k, v in x.items()}
-    if isinstance(x, (list, tuple)):
-        return [jsonify(v, max_points) for v in x]
-    if dataclasses.is_dataclass(x) and not isinstance(x, type):
-        return {f.name: jsonify(getattr(x, f.name), max_points) for f in dataclasses.fields(x)}
-    return scalar(x)
 
 
 # ------------------------------------------------------------------ registry
@@ -201,69 +118,18 @@ def default_store():
         return NullStore()
 
 
-def report_json(rep, max_points) -> dict:
-    c = rep.config
-    cfg = {f.name: scalar(getattr(c, f.name)) for f in dataclasses.fields(c)
-           if isinstance(getattr(c, f.name), (int, float, str, type(None)))}
-    return {"benchmark": rep.benchmark_label, "config": cfg, "table": table(rep.table),
-            "curves": curves(rep.curves, max_points)}
-
-
 def result_json(kind: str, L, kw: dict, res, max_points=DEFAULT_MAX_POINTS) -> dict:
     """The JSON a run of `kind` returns (same for the synchronous operation and the job result). `L` is the
     lab it ran on, `kw` the Lab keyword arguments, `res` the result. Carries `trials_in_family`."""
-    if kind == "backtest":
-        out = report_json(res, max_points)
-    elif kind == "timing":
-        out = {"benchmark": L.passive().label, "screen": res.screen, "table": table(res.table),
-               "distribution": table(res.distribution())}
-        if res.tranche is not None:
-            out["tranche"] = curve(res.tranche, max_points)
-    elif kind == "graham":
-        rep, funnel = res
-        out = {"preset": kw.get("tests", "defensive"), "table": table(rep),
-               "funnel": series_table(funnel, "step", "count")}
-    elif kind == "sweep":
-        out = {"benchmark": L.passive().label, "screen": kw["screen"], "objective": kw.get("objective", "Excess/yr"),
-               "table": table(res, index=False)}
-        summ = res.attrs.get("summary")
-        if summ is not None:
-            out["summary"] = jsonify(summ)
-        if "walk_forward" in res.attrs:
-            out["walk_forward"] = jsonify(res.attrs["walk_forward"])
-        try:
-            from ..stats import summarize_trials
-            n = int(res.attrs.get("n_trials") or len(res))
-            out["n_trials"] = n
-            out["dsr"] = scalar(summarize_trials(res, n_trials=n)["DSR"].max())
-        except Exception:                                           # e.g. a custom objective table without Sharpe
-            pass
-    elif kind in ("significance", "extended"):
-        out = {"benchmark": L.passive(kw.get("benchmark")).label, "table": table(res)}
-    elif kind == "exit_evaluate":
-        ov = res.overlay
-        out = {"benchmark": L.passive().label, "frac_flagged": scalar(res.frac_flagged), "forward": table(res.forward),
-               "drawdowns": table(res.drawdowns, index=False), "overlay_stats": table(ov.stats),
-               "switches": ov.switches, "turnover": scalar(ov.turnover),
-               "curves": {"derisked": curve(ov.curve, max_points), "always_in": curve(ov.baseline, max_points)},
-               "score": curve(res.score, max_points),
-               "state": [[d, bool(v)] for d, v in curve(res.state.astype(float), max_points)]}
-    elif kind == "exit_calibrate":
-        out = jsonify(res)
-        if isinstance(out, dict):
-            out = {"benchmark": L.passive().label, **out}
-    elif kind == "picks":
-        out = {"screen": kw["screen"], "asof": scalar(L._asof(kw.get("asof"))), **table(res)}
-    else:
-        out = jsonify(res)
-    card = getattr(res, "data_card", None) or (L.data_card() if hasattr(L, "data_card") else None)
-    if isinstance(out, dict) and card is not None:
-        out["data_card"] = card.to_dict()
-    info = L.last_trials() if hasattr(L, "last_trials") else None
-    if isinstance(out, dict) and info:
-        out["trials_in_family"] = info["trials_in_family"]
-        out["trials_scope"] = info["trials_scope"]
-    return out
+    _load_builtins()
+    op = OPERATIONS.get(kind)
+    if op is None:
+        out = jsonify(res, max_points)
+        info = L.last_trials() if hasattr(L, "last_trials") else None
+        if isinstance(out, dict) and info:
+            out["trials_in_family"], out["trials_scope"] = info["trials_in_family"], info["trials_scope"]
+        return out
+    return op.result_json(res, max_points, lab=L, kw=kw)
 
 
 def encode_result(spec, res, lab) -> dict:
@@ -349,93 +215,26 @@ class LabRegistry:
         return {"lab": lab or self.default, "name": sc.name, "n": sc.n, "note": sc.note,
                 "screens": list(L.screens)}
 
-    # ---- run kinds ---------------------------------------------------------------------------------
-    # Each kind has three steps shared by the synchronous operation and the job path: `_kw_<kind>` turns
-    # request arguments into the Lab method's keyword arguments (validating them), `_exec` runs it, and
-    # `result_json` turns the result into the JSON both return.
-    KINDS = ("backtest", "timing", "sweep", "significance", "extended", "exit_evaluate", "exit_calibrate",
-             "graham", "picks")
-
-    def _kw_picks(self, L, screen, asof=None, columns=None):
-        kw = {"screen": screen, "asof": self._date("asof", asof)}
-        if columns:
-            kw["columns"] = tuple(columns)
-        return _clean(kw)
-
-    def _kw_backtest(self, L, screens=None, start=None, end=None, config=None, exit=None,
-                     with_and_without=False, benchmark=None, compare=None):
-        cfg = self._config(config)
-        start, end = self._date("start", start), self._date("end", end)
-        if exit is not None and not isinstance(exit, dict):
-            raise ServerError(400, "`exit` must be an object (see list_signals)")
-        pol = self._policy(L, exit) if exit else None
-        bm, cmp = self._benchmarks(benchmark, compare)
-        return _clean(dict(screens=screens, start=start, end=end, benchmark=bm, exit=pol,
-                           with_and_without=bool(with_and_without) or None, compare=cmp or None, **cfg))
-
-    def _kw_timing(self, L, screen, mode="phase", stride=1, start=None, end=None, config=None):
-        cfg = self._config(config)
-        return _clean(dict(screen=screen, mode=mode, stride=stride, start=self._date("start", start),
-                           end=self._date("end", end), **cfg))
-
-    def _kw_graham(self, L, preset="defensive", asof=None, overrides=None):
-        if overrides is not None and not isinstance(overrides, dict):
-            raise ServerError(400, "`overrides` must be an object of GrahamTests fields")
-        from ..screens import GrahamTests
-        known = [f.name for f in dataclasses.fields(GrahamTests)]
-        bad = sorted(set(overrides or {}) - set(known))
-        if bad:
-            raise ServerError(400, f"unknown graham override {bad[0]!r}; use {known}")
-        return _clean(dict(tests=preset, asof=self._date("asof", asof), **(overrides or {})))
-
-    def _kw_sweep(self, L, screen, grid, objective="Excess/yr", start=None, end=None, splits=None):
-        return _clean(dict(screen=screen, grid=grid, objective=objective, start=self._date("start", start),
-                           end=self._date("end", end), splits=splits))
-
-    def _kw_significance(self, L, screens=None, start=None, end=None, config=None, n=2000, seed=0):
-        return _clean(dict(screens=screens, start=self._date("start", start), end=self._date("end", end),
-                           n=n, seed=seed, **self._config(config)))
-
-    def _kw_extended(self, L, screens=None, start=None, end=None, config=None, macro=None,
-                     spread_over_prime=0.0, leverage=1.0):
-        m = self._macro(macro, L)
-        if m is None:
-            raise ServerError(400, "extended needs `macro`: records [{date, series, value}], "
-                                   "a {series: {date: value}} mapping, or \"statsmodels\"")
-        return _clean(dict(screens=screens, start=self._date("start", start), end=self._date("end", end),
-                           macro=m, spread_over_prime=spread_over_prime, leverage=leverage,
-                           **self._config(config)))
-
-    def _kw_exit_evaluate(self, L, signals, weights=None, threshold=0.7, min_votes=None, hysteresis=0.1,
-                          screen_params=None, target=None, horizons=(1, 3, 12), macro=None,
-                          exposure_when_flagged=0.0, cash_rate=0.0, policy=None):
-        es = self._exit_screen(L, signals, weights, threshold, min_votes, hysteresis, screen_params)
-        pol = self._policy_from(es, policy, exposure_when_flagged) if policy else None
-        return _clean(dict(exit_screen=es, target=target, horizons=tuple(horizons), macro=self._macro(macro, L),
-                           policy=pol, exposure_when_flagged=exposure_when_flagged, cash_rate=cash_rate))
-
-    def _kw_exit_calibrate(self, L, signals, grid, weights=None, threshold=0.7, min_votes=None, hysteresis=0.1,
-                           screen_params=None, objective="Calmar", splits=None, constraints=None, target=None,
-                           macro=None, policy=None):
-        if getattr(L, "calibrate_exit", None) is None:
-            raise ServerError(501, "Lab.calibrate_exit is not available in this build of screenlab")
-        es = self._exit_screen(L, signals, weights, threshold, min_votes, hysteresis, screen_params)
-        kw = {"policy": self._policy_from(es, policy, 0.0)} if policy else {}
-        return _clean(dict(exit_screen=es, grid=grid, objective=objective, splits=splits, constraints=constraints,
-                           target=target, macro=self._macro(macro, L), **kw))
+    # ---- operations ----------------------------------------------------------------------------------
+    # Every analysis is an Operation (operations.py). A request goes: `parse` (validate the JSON arguments
+    # against the operation's typed Args), `build` (live objects for the Lab method), `_exec` (run it, with the
+    # synchronous timeout), `result_json` (the JSON both the sync endpoint and the job result return).
+    # The per-operation methods (`reg.backtest(...)`, `reg.timing(...)`, ...) are generated below.
+    @property
+    def KINDS(self) -> tuple:
+        return tuple(OPERATIONS)
 
     def _kw(self, kind, L, args) -> dict:
-        if kind not in self.KINDS:
-            raise ServerError(400, f"unknown run kind {kind!r}; use {list(self.KINDS)}")
+        op = OPERATIONS.require(kind)
         if not isinstance(args, dict):
             raise ServerError(400, "`args` must be a JSON object")
-        return getattr(self, f"_kw_{kind}")(L, **args)
+        return op.build(L, op.parse(args))
 
     def _exec(self, L, kind, kw):
         """Run a kind on `L`. With `sync_timeout` the call runs in a helper thread and is cancelled (through
         progress.py's hook) when it overruns, with a 408 that points at the job endpoints."""
-        from ..jobs import KINDS
-        fn = lambda: KINDS[kind](L, **kw)
+        op = OPERATIONS[kind]
+        fn = lambda: op.execute(L, **kw)
         t = self.sync_timeout
         if not t:
             return self._call(fn)
@@ -461,78 +260,21 @@ class LabRegistry:
         return box["r"]
 
     @_guarded
-    def picks(self, screen, asof=None, lab=None, columns=None) -> dict:
+    def run_operation(self, name, args=None, lab=None, max_points=DEFAULT_MAX_POINTS) -> dict:
+        """Run operation `name` synchronously with JSON `args`; returns its JSON."""
+        op = OPERATIONS.require(name)
         L = self.get(lab)
-        kw = self._kw_picks(L, screen, asof, columns)
-        return result_json("picks", L, kw, self._exec(L, "picks", kw))
+        kw = self._kw(name, L, args or {})
+        return result_json(name, L, kw, self._exec(L, name, kw), max_points)
+
+    def __getattr__(self, name):                     # operations registered after the class was built
+        if not name.startswith("_") and name in OPERATIONS:
+            return registry_method(OPERATIONS[name]).__get__(self)
+        raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
     @_guarded
-    def backtest(self, screens=None, start=None, end=None, config=None, lab=None,
-                 max_points=DEFAULT_MAX_POINTS, exit=None, with_and_without=False, benchmark=None,
-                 compare=None) -> dict:
-        """`exit`: {"signals": [...], threshold, weights, min_votes, hysteresis, screen_params, + policy fields
-        (exposure_when_flagged, park, park_mer, park_cost_bps, switch_cost_bps, reentry, reentry_delay_days,
-        reentry_steps, rescreen_on_reentry, macro)} applied to every screen; with_and_without runs both.
-        The primary benchmark is always a passive index: `benchmark` (an index name) replaces the lab's,
-        while "topN" or `compare` entries (index names / "topN") only add "... (compare)" rows."""
-        L = self.get(lab)
-        kw = self._kw_backtest(L, screens, start, end, config, exit, with_and_without, benchmark, compare)
-        return result_json("backtest", L, kw, self._exec(L, "backtest", kw), max_points)
-
-    @_guarded
-    def timing(self, screen, mode="phase", stride=1, start=None, end=None, config=None, lab=None,
-               max_points=DEFAULT_MAX_POINTS) -> dict:
-        L = self.get(lab)
-        kw = self._kw_timing(L, screen, mode, stride, start, end, config)
-        return result_json("timing", L, kw, self._exec(L, "timing", kw), max_points)
-
-    @_guarded
-    def graham(self, preset="defensive", asof=None, overrides=None, lab=None) -> dict:
-        L = self.get(lab)
-        kw = self._kw_graham(L, preset, asof, overrides)
-        return result_json("graham", L, kw, self._exec(L, "graham", kw))
-
-    @_guarded
-    def sweep(self, screen, grid, objective="Excess/yr", start=None, end=None, splits=None, lab=None) -> dict:
-        L = self.get(lab)
-        kw = self._kw_sweep(L, screen, grid, objective, start, end, splits)
-        return result_json("sweep", L, kw, self._exec(L, "sweep", kw))
-
-    @_guarded
-    def significance(self, screens=None, start=None, end=None, config=None, n=2000, seed=0, lab=None) -> dict:
-        L = self.get(lab)
-        kw = self._kw_significance(L, screens, start, end, config, n, seed)
-        return result_json("significance", L, kw, self._exec(L, "significance", kw))
-
-    @_guarded
-    def extended(self, screens=None, start=None, end=None, config=None, macro=None,
-                 spread_over_prime=0.0, leverage=1.0, lab=None) -> dict:
-        L = self.get(lab)
-        kw = self._kw_extended(L, screens, start, end, config, macro, spread_over_prime, leverage)
-        return result_json("extended", L, kw, self._exec(L, "extended", kw))
-
-    @_guarded
-    def exit_evaluate(self, signals, weights=None, threshold=0.7, min_votes=None, hysteresis=0.1,
-                      screen_params=None, target=None, horizons=(1, 3, 12), macro=None,
-                      exposure_when_flagged=0.0, cash_rate=0.0, lab=None, max_points=DEFAULT_MAX_POINTS,
-                      policy=None) -> dict:
-        """`policy`: ExitPolicy fields (park, reentry, reentry_delay_days, reentry_steps, park_mer, ...);
-        when given, the overlay trades that policy."""
-        L = self.get(lab)
-        kw = self._kw_exit_evaluate(L, signals, weights, threshold, min_votes, hysteresis, screen_params,
-                                    target, horizons, macro, exposure_when_flagged, cash_rate, policy)
-        return result_json("exit_evaluate", L, kw, self._exec(L, "exit_evaluate", kw), max_points)
-
-    @_guarded
-    def exit_calibrate(self, signals, grid, weights=None, threshold=0.7, min_votes=None, hysteresis=0.1,
-                       screen_params=None, objective="Calmar", splits=None, constraints=None, target=None,
-                       macro=None, lab=None, policy=None) -> dict:
-        """`policy`: fixed ExitPolicy fields for every grid point; the grid may sweep reentry,
-        reentry_delay_days, reentry_steps, park and exposure_when_flagged."""
-        L = self.get(lab)
-        kw = self._kw_exit_calibrate(L, signals, grid, weights, threshold, min_votes, hysteresis, screen_params,
-                                     objective, splits, constraints, target, macro, policy)
-        return result_json("exit_calibrate", L, kw, self._exec(L, "exit_calibrate", kw))
+    def list_operations(self) -> dict:
+        return {"operations": [op.describe() for op in OPERATIONS.values()]}
 
     # ---- asynchronous runs (jobs.py) -----------------------------------------------------------------
     @property
@@ -599,24 +341,17 @@ class LabRegistry:
                             for k, v in COLUMNS.items()],
                 "note": "filters and derive expressions are pandas expressions over these snapshot columns"}
 
-    @staticmethod
-    def _signals():
-        """exit_signals.BUILTINS, with the optional extra inputs registered when that module exists."""
-        from .. import exit_signals as es
-        try:
-            from .. import exit_inputs  # noqa: F401  (registers itself into BUILTINS)
-        except ImportError:
-            pass
-        return es
-
     @_guarded
     def list_signals(self) -> dict:
-        es = self._signals()
+        from ..exit_signals import _signal_classes
         out = []
-        for cls in es.BUILTINS.values():
-            params = {f.name: scalar(f.default) for f in dataclasses.fields(cls)}
+        for cls in _signal_classes().values():
+            d = cls.describe()
             doc = (cls.__doc__ or "").strip().splitlines()
-            out.append({"type": cls.__name__, "params": params, "doc": doc[0] if doc else ""})
+            out.append({"type": cls.__name__, "params": {k: scalar(v) for k, v in d["params"].items()},
+                        "units": d["units"], "needs": d["needs"],
+                        "deprecated_params": {old: new for old, (new, _, _) in getattr(cls, "_renamed", {}).items()},
+                        "doc": doc[0] if doc else ""})
         return {"signals": out}
 
     # ---- helpers
@@ -630,136 +365,52 @@ class LabRegistry:
         except Exception as e:
             raise _translate(e) from e
 
-    # fields a JSON `config` may override (Config fields that are plain numbers / strings / per-security maps)
-    CONFIG_INT = ("rebalance_months", "min_holdings")
-    CONFIG_NUM = ("commission", "capital", "delist_return", "cash_rate")
-    CONFIG_NUM_OR_MAP = ("cost_bps", "mer")
-    CONFIG_OPT_NUM = ("max_weight", "sector_cap")
-    CONFIG_FIELDS = CONFIG_INT + CONFIG_NUM + CONFIG_NUM_OR_MAP + CONFIG_OPT_NUM + ("weighting",)
+    # request helpers (they live with the operations; kept here for callers of the old private names)
+    CONFIG_INT, CONFIG_NUM = _request.CONFIG_INT, _request.CONFIG_NUM
+    CONFIG_NUM_OR_MAP, CONFIG_OPT_NUM = _request.CONFIG_NUM_OR_MAP, _request.CONFIG_OPT_NUM
+    CONFIG_FIELDS, POLICY_FIELDS = _request.CONFIG_FIELDS, _request.POLICY_FIELDS
+    _config = staticmethod(_request.config_overrides)
+    _date = staticmethod(_request.parse_date)
+    _benchmarks = staticmethod(_request.benchmarks)
 
-    @classmethod
-    def _config(cls, config) -> dict:
-        """Validated Config overrides from a request: unknown keys and wrongly typed values are a 400 that
-        names the field. `exit` is not a config field here: pass the top-level `exit` object."""
-        if config is None:
-            return {}
-        if not isinstance(config, dict):
-            raise ServerError(400, "`config` must be an object of Config overrides")
-        num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)
-        for k, v in config.items():
-            if k == "exit":
-                raise ServerError(400, "config.exit is not allowed; pass the top-level `exit` object")
-            if k not in cls.CONFIG_FIELDS:
-                raise ServerError(400, f"unknown config field {k!r}; use {list(cls.CONFIG_FIELDS)}")
-            if k in cls.CONFIG_INT and not (isinstance(v, int) and not isinstance(v, bool)):
-                raise ServerError(400, f"config.{k} must be an integer, got {v!r}")
-            if k in cls.CONFIG_NUM and not num(v):
-                raise ServerError(400, f"config.{k} must be a number, got {v!r}")
-            if k in cls.CONFIG_NUM_OR_MAP and not (num(v) or isinstance(v, dict)):
-                raise ServerError(400, f"config.{k} must be a number or a {{ticker: value}} object, got {v!r}")
-            if k in cls.CONFIG_OPT_NUM and v is not None and not num(v):
-                raise ServerError(400, f"config.{k} must be a number or null, got {v!r}")
-            if k == "weighting" and v not in ("equal", "cap", "inv_vol"):
-                raise ServerError(400, f"config.weighting must be 'equal', 'cap' or 'inv_vol', got {v!r}")
-        return dict(config)
 
-    @staticmethod
-    def _date(name, v):
-        """`v` unchanged if it parses as a date (or is None), else a 400 naming the field."""
-        if v is None:
-            return None
-        try:
-            if pd.isna(pd.Timestamp(v)):
-                raise ValueError(v)
-        except (ValueError, TypeError, OverflowError):
-            raise ServerError(400, f"`{name}` is not a valid date: {v!r}") from None
-        return v
+def registry_method(op):
+    """`LabRegistry.<op.name>(...)`: positional order `op.registry_order`, then `lab`, `max_points`."""
+    specs = {s.name: s for s in op.arg_specs()}
+    order = list(op.registry_order or [*specs, "lab", *(["max_points"] if op.takes_max_points else [])])
+    order += [n for n in [*specs, "lab", *(["max_points"] if op.takes_max_points else [])] if n not in order]
+    params = [inspect.Parameter("self", inspect.Parameter.POSITIONAL_OR_KEYWORD)]
+    for n in order:
+        if n == "lab":
+            d = None
+        elif n == "max_points":
+            d = DEFAULT_MAX_POINTS
+        else:
+            d = inspect.Parameter.empty if specs[n].required else specs[n].default_value()
+        params.append(inspect.Parameter(n, inspect.Parameter.POSITIONAL_OR_KEYWORD, default=d))
+    sig = inspect.Signature(params)
 
-    @staticmethod
-    def _benchmarks(benchmark, compare):
-        """(IndexBenchmark or None, [extra benchmarks]) from request strings: "topN" is never primary."""
-        from ..benchmarks import IndexBenchmark, parse_benchmark as mk
-        for name, v in (("benchmark", benchmark), ("compare", compare)):
-            if v is not None and not isinstance(v, (str, list, tuple)):
-                raise ServerError(400, f"`{name}` must be a string" + (" or a list of strings" if name == "compare" else ""))
-        extra = [compare] if isinstance(compare, str) else list(compare or [])
-        if isinstance(benchmark, str):
-            b = mk(benchmark)
-            if isinstance(b, IndexBenchmark):
-                return b, [mk(x) for x in extra]
-            extra = [benchmark, *extra]
-        return None, [mk(x) for x in extra]
+    @_guarded
+    def method(self, *a, **kw):
+        vals = dict(sig.bind(self, *a, **kw).arguments)
+        vals.pop("self")
+        lab, mp = vals.pop("lab", None), vals.pop("max_points", DEFAULT_MAX_POINTS)
+        return self.run_operation(op.name, vals, lab, mp)
+    method.__name__, method.__qualname__ = op.name, f"LabRegistry.{op.name}"
+    method.__doc__ = inspect.getdoc(type(op))
+    method.__signature__ = sig
+    method._operation = op.name
+    return method
 
-    def _macro(self, macro, L):
-        if macro is None:
-            return None
-        from ..macro import MacroSeries
-        try:
-            if macro == "statsmodels":
-                m = MacroSeries.from_statsmodels_macrodata(L.market.index)
-                m._ref, m._align = "statsmodels", True         # runspec: by reference, aligned to the market
-                return m
-            if isinstance(macro, list):
-                df = pd.DataFrame(macro).pivot_table(index="date", columns="series", values="value", aggfunc="last")
-                df.index = pd.to_datetime(df.index)
-                return MacroSeries.from_frame(df, L.market.index)
-            if isinstance(macro, dict):
-                df = pd.DataFrame({k: pd.Series(v) for k, v in macro.items()})
-                df.index = pd.to_datetime(df.index)
-                return MacroSeries.from_frame(df, L.market.index)
-        except (ValueError, KeyError, TypeError) as e:
-            raise ServerError(400, f"bad macro payload: {e}") from e
-        raise ServerError(400, "macro must be a record list, a {series: {date: value}} mapping, or \"statsmodels\"")
 
-    POLICY_FIELDS = ("exposure_when_flagged", "park", "park_mer", "park_cost_bps", "switch_cost_bps", "reentry",
-                     "reentry_delay_days", "reentry_steps", "rescreen_on_reentry")
+def install_registry_methods() -> None:
+    _load_builtins()
+    for op in list(OPERATIONS.values()):
+        if getattr(LabRegistry.__dict__.get(op.name), "_operation", None) in (None, op.name):
+            setattr(LabRegistry, op.name, registry_method(op))
 
-    def _policy_from(self, es, spec, exposure_when_flagged):
-        """ExitPolicy from an ExitScreen and a dict of policy fields."""
-        from ..exit_policy import ExitPolicy
-        bad = set(spec) - set(self.POLICY_FIELDS)
-        if bad:
-            raise ServerError(400, f"unknown policy fields {sorted(bad)}; use {list(self.POLICY_FIELDS)}")
-        kw = {"exposure_when_flagged": exposure_when_flagged, **spec}
-        return self._call(ExitPolicy, es, **kw)
 
-    def _policy(self, L, spec):
-        """ExitPolicy from a backtest `exit` object: signals + screen fields + policy fields."""
-        spec = dict(spec)
-        sig = spec.pop("signals", None)
-        macro = self._macro(spec.pop("macro", None), L)
-        screen_keys = ("weights", "threshold", "min_votes", "hysteresis", "screen_params")
-        sk = {k: spec.pop(k) for k in screen_keys if k in spec}
-        es = self._exit_screen(L, sig, sk.get("weights"), sk.get("threshold", 0.7), sk.get("min_votes"),
-                               sk.get("hysteresis", 0.1), sk.get("screen_params"))
-        pol = self._policy_from(es, spec, spec.pop("exposure_when_flagged", 0.0))
-        pol.macro = macro
-        return pol
-
-    def _exit_screen(self, L, signals, weights, threshold, min_votes, hysteresis, screen_params):
-        es = self._signals()
-        known = dict(es.BUILTINS)
-        sigs = []
-        for s in signals or []:
-            s = {"type": s} if isinstance(s, str) else dict(s)
-            t = s.pop("type", None)
-            if t not in known:
-                raise ServerError(400, f"unknown signal {t!r}; available: {sorted(known)}")
-            cls = known[t]
-            fields = {f.name for f in dataclasses.fields(cls)}
-            if "index" in fields and "index" not in s and "SP500" not in L.market.indices.columns \
-                    and len(L.market.indices.columns):
-                s["index"] = str(L.market.indices.columns[0])      # lab's own index instead of the "SP500" default
-            try:
-                sigs.append(cls(**s))
-            except TypeError as e:
-                raise ServerError(400, f"bad params for {t}: {e}") from e
-        if not sigs:
-            raise ServerError(400, "`signals` must list at least one signal (see list_signals)")
-        extra = {k: v for k, v in (screen_params or {}).items()
-                 if k in {f.name for f in dataclasses.fields(es.ExitScreen)}}
-        return es.ExitScreen(sigs, weights=weights, threshold=threshold, min_votes=min_votes,
-                             hysteresis=hysteresis, **extra)
+install_registry_methods()
 
 
 _DEFAULT: LabRegistry | None = None

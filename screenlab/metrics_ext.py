@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from . import metrics
+from .metrics import M
 from .macro import DAYS_PER_YEAR, MacroSeries, accrual_curve, cpi_deflator
 
 
@@ -62,7 +63,7 @@ def extended_summary(curve: pd.Series, macro: MacroSeries, bench: pd.Series | No
     Metrics whose macro series is missing are omitted. Annual rates are decimals."""
     w, m = _prep(curve, macro)
     out = metrics.summarize(curve, bench)
-    cagr = out["CAGR"]
+    cagr = out[M.CAGR]
     yrs = _years(w)
     if m.cpi is not None:
         d = cpi_deflator(m.cpi)

@@ -241,7 +241,24 @@ classes:
         description: Class of that benchmark, normally 'IndexBenchmark' (a buy-and-hold index).
       manifest_json:
         range: JsonText
-        description: Fuller description {name, span, n_names, n_dates, n_fund_rows, indices, benchmark, benchmark_kind}.
+        description: Fuller description {name, span, n_names, n_dates, n_fund_rows, indices, benchmark, benchmark_kind, card}.
+      source:
+        range: string
+        description: Where the data comes from (DataCard.source), e.g. 'synthetic', 'skfolio sp500_dataset', a CSV path. Empty if stored without a data card.
+      pit:
+        range: boolean
+        description: Stored as 1/0. 1 if the fundamentals are point in time (as first reported), 0 if not; empty when there are no fundamentals or no data card.
+      delisted_included:
+        range: boolean
+        description: Stored as 1/0. 1 if names that disappeared (delisted, merged) are in the data; 0 if only survivors are, which flatters results.
+      survivorship_score:
+        range: Fraction
+        description: >-
+          The data card's survivorship score: per year, how much an equal-weight buy-and-hold basket of the
+          dataset's names beat its benchmark (0.02 = 2%/yr). A large positive value suggests survivors chosen with hindsight. Empty without a benchmark.
+      card_json:
+        range: JsonText
+        description: The whole data card as JSON (DataCard.to_dict(), including its warnings), read back with SQLiteStore.data_card(dataset_id).
 
   Trial:
     description: >-
@@ -304,8 +321,8 @@ classes:
 enums:
   RunKind:
     description: >-
-      Which Lab analysis a run is (same list as runspec.BUNDLED_KINDS and the job manager's KINDS; extra
-      kinds can be added with jobs.register_kind and would then be missing here).
+      Which Lab analysis a run is (the built-in operations, operations.OPERATIONS == runspec.BUNDLED_KINDS == the job
+      manager's KINDS; an operation registered by user code is a further kind and would be missing here).
     permissible_values:
       backtest:
         description: Compare screen portfolios and the passive index over time (lab.backtest). Table of CAGR, Vol, Sharpe, ...
@@ -370,11 +387,13 @@ enums:
       cancelled:
         description: Stopped on request.
   StandardMetric:
-    description: >-
-      The measure names that appear in metrics.metric, with units. Unless noted, annual figures are
-      decimal fractions per year and 'excess' means portfolio minus the passive index. Computed from
-      weekly/monthly/daily equity curves (see metrics.summarize); Sharpe uses a 0% risk-free rate.
-      The list is not closed: sweep and extended tables add their own column names, and the picks and graham kinds store their own columns (pe, pb, div_yield, mom_12_1, passes, ...) as metrics.
+    description: 'The measure names that appear in metrics.metric, with units. Unless noted, annual figures
+      are decimal fractions per year and ''excess'' means portfolio minus the passive index. Computed from
+      weekly/monthly/daily equity curves (see metrics.summarize); Sharpe uses a 0% risk-free rate. This
+      enum is generated from the METRICS registry in screenlab/metrics.py (python -m screenlab.metrics --linkml);
+      tests/test_schema.py fails if they differ. The list is not closed: sweep and extended tables add their
+      own column names, and the picks and graham kinds store their own columns (pe, pb, div_yield, mom_12_1,
+      passes, ...) as metrics.'
     permissible_values:
       CAGR:
         description: Compound annual growth rate of the equity curve (fraction per year; 0.10 = 10%/yr).
@@ -383,37 +402,54 @@ enums:
       Sharpe:
         description: Annualised mean return divided by annualised volatility, risk-free rate 0 (ratio, unitless).
       MaxDD:
-        description: Maximum drawdown, the worst peak-to-trough fall of the curve (fraction, negative; -0.47 = -47%).
+        description: Maximum drawdown, the worst peak-to-trough fall of the curve (fraction, negative; -0.47
+          = -47%).
       Worst12m:
         description: Worst rolling 12-month return (fraction, negative if a loss).
       BeatBenchYrs:
-        description: Share of calendar years in which the portfolio beat the passive index (fraction 0 to 1; 0.6 = 6 years in 10).
-      "Excess/yr":
-        description: Portfolio CAGR minus the passive index's CAGR (fraction per year). In a significance run, the mean annualised arithmetic excess return instead.
+        description: Share of calendar years in which the portfolio beat the passive index (fraction 0 to
+          1; 0.6 = 6 years in 10).
+      Excess/yr:
+        description: Portfolio CAGR minus the passive index's CAGR (fraction per year). In a significance
+          run, the mean annualised arithmetic excess return instead.
       AvgN:
         description: Average number of holdings (count). Empty for the index.
       Turnover:
-        description: Average one-way turnover per rebalance (fraction of the portfolio traded; 0.3 = 30% bought and sold).
-      "Costs/yr":
-        description: Trading costs lost per year (fraction of portfolio value per year, from cost_bps and commission).
+        description: Average one-way turnover per rebalance (fraction of the portfolio traded; 0.3 = 30%
+          bought and sold).
+      Costs/yr:
+        description: Trading costs lost per year (fraction of portfolio value per year, from cost_bps and
+          commission).
       TimeOut:
-        description: Share of days with less than full market exposure because an exit policy was active (fraction 0 to 1). Only for rows with an exit policy.
-      "Switches/yr":
-        description: Number of exposure changes (exit/re-entry) per year (count per year). Only for rows with an exit policy.
+        description: Share of days with less than full market exposure because an exit policy was active
+          (fraction 0 to 1). Only for rows with an exit policy.
+      Switches/yr:
+        description: Number of exposure changes (exit/re-entry) per year (count per year). Only for rows
+          with an exit policy.
       CI5:
-        description: Significance run; 5th percentile of the bootstrapped annual excess return (fraction per year). If it is above 0 the excess is unlikely to be luck.
+        description: Significance run; 5th percentile of the bootstrapped annual excess return (fraction
+          per year). If it is above 0 the excess is unlikely to be luck.
       CI95:
-        description: Significance run; 95th percentile of the bootstrapped annual excess return (fraction per year).
-      "P(>0)":
-        description: Significance run; share of bootstrap samples with positive excess return (probability 0 to 1).
+        description: Significance run; 95th percentile of the bootstrapped annual excess return (fraction
+          per year).
+      P(>0):
+        description: Significance run; share of bootstrap samples with positive excess return (probability
+          0 to 1).
       t:
-        description: Significance run; Newey-West t-statistic of excess return (unitless; beyond about 2 is conventionally significant).
+        description: Significance run; Newey-West t-statistic of excess return (unitless; beyond about 2
+          is conventionally significant).
       DSR:
-        description: Deflated Sharpe ratio, the probability (0 to 1) that the true Sharpe exceeds what the luckiest of the trials in the family would show by chance. Falls as trials increase.
+        description: Deflated Sharpe ratio, the probability (0 to 1) that the true Sharpe exceeds what the
+          luckiest of the trials in the family would show by chance. Falls as trials increase.
       BonfP:
-        description: Bonferroni-adjusted one-sided p-value of Sharpe > 0, times the number of trials, capped at 1.
+        description: Bonferroni-adjusted one-sided p-value of Sharpe > 0, times the number of trials, capped
+          at 1.
       Haircut:
-        description: Share of the Sharpe's z-score lost to the multiple-testing correction (0 to 1; 1 means nothing survives).
+        description: Share of the Sharpe's z-score lost to the multiple-testing correction (0 to 1; 1 means
+          nothing survives).
+      Calmar:
+        description: Exit calibration; CAGR divided by the absolute maximum drawdown of the overlay curve
+          (ratio).
       Obs:
         description: Sweep table; number of return observations behind the Sharpe (count).
       PerYr:
@@ -424,15 +460,15 @@ enums:
         description: Timing study distribution; standard deviation across start offsets.
       min:
         description: Timing study distribution; smallest value across start offsets.
-      "5%":
+      5%:
         description: Timing study distribution; 5th percentile across start offsets.
-      "25%":
+      25%:
         description: Timing study distribution; 25th percentile.
-      "50%":
+      50%:
         description: Timing study distribution; median.
-      "75%":
+      75%:
         description: Timing study distribution; 75th percentile.
-      "95%":
+      95%:
         description: Timing study distribution; 95th percentile across start offsets.
       max:
         description: Timing study distribution; largest value across start offsets.

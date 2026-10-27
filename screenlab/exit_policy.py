@@ -32,12 +32,14 @@ import numpy as np
 import pandas as pd
 
 from . import metrics
+from .serial import register_tag, TAG, from_dict as _from, serializable, to_dict as _to
 from .exit_signals import (ExitScreen, OverlayResult, _check_dates, _compute, uses_curve)
 
 REENTRY_MODES = ("signal", "next_rebalance", "signal_or_rebalance")
 _EPS = 1e-12
 
 
+@serializable("ExitPolicy")
 @dataclass
 class ExitPolicy:
     screen: ExitScreen
@@ -196,9 +198,23 @@ class Portfolio:
         self.name, self.screen, self.exit = name, screen, as_policy(exit)
         self.config_overrides = config_overrides
 
+    def to_dict(self) -> dict:
+        return {TAG: "Portfolio", "name": self.name, "screen": _to(self.screen),
+                **({"exit": _to(self.exit)} if self.exit is not None else {}),
+                **({"overrides": _to(self.config_overrides)} if self.config_overrides else {})}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Portfolio":
+        return cls(d["name"], _from(d["screen"]), _from(d["exit"]) if "exit" in d else None,
+                   **_from(d.get("overrides", {})))
+
     def __repr__(self):
         return (f"Portfolio({self.name!r}, {getattr(self.screen, 'name', self.screen)!r}, exit={self.exit is not None}, "
                 f"overrides={self.config_overrides})")
+
+
+Portfolio._serial_tag = "Portfolio"
+register_tag("Portfolio", Portfolio.from_dict)
 
 
 def policy_overlay(curve: pd.Series, policy: ExitPolicy, mkt, rebalance_dates=None, cash_rate: float = 0.0,

@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 
 from . import progress
+from .serial import TAG, register_tag, serializable
 from .construction import HoldRule, target_weights
 from .data import Market
 from .exit_policy import ExitPolicy
@@ -26,6 +27,7 @@ from .screens import Screen
 PerSecurity = Union[float, Mapping, pd.Series, Callable[[pd.DataFrame], pd.Series]]
 
 
+@serializable("Config")
 @dataclass
 class Config:
     rebalance_months: int = 12        # annual by default; the Globe's screen portfolios rebalance monthly
@@ -71,17 +73,46 @@ def resolve(spec: PerSecurity, tickers, snap: pd.DataFrame | None = None) -> pd.
     return pd.Series(float(spec), index=tickers)
 
 
-def cap_tiered(tiers: Mapping[float, float]) -> Callable[[pd.DataFrame], pd.Series]:
-    """{min market cap ($M): bps}. Smaller companies cost more to trade."""
-    lo = sorted(tiers)
+class CapTiered:
+    """Per-security bps by market cap: {min market cap ($M): bps}. Smaller companies cost more to trade.
 
-    def f(snap):
+    A picklable callable (snapshot -> Series) that serializes as its tiers."""
+    def __init__(self, tiers: Mapping[float, float]):
+        self.tiers = tuple(sorted((float(k), float(v)) for k, v in dict(tiers).items()))
+
+    def __call__(self, snap: pd.DataFrame) -> pd.Series:
+        t = dict(self.tiers)
+        lo = sorted(t)
         cap = snap["market_cap"].fillna(0)
-        out = pd.Series(tiers[lo[0]], index=snap.index, dtype=float)
-        for t in lo:
-            out[cap >= t] = tiers[t]
+        out = pd.Series(t[lo[0]], index=snap.index, dtype=float)
+        for k in lo:
+            out[cap >= k] = t[k]
         return out
-    return f
+
+    def __eq__(self, other):
+        return isinstance(other, CapTiered) and self.tiers == other.tiers
+
+    def __hash__(self):
+        return hash(self.tiers)
+
+    def __repr__(self):
+        return f"CapTiered({dict(self.tiers)})"
+
+    def to_dict(self) -> dict:
+        return {TAG: "cap_tiered", "tiers": [[k, v] for k, v in self.tiers]}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "CapTiered":
+        return cls({k: v for k, v in d["tiers"]})
+
+
+CapTiered._serial_tag = "cap_tiered"
+register_tag("cap_tiered", CapTiered.from_dict)
+
+
+def cap_tiered(tiers: Mapping[float, float]) -> CapTiered:
+    """{min market cap ($M): bps}. Smaller companies cost more to trade. Returns a `CapTiered`."""
+    return CapTiered(tiers)
 
 
 def schedule(mkt: Market, start, months: int, phase_days: int = 0, end=None) -> list[pd.Timestamp]:
@@ -223,4 +254,9 @@ def run(screen: Screen, mkt: Market, cfg: Config = Config(), start=None, end=Non
 
 def benchmark_screen(top: int = 60) -> Screen:
     """Equal-weight the `top` largest names: a stand-in for the TSX 60."""
-    return Screen(f"bench_top{top}", lambda s, n: s.nlargest(n, "market_cap").index.tolist(), top)
+    return Screen(f"bench_top{top}", bench_top, top)
+
+
+def bench_top(s: pd.DataFrame, n: int) -> list:
+    """Screen function of `benchmark_screen`: the `n` largest names by market cap."""
+    return s.nlargest(n, "market_cap").index.tolist()

@@ -13,6 +13,8 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
+from .metrics import M
+
 _N = NormalDist()
 EULER_GAMMA = 0.5772156649015329
 
@@ -122,7 +124,7 @@ def deflated_sharpe(sharpes: Sequence[float], n_obs: int, skew: float = 0.0, kur
 
 
 def summarize_trials(table: pd.DataFrame, n_obs: int | None = None, periods_per_year: float | None = None,
-                     sharpe_col: str = "Sharpe", n_trials: int | None = None) -> pd.DataFrame:
+                     sharpe_col: str = M.SHARPE, n_trials: int | None = None) -> pd.DataFrame:
     """Copy of a sweep/backtest table with DSR and Bonferroni-style haircut columns.
 
     Uses columns `Obs`, `PerYr`, `Skew`, `Kurt` when present (run_sweep writes them), else the
@@ -133,8 +135,8 @@ def summarize_trials(table: pd.DataFrame, n_obs: int | None = None, periods_per_
     """
     out = table.copy()
     sr = out[sharpe_col].astype(float)
-    obs = out["Obs"] if "Obs" in out else pd.Series(n_obs, index=out.index)
-    ppy = out["PerYr"] if "PerYr" in out else pd.Series(periods_per_year, index=out.index)
+    obs = out[M.OBS] if M.OBS in out else pd.Series(n_obs, index=out.index)
+    ppy = out[M.PERYR] if M.PERYR in out else pd.Series(periods_per_year, index=out.index)
     if obs.isna().any() or ppy.isna().any():
         raise ValueError("give n_obs and periods_per_year, or columns Obs and PerYr")
     skew = out["Skew"] if "Skew" in out else pd.Series(0.0, index=out.index)
@@ -155,5 +157,5 @@ def summarize_trials(table: pd.DataFrame, n_obs: int | None = None, periods_per_
         bonf.append(pa)
         z, za = _N.inv_cdf(min(max(1 - p, 1e-12), 1 - 1e-12)), _N.inv_cdf(min(max(1 - pa, 1e-12), 1 - 1e-12))
         hair.append(1.0 if z <= 0 else min(1.0, max(0.0, 1 - za / z)))
-    out["DSR"], out["BonfP"], out["Haircut"] = dsr, bonf, hair
+    out[M.DSR], out[M.BONFP], out[M.HAIRCUT] = dsr, bonf, hair
     return out

@@ -24,7 +24,6 @@ from .store import NullStore
 
 _log = logging.getLogger(__name__)
 PROCESS_TRIALS = NullStore()
-POINT_KINDS = ("sweep", "exit_calibrate")
 
 
 def trial_store(lab):
@@ -50,7 +49,7 @@ def note_trial(lab, kind, args) -> int:
     """Count this call as a trial (no-op for a repeated run_key); returns the family's trial count."""
     spec = _spec(lab, kind, args)
     fam = spec.family()
-    if kind in POINT_KINDS:
+    if _points_kind(kind):
         fam_own = fam + "|runs"
     else:
         fam_own = fam
@@ -96,6 +95,37 @@ def bound_args(sig: inspect.Signature, *a, **kw) -> dict:
     return out
 
 
+def _points_kind(kind: str) -> bool:
+    from .operations import OPERATIONS
+    op = OPERATIONS.get(kind)
+    return bool(op is not None and op.counts_points)
+
+
+def run_tracked(lab, op, fn, args_factory):
+    """Run `fn()` as a tracked call of operation `op` (an Operation or a kind name): count it as a trial of its
+    family, record it when the lab's store is persistent, publish `lab.last_trials()`. `args_factory()` gives
+    the argument dict that identifies the call. Calls nested in a tracked call (a sweep's backtests) just run."""
+    kind = op if isinstance(op, str) else op.name
+    if getattr(lab._tl, "args", None) is not None:
+        return fn()
+    try:
+        args = args_factory()
+        if args is not None:
+            note_trial(lab, kind, args)
+    except Exception:                                      # tracking must never break an analysis
+        _log.warning("trial tracking failed", exc_info=True)
+        args = None
+    prev = getattr(lab._tl, "args", None)
+    lab._tl.args = args
+    try:
+        res = fn()
+    finally:
+        lab._tl.args = prev
+    if args is not None:
+        _after(lab, kind, args, res)
+    return res
+
+
 def tracked(kind: str, args_of=None):
     """Decorator for Lab methods; `args_of(self, *a, **kw) -> dict | None` overrides the default argument capture."""
     def deco(fn):
@@ -103,31 +133,17 @@ def tracked(kind: str, args_of=None):
 
         @functools.wraps(fn)
         def inner(self, *a, **kw):
-            if getattr(self._tl, "args", None) is not None:       # nested in a tracked call (a sweep's backtests)
-                return fn(self, *a, **kw)
-            try:
-                args = args_of(self, *a, **kw) if args_of else bound_args(sig, self, *a, **kw)
-                if args is not None:
-                    n = note_trial(self, kind, args)
-            except Exception:                                  # tracking must never break an analysis
-                _log.warning("trial tracking failed", exc_info=True)
-                args = None
-            prev = getattr(self._tl, "args", None)
-            self._tl.args = args
-            try:
-                res = fn(self, *a, **kw)
-            finally:
-                self._tl.args = prev
-            if args is not None:
-                _after(self, kind, args, res)
-            return res
+            return run_tracked(self, kind, lambda: fn(self, *a, **kw),
+                               lambda: args_of(self, *a, **kw) if args_of else bound_args(sig, self, *a, **kw))
         return inner
     return deco
 
 
 def _after(lab, kind, args, res) -> None:
-    if type(res).__name__ == "BacktestReport":
-        res._args = args
+    from .operations import OPERATIONS
+    op = OPERATIONS.get(kind)
+    if op is not None:
+        op.annotate(res, args)
     st = getattr(lab, "store", None)
     if st is None or not getattr(st, "persistent", False) or progress.active() or lab.persist == "none":
         return

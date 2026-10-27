@@ -42,7 +42,9 @@ from .runspec import RunSpec, code_version
 
 LEVELS = ("none", "inputs", "metrics", "full")
 BULK_NAMES = ("curves", "tranche", "offsets")
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2          # 2: datasets carry the DataCard (source, pit, delisted_included, survivorship_score, card_json)
+_DATASET_CARD_COLS = ("source TEXT", "pit INTEGER", "delisted_included INTEGER", "survivorship_score REAL",
+                      "card_json TEXT")
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -67,6 +69,15 @@ def _is_bulk(name: str, df: pd.DataFrame) -> bool:
     return (name.rsplit("/", 1)[-1] in BULK_NAMES) or (isinstance(df.index, pd.DatetimeIndex) and len(df) > 60)
 
 
+EXTRACTORS: dict = {}       # result class name -> fn(obj, j, out); registered by the operation that owns the type
+
+
+def register_extractor(class_name: str, fn) -> None:
+    """How to take tables out of results of type `class_name`: `fn(obj, j, out)` fills `out.summary` /
+    `out.bulk` using `j(name)` for the (prefixed) table names."""
+    EXTRACTORS[class_name] = fn
+
+
 def _collect(obj, prefix: str, out: Extracted, depth: int = 0) -> None:
     if obj is None or depth > 4:
         return
@@ -77,15 +88,8 @@ def _collect(obj, prefix: str, out: Extracted, depth: int = 0) -> None:
         return
     cls = type(obj).__name__
     j = lambda k: f"{prefix}/{k}" if prefix else k
-    if cls == "BacktestReport":
-        out.summary[j("table")] = obj.table
-        out.bulk[j("curves")] = obj.curves
-    elif cls == "TimingResult":
-        out.summary[j("distribution")] = obj.distribution()
-        out.bulk[j("offsets")] = obj.table
-        out.bulk[j("curves")] = obj.curves
-        if obj.tranche is not None:
-            out.bulk[j("tranche")] = _as_frame(obj.tranche.rename("tranche"))
+    if cls in EXTRACTORS:
+        EXTRACTORS[cls](obj, j, out)
     elif isinstance(obj, dict):
         for k, v in obj.items():
             _collect(v, j(str(k)), out, depth + 1)
@@ -98,8 +102,9 @@ def _collect(obj, prefix: str, out: Extracted, depth: int = 0) -> None:
 
 
 def extract(result) -> Extracted:
-    """Tables of a result: BacktestReport (table + curves), TimingResult (distribution + per-offset +
-    curves), DataFrame / Series, tuples, dicts and dataclasses (every DataFrame / Series field)."""
+    """Tables of a result: DataFrame / Series, tuples, dicts and dataclasses (every DataFrame / Series field),
+    and any type with a registered extractor (BacktestReport, TimingResult: see the operations that own them).
+    `Operation.extract` is the per-kind entry point."""
     out = Extracted()
     _collect(result, "", out)
     return out
@@ -304,7 +309,8 @@ CREATE TABLE IF NOT EXISTS runs (
 CREATE TABLE IF NOT EXISTS metrics (run_key TEXT, row_label TEXT, metric TEXT, value REAL);
 CREATE TABLE IF NOT EXISTS artifacts (run_key TEXT, name TEXT, format TEXT, bytes BLOB, PRIMARY KEY (run_key, name));
 CREATE TABLE IF NOT EXISTS datasets (dataset_id TEXT PRIMARY KEY, name TEXT, span TEXT, n_names INTEGER,
-  benchmark TEXT, benchmark_kind TEXT, manifest_json TEXT);
+  benchmark TEXT, benchmark_kind TEXT, manifest_json TEXT, source TEXT, pit INTEGER, delisted_included INTEGER,
+  survivorship_score REAL, card_json TEXT);
 CREATE TABLE IF NOT EXISTS trials (session_id TEXT, run_key TEXT, family TEXT, created_at REAL,
   PRIMARY KEY (session_id, run_key));
 CREATE TABLE IF NOT EXISTS jobs (job_id TEXT PRIMARY KEY, run_key TEXT, status TEXT, progress REAL,
@@ -335,6 +341,10 @@ class SQLiteStore:
         with self._tx() as c:
             for stmt in filter(None, (s.strip() for s in _SCHEMA.split(";"))):
                 c.execute(stmt)
+            have = {r[1] for r in c.execute("PRAGMA table_info(datasets)")}      # files from schema version 1
+            for decl in _DATASET_CARD_COLS:
+                if decl.split()[0] not in have:
+                    c.execute(f"ALTER TABLE datasets ADD COLUMN {decl}")
             c.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
 
     # ---- plumbing
@@ -413,9 +423,10 @@ class SQLiteStore:
             return
         rows, arts = [], {}
         if level != "inputs" and result is not None:
-            ex = extract(result)
-            rows = long_rows(ex)
+            op = self._operation(run_key)
+            rows = op.metrics(result) if op is not None else long_rows(extract(result))
             if level == "full":
+                ex = op.extract(result) if op is not None else extract(result)
                 arts = {n: _csv_gz(df) for n, df in ex.all_tables().items()}
         if payload is not None and level in ("metrics", "full"):
             arts["result_json"] = (_json_gz(payload), "json.gz")
@@ -426,6 +437,12 @@ class SQLiteStore:
             c.executemany("INSERT INTO artifacts VALUES (?,?,?,?)", [(run_key, n, f, b) for n, (b, f) in arts.items()])
             c.execute("UPDATE runs SET status='done', finished_at=?, error=NULL, persist_level=? WHERE run_key=?",
                       (time.time(), level, run_key))
+
+    def _operation(self, run_key):
+        """The registered Operation of a stored run's kind (None if unknown): it decides what its metrics are."""
+        from .operations import OPERATIONS
+        r = self._db().execute("SELECT kind FROM runs WHERE run_key=?", (run_key,)).fetchone()
+        return OPERATIONS.get(r[0]) if r else None
 
     def fail_run(self, run_key, error, status="failed") -> None:
         if run_key is None:
@@ -588,8 +605,9 @@ class SQLiteStore:
         if not old.persistable:
             raise ValueError(f"run {run_key} is not rerunnable: its spec holds an unpersistable input")
         res = executor(old.spec)
-        ex = extract(res)
-        new = wide(long_rows(ex))
+        from .operations import OPERATIONS
+        op = OPERATIONS.get(old.kind)
+        new = wide(op.metrics(res) if op is not None else long_rows(extract(res)))
         a, b = old.metrics.align(new, join="outer")
         diff = (a - b).abs()
         both_nan = a.isna() & b.isna()
@@ -668,13 +686,26 @@ class SQLiteStore:
     def put_dataset(self, dataset_id: str, manifest: dict) -> None:
         span = "/".join(map(str, manifest.get("span") or ()))
         with self._tx() as c:
-            c.execute("INSERT OR REPLACE INTO datasets VALUES (?,?,?,?,?,?,?)",
+            card = manifest.get("card") or {}
+            flag = lambda v: None if v is None else int(bool(v))
+            c.execute("INSERT OR REPLACE INTO datasets (dataset_id, name, span, n_names, benchmark, benchmark_kind,"
+                      " manifest_json, source, pit, delisted_included, survivorship_score, card_json)"
+                      " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                       (dataset_id, manifest.get("name"), span, manifest.get("n_names"), manifest.get("benchmark"),
-                       manifest.get("benchmark_kind"), json.dumps(manifest, sort_keys=True, default=str)))
+                       manifest.get("benchmark_kind"), json.dumps(manifest, sort_keys=True, default=str),
+                       card.get("source"), flag(card.get("pit")), flag(card.get("delisted_included")),
+                       card.get("survivorship_score"),
+                       json.dumps(card, sort_keys=True, default=str) if card else None))
 
     def datasets(self) -> pd.DataFrame:
-        return pd.read_sql_query("SELECT dataset_id, name, span, n_names, benchmark, benchmark_kind FROM datasets",
+        return pd.read_sql_query("SELECT dataset_id, name, span, n_names, benchmark, benchmark_kind, source, pit, delisted_included, survivorship_score FROM datasets",
                                  self._db())
+
+    def data_card(self, dataset_id: str) -> dict | None:
+        """The DataCard (as a dict: name, source, span, benchmark kind, PIT, survivorship score, warnings, ...)
+        recorded with a dataset, or None if the dataset was stored without one."""
+        r = self._db().execute("SELECT card_json FROM datasets WHERE dataset_id=?", (dataset_id,)).fetchone()
+        return json.loads(r[0]) if r and r[0] else None
 
     def dataset(self, dataset_id: str) -> dict | None:
         r = self._db().execute("SELECT manifest_json FROM datasets WHERE dataset_id=?", (dataset_id,)).fetchone()

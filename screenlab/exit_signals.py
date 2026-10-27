@@ -23,13 +23,15 @@ from __future__ import annotations
 import functools
 import inspect
 import warnings
-from dataclasses import dataclass, field, fields
+from dataclasses import MISSING, dataclass, field, fields, is_dataclass
 from typing import Protocol, runtime_checkable
 
 import numpy as np
 import pandas as pd
 
 from . import metrics
+from .serial import (TAG, Unpersistable, from_dict as _from, is_default, register_canonicalizer, register_tag,
+                     serializable, to_dict as _to, unp)
 
 _DAYS_PER_MONTH = 30.4375
 
@@ -270,6 +272,58 @@ class _Base:
 
     def __repr__(self):
         return f"{self.name}()"
+
+    # ---- serialization: {"__t": "Signal", "type": <BUILTINS name>, "params": {non-default, current names}}
+    _serial_tag = "Signal"
+
+    def to_dict(self) -> dict:
+        cls = type(self)
+        if BUILTINS.get(cls.__name__) is not cls or not is_dataclass(self):
+            return unp(f"{cls.__name__} is not a serializable input type")
+        params = {f.name: _to(getattr(self, f.name)) for f in fields(self)
+                  if f.init and not is_default(f, getattr(self, f.name))}
+        return _canonical_signal({TAG: "Signal", "type": cls.__name__, "params": params})
+
+    @classmethod
+    def from_dict(cls, d: dict):
+        return _signal_from_dict(d)
+
+
+def _signal_classes() -> dict:
+    from . import exit_inputs  # noqa: F401  (registers its signals into BUILTINS)
+    return dict(BUILTINS) if isinstance(BUILTINS, dict) else {c.__name__: c for c in BUILTINS}
+
+
+def _canonical_signal(d: dict) -> dict:
+    """A serialized signal with deprecated parameter names replaced by the current ones (values converted)
+    and parameters equal to the default dropped, so `Breadth(window_days=200)` and the equivalent
+    `Breadth(days=...)` serialize alike."""
+    cls = _signal_classes().get(d.get("type"))
+    params = dict(d.get("params") or {})
+    if cls is None or not is_dataclass(cls):
+        return d
+    for old, (new, to_new, _) in getattr(cls, "_renamed", {}).items():
+        if old in params:
+            v = params.pop(old)
+            params[new] = to_new(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else v
+    defaults = {f.name: f.default for f in fields(cls) if f.default is not MISSING}
+    for k in list(params):
+        v, dv = params[k], defaults.get(k, MISSING)
+        if (dv is not MISSING and isinstance(v, (int, float)) and isinstance(dv, (int, float))
+                and not isinstance(v, bool) and abs(v - dv) <= 1e-9 * max(1.0, abs(dv))):
+            del params[k]
+    return {**d, "params": params}
+
+
+def _signal_from_dict(d: dict):
+    b = _signal_classes()
+    if d["type"] not in b:
+        raise Unpersistable(f"unknown signal {d['type']!r}")
+    return b[d["type"]](**{k: _from(v) for k, v in d["params"].items()})
+
+
+register_tag("Signal", _signal_from_dict)
+register_canonicalizer("Signal", _canonical_signal)
 
 
 # --------------------------------------------------------------------------- built-in signals
@@ -519,6 +573,7 @@ def hold_min_days(flag: pd.Series, days: int) -> pd.Series:
     return pd.Series(out, index=flag.index, name=flag.name)
 
 
+@serializable("ExitScreen")
 @dataclass
 class ExitScreen:
     """Weighted average of signal percentiles, plus a hysteresis flag.

@@ -64,7 +64,8 @@ def add_common_args(ap: argparse.ArgumentParser):
 def add_exit_args(ap: argparse.ArgumentParser):
     g = ap.add_argument_group("exit policy")
     g.add_argument("--exit", metavar="SIGNALS",
-                   help='exit signals, e.g. "TrendBreak:index=SYN_CAPWT,window_months=10,Breadth" '
+                   help='exit signals, e.g. "TrendBreak:index=SYN_CAPWT,window_months=10,Breadth:days=138" '
+                        '(window_months = calendar months, days = trading days; see list_signals) '
                         '(a Name:param=v,param=v group per signal, comma-separated)')
     g.add_argument("--exit-threshold", type=float, default=0.7)
     g.add_argument("--exit-hysteresis", type=float, default=0.1)
@@ -84,7 +85,7 @@ def add_exit_args(ap: argparse.ArgumentParser):
 
 
 def parse_exit_signals(text: str, lab: Lab) -> list:
-    """'TrendBreak:index=X,window_months=6,Breadth' -> signal objects (items with ':' start a signal,
+    """'TrendBreak:index=X,window_months=6,Breadth:days=100' -> signal objects (items with ':' start a signal,
     bare 'k=v' items extend the previous one, other bare names start a parameterless signal)."""
     from . import exit_signals as es
     try:

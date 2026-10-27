@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import copy
+import hashlib
+
 import numpy as np
 import pandas as pd
+
+from .serial import TAG, Unpersistable, register_tag, unp
 
 DAYS_PER_YEAR = 365.25
 BOC_SERIES = {"FXUSDCAD": "fx", "V80691311": "prime", "V41690973": "cpi"}   # BoC Valet id -> name
@@ -75,6 +80,60 @@ class MacroSeries:
         """Copy pad-filled onto `index` (e.g. `Market.index` or a curve's own index)."""
         index = pd.DatetimeIndex(index)
         return MacroSeries(pd.DataFrame({c: pad_align(self.frame[c], index) for c in self.names}, index=index))
+
+
+    # ---------------------------------------------------------------- serialization (by dataset reference)
+    _serial_tag = "MacroSeries"
+
+    def to_dict(self) -> dict:
+        ref = getattr(self, "_ref", None)
+        if ref is None:
+            return unp("MacroSeries has no dataset reference (tag it with runspec.macro_ref)")
+        return {TAG: "MacroSeries", "ref": ref, "hash": _hash_frame(self.frame),
+                **({"align": True} if getattr(self, "_align", False) else {})}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "MacroSeries":
+        m = resolve_macro(d["ref"])
+        if d.get("align"):
+            m = copy.copy(m)
+            m._align = True                                # execute_spec aligns it to the lab's market index
+        return m
+
+
+register_tag("MacroSeries", MacroSeries.from_dict)
+
+# -------------------------------------------------------------------- references
+MACRO_LOADERS: dict = {}
+
+
+def register_macro(name: str, loader) -> None:
+    """Make `name` resolvable: `loader()` returns the MacroSeries (called when a spec is rebuilt)."""
+    MACRO_LOADERS[name] = loader
+
+
+def macro_ref(macro, name: str):
+    """Tag a MacroSeries with the reference its specs will carry (and register `macro` as its loader if
+    nothing is registered under that name yet). Returns `macro`."""
+    macro._ref = name
+    MACRO_LOADERS.setdefault(name, lambda m=macro: m)
+    return macro
+
+
+def resolve_macro(ref: str):
+    if ref in MACRO_LOADERS:
+        return MACRO_LOADERS[ref]()
+    if ref == "statsmodels":
+        m = MacroSeries.from_statsmodels_macrodata()
+        m._ref = ref
+        return m
+    raise Unpersistable(f"unknown macro reference {ref!r}; register it with runspec.register_macro")
+
+
+def _hash_frame(frame) -> str:
+    h = hashlib.sha256(repr(list(map(str, frame.columns))).encode())
+    h.update(pd.util.hash_pandas_object(frame, index=True).to_numpy().tobytes())
+    return h.hexdigest()[:20]
 
 
 # -------------------------------------------------------------------- helpers

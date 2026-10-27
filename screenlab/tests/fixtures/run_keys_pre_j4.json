@@ -1,0 +1,114 @@
+{
+ "cases": {
+  "backtest_default": {
+   "canonical": "{\"args\":{},\"kind\":\"backtest\",\"seed\":0}",
+   "family": "backtest|synthetic|*",
+   "kind": "backtest",
+   "run_key": "0753323316ed522c44a88f5bff288ecd1e678f66f266300abff26d6a30dd7c6d"
+  },
+  "backtest_none_args": {
+   "canonical": "{\"args\":{},\"kind\":\"backtest\",\"seed\":0}",
+   "family": "backtest|synthetic|*",
+   "kind": "backtest",
+   "run_key": "0753323316ed522c44a88f5bff288ecd1e678f66f266300abff26d6a30dd7c6d"
+  },
+  "backtest_override_screen": {
+   "canonical": "{\"args\":{\"screens\":[{\"__t\":\"Screen\",\"name\":\"dogs\",\"overrides\":{\"n\":5}},{\"__t\":\"Screen\",\"name\":\"graham_defensive\",\"overrides\":{\"max_pe\":12,\"n\":5}}]},\"kind\":\"backtest\",\"seed\":0}",
+   "family": "backtest|synthetic|dogs+graham_defensive",
+   "kind": "backtest",
+   "run_key": "0f8a8be77e635952cad9c54ab9e2e352432606a4a341da59d099436813a71e8c"
+  },
+  "backtest_plain": {
+   "canonical": "{\"args\":{\"cost_bps\":20,\"rebalance_months\":6,\"screens\":[\"dogs\",\"graham_defensive\"]},\"kind\":\"backtest\",\"seed\":0}",
+   "family": "backtest|synthetic|dogs+graham_defensive",
+   "kind": "backtest",
+   "run_key": "0dd3a0586475ae5eed1afae18ceb4dd2ee83e0dd55fa9e6f8e4cdc4667c8eec8"
+  },
+  "backtest_rich": {
+   "canonical": "{\"args\":{\"benchmark\":{\"__t\":\"IndexBenchmark\",\"index\":\"SYN_CAPWT\",\"mer\":0.0006},\"compare\":[{\"__t\":\"ScreenBenchmark\",\"top\":30}],\"cost_bps\":{\"__t\":\"cap_tiered\",\"tiers\":[[0,75],[1000,30]]},\"exit\":{\"__t\":\"ExitPolicy\",\"exposure_when_flagged\":0.25,\"park\":0.02,\"reentry\":\"signal_or_rebalance\",\"reentry_delay_days\":10,\"reentry_steps\":2,\"screen\":{\"__t\":\"ExitScreen\",\"check\":\"W-FRI\",\"signals\":[{\"__t\":\"Signal\",\"params\":{\"index\":\"SYN_CAPWT\",\"window_months\":6},\"type\":\"TrendBreak\"},{\"__t\":\"Signal\",\"params\":{\"days\":137.9876796714579},\"type\":\"Breadth\"},{\"__t\":\"Signal\",\"params\":{\"index\":\"SYN_CAPWT\"},\"type\":\"VolRegime\"}],\"threshold\":0.6}},\"hold_rule\":{\"__t\":\"HoldRule\",\"band\":0.2,\"keep_within\":2},\"max_weight\":0.2,\"mer\":{\"T0001\":0.01,\"_default\":0.001},\"screens\":[\"dogs\",\"cheap\",{\"__t\":\"Portfolio\",\"exit\":{\"__t\":\"ExitPolicy\",\"exposure_when_flagged\":0.25,\"park\":0.02,\"reentry\":\"signal_or_rebalance\",\"reentry_delay_days\":10,\"reentry_steps\":2,\"screen\":{\"__t\":\"ExitScreen\",\"check\":\"W-FRI\",\"signals\":[{\"__t\":\"Signal\",\"params\":{\"index\":\"SYN_CAPWT\",\"window_months\":6},\"type\":\"TrendBreak\"},{\"__t\":\"Signal\",\"params\":{\"days\":137.9876796714579},\"type\":\"Breadth\"},{\"__t\":\"Signal\",\"params\":{\"index\":\"SYN_CAPWT\"},\"type\":\"VolRegime\"}],\"threshold\":0.6}},\"name\":\"h\",\"overrides\":{\"rebalance_months\":3},\"screen\":\"dogs\"}],\"start\":{\"__t\":\"date\",\"v\":\"2002-01-31\"},\"weighting\":\"inv_vol\",\"with_and_without\":true},\"kind\":\"backtest\",\"seed\":0}",
+   "family": "backtest|synthetic|cheap+dogs",
+   "kind": "backtest",
+   "run_key": "a55fcce06c0ea8003410ed31620271eb246d83a751f4096b7f7c5bad04cace82"
+  },
+  "exit_calibrate": {
+   "canonical": "{\"args\":{\"exit_screen\":{\"__t\":\"ExitScreen\",\"check\":\"W-FRI\",\"signals\":[{\"__t\":\"Signal\",\"params\":{\"index\":\"SYN_CAPWT\",\"window_months\":6},\"type\":\"TrendBreak\"},{\"__t\":\"Signal\",\"params\":{\"days\":137.9876796714579},\"type\":\"Breadth\"},{\"__t\":\"Signal\",\"params\":{\"index\":\"SYN_CAPWT\"},\"type\":\"VolRegime\"}],\"threshold\":0.6},\"grid\":{\"threshold\":[0.6,0.8]}},\"kind\":\"exit_calibrate\",\"seed\":0}",
+   "family": "exit_calibrate|synthetic|exit:Breadth+TrendBreak+VolRegime",
+   "kind": "exit_calibrate",
+   "run_key": "8c07eaddffb1b8c8ae1491db0b96aded3ab03d67fa8afd379e85cf1184339ccd"
+  },
+  "exit_evaluate": {
+   "canonical": "{\"args\":{\"exit_screen\":{\"__t\":\"ExitScreen\",\"check\":\"W-FRI\",\"signals\":[{\"__t\":\"Signal\",\"params\":{\"index\":\"SYN_CAPWT\",\"window_months\":6},\"type\":\"TrendBreak\"},{\"__t\":\"Signal\",\"params\":{\"days\":137.9876796714579},\"type\":\"Breadth\"},{\"__t\":\"Signal\",\"params\":{\"index\":\"SYN_CAPWT\"},\"type\":\"VolRegime\"}],\"threshold\":0.6},\"horizons\":[1,3],\"policy\":{\"__t\":\"ExitPolicy\",\"exposure_when_flagged\":0.25,\"park\":0.02,\"reentry\":\"signal_or_rebalance\",\"reentry_delay_days\":10,\"reentry_steps\":2,\"screen\":{\"__t\":\"ExitScreen\",\"check\":\"W-FRI\",\"signals\":[{\"__t\":\"Signal\",\"params\":{\"index\":\"SYN_CAPWT\",\"window_months\":6},\"type\":\"TrendBreak\"},{\"__t\":\"Signal\",\"params\":{\"days\":137.9876796714579},\"type\":\"Breadth\"},{\"__t\":\"Signal\",\"params\":{\"index\":\"SYN_CAPWT\"},\"type\":\"VolRegime\"}],\"threshold\":0.6}}},\"kind\":\"exit_evaluate\",\"seed\":0}",
+   "family": "exit_evaluate|synthetic|exit:Breadth+TrendBreak+VolRegime",
+   "kind": "exit_evaluate",
+   "run_key": "63fa9341c702c235251872534e49e77912efcb1824b751c62593e49a89b7ad32"
+  },
+  "extended": {
+   "canonical": "{\"args\":{\"leverage\":1.5,\"macro\":{\"__t\":\"MacroSeries\",\"hash\":\"c76747480ea43bbc4e13\",\"ref\":\"statsmodels\"},\"screens\":[\"dogs\"]},\"kind\":\"extended\",\"seed\":0}",
+   "family": "extended|synthetic|dogs",
+   "kind": "extended",
+   "run_key": "c9641d2c8f383e6218f6095cfd4fcbf9d51b82870ffc5629f743c6dd69dd9749"
+  },
+  "graham": {
+   "canonical": "{\"args\":{\"max_pe\":18},\"kind\":\"graham\",\"seed\":0}",
+   "family": "graham|synthetic|*",
+   "kind": "graham",
+   "run_key": "8824f3606af99731c0d08fb8b6c8097c48033d949deb2ca2e1c178a736c3d97b"
+  },
+  "picks_asof": {
+   "canonical": "{\"args\":{\"asof\":\"2005-06-30\",\"runners_up\":3,\"screen\":\"dogs\"},\"kind\":\"picks\",\"seed\":0}",
+   "family": "picks|synthetic|dogs",
+   "kind": "picks",
+   "run_key": "73b1a3dccdc3c8dfed589688c2d30fcd4e64c6895e0fd3cf38acba29a6bd7dba"
+  },
+  "picks_cheap": {
+   "canonical": "{\"args\":{\"screen\":\"cheap\"},\"kind\":\"picks\",\"seed\":0}",
+   "family": "picks|synthetic|cheap",
+   "kind": "picks",
+   "run_key": "f20aa7939363b255667dee1610edba022945307fdf4b7b15f39738e4d6eddceb"
+  },
+  "picks_plain": {
+   "canonical": "{\"args\":{\"screen\":\"dogs\"},\"kind\":\"picks\",\"seed\":0}",
+   "family": "picks|synthetic|dogs",
+   "kind": "picks",
+   "run_key": "8e9b6180b3c8a15336034922c5c1705b042392e11e604f6249fbf3fbd0e6da29"
+  },
+  "significance": {
+   "canonical": "{\"args\":{\"n\":200,\"rebalance_months\":12,\"screens\":[\"dogs\"]},\"kind\":\"significance\",\"seed\":0}",
+   "family": "significance|synthetic|dogs",
+   "kind": "significance",
+   "run_key": "fe5af97cf163a25c9a34657446a61de55ad55750cf262fd5d77b2c66becee7bd"
+  },
+  "sweep": {
+   "canonical": "{\"args\":{\"grid\":{\"__t\":\"Grid\",\"spec\":{\"cost_bps\":[10,50],\"dogs.n\":[5,10]}},\"objective\":\"Sharpe\",\"screen\":\"dogs\"},\"kind\":\"sweep\",\"seed\":0}",
+   "family": "sweep|synthetic|dogs",
+   "kind": "sweep",
+   "run_key": "ec58021f82c7353f024e56106e2d9e3c926523b0af16c24c44ff1c81497c3789"
+  },
+  "sweep_dict": {
+   "canonical": "{\"args\":{\"grid\":{\"dogs.n\":[5,10]},\"screen\":\"dogs\",\"splits\":{\"test_years\":2,\"train_years\":4}},\"kind\":\"sweep\",\"seed\":0}",
+   "family": "sweep|synthetic|dogs",
+   "kind": "sweep",
+   "run_key": "5ea8713d5cca306371f91d641e6972f6323c022bfe6cf96b40c11960d39c2c9a"
+  },
+  "timing_default": {
+   "canonical": "{\"args\":{\"screen\":\"dogs\"},\"kind\":\"timing\",\"seed\":0}",
+   "family": "timing|synthetic|dogs",
+   "kind": "timing",
+   "run_key": "57fd65c6209f6ef5fadc69a69beb9e22b3028fd5cd848d59edcb2940bcc16f29"
+  },
+  "timing_explicit_defaults": {
+   "canonical": "{\"args\":{\"screen\":\"dogs\"},\"kind\":\"timing\",\"seed\":0}",
+   "family": "timing|synthetic|dogs",
+   "kind": "timing",
+   "run_key": "57fd65c6209f6ef5fadc69a69beb9e22b3028fd5cd848d59edcb2940bcc16f29"
+  },
+  "timing_plain": {
+   "canonical": "{\"args\":{\"rebalance_months\":6,\"screen\":\"dogs\",\"stride\":3},\"kind\":\"timing\",\"seed\":0}",
+   "family": "timing|synthetic|dogs",
+   "kind": "timing",
+   "run_key": "bd5bd7b38e6a954d1b8f3e4db276e6d5807600c90b321bd47c519419bad10358"
+  }
+ },
+ "dataset_id": "37fea41c98e3b43f6a8f642e",
+ "lab_hash": "306b4a847c708079"
+}

@@ -16,8 +16,10 @@ import pandas as pd
 from . import backtest
 from .data import Market
 from .screens import Screen
+from .serial import TAG, from_dict as _from, register_tag, serializable, to_dict as _to
 
 
+@serializable("IndexBenchmark")
 @dataclass
 class IndexBenchmark:
     index: str                        # name in Market.indices, or a ticker in prices
@@ -47,6 +49,23 @@ class ScreenBenchmark:
     def label(self) -> str:
         return self.name or self.screen.name
 
+    def to_dict(self) -> dict:
+        sc = self.screen
+        if sc.fn is backtest.bench_top and sc.name == f"bench_top{sc.n}":
+            out = {TAG: "ScreenBenchmark", "top": int(sc.n)}
+        else:
+            out = {TAG: "ScreenBenchmark", "screen": _to(sc)}
+        if self.name:
+            out["name"] = self.name
+        return out
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "ScreenBenchmark":
+        b = equal_weight_top(d["top"]) if "top" in d else cls(_from(d["screen"]))
+        if d.get("name"):
+            b.name = d["name"]
+        return b
+
     def curve(self, mkt: Market, cfg: backtest.Config, start, end=None) -> pd.Series:
         # Runs once per (config, end); later starts slice and rebase that run.
         # Exact for same-window comparisons, approximate for timing --mode start.
@@ -57,6 +76,10 @@ class ScreenBenchmark:
             hit = self._cache[key] = (mkt, backtest.run(self.screen, mkt, cfg, start, end).curve)
         c = hit[1].loc[start:]
         return c / c.iloc[0]
+
+
+ScreenBenchmark._serial_tag = "ScreenBenchmark"
+register_tag("ScreenBenchmark", ScreenBenchmark.from_dict)
 
 
 def equal_weight_top(n: int = 60) -> ScreenBenchmark:

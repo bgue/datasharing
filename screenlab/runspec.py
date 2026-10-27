@@ -6,410 +6,43 @@
     key = spec.run_key(dataset_id(lab.market))          # sha256 of kind + args + seed + data + code
     d = spec.to_dict(); RunSpec.from_dict(json.loads(json.dumps(d)))    # round trip
 
-Serialization (`to_dict` / `from_dict`) is a tagged-dict encoding: JSON natives stay as they are, anything
-else becomes `{"__t": "<Tag>", ...}` (tuples, dates, non-string-keyed dicts, Series, dataclasses by name,
-signals by `BUILTINS` name + params, screens as a built-in name + overrides, their ScreenSpec dict, or an
-importable module-level function reference (`screen_fn`, "module:qualname"),
-`cap_tiered` closures as their tiers, MacroSeries by reference). Defaults are omitted, so adding a field
-with a default to a dataclass does not change existing keys. The encoding is idempotent: `to_dict` of an
-already serialized value returns it unchanged, so a spec may hold live objects or their JSON.
+The types own their serialization (serial.py: `to_dict()` / `from_dict()` on Config, HoldRule, ExitPolicy,
+ExitScreen, signals, Portfolio, IndexBenchmark, ScreenBenchmark, Grid, MacroSeries, CapTiered; adapters in
+screen_codec.py for Screen, GrahamTests, ScreenSpec); `to_dict` / `from_dict` here are the generic
+dispatcher. Defaults are omitted, so adding a field with a default to a dataclass does not change existing
+keys. Deprecated signal parameter names are canonicalized before hashing.
 
 Things that cannot be rebuilt (a Python function weighting, a custom cost function, `Screen(fn=...)` with a lambda / closure /
 `__main__` function, a custom signal, a MacroSeries without a registered reference) become `{"__t": "unpersistable", "reason"}`.
 Such a spec still runs (in-process) but has `persistable == False`, no `run_key`, and no cache reuse.
+
+`kind` is the name of a registered `Operation` (operations.py); its argument defaults and trial family come
+from there.
 """
 from __future__ import annotations
 
-import copy
-import dataclasses
-import datetime as _dt
 import functools
 import hashlib
 import json
-import math
 import os
 import subprocess
 import sys
 from dataclasses import dataclass, field
 
-import numpy as np
 import pandas as pd
 
 __version__ = "0.1.0"        # fallback; the package's own __version__ wins when it defines one
 
-TAG = "__t"
-BUNDLED_KINDS = ("backtest", "timing", "sweep", "significance", "extended", "exit_evaluate",
-                 "exit_calibrate", "graham", "picks")
+# re-exports (they moved with the types that own them)
+from .macro import MACRO_LOADERS, macro_ref, register_macro  # noqa: E402,F401
+from .serial import TAG, Unpersistable, from_dict, to_dict  # noqa: E402,F401
 
 
-class Unpersistable(ValueError):
-    """Raised by `from_dict` on an input that was recorded as unpersistable."""
-
-
-# ---------------------------------------------------------------------------------------------------
-# macro references
-# ---------------------------------------------------------------------------------------------------
-MACRO_LOADERS: dict = {}
-
-
-def register_macro(name: str, loader) -> None:
-    """Make `name` resolvable: `loader()` returns the MacroSeries (called when a spec is rebuilt)."""
-    MACRO_LOADERS[name] = loader
-
-
-def macro_ref(macro, name: str):
-    """Tag a MacroSeries with the reference its specs will carry (and register `macro` as its loader if
-    nothing is registered under that name yet). Returns `macro`."""
-    macro._ref = name
-    MACRO_LOADERS.setdefault(name, lambda m=macro: m)
-    return macro
-
-
-def _builtin_macros():
-    from .macro import MacroSeries
-    return {"statsmodels": MacroSeries.from_statsmodels_macrodata}
-
-
-def _resolve_macro(ref: str):
-    if ref in MACRO_LOADERS:
-        return MACRO_LOADERS[ref]()
-    b = _builtin_macros()
-    if ref in b:
-        m = b[ref]()
-        m._ref = ref
-        return m
-    raise Unpersistable(f"unknown macro reference {ref!r}; register it with runspec.register_macro")
-
-
-# ---------------------------------------------------------------------------------------------------
-# class registry (lazy: runspec must import without pulling every module at package import)
-# ---------------------------------------------------------------------------------------------------
-@functools.lru_cache(maxsize=1)
-def _dataclass_tags() -> dict:
-    from .backtest import Config
-    from .benchmarks import IndexBenchmark
-    from .construction import HoldRule
-    from .exit_policy import ExitPolicy
-    from .exit_signals import ExitScreen
-    from .screens import GrahamTests
-    from .spec import ScreenSpec
-    return {"Config": Config, "HoldRule": HoldRule, "ExitPolicy": ExitPolicy, "ExitScreen": ExitScreen,
-            "IndexBenchmark": IndexBenchmark, "GrahamTests": GrahamTests, "ScreenSpec": ScreenSpec}
-
-
-def _builtins():
-    from . import exit_inputs  # noqa: F401  (registers its signals into BUILTINS)
-    from . import exit_signals
-    return dict(exit_signals.BUILTINS) if isinstance(exit_signals.BUILTINS, dict) else {
-        c.__name__: c for c in exit_signals.BUILTINS}
-
-
-_SKIP_FIELDS = {"Config": ("exit_overlay",)}
-
-
-def _unp(reason: str, **extra) -> dict:
-    return {TAG: "unpersistable", "reason": reason, **extra}
-
-
-# ---------------------------------------------------------------------------------------------------
-# to_dict
-# ---------------------------------------------------------------------------------------------------
-def _is_default(f: dataclasses.Field, v) -> bool:
-    if f.default is not dataclasses.MISSING:
-        d = f.default
-    elif f.default_factory is not dataclasses.MISSING:
-        d = f.default_factory()
-    else:
-        return False
-    if isinstance(v, (pd.Series, pd.DataFrame, np.ndarray)) or isinstance(d, (pd.Series, pd.DataFrame, np.ndarray)):
-        return False
-    if type(v) is not type(d):
-        return False
-    try:
-        return bool(v == d)
-    except Exception:
-        return False
-
-
-def _cap_tiers(fn):
-    """The tiers of a `backtest.cap_tiered` closure, or None for any other callable."""
-    if getattr(fn, "__qualname__", "") != "cap_tiered.<locals>.f" or not getattr(fn, "__closure__", None):
-        return None
-    names = fn.__code__.co_freevars
-    cells = dict(zip(names, fn.__closure__))
-    try:
-        t = cells["tiers"].cell_contents
-        return {float(k): float(v) for k, v in dict(t).items()}
-    except Exception:
-        return None
-
-
-def _hash_frame(frame) -> str:
-    h = hashlib.sha256(repr(list(map(str, frame.columns))).encode())
-    h.update(pd.util.hash_pandas_object(frame, index=True).to_numpy().tobytes())
-    return h.hexdigest()[:20]
-
-
-def _dc_to_dict(tag: str, obj) -> dict:
-    out = {TAG: tag}
-    for f in dataclasses.fields(obj):
-        if not f.init or f.name in _SKIP_FIELDS.get(tag, ()):
-            continue
-        v = getattr(obj, f.name)
-        if _is_default(f, v):
-            continue
-        out[f.name] = to_dict(v)
-    for name in _SKIP_FIELDS.get(tag, ()):
-        if getattr(obj, name, None) is not None:
-            out[name] = _unp(f"{name} is not supported by RunSpec (use ExitPolicy)")
-    return out
-
-
-def _screen_to_dict(s) -> dict:
-    from .screens import REGISTRY
-    from .spec import rule_screen
-    base = REGISTRY.get(s.name)
-    if base is not None and base.fn is s.fn:
-        ov: dict = {}
-        if s.n != base.n:
-            ov["n"] = s.n
-        for k, v in s.params.items():
-            bv = base.params.get(k)
-            if k == "tests" and bv is not None and dataclasses.is_dataclass(v):
-                for f in dataclasses.fields(v):
-                    if getattr(v, f.name) != getattr(bv, f.name):
-                        ov[f.name] = getattr(v, f.name)
-                continue
-            try:
-                same = k in base.params and bool(v == bv)
-            except Exception:
-                same = False
-            if not same:
-                ov[k] = v
-        return {TAG: "Screen", "name": s.name, **({"overrides": to_dict(ov)} if ov else {})}
-    if s.fn is rule_screen:
-        spec_keys = {"universe", "derive", "filters", "graham", "rank"}
-        if set(s.params) <= spec_keys:
-            spec = {"name": s.name, "n": s.n, "note": "" if s.note == "spec screen" else s.note, **s.params}
-            return {TAG: "Screen", "spec": to_dict(spec)}
-        return {TAG: "Screen", "rule": {"name": s.name, "n": s.n, "note": s.note, "params": to_dict(dict(s.params))}}
-    ref, why = _fn_ref(s.fn)
-    if ref is None:
-        return _unp(f"Screen {s.name!r} wraps a Python function that cannot be rebuilt: {why}", name=s.name)
-    return {TAG: "Screen", "type": "screen_fn", "name": s.name, "fn": ref, "n": s.n,
-            "params": to_dict(dict(s.params)), "note": s.note}
-
-
-def _fn_ref(fn) -> tuple:
-    """("module:qualname", None) for an importable module-level function, else (None, reason)."""
-    import importlib
-    import types
-    label = getattr(fn, "__qualname__", None) or repr(fn)
-    if isinstance(fn, types.MethodType):
-        return None, f"{label!r} is a bound method"
-    if not isinstance(fn, types.FunctionType):
-        return None, f"{label!r} is not a plain function"
-    mod, qn = getattr(fn, "__module__", None), getattr(fn, "__qualname__", None)
-    if not mod or not qn:
-        return None, f"{label!r} has no __module__/__qualname__"
-    if "<lambda>" in qn:
-        return None, f"{qn!r} is a lambda"
-    if "<locals>" in qn:
-        return None, f"{qn!r} is a closure or nested function (defined in a function body)"
-    if mod == "__main__":
-        return None, f"{qn!r} is defined in __main__; the function must live in an importable module"
-    try:
-        obj = importlib.import_module(mod)
-        for part in qn.split("."):
-            obj = getattr(obj, part)
-    except Exception as e:
-        return None, f"{mod}:{qn} is not importable ({type(e).__name__}: {e})"
-    if obj is not fn:
-        return None, f"{mod}:{qn} resolves to a different object than the screen's function"
-    return f"{mod}:{qn}", None
-
-
-def _import_fn(ref: str):
-    import importlib
-    try:
-        mod, qn = ref.split(":", 1)
-        obj = importlib.import_module(mod)
-        for part in qn.split("."):
-            obj = getattr(obj, part)
-    except Exception as e:
-        raise Unpersistable(f"cannot import screen function {ref!r} ({type(e).__name__}: {e})") from e
-    return obj
-
-
-def to_dict(obj):
-    """Serialize `obj` to JSON-able tagged dicts (see the module docstring). Idempotent."""
-    from .exit_policy import Portfolio
-    from .benchmarks import ScreenBenchmark
-    from .macro import MacroSeries
-    from .screens import Screen
-    from .sweep import Grid
-
-    if obj is None or isinstance(obj, (str, bool, np.bool_)):
-        return None if obj is None else (obj if isinstance(obj, str) else bool(obj))
-    if isinstance(obj, (int, np.integer)):
-        return int(obj)
-    if isinstance(obj, (float, np.floating)):
-        f = float(obj)
-        return f if math.isfinite(f) else {TAG: "float", "v": repr(f)}
-    if obj is pd.NaT:
-        return None
-    if isinstance(obj, (pd.Timestamp, _dt.datetime, _dt.date, np.datetime64)):
-        t = pd.Timestamp(obj)
-        return None if pd.isna(t) else {TAG: "date", "v": t.isoformat()[:10] if t == t.normalize() else t.isoformat()}
-    if isinstance(obj, list):
-        return [to_dict(v) for v in obj]
-    if isinstance(obj, tuple):
-        return {TAG: "tuple", "v": [to_dict(v) for v in obj]}
-    if isinstance(obj, (set, frozenset)):
-        return {TAG: "set", "v": sorted((to_dict(v) for v in obj), key=lambda x: json.dumps(x, sort_keys=True))}
-    if isinstance(obj, dict):
-        if TAG in obj:                                    # already serialized
-            return {k: to_dict(v) for k, v in obj.items()}
-        if all(isinstance(k, str) for k in obj):
-            return {k: to_dict(v) for k, v in obj.items()}
-        return {TAG: "dict", "items": [[to_dict(k), to_dict(v)] for k, v in obj.items()]}
-    if isinstance(obj, pd.Series):
-        dt = isinstance(obj.index, pd.DatetimeIndex)
-        idx = [pd.Timestamp(i).isoformat() for i in obj.index] if dt else [to_dict(i) for i in obj.index]
-        vals = ([None if pd.isna(v) else float(v) for v in obj.to_numpy()] if obj.dtype.kind in "fiu"
-                else [to_dict(v) for v in obj.tolist()])
-        return {TAG: "Series", "name": None if obj.name is None else str(obj.name), "dt_index": dt,
-                "index": idx, "values": vals}
-    if isinstance(obj, MacroSeries):
-        ref = getattr(obj, "_ref", None)
-        if ref is None:
-            return _unp("MacroSeries has no dataset reference (tag it with runspec.macro_ref)")
-        return {TAG: "MacroSeries", "ref": ref, "hash": _hash_frame(obj.frame),
-                **({"align": True} if getattr(obj, "_align", False) else {})}
-    if isinstance(obj, Grid):
-        return {TAG: "Grid", "spec": to_dict(obj.spec)}
-    if isinstance(obj, Portfolio):
-        return {TAG: "Portfolio", "name": obj.name, "screen": to_dict(obj.screen),
-                **({"exit": to_dict(obj.exit)} if obj.exit is not None else {}),
-                **({"overrides": to_dict(obj.config_overrides)} if obj.config_overrides else {})}
-    if isinstance(obj, Screen):
-        return _screen_to_dict(obj)
-    if isinstance(obj, ScreenBenchmark):
-        sc = obj.screen
-        if sc.fn.__qualname__ == "benchmark_screen.<locals>.<lambda>" and sc.name == f"bench_top{sc.n}":
-            out = {TAG: "ScreenBenchmark", "top": int(sc.n)}
-        else:
-            out = {TAG: "ScreenBenchmark", "screen": _screen_to_dict(sc)}
-        if obj.name:
-            out["name"] = obj.name
-        return out
-    # signals: by BUILTINS name + params
-    cls = type(obj)
-    b = _builtins()
-    if b.get(cls.__name__) is cls and dataclasses.is_dataclass(obj):
-        params = {f.name: to_dict(getattr(obj, f.name)) for f in dataclasses.fields(obj)
-                  if f.init and not _is_default(f, getattr(obj, f.name))}
-        return {TAG: "Signal", "type": cls.__name__, "params": params}
-    if not isinstance(obj, type) and dataclasses.is_dataclass(obj):
-        for tag, cls in _dataclass_tags().items():
-            if type(obj) is cls:
-                return _dc_to_dict(tag, obj)
-        return _unp(f"{type(obj).__name__} is not a serializable input type")
-    if isinstance(obj, np.ndarray):
-        return [to_dict(v) for v in obj.tolist()]
-    if callable(obj):
-        tiers = _cap_tiers(obj)
-        if tiers is not None:
-            return {TAG: "cap_tiered", "tiers": [[k, v] for k, v in sorted(tiers.items())]}
-        return _unp(f"Python callable {getattr(obj, '__qualname__', repr(obj))!r}")
-    return _unp(f"{cls.__name__} is not a serializable input type")
-
-
-# ---------------------------------------------------------------------------------------------------
-# from_dict
-# ---------------------------------------------------------------------------------------------------
-def from_dict(d):
-    """Inverse of `to_dict`. Raises `Unpersistable` on a value recorded as unpersistable."""
-    if isinstance(d, list):
-        return [from_dict(v) for v in d]
-    if not isinstance(d, dict):
-        return d
-    tag = d.get(TAG)
-    if tag is None:
-        return {k: from_dict(v) for k, v in d.items()}
-    if tag == "unpersistable":
-        raise Unpersistable(d.get("reason", "unpersistable input"))
-    if tag == "float":
-        return float(d["v"])
-    if tag == "date":
-        return pd.Timestamp(d["v"])
-    if tag == "tuple":
-        return tuple(from_dict(v) for v in d["v"])
-    if tag == "set":
-        return set(from_dict(v) for v in d["v"])
-    if tag == "dict":
-        return {from_dict(k): from_dict(v) for k, v in d["items"]}
-    if tag == "Series":
-        idx = pd.DatetimeIndex(d["index"]) if d["dt_index"] else pd.Index([from_dict(i) for i in d["index"]])
-        vals = [np.nan if v is None else v for v in d["values"]]
-        vals = [from_dict(v) for v in vals] if not all(isinstance(v, (int, float)) for v in vals) else vals
-        return pd.Series(vals, index=idx, name=d.get("name"))
-    if tag == "cap_tiered":
-        from .backtest import cap_tiered
-        return cap_tiered({k: v for k, v in d["tiers"]})
-    if tag == "MacroSeries":
-        m = _resolve_macro(d["ref"])
-        if d.get("align"):
-            m = copy.copy(m)
-            m._align = True                                # execute_spec aligns it to the lab's market index
-        return m
-    if tag == "Grid":
-        from .sweep import Grid
-        return Grid(from_dict(d["spec"]))
-    if tag == "Portfolio":
-        from .exit_policy import Portfolio
-        return Portfolio(d["name"], from_dict(d["screen"]), from_dict(d["exit"]) if "exit" in d else None,
-                         **from_dict(d.get("overrides", {})))
-    if tag == "Screen":
-        return _screen_from_dict(d)
-    if tag == "ScreenBenchmark":
-        from .benchmarks import ScreenBenchmark, equal_weight_top
-        b = equal_weight_top(d["top"]) if "top" in d else ScreenBenchmark(_screen_from_dict(d["screen"]))
-        if d.get("name"):
-            b.name = d["name"]
-        return b
-    if tag == "Signal":
-        b = _builtins()
-        if d["type"] not in b:
-            raise Unpersistable(f"unknown signal {d['type']!r}")
-        return b[d["type"]](**{k: from_dict(v) for k, v in d["params"].items()})
-    classes = _dataclass_tags()
-    if tag in classes:
-        cls = classes[tag]
-        kw = {k: from_dict(v) for k, v in d.items() if k != TAG}
-        if tag == "GrahamTests" and "utility_sectors" in kw:
-            kw["utility_sectors"] = tuple(kw["utility_sectors"])
-        return cls(**kw)
-    raise ValueError(f"unknown type tag {tag!r}")
-
-
-def _screen_from_dict(d):
-    from .screens import REGISTRY, Screen
-    from .spec import ScreenSpec, rule_screen
-    if d.get("type") == "screen_fn":
-        return Screen(d["name"], _import_fn(d["fn"]), d["n"], from_dict(d.get("params", {})), d.get("note", ""))
-    if "name" in d and TAG in d and "spec" not in d and "rule" not in d:
-        if d["name"] not in REGISTRY:
-            raise Unpersistable(f"unknown built-in screen {d['name']!r}")
-        ov = from_dict(d.get("overrides", {}))
-        base = REGISTRY[d["name"]]
-        return base.with_overrides(**ov) if ov else base
-    if "spec" in d:
-        return ScreenSpec(**from_dict(d["spec"])).build()
-    if "rule" in d:
-        r = d["rule"]
-        return Screen(r["name"], rule_screen, r["n"], from_dict(r["params"]), r["note"])
-    raise Unpersistable(d.get("reason", "unpersistable screen"))
+def __getattr__(name):
+    if name == "BUNDLED_KINDS":                      # the built-in operations (extra kinds do not belong here)
+        from .operations import builtin_names
+        return builtin_names()
+    raise AttributeError(name)
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -489,12 +122,13 @@ def _exit_signal_types(d, out=None) -> list[str]:
     return out
 
 
-_DEFAULTS = None            # kind -> {arg name: default}; installed by jobs.py
-
-
-def set_defaults_provider(fn) -> None:
-    global _DEFAULTS
-    _DEFAULTS = fn
+def default_family(args: dict, by_signals: bool = False) -> str:
+    """The screen base of a trial family: the entry screens an argument dict touches ("+"-joined, sorted), else the
+    exit-signal set when `by_signals` ("exit:A+B"), else "*"."""
+    names = sorted(set(_screen_names(args)))
+    if names:
+        return "+".join(names)
+    return f"exit:{'+'.join(sorted(set(_exit_signal_types(args))))}" if by_signals else "*"
 
 
 @dataclass
@@ -555,7 +189,9 @@ class RunSpec:
         """Canonical JSON of (kind, args, seed). Arguments that are None or equal to the Lab method's own
         default are dropped, so `lab.timing("dogs")` and `{"screen": "dogs", "stride": 1}` are one run."""
         args = self.serialized_args()
-        defaults = _DEFAULTS(self.kind) if _DEFAULTS is not None else {}
+        from .operations import OPERATIONS
+        op = OPERATIONS.get(self.kind)
+        defaults = op.defaults() if op is not None else {}
         args = {k: v for k, v in args.items()
                 if v is not None and not (k in defaults and _canon(to_dict(defaults[k])) == _canon(v))}
         return canonical_json({"kind": self.kind, "args": args, "seed": self.seed})
@@ -573,9 +209,10 @@ class RunSpec:
 
     def family(self) -> str:
         """Trial family: same kind + dataset + screen base (exit kinds: the signal set)."""
-        base = self.screen_names() or [f"exit:{'+'.join(sorted(set(_exit_signal_types(self.serialized_args()))))}"
-                                       if self.kind.startswith("exit") else "*"]
-        return f"{self.kind}|{self.dataset}|{'+'.join(base)}"
+        from .operations import OPERATIONS
+        op = OPERATIONS.get(self.kind)
+        base = op.family(self.serialized_args()) if op is not None else default_family(self.serialized_args())
+        return f"{self.kind}|{self.dataset}|{base}"
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -613,7 +250,13 @@ def dataset_id(market) -> str:
 def dataset_manifest(market, name: str | None = None, lab=None) -> dict:
     """Small description of a dataset for the store's `datasets` table."""
     bm = getattr(lab, "benchmark", None)
-    return {"name": name, "span": [str(market.index[0].date()), str(market.index[-1].date())],
+    card = None
+    if lab is not None and hasattr(lab, "data_card"):
+        try:
+            card = lab.data_card().to_dict()
+        except Exception:                                   # a manifest must never fail a run
+            card = None
+    return {"card": card, "name": name, "span": [str(market.index[0].date()), str(market.index[-1].date())],
             "n_names": int(market.prices.shape[1]), "n_dates": int(len(market.index)),
             "n_fund_rows": int(len(market.fund)), "indices": [str(c) for c in market.indices.columns],
             "benchmark": getattr(bm, "label", None), "benchmark_kind": type(bm).__name__ if bm is not None else None}

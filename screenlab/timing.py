@@ -21,6 +21,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from . import backtest, metrics
+from .metrics import M
 from . import progress as _progress
 from .data import Market
 from .screens import Screen
@@ -33,7 +34,7 @@ class TimingResult:
     curves: pd.DataFrame                # offset -> equity curve (columns)
     tranche: pd.Series | None           # equal blend of all phases (phase mode)
 
-    def distribution(self, cols=("CAGR", "Excess/yr", "MaxDD", "Vol", "BeatBenchYrs")) -> pd.DataFrame:
+    def distribution(self, cols=(M.CAGR, M.EXCESS_YR, M.MAXDD, M.VOL, M.BEATBENCHYRS)) -> pd.DataFrame:
         q = self.table[list(c for c in cols if c in self.table)].describe(percentiles=[.05, .25, .5, .75, .95]).T
         q["range"] = q["max"] - q["min"]
         return q.drop(columns="count")
@@ -65,7 +66,7 @@ def study(screen: Screen, mkt: Market, cfg: backtest.Config, start=None, end=Non
         bench = bench_cache.get(d0)
         first = list(res.holdings)[1] if mode == "phase" and len(res.holdings) > 1 else list(res.holdings)[0]
         rows.append({"offset": k, "anniversary": first, **metrics.summarize(res.curve, bench),
-                     "Turnover": res.turnover.iloc[1:].mean(), "Costs/yr": res.costs.sum() /
+                     M.TURNOVER: res.turnover.iloc[1:].mean(), M.COSTS_YR: res.costs.sum() /
                      ((res.curve.index[-1] - res.curve.index[0]).days / 365.25)})
         curves[k] = res.curve
         if progress and n % 25 == 0:
@@ -83,14 +84,14 @@ def report(tr: TimingResult, bench: pd.Series | None = None) -> str:
     d = tr.distribution()
     lines = [f"\n== {tr.screen}: {len(tr.table)} start offsets =="]
     lines.append(d.map(pct).to_string())
-    best, worst = tr.table["CAGR"].idxmax(), tr.table["CAGR"].idxmin()
+    best, worst = tr.table[M.CAGR].idxmax(), tr.table[M.CAGR].idxmin()
     lines.append(f"best anniversary  {tr.table.loc[best, 'anniversary']:%b %d} "
-                 f"(offset {best}) CAGR {pct(tr.table.loc[best, 'CAGR'])}")
+                 f"(offset {best}) CAGR {pct(tr.table.loc[best, M.CAGR])}")
     lines.append(f"worst anniversary {tr.table.loc[worst, 'anniversary']:%b %d} "
-                 f"(offset {worst}) CAGR {pct(tr.table.loc[worst, 'CAGR'])}")
+                 f"(offset {worst}) CAGR {pct(tr.table.loc[worst, M.CAGR])}")
     if tr.tranche is not None:
         t = metrics.summarize(tr.tranche, bench)
-        lines.append("tranche blend     " + "  ".join(f"{k} {pct(v) if k != 'Sharpe' else f'{v:.2f}'}"
+        lines.append("tranche blend     " + "  ".join(f"{k} {pct(v) if k != M.SHARPE else f'{v:.2f}'}"
                                                      for k, v in t.items()))
     return "\n".join(lines)
 

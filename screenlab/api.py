@@ -33,78 +33,12 @@ import pandas as pd
 
 from . import backtest, data, metrics
 from .dataset import CSVBuilder, DataCard, Dataset, SyntheticBuilder
-from . import progress as _progress
-from .tracking import grid_points, note_points, tracked
-from .exit_policy import ExitPolicy, Portfolio, as_policy, policy_overlay
 from .benchmarks import IndexBenchmark, ScreenBenchmark, equal_weight_top, parse_benchmark, passive_index
-from .screens import REGISTRY, Screen, graham_funnel, graham_report
-from .spec import define_screen, graham_tests
-
-PCT_COLS = ["CAGR", "Vol", "MaxDD", "Worst12m", "BeatBenchYrs", "Excess/yr", "Turnover", "Costs/yr", "TimeOut"]
-
-
-def format_table(tbl: pd.DataFrame) -> str:
-    out = tbl.copy().astype(object)
-    for c in tbl.columns:
-        out[c] = tbl[c].map(lambda x: "" if pd.isna(x) else (f"{x:.1%}" if c in PCT_COLS else f"{x:.2f}"))
-    return out.to_string()
-
-
-def _unique_label(label: str, used: set, reserved: str, suffix: str | None) -> str:
-    """Row label that collides with nothing so far: `dogs`, then `dogs#2`, `dogs#3`, ... (also avoids the
-    benchmark's label and, with `suffix` ("+exit"), the suffixed variant). Records the labels it takes."""
-    def taken(x):
-        return x == reserved or x in used or (suffix is not None and x + suffix in used)
-    out, k = label, 1
-    while taken(out):
-        k += 1
-        out = f"{label}#{k}"
-    used.add(out)
-    if suffix is not None:
-        used.add(out + suffix)
-    return out
-
-
-@dataclass
-class BacktestReport:
-    table: pd.DataFrame                       # one row per screen + the benchmark
-    results: dict                             # name -> backtest.Result
-    benchmark: pd.Series                      # the PASSIVE index equity curve (primary benchmark)
-    benchmark_label: str
-    config: backtest.Config
-    compare: dict = field(default_factory=dict)   # label -> extra comparison curve (screen benchmarks etc.)
-    data_card: DataCard | None = None             # what the data is (benchmark kind, survivorship, ...)
-
-    @property
-    def curves(self) -> pd.DataFrame:
-        c = {k: r.curve for k, r in self.results.items()}
-        return pd.DataFrame({self.benchmark_label: self.benchmark, **self.compare, **c})
-
-    def _rebalance_text(self) -> str:
-        """Each row's actual rebalance spacing (median months between scheduled dates), since a
-        Portfolio can override the report's Config."""
-        per = {}
-        for name, res in self.results.items():
-            d = pd.DatetimeIndex(sorted(res.holdings))
-            gaps = (d[1:].year - d[:-1].year) * 12 + (d[1:].month - d[:-1].month)
-            per[name] = int(pd.Series(gaps).median()) if len(gaps) else self.config.rebalance_months
-        groups = {}
-        for name, m in per.items():
-            groups.setdefault(m, []).append(name)
-        if len(groups) <= 1:
-            return f"every {next(iter(groups), self.config.rebalance_months)}m"
-        return "; ".join(f"every {m}m: {', '.join(n)}" if len(n) <= 2 else f"every {m}m: {len(n)} portfolios"
-                         for m, n in sorted(groups.items()))
-
-    def __str__(self):
-        span =f"{self.benchmark.index[0]:%Y-%m-%d} to {self.benchmark.index[-1]:%Y-%m-%d}"
-        head = (f"Backtest {span}, rebalance {self._rebalance_text()}, "
-                f"benchmark {self.benchmark_label}\n")
-        card = ""
-        if self.data_card is not None:
-            card = "\n".join([self.data_card.line(), *self.data_card.warnings()]) + "\n"
-        return head + card + "\n" + format_table(self.table.sort_values("CAGR", ascending=False))
-
+from .metrics import PCT_COLS
+from .operations import OPERATIONS, _load_builtins, install_lab_methods, lab_method
+from .ops.backtest import BacktestReport, _unique_label, format_table   # noqa: F401  (re-exported)
+from .screens import REGISTRY, Screen
+from .spec import define_screen
 
 @dataclass
 class Lab:
@@ -213,196 +147,25 @@ class Lab:
     def snapshot(self, asof=None) -> pd.DataFrame:
         return self.market.view(self._asof(asof))
 
-    @tracked("picks")
-    def picks(self, screen, asof=None, columns=("sector", "market_cap", "pe", "pb", "div_yield",
-                                                  "f_score", "mom_12_1"),
-              runners_up: int = 0) -> pd.DataFrame:
-        """Current picks with key ratios. `runners_up=k` appends the next k names by the screen's own
-        ranking (`Screen.ranked`) and adds a boolean `runner_up` column (False for the picks)."""
-        s = self.snapshot(asof)
-        sc, d = self.screen(screen), self._asof(asof)
-        names = list(self.market.picks(sc, d))
-        n_picks = len(names)
-        if runners_up:
-            have = set(names)
-            names += [t for t in sc.ranked(s) if t not in have][:runners_up]
-        out = s.loc[names, [c for c in columns if c in s]]
-        if runners_up:
-            out = out.assign(runner_up=[i >= n_picks for i in range(len(names))])
-        return out
+    # ---- analyses: generated from the operations (operations.py, ops/*.py) ---------------------------
+    #   lab.picks / backtest / timing / significance / sweep / extended / exit_eval / calibrate_exit / graham,
+    #   and any operation registered later: lab.<name>(...) or lab.run("<name>", ...)
 
-    # ---- analysis ---------------------------------------------------------
-    @tracked("backtest")
-    def backtest(self, screens=None, start=None, end=None, benchmark=None, exit=None,
-                 with_and_without: bool = False, compare=(), **cfg) -> BacktestReport:
-        """Backtest screens (names, Screens or `Portfolio(name, screen, exit=None, **config_overrides)`).
+    def run(self, name: str, **args):
+        """Run the registered operation `name` with its Lab-method keyword arguments (tracked like `lab.<name>`)."""
+        try:
+            op = OPERATIONS[name]
+        except KeyError:
+            raise KeyError(f"unknown operation {name!r}; available: {sorted(OPERATIONS)}") from None
+        return op.execute(self, **args)
 
-        `exit`: an ExitPolicy (or ExitScreen, wrapped in a default policy) applied to every entry in the
-        call that has no policy of its own. `with_and_without=True` runs each such entry twice and labels
-        the rows `name` and `name+exit`.
-        Row labels are unique: a repeated name (two entries called "dogs", or a Portfolio named like a
-        screen or like the benchmark) is kept and numbered in order of appearance, `dogs`, `dogs#2`, `dogs#3`.
-        Rows with a policy also report TimeOut and Switches/yr.
-
-        The primary benchmark (`report.benchmark`, Excess/yr, BeatBenchYrs) is always a passive index:
-        the lab's, or `benchmark` if that is an IndexBenchmark. A ScreenBenchmark passed as `benchmark`,
-        and anything in `compare`, only adds rows labelled "<name> (compare)"."""
-        cfg = self._cfg(**cfg)
-        bench, extras = self.passive(benchmark), self._extras(benchmark, compare)
-        call_exit = as_policy(exit) or cfg.exit
-        items, used = [], set()                      # (label, screen, config, policy or None)
-        for s in (screens or list(self.screens)):
-            if isinstance(s, Portfolio):
-                sc, c, pol = self.screen(s.screen), self._cfg_of(cfg, s.config_overrides), s.exit or call_exit
-                label = s.name
-            else:
-                sc, c, pol = self.screen(s), cfg, call_exit
-                label = sc.name
-            both = pol is not None and with_and_without
-            label = _unique_label(label, used, bench.label, "+exit" if both else None)
-            if pol is None:
-                items.append((label, sc, c, None))
-                continue
-            if both:
-                items.append((label, sc, replace(c, exit=None), None))
-                label += "+exit"
-            items.append((label, sc, replace(c, exit=pol), pol))
-        screens = items
-        start = start or self.market.index[0] + pd.DateOffset(months=13)
-        start = self.market.trading_day(start)
-        bcurve = bench.curve(self.market, cfg, start, end)
-        rows = {bench.label: {**metrics.summarize(bcurve), "AvgN": float("nan")}}
-        ccurves = {}
-        for x in extras:
-            lab_x = f"{x.label} (compare)"
-            ccurves[lab_x] = x.curve(self.market, cfg, start, end)
-            rows[lab_x] = {**metrics.summarize(ccurves[lab_x], bcurve), "AvgN": float("nan")}
-        results = {}
-        for i, (label, sc, c, _) in enumerate(screens):
-            with _progress.scaled(i / len(screens), (i + 1) / len(screens)):
-                res = backtest.run(sc, self.market, c, start, end)
-            results[label] = res
-            yrs = (res.curve.index[-1] - res.curve.index[0]).days / 365.25
-            rows[label] = {**metrics.summarize(res.curve, bcurve),
-                           "AvgN": pd.Series({k: len(v) for k, v in res.holdings.items()}).mean(),
-                           "Turnover": res.turnover.iloc[1:].mean(),
-                           "Costs/yr": res.costs.sum() / yrs}
-            if res.exit is not None:
-                rows[label].update({"TimeOut": res.time_out, "Switches/yr": res.switches / yrs})
-        return BacktestReport(pd.DataFrame(rows).T, results, bcurve, bench.label, cfg, ccurves,
-                              self.data_card(benchmark))
-
-    @tracked("timing")
-    def timing(self, screen, mode: str = "phase", stride: int = 1, start=None, end=None,
-               offsets=None, benchmark=None, progress: bool = False, **cfg):
-        """Rebalance-timing study (see timing.py); returns a timing.TimingResult."""
-        from . import timing          # lazy: lets `python -m screenlab.timing` run cleanly
-        return timing.study(self.screen(screen), self.market, self._cfg(**cfg), start, end, mode,
-                            stride, offsets, self.passive(benchmark), progress)
-
-    # ---- research --------------------------------------------------------
-    @tracked("significance", lambda self, report, n=2000, seed=0: {
-        **getattr(report, "_args", {"screens": list(report.results)}), "n": n, "seed": seed})
-    def significance(self, report: BacktestReport, n: int = 2000, seed: int = 0) -> pd.DataFrame:
-        """Bootstrap CI on excess return and Newey-West t-stat per screen, plus DSR across screens.
-
-        The deflated Sharpe uses `n_trials` = the family's trial count (distinct significance runs on this
-        dataset and screen base, from the store or this process) when that exceeds the number of screens;
-        `result.attrs` carries `trials_in_family` and `trials_scope`."""
-        from . import stats
-        rows = {}
-        for name, res in report.results.items():
-            b = stats.bootstrap_excess(res.curve, report.benchmark, n=n, seed=seed, curves=True)
-            rows[name] = {"Excess/yr": b["mean"], "CI5": b["ci_low"], "CI95": b["ci_high"],
-                          "P(>0)": b["p_positive"],
-                          "t": stats.t_stat_excess(res.curve, report.benchmark, curves=True)}
-        out = pd.DataFrame(rows).T
-        out["Sharpe"] = report.table.loc[out.index, "Sharpe"]
-        n_obs = int(report.benchmark.pct_change().dropna().shape[0])
-        info = self.last_trials() or {}
-        n_trials = max(len(out), int(info.get("trials_in_family", 0)))
-        res = stats.summarize_trials(out, n_obs=n_obs, n_trials=n_trials,
-                                     periods_per_year=stats.periods_per_year(report.benchmark.index))
-        res.attrs.update(info, n_trials=n_trials)
-        return res
-
-    @tracked("sweep")
-    def sweep(self, screen, grid, objective="Excess/yr", start=None, end=None, splits=None,
-              benchmark=None) -> pd.DataFrame:
-        """Grid / random-search sweep; dotted keys ("dogs.n") hit the screen, bare keys Config.
-        `splits=dict(train_years=.., test_years=..)` adds walk-forward out-of-sample columns.
-        Every grid point counts as a trial: `result.attrs["n_trials"]` (also `trials_in_family`,
-        `trials_scope`) is what `stats.summarize_trials(result, n_trials=...)` should deflate by."""
-        from .sweep import Grid, run_sweep
-        if isinstance(grid, dict):
-            grid = Grid(grid)
-        n = note_points(self, "sweep", self._tl.args or {}, grid_points(grid.spec if isinstance(grid, Grid) else grid)) \
-            if getattr(self._tl, "args", None) is not None else 0
-        tbl = run_sweep(self, self.screen(screen), grid, objective, start, end, splits, self.passive(benchmark))
-        info = self.last_trials() or {}
-        tbl.attrs.update(info, n_trials=max(len(tbl), n))
-        return tbl
-
-    @tracked("extended", lambda self, report, macro, spread_over_prime=0.0, leverage=1.0: {
-        **getattr(report, "_args", {"screens": list(report.results)}), "macro": macro,
-        "spread_over_prime": spread_over_prime, "leverage": leverage})
-    def extended(self, report: BacktestReport, macro, spread_over_prime: float = 0.0,
-                 leverage: float = 1.0) -> pd.DataFrame:
-        """Real / home-currency / net-of-financing / excess-over-rf metrics for every curve in a report."""
-        from .metrics_ext import extended_summary
-        rows = {report.benchmark_label: extended_summary(report.benchmark, macro, None, spread_over_prime, leverage)}
-        for name, c in report.compare.items():
-            rows[name] = extended_summary(c, macro, report.benchmark, spread_over_prime, leverage)
-        for name, res in report.results.items():
-            rows[name] = extended_summary(res.curve, macro, report.benchmark, spread_over_prime, leverage)
-        return pd.DataFrame(rows).T
-
-    @tracked("exit_evaluate")
-    def exit_eval(self, exit_screen, target=None, horizons=(1, 3, 12), macro=None, policy=None, **kw):
-        """Evaluate an ExitScreen against a target curve (default: the passive index).
-
-        `exit_screen` may also be an ExitPolicy; with `policy` (or a policy as the first argument) the
-        overlay in the result trades that policy (reentry, park, steps, delay, costs) instead of the
-        plain flag. `cash_rate` is the rate for park="cash"."""
-        from .exit_signals import evaluate
-        if isinstance(exit_screen, ExitPolicy):
-            policy, exit_screen = exit_screen, exit_screen.screen
-        if target is None:
-            target = self.passive().curve(self.market, self.config, self.market.index[0])
-        elif isinstance(target, str):
-            target = self.market.series(target)
-        macro = macro if macro is not None else (policy.macro if policy is not None else None)
-        if policy is None:
-            return evaluate(exit_screen, self.market, target, horizons, macro, **kw)
-        ev = evaluate(exit_screen, self.market, target, horizons, macro, **kw)
-        rebal = backtest.schedule(self.market, target.dropna().index[0], self.config.rebalance_months)
-        ev.overlay = policy_overlay(target, policy, self.market, rebal, float(kw.get("cash_rate", 0.0)),
-                                    state=ev.state, signal_curve=kw.get("curve"))
-        return ev
-
-    @tracked("exit_calibrate")
-    def calibrate_exit(self, exit_screen, grid, target=None, objective="Calmar", splits=None,
-                       constraints=None, macro=None, **kw):
-        """Walk-forward calibration of an ExitScreen's thresholds / timing (see calibration.py).
-        `target`: index name, ticker or curve (default: the passive index curve)."""
-        from .calibration import calibrate_exit
-        kw.setdefault("rebalance_months", self.config.rebalance_months)
-        if target is None:
-            target = self.passive().curve(self.market, self.config, self.market.index[0])
-        n = (note_points(self, "exit_calibrate", self._tl.args, grid_points(grid))
-             if getattr(self._tl, "args", None) is not None else 0)
-        res = calibrate_exit(exit_screen, self.market, target, grid, objective, splits, constraints, macro,
-                             n_trials=n or None, **kw)
-        res.summary.update(self.last_trials() or {})
-        return res
-
-    @tracked("graham")
-    def graham(self, tests="defensive", asof=None, **overrides) -> tuple[pd.DataFrame, pd.Series]:
-        """(per-name pass/fail table, cumulative funnel) for a preset or GrahamTests."""
-        t = graham_tests(tests)
-        t = replace(t, **overrides) if overrides else t
-        s = self.snapshot(asof)
-        return graham_report(s, t), graham_funnel(s, t)
+    def __getattr__(self, name):                 # operations registered after the class was built
+        if not name.startswith("_") and name in OPERATIONS:
+            return lab_method(OPERATIONS[name], name).__get__(self)
+        for op in OPERATIONS.values():
+            if name in op.method_names:
+                return lab_method(op, name).__get__(self)
+        raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
     # ---- runs, jobs and trials ---------------------------------------------------------------
     def last_trials(self) -> dict | None:
@@ -410,8 +173,8 @@ class Lab:
         return getattr(self._tl, "last", None)
 
     def submit(self, kind: str, *, label=None, tags=(), force: bool = False, run_seed: int = 0, **args):
-        """Start `kind` ("backtest", "timing", "sweep", "significance", "extended", "exit_evaluate",
-        "exit_calibrate", "graham", "picks") asynchronously with the Lab method's keyword arguments and
+        """Start `kind` (a registered operation: "backtest", "timing", "sweep", "significance", "extended",
+        "exit_evaluate", "exit_calibrate", "graham", "picks", ...) asynchronously with the Lab method's keyword arguments and
         return a `jobs.Job` (status / progress / cancel / result()). Uses `Lab(jobs=JobManager(...))` when
         given (this lab's `name` must be one of its datasets), else a private thread pool over this lab.
         An identical finished run in the store is returned at once (`job.cache_hit`) unless `force`."""
@@ -422,3 +185,8 @@ class Lab:
                                    persist=self.persist)
         name = self.name or ("lab" if "lab" in self.jobs.labs else None)
         return self.jobs.submit(RunSpec(kind, name, args, run_seed, label, tuple(tags)), force=force)
+
+
+_load_builtins()
+for _op in list(OPERATIONS.values()):            # the Lab methods of every operation registered so far
+    install_lab_methods(Lab, _op)

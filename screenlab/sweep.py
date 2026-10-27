@@ -21,7 +21,9 @@ import numpy as np
 import pandas as pd
 
 from . import metrics
+from .metrics import M
 from . import progress
+from .serial import TAG, from_dict as _from, register_tag, to_dict as _to
 from .stats import periods_per_year
 
 
@@ -38,6 +40,18 @@ class Grid:
 
     def __len__(self):
         return int(np.prod([len(v) for v in self.spec.values()])) if self.spec else 0
+
+    _serial_tag = "Grid"
+
+    def to_dict(self) -> dict:
+        return {TAG: "Grid", "spec": _to(self.spec)}
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "Grid":
+        return cls(_from(d["spec"]))
+
+
+register_tag("Grid", Grid.from_dict)
 
 
 def split_point(point: Mapping, screen_name: str) -> tuple[dict, dict]:
@@ -145,12 +159,12 @@ class _Evaluator:
         row = dict(point)
         row.update(tab.to_dict())
         row[self.obj_name] = self.value(point)
-        row.update(Obs=len(r), PerYr=periods_per_year(curve.index),
+        row.update({M.OBS: len(r), M.PERYR: periods_per_year(curve.index)},
                    Skew=float(r.skew()), Kurt=float(r.kurt() + 3))
         return row
 
 
-def run_sweep(lab, screen, grid, objective: str | Callable = "Excess/yr", start=None, end=None,
+def run_sweep(lab, screen, grid, objective: str | Callable = M.EXCESS_YR, start=None, end=None,
               splits=None, benchmark=None, _ev: _Evaluator | None = None) -> pd.DataFrame:
     """Backtest every point of `grid` (a Grid, or a list of point dicts) and tabulate.
 
@@ -204,7 +218,7 @@ def run_sweep(lab, screen, grid, objective: str | Callable = "Excess/yr", start=
 
 
 def bayes_search(lab, screen, space: Mapping, n: int = 30, seed: int = 0,
-                 objective: str | Callable = "Excess/yr", start=None, end=None, splits=None,
+                 objective: str | Callable = M.EXCESS_YR, start=None, end=None, splits=None,
                  benchmark=None) -> pd.DataFrame:
     """Optuna TPE search over `space` ({key: list | (low, high)}), then the usual run_sweep table.
 

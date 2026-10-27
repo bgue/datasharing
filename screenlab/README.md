@@ -89,9 +89,43 @@ tests in roughly 50 seconds, through the SDK where that makes sense:
 | `screaming_value`, `stable_dividend`, `frugal_dividend`, `stable_high_yield`, `basic_buyback`, `momentum_6m`, `momentum_12m` | the Globe and Mail's published portfolios, see below |
 | `bluechip_dividend_growth` | rules-based approximation of a discretionary model dividend portfolio, see below |
 
-All thresholds are keyword arguments, so you can change them through
-`Screen(params=...)` in `screens.REGISTRY`. To add a screen, write
-`fn(snapshot, n, **params) -> list[ticker]` and register it.
+Every screen above except `graham_*`, `net_nets` and `piotroski` is a JSON spec in `screenlab/specs/`
+(see below). The Graham, net-nets and Piotroski screens stay Python: Graham sorts by pass count and then
+P/E x P/B, net-nets and Piotroski select with a data-dependent quantile cut and a score, none of which a
+stage's filter / rank / keep can express exactly. Their thresholds are keyword arguments (`Screen(params=...)`
+in `screens.REGISTRY`); to add a Python screen, write `fn(snapshot, n, **params) -> list[ticker]` and register it.
+
+## Defining screens as specs
+A screen is plain data: a universe, derived columns, filters, optional Graham tests and a ranking, as one
+stage, or several stages run in order. The built-in spec screens live in `screenlab/specs/globe/*.json` and
+`screenlab/specs/classic/*.json`; copy one, edit it, and load it with `lab.define(path)`,
+`define_screen(path)` or `load_screens(path)` (a file may hold one spec or a list), or `--screen-file`.
+
+Keys of a single-stage spec: `name`, `n`, `note`, `universe` (`top`, `by`, `sectors`, `exclude_sectors`; the size
+cut comes first), `derive` (column -> pandas expression), `filters` (expressions that must all hold), `graham`,
+`rank` (column -> `asc` | `desc`; several columns are combined by summing their ranks; rows with a NaN rank
+column are dropped). For a funnel give `stages` instead, a list of objects with the same keys plus `keep`. Each
+stage runs on the rows the previous one kept, a ranked stage puts them best first, `keep` cuts to the first
+`keep`, and the final `n` takes the head. Single-stage keys are sugar for one stage and pick identically.
+Leave `keep` off the last stage: `Screen.ranked` (runner-ups) then sees the full ordering.
+
+The Frugal Dividend portfolio (`specs/globe/frugal_dividend.json`), dividend payers among the 300 largest, the
+50 lowest 260-day volatility, then the 10 lowest P/E:
+
+    {"name": "frugal_dividend", "n": 10,
+     "note": "Follows the Globe's Frugal Dividend: payers, 50 lowest 260-day vol, 10 lowest P/E",
+     "stages": [
+       {"universe": {"top": 300}, "filters": ["dividend > 0"], "rank": {"vol_260d": "asc"}, "keep": 50},
+       {"rank": {"pe": "asc"}}]}
+
+The same in Python: `.then()` opens the next stage, `.keep(n)` cuts the current one, and
+`.then_keep(n, by=..., asc=True)` is a new stage that ranks by `by` and keeps n.
+
+    ScreenBuilder("frugal_dividend", n=10).universe(top=300).where("dividend > 0").rank(vol_260d="asc").keep(50) \
+        .then().rank(pe="asc").build()
+
+`ScreenSpec.to_dict()` / `ScreenSpec.from_dict()` (and `to_json`) round-trip stages; that dict is what the run
+store persists. Reordering stages changes the result (P/E first, then volatility, picks other names).
 
 ## Globe and Mail portfolios
 The Globe's "Inside the Market" columns publish several screen portfolios. We follow the published rules
@@ -289,6 +323,9 @@ recomputed. Three independent pieces (DESIGN.md section I):
 - **`RunSpec(kind, dataset, args, seed, label, tags)`** (`runspec.py`) is a run as plain data. `to_dict` /
   `from_dict` serialize every input (Config with HoldRule / ExitPolicy / per-security maps / `cap_tiered` tiers,
   ExitScreen and signals by name + params, Portfolio, benchmarks, screens, Grid, MacroSeries by reference).
+  The types own this (`to_dict()` / `from_dict()`, `serial.py`; `cap_tiered(...)` returns the picklable `CapTiered`),
+  and deprecated signal parameter names are replaced by the new ones first, so `Breadth(window_days=200)` and the
+  equivalent `Breadth(days=...)` share a run key.
   `run_key = sha256(kind, args, seed, dataset_id, code_version)`; arguments that are None or equal to the
   default are dropped, so `lab.timing("dogs")` and `{"screen": "dogs", "stride": 1}` are one run. A Python
   callable input (function weighting, custom cost, a `Screen(fn=...)` whose function is a lambda, closure or
@@ -297,6 +334,14 @@ recomputed. Three independent pieces (DESIGN.md section I):
   S&P 500 lab's price-only screens) is persistable: it is stored as `module:qualname` and re-imported, and the
   reference is part of the lab-context hash. A MacroSeries needs `runspec.macro_ref(macro, name)` to be
   persistable. The `run_key` of an SDK call ignores `lab.config` and `lab.screens`; pass overrides as arguments.
+- **Operations** (`operations.py`, `ops/*.py`): each analysis (picks, backtest, timing, graham, sweep, significance,
+  extended, exit_evaluate, exit_calibrate) is one `Operation` in `OPERATIONS`: name, typed `Args`, `run(lab, **kw)`,
+  `to_json`, `metrics`, `family`, `long_running`. `Lab.<name>`, `lab.run(name, ...)`, job kinds, run keys, store metrics,
+  REST routes (typed OpenAPI bodies, `GET /operations`) and MCP tools are all derived from the registry, so a new
+  analysis is one module: define a class, decorate it with `@register_operation`
+  (see `tests/test_operations.py` for a complete example).
+- **`metrics.METRICS`**: every metric name with label, unit, better-direction, format and description; code uses
+  `metrics.M.CAGR` etc. and the LinkML `StandardMetric` enum is generated from it.
 - **`JobManager(store, workers, mode="process"|"thread", labs={name: factory})`** (`jobs.py`): spawn-based
   process pool (factories must be importable module-level callables; thread mode is for tests and small
   machines). Dedups against the store and against jobs already running, reports progress and honours cancel
