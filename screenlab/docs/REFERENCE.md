@@ -160,3 +160,39 @@ servers are in [SERVERS_AND_STORAGE.md](SERVERS_AND_STORAGE.md).
   series, net-of-financing returns against prime plus a spread (with a
   breakeven spread and a borrow-to-invest levered curve), and excess over a
   time-varying risk-free rate, plus a geometric decomposition.
+
+## Monte Carlo (`lab.montecarlo`, `ops/montecarlo.py`, `montecarlo/generators.py`)
+Question: "how wide is the range of outcomes for this portfolio, and how often does it trail the passive index over
+my horizon?" One scenario generator draws a `PathSet` from the lab's dataset; every screen and the passive index run
+on the same paths (`pipeline.simulate_paths`), and the distributions are read off per horizon. Worked study:
+[research/montecarlo/MONTECARLO_SP500.md](../research/montecarlo/MONTECARLO_SP500.md).
+
+```python
+from screenlab.realdata.bundled import sp500_lab
+lab = sp500_lab(n=5)
+r = lab.montecarlo(["momentum_12_1", "low_vol"], generator={"type": "BlockBootstrap", "block_months": 12},
+                   n_paths=1000, horizon_years=[5, 10, 20], start_wealth=100_000, rebalance_months=1,
+                   cost_bps=25, seed=0, target_wealth=300_000)
+print(r)                      # data card, warnings, table
+r.table, r.per_path, r.fan    # summary per (portfolio, horizon); one row per path; wealth quantile curves
+```
+
+| Argument | Meaning |
+|---|---|
+| `screens` | price-rank screens (`momentum_12_1`, `momentum_6m`, `momentum_12m`, `low_vol`), equal weight; others raise `NotImplementedError` |
+| `generator` | `BlockBootstrap(12)` default; `StationaryBootstrap(mean_block_months)`, `RegimeBootstrap`, `IIDBootstrap` as objects or `{"type": ..., ...}` |
+| `n_paths`, `horizon_years`, `seed` | paths (default 1000), horizons (default `[5, 10, 20]`), seed. Horizons are cuts of one set of paths drawn for the longest horizon, so changing the longest changes the paths |
+| `start_wealth`, `contributions`, `withdrawals` | per year, spread over the steps. Flows change terminal wealth and `P(shortfall)` only; CAGR, drawdowns and `P(trail)` stay time-weighted |
+| `rebalance_months`, `config` | as in `backtest` (`cost_bps`, `mer`, ...) |
+| `exit`, `with_and_without` | an exit policy for every screen (TrendBreak only; rows `name` and `name+exit`) |
+| `steps` | `"monthly"` (default: base cut to month-ends first, fast; weekly exit checks act monthly) or `"daily"` (memory heavy: paths x steps x names) |
+| `target_wealth` | adds `P(shortfall)` = share of paths ending below it |
+
+The first 12 months of every path are a warm-up (price ranks and trend signals need history); horizons are measured
+after it. Result columns (all registered in `metrics.METRICS`): `TermWealth_p5..p95`, `CAGR_p5..p95`, `P(trail)`
+(share of paths ending behind the index), `ExcessCAGR_med`, `P(MaxDD<-30%)`, `P(MaxDD<-50%)`, `RecoverYrs_med`
+(median years from the worst trough back to its peak; empty when over half of the paths had not recovered),
+`P(unrecovered)`, `P(shortfall)`. The result carries the data card and its warnings plus a note that bootstrap paths
+inherit the data's biases (survivors, price-only benchmark). The operation is `long_running`: `lab.submit("montecarlo", ...)`,
+`POST /labs/{lab}/montecarlo`, `POST /jobs {"kind": "montecarlo"}`, MCP tool `montecarlo`. Each distinct generator
+configuration is a new trial of the family. Store: summary metrics as rows `portfolio@10y`, the fan curves as an artifact.

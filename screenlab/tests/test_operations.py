@@ -184,6 +184,9 @@ SAMPLES = {
     "extended": {"screens": ["dogs"], "macro": "statsmodels", "leverage": 1.5},
     "exit_evaluate": {"signals": [{"type": "TrendBreak"}, {"type": "VolRegime", "days": 63}],
                       "weights": {"TrendBreak": 2.0}, "horizons": (1, 3), "policy": {"park": "cash", "reentry_steps": 2}},
+    "montecarlo": {"screens": ["dogs"], "generator": {"type": "BlockBootstrap", "block_months": 6}, "n_paths": 20,
+                   "horizon_years": [2.0, 3.0], "start_wealth": 50000.0, "seed": 3, "steps": "monthly",
+                   "target_wealth": 60000.0, "config": {"cost_bps": 10}},
     "exit_calibrate": {"signals": [{"type": "TrendBreak"}], "grid": {"threshold": [0.6, 0.8]},
                        "constraints": {"max_switches_per_year": 4.0}},
 }

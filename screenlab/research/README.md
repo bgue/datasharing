@@ -8,3 +8,9 @@ The result tables (`results/*.csv`, `runtime_seconds.txt`) are **not tracked in 
 `screenlab/`:
 
     python -m screenlab.research.calibrate_sp500
+
+`montecarlo_sp500.py` is the Monte Carlo study on the same data (distribution of outcomes and the chance of
+trailing the passive index); `montecarlo/MONTECARLO_SP500.md` is its write-up with the four charts (tracked);
+`montecarlo/*.csv` are not tracked. Regenerate (under a minute):
+
+    python -m screenlab.research.montecarlo_sp500

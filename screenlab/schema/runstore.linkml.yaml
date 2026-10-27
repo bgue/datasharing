@@ -342,6 +342,8 @@ enums:
         description: Graham-criteria funnel and per-test pass table (lab.graham).
       picks:
         description: Today's selected names with key ratios (lab.picks).
+      montecarlo:
+        description: Outcome distributions of screen portfolios and the passive index on resampled return paths (lab.montecarlo).
   RunStatus:
     description: Lifecycle of a run.
     permissible_values:
@@ -474,3 +476,57 @@ enums:
         description: Timing study distribution; largest value across start offsets.
       range:
         description: Timing study distribution; max minus min, the spread caused only by when you started.
+      P(>0):
+        description: Significance run; share of bootstrap samples with positive excess return (probability 0
+          to 1).
+      TermWealth_p5:
+        description: Monte Carlo; 5th percentile of terminal wealth across paths at the horizon (currency units,
+          includes any contributions and withdrawals).
+      TermWealth_p25:
+        description: Monte Carlo; 25th percentile of terminal wealth across paths at the horizon (currency units,
+          includes any contributions and withdrawals).
+      TermWealth_p50:
+        description: Monte Carlo; 50th percentile of terminal wealth across paths at the horizon (currency units,
+          includes any contributions and withdrawals).
+      TermWealth_p75:
+        description: Monte Carlo; 75th percentile of terminal wealth across paths at the horizon (currency units,
+          includes any contributions and withdrawals).
+      TermWealth_p95:
+        description: Monte Carlo; 95th percentile of terminal wealth across paths at the horizon (currency units,
+          includes any contributions and withdrawals).
+      CAGR_p5:
+        description: 'Monte Carlo; 5th percentile of the compound annual growth rate across paths at the horizon
+          (fraction per year, time-weighted: without contributions and withdrawals).'
+      CAGR_p25:
+        description: 'Monte Carlo; 25th percentile of the compound annual growth rate across paths at the horizon
+          (fraction per year, time-weighted: without contributions and withdrawals).'
+      CAGR_p50:
+        description: 'Monte Carlo; 50th percentile of the compound annual growth rate across paths at the horizon
+          (fraction per year, time-weighted: without contributions and withdrawals).'
+      CAGR_p75:
+        description: 'Monte Carlo; 75th percentile of the compound annual growth rate across paths at the horizon
+          (fraction per year, time-weighted: without contributions and withdrawals).'
+      CAGR_p95:
+        description: 'Monte Carlo; 95th percentile of the compound annual growth rate across paths at the horizon
+          (fraction per year, time-weighted: without contributions and withdrawals).'
+      P(trail):
+        description: Monte Carlo; share of paths on which the portfolio ends the horizon behind the passive
+          index run on the same path (probability 0 to 1).
+      ExcessCAGR_med:
+        description: Monte Carlo; median across paths of portfolio CAGR minus the passive index CAGR on the
+          same path (fraction per year).
+      P(MaxDD<-30%):
+        description: Monte Carlo; share of paths whose worst peak-to-trough fall within the horizon exceeds
+          30% (probability 0 to 1).
+      P(MaxDD<-50%):
+        description: Monte Carlo; share of paths whose worst peak-to-trough fall within the horizon exceeds
+          50% (probability 0 to 1).
+      RecoverYrs_med:
+        description: Monte Carlo; median across paths of the years from the trough of the worst drawdown back
+          to its previous peak; empty when more than half of the paths had not recovered by the end of the horizon.
+      P(unrecovered):
+        description: Monte Carlo; share of paths that had not regained the peak before their worst drawdown
+          by the end of the horizon (probability 0 to 1).
+      P(shortfall):
+        description: Monte Carlo; share of paths whose terminal wealth is below the target wealth (probability
+          0 to 1). Empty without a target.

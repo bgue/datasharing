@@ -98,6 +98,28 @@ _m('max', 'Maximum', 'as measured', None, 'num',
 _m('range', 'Range', 'as measured', None, 'num',
    'Timing study distribution; max minus min, the spread caused only by when you started.'),
 
+# Monte Carlo (ops/montecarlo.py): distributions over resampled paths, per portfolio and horizon
+for _q in (5, 25, 50, 75, 95):
+    _m(f'TermWealth_p{_q}', f'Terminal wealth p{_q}', 'currency', 'higher', 'num',
+       f'Monte Carlo; {_q}th percentile of terminal wealth across paths at the horizon (currency units, includes any contributions and withdrawals).')
+for _q in (5, 25, 50, 75, 95):
+    _m(f'CAGR_p{_q}', f'CAGR p{_q}', 'fraction/yr', 'higher', 'pct',
+       f'Monte Carlo; {_q}th percentile of the compound annual growth rate across paths at the horizon (fraction per year, time-weighted: without contributions and withdrawals).')
+_m('P(trail)', 'P(trail the index)', 'probability', 'lower', 'pct',
+   'Monte Carlo; share of paths on which the portfolio ends the horizon behind the passive index run on the same path (probability 0 to 1).')
+_m('ExcessCAGR_med', 'Median excess CAGR', 'fraction/yr', 'higher', 'pct',
+   'Monte Carlo; median across paths of portfolio CAGR minus the passive index CAGR on the same path (fraction per year).')
+_m('P(MaxDD<-30%)', 'P(max drawdown worse than 30%)', 'probability', 'lower', 'pct',
+   'Monte Carlo; share of paths whose worst peak-to-trough fall within the horizon exceeds 30% (probability 0 to 1).')
+_m('P(MaxDD<-50%)', 'P(max drawdown worse than 50%)', 'probability', 'lower', 'pct',
+   'Monte Carlo; share of paths whose worst peak-to-trough fall within the horizon exceeds 50% (probability 0 to 1).')
+_m('RecoverYrs_med', 'Median years to recover', 'years', 'lower', 'num',
+   'Monte Carlo; median across paths of the years from the trough of the worst drawdown back to its previous peak; empty when more than half of the paths had not recovered by the end of the horizon.')
+_m('P(unrecovered)', 'P(worst drawdown not recovered)', 'probability', 'lower', 'pct',
+   'Monte Carlo; share of paths that had not regained the peak before their worst drawdown by the end of the horizon (probability 0 to 1).')
+_m('P(shortfall)', 'P(shortfall vs target)', 'probability', 'lower', 'pct',
+   'Monte Carlo; share of paths whose terminal wealth is below the target wealth (probability 0 to 1). Empty without a target.')
+
 
 class M:
     """Metric names as constants: `M.CAGR == "CAGR"`, `M.EXCESS_YR == "Excess/yr"`."""
@@ -133,6 +155,18 @@ class M:
     DIST_P95 = '95%'
     DIST_MAX = 'max'
     DIST_RANGE = 'range'
+    MC_TERMW = 'TermWealth'          # + '_p5' ... '_p95'
+    MC_CAGR = 'CAGR'                 # + '_p5' ... '_p95'
+    MC_P_TRAIL = 'P(trail)'
+    MC_EXCESS_MED = 'ExcessCAGR_med'
+    MC_RECOVER_YRS = 'RecoverYrs_med'
+    MC_P_UNRECOVERED = 'P(unrecovered)'
+    MC_P_SHORTFALL = 'P(shortfall)'
+
+    @staticmethod
+    def mc_pdd(level: float) -> str:
+        """'P(MaxDD<-30%)' for level 0.30."""
+        return f'P(MaxDD<-{round(level * 100):d}%)'
 
 
 # the standard table columns shown as percentages (everything else prints with two decimals)

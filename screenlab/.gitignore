@@ -6,3 +6,4 @@ notebooks/.ipynb_checkpoints/
 
 # Local market data (vendor licences forbid redistribution)
 /data/
+research/montecarlo/*.csv

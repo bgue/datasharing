@@ -138,6 +138,17 @@ screenlab-run --freq monthly --only dogs --exit "TrendBreak,Breadth" --exit-comp
 ```
 Signals, policy options and calibration: [docs/EXITS.md](docs/EXITS.md).
 
+**Monte Carlo: how wide is the range of outcomes?** Resamples the history into 1,000 alternative futures and
+reports, for each screen and the passive index on the same paths, the spread of terminal wealth and growth, the
+chance of trailing the index, and the chance of a deep fall. It carries the data's survivorship and price-index
+warnings into every result. Worked study on the real S&P 500 sample:
+[research/montecarlo/MONTECARLO_SP500.md](research/montecarlo/MONTECARLO_SP500.md).
+```python
+from screenlab.realdata.bundled import sp500_lab
+lab = sp500_lab(n=5)
+print(lab.montecarlo(["momentum_12_1", "low_vol"], n_paths=1000, horizon_years=[5, 10, 20], rebalance_months=1))
+```
+
 **Use Python** (the same engine; full tour in [docs/REFERENCE.md](docs/REFERENCE.md)):
 ```python
 from screenlab import Lab
