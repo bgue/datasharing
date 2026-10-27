@@ -329,3 +329,104 @@ in-process (the MCP transport itself is not tested).
 
 Dependencies (`fastapi`, `httpx`, `mcp`) are optional: import lazily, and
 tests skip when absent. Add `requirements-server.txt`.
+
+---------------------------------------------------------------------------
+## H. Exit policy, re-entry and more exit inputs
+
+The exit *screen* says **when** risk is elevated. The exit *policy* says
+**what to do**: where assets go, how much, and when and how they come back.
+A portfolio for backtesting is `entry screen + optional exit policy`, and
+the same screen can be run with and without it side by side.
+
+### H1. `ExitPolicy` (`exit_policy.py`)
+```
+ExitPolicy(
+    screen: ExitScreen,
+    exposure_when_flagged: float = 0.0,  # 0 = fully out, 0.5 = half out
+    park: str | float = "cash",          # where the exited money sits:
+                                         #   "cash" -> cfg.cash_rate
+                                         #   a float -> that annual rate
+                                         #   an index/ticker name in Market (e.g. a T-bill or bond
+                                         #   ETF total-return series) -> hold that series, with
+                                         #   park_mer and park_cost_bps applied like a fund
+    park_mer: float = 0.0, park_cost_bps: float = 0.0,
+    switch_cost_bps: float = 5.0,        # charged on |Δexposure| of the equity sleeve
+    reentry: str = "signal",             # "signal": when the flag clears (after hysteresis and
+                                         #     min_hold_days)
+                                         # "next_rebalance": stay out until the entry screen's next
+                                         #     scheduled rebalance, even if the flag clears earlier
+                                         # "signal_or_rebalance": whichever comes first
+    reentry_delay_days: int = 0,         # confirmation: flag must stay clear this long
+    reentry_steps: int = 1,              # scale back in over k check periods (1 = all at once)
+    rescreen_on_reentry: bool = False,   # True: run the entry screen fresh on the re-entry day
+                                         #   (an unscheduled rebalance, costs charged as usual);
+                                         #   False: return to the paper sleeve that kept running
+)
+```
+`policy.exposure(mkt, rebalance_dates, curve=None) -> pd.Series` turns the
+screen's state into the equity-sleeve exposure path (values in [0, 1],
+lagged by `screen.lag`, stepped by `reentry_steps`, held down by
+`reentry_delay_days` / `reentry="next_rebalance"`). `policy.reentry_dates`
+is the list of days exposure returns to 1 from below; with
+`rescreen_on_reentry` those days become extra rebalance dates.
+
+### H2. Backtest integration (replaces F2's `ExitOverlay` as the public hook)
+- `Config.exit: ExitPolicy | None = None`. Keep `exit_overlay` working as a
+  thin alias that builds an `ExitPolicy(screen, exposure_when_flagged,
+  switch_cost_bps=cost_bps, park="cash")`.
+- `run()` becomes two-pass when a policy is set: pass 1 simulates the
+  fully-invested sleeve (as today) to obtain the curve some signals need
+  (`PortfolioStop`), computes the exposure path from the policy, extends
+  the rebalance schedule with any rescreen re-entry dates, then pass 2
+  simulates with the exposure applied inside each segment:
+  `r_t = e_t·r_equity + (1−e_t)·r_park − switch_cost·|Δe_t| − park_cost·|Δ(1−e_t)|`.
+  `Result` gains `exposure`, `switches`, `time_out` (fraction of days with
+  e < 1) and `park_curve`.
+- `Lab.backtest(screens, ..., exit=None, with_and_without=False)`: `exit`
+  is an `ExitPolicy` (or `ExitScreen`, wrapped in a default policy) applied
+  to every screen in the call; `with_and_without=True` runs each screen
+  twice and labels the rows `name` and `name+exit`. Also accept
+  `Portfolio(name, screen, exit=None, **config_overrides)` objects in the
+  `screens` list so different portfolios can carry different policies in
+  one report. The table gains `TimeOut` and `Switches/yr` columns (blank
+  for rows without a policy).
+- CLI (`run.py`): `--exit "TrendBreak:index=SYN_CAPWT,Breadth"
+  --exit-threshold 0.7 --exit-park cash --exit-reentry signal
+  --exit-compare` (runs with and without).
+- `server/registry.py`: `backtest` accepts an `exit` object with the policy
+  fields; `exit_evaluate` and `exit_calibrate` accept the same `policy`
+  fields so calibration can sweep `reentry`, `reentry_delay_days`,
+  `reentry_steps`, `park` and `exposure_when_flagged` too (add those keys
+  to `calibrate_exit`'s grid handling).
+
+### H3. Additional exit inputs (`exit_inputs.py`, registered into
+`exit_signals.BUILTINS` on import; `Signal.compute(mkt, macro=None,
+curve=None)` — the `curve` argument is the portfolio's own fully-invested
+curve, passed by the policy, `None` when evaluating against an index).
+Price-based (universe + index):
+- `CorrelationSpike(window_days=21)` — mean pairwise correlation of daily
+  returns across the universe (crises are when everything moves together).
+- `NewLowsMinusHighs(window_days=252)` — fraction of names at a 52-week low
+  minus fraction at a 52-week high.
+- `VolTermStructure(short=21, long=126)` — short/long realized vol ratio of
+  the index (spike = stress).
+- `DeathCross(fast=50, slow=200)` — fast MA below slow MA, scaled by gap.
+- `DistanceFromHigh(index, window_days=252)` — % below the 52-week high.
+- `DownsideDeviation(window=63)` — semi-deviation percentile of the index.
+Portfolio-based (need `curve`):
+- `PortfolioStop(drawdown=0.15)` — the portfolio's own drawdown from its
+  running peak (a trailing stop); score 1 when past `drawdown`.
+- `PortfolioVsIndex(months=3)` — the portfolio's relative drawdown vs the
+  index.
+Fundamentals-based (monthly sampled like `ValuationStretch`, NaN when the
+columns are absent):
+- `EarningsBreadth()` — fraction of names with `eps < eps_prev`.
+- `YieldSpreadCompression()` — universe median earnings yield minus `rf`
+  (Fed-model style); lower = riskier.
+Macro-based (NaN without the series):
+- `YieldCurve(short="rf", long="long_rate")` — long minus short; inverted =
+  risky.
+- `CreditSpread(series="credit_spread", months=3)` — level and 3-month
+  change of a credit-spread series.
+Each ships with the same causality test as the existing signals; a
+`describe()` classmethod returns its parameters for `list_signals`.
