@@ -65,6 +65,19 @@ poll progress, disconnect and fetch the result later, with an identical
 second request returning from the store; every result carries its trial
 count; and the suite passes with persistence off.
 
+## Phase 0.5: Extension refactors (prerequisites for Monte Carlo)
+See DESIGN.md §J. Run in waves; golden tests must stay identical.
+- **Wave 1:** datasets and universes (J1); one signal-window convention (J2).
+- **Wave 2:** multi-stage screen specs with the Globe portfolios as specs
+  (J3); operations registry, self-serializing types and a metric registry
+  (J4).
+- **Wave 3:** simulation as pluggable stages that can run over many price
+  paths (J5).
+
+*Done when:* adding an operation, a data source, a metric or a
+multi-stage screen each touches one module, and the golden tests are
+unchanged.
+
 ## Phase 1: Data correctness **[UI blocker]**
 - **Network:** open www.sec.gov, www.bankofcanada.ca, stooq.com (or
   eodhd.com) and fred.stlouisfed.org, and run the adapters for real.
@@ -120,6 +133,17 @@ index, see the data warnings, reopen yesterday's runs, and export a report.
 
 *Done when:* the toggle adds a `+exit` row with time out and switches per
 year, and the UI states that it lowers drawdown and does not raise return.
+
+## Phase 4.5: Monte Carlo
+See DESIGN.md §K. Scenario generators (block / stationary / regime
+bootstrap, factor simulation) built as datasets, a `montecarlo` operation
+running as a job over many paths, outcome distributions for every portfolio
+and the passive index on the same paths, with the data card's survivorship
+warning carried through.
+
+*Done when:* a user can ask "how often does this portfolio trail the index
+over 10 years" and get a distribution with the passive index on identical
+paths, stored and comparable.
 
 ## Phase 5: Later
 - **Taxes:** taxable, TFSA and RRSP accounts.

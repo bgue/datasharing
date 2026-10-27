@@ -601,3 +601,97 @@ progress, close the connection, and fetch the result later by id. A second
 identical request returns instantly from the store. Two runs can be
 compared with `store.compare`. The trial count appears in every result JSON.
 And the whole suite passes with persistence off, which is the SDK default.
+
+---------------------------------------------------------------------------
+## J. Extension refactors (prerequisites for Monte Carlo)
+
+Goal: each new capability plugs in at one place. Every refactor below must
+keep `tests/test_golden.py` bit-identical unless a value change is reported
+and approved. They run in waves so no two agents edit the same files.
+
+### J1. Datasets and universes (wave 1) — `dataset.py`, `universe.py`
+- `Dataset` (frozen): `prices` (TR index, wide), `fundamentals` (long, PIT),
+  `indices`, `universe: Universe`, `manifest: DataCard` (name, source,
+  span, n_names, benchmark kind price|total_return, PIT yes/no, delisted
+  included yes/no, survivorship score, currency, licence note).
+  `Market(dataset)` keeps working; `Market(fund, prices, indices)` builds a
+  Dataset internally.
+- `DatasetBuilder` protocol: `build(**opts) -> Dataset`. Implementations:
+  `SyntheticBuilder`, `BundledSP500Builder`, `CSVBuilder`, and the adapter
+  stubs (`SECBuilder`, `BoCMacro`) that today return ad-hoc shapes.
+  `Lab.from_dataset(ds)`; `Lab.synthetic`/`from_csv`/`sp500_lab` delegate.
+- `Universe` protocol: `members(asof) -> Index` (tickers eligible on that
+  date). Implementations: `AllListed` (default; today's behaviour),
+  `TopN(n, by="market_cap")`, `Membership(table)` (date ranges per ticker,
+  for index history), `Filtered(base, predicate)` (e.g. common stocks only
+  via a `security_type` column when present). `Market.view(asof)` filters by
+  the dataset universe; screens' size cuts use `TopN` instead of private
+  `_largest` helpers.
+- Survivorship score = equal-weight buy-and-hold of the universe vs the
+  benchmark over the span, stored on the DataCard and printed by reports.
+
+### J2. Signal conventions (wave 1) — `exit_signals.py`, `exit_inputs.py`
+One window convention: windows are given as `days` = trading days or
+`months` = calendar months, converted once by a shared helper; both base
+families (`_Base`, `_In`) merge into one. Defaults keep today's numbers.
+
+### J3. Multi-stage screen specs (wave 2) — `spec.py`, `screens.py`
+`ScreenSpec.stages: list[Stage]`, each stage = optional universe/filters,
+optional derive, a rank, and a `keep` count; stages run in order (Frugal:
+dividend payers in TopN(300) → keep 50 by vol_260d asc → keep 10 by pe
+asc). The single-stage fields stay as sugar for one stage. Re-express the
+Globe portfolios, dogs, magic_formula and value_momentum as specs, with
+golden-identical picks; Python screens remain allowed.
+
+### J4. Operations, self-serializing types, metric registry (wave 2)
+- `operations.py`: `Operation(name, args_model, run(lab, **args) -> result,
+  to_json(result), metrics(result) -> long rows, family(args))`. One
+  registry `OPERATIONS`. `Lab` methods, `jobs.KINDS`, `runspec`,
+  `tracking`, `store` metric extraction, server `_kw_*`/`result_json`,
+  REST routes and MCP tools are generated from or delegate to it. Adding an
+  operation = one module that registers itself.
+- Types own their serialization: `to_dict()` / `from_dict()` (or a
+  `@serializable(tag)` registry) on Config, HoldRule, ExitPolicy, ExitScreen,
+  signals, Portfolio, IndexBenchmark, ScreenBenchmark, Screen, ScreenSpec,
+  MacroSeries refs, Grid, and a picklable `CapTiered` class replacing the
+  `cap_tiered` closure. `runspec.to_dict` becomes a thin dispatcher.
+- `metrics.METRICS`: name → (label, unit, direction higher/lower-better,
+  format, description). Every metric literal elsewhere references it; the
+  LinkML `StandardMetric` enum is generated from it (test keeps them equal).
+
+### J5. Simulation pipeline (wave 3) — `backtest.py`, `construction.py`, `exit_policy.py`
+`simulate` becomes a sequence of stages with a small interface:
+`Selection` (screen picks) → `Weighting` (incl. caps, hold rule) →
+`CostModel` (per-security bps, commission, MER) → `Overlay` (exit
+exposure, park asset) → `Accrual` (cash, delisting). `Config` groups them
+(`config.costs`, `config.construction`, `config.exit`) with today's flat
+fields kept as aliases for one release. A stage may be vectorized over many
+price paths (needed by K).
+
+---------------------------------------------------------------------------
+## K. Monte Carlo (after J) — sketch
+
+Question it answers: "how wide is the range of outcomes for this portfolio,
+and how often does it trail the passive index over my horizon?" — instead
+of one historical path.
+- **Scenario generators** (`montecarlo.py`, each a `DatasetBuilder` that
+  derives scenario Datasets from a base Dataset):
+  `BlockBootstrap(block_months=12)` (resample calendar blocks of the joint
+  cross-section, keeping correlations and fundamentals aligned with their
+  dates), `StationaryBootstrap`, `RegimeBootstrap` (sample blocks
+  conditioned on an exit-signal or vol regime), and `FactorSim` (fit a
+  factor model to the base and simulate). Fundamentals travel with the
+  resampled dates, so screens see coherent snapshots.
+- **Operation** `montecarlo(screens, generator, n_paths, horizon_years,
+  start_wealth, contributions, withdrawals, seed)` registered via J4;
+  runs as a job with progress, parallel over paths (process pool),
+  storable with per-path metrics in the store (`persist="metrics"`) and
+  fan-chart quantiles as an artifact.
+- **Outputs:** distribution of terminal wealth and CAGR (p5/p25/p50/p75/p95),
+  probability of trailing the passive index over the horizon, probability
+  of a drawdown worse than X, time-to-recovery, shortfall vs a target —
+  for every portfolio and the passive index on the *same* paths.
+- **Guardrails:** bootstrap from a survivor-biased dataset inherits the bias
+  (DataCard warning carried into every MC result); the trial counter
+  counts each generator configuration; results always paired with the
+  passive index on identical paths.
