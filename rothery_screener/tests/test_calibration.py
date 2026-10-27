@@ -138,3 +138,14 @@ def test_best_overlay_plugs_into_backtest_and_lab_method():
     assert len(res.windows) >= 2
     rep = lab.backtest(["dogs"], exit_overlay=res.exit_overlay)
     assert rep.results["dogs"].exposure.min() <= 1.0
+
+
+def test_calibration_passes_target_curve_to_curve_signals():
+    """Regression: curve-based signals (PortfolioStop) used to be dropped silently in calibration."""
+    from rothery_screener import Lab, ExitScreen, PortfolioStop
+    from rothery_screener.calibration import calibrate_exit
+    lab = Lab.synthetic(freq="ME", n_stocks=60, years=8, seed=5)
+    curve = lab.market.series("SYN_CAPWT")
+    res = calibrate_exit(ExitScreen([PortfolioStop(0.10)]), lab.market, curve,
+                         {"threshold": [0.5, 0.9]}, "Calmar")
+    assert (res.table["FracFlagged"] > 0).any()

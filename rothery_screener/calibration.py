@@ -163,7 +163,7 @@ def calibrate_exit(exit_screen: ExitScreen, mkt, target, grid, objective: str | 
         expo = (policy.exposure_when_flagged if policy is not None else exposure_when_flagged) if expo is None else expo
         ck = tuple(sorted((k, _key(v)) for k, v in p.items() if k.startswith("signals.")))
         if ck not in comp_cache:
-            comp_cache[ck] = scr.components(mkt, macro)
+            comp_cache[ck] = scr.components(mkt, macro, curve=curve)   # curve feeds PortfolioStop etc.
         comp = comp_cache[ck]
         score, state = scr.score(mkt, macro, comp), scr.state(mkt, macro, comp)
         st = state.reindex(curve.index, method="pad").fillna(False)
