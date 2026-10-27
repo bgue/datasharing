@@ -82,8 +82,8 @@ A 400-word hand-back becomes:
 
 ```
 31 ENDP phase0 async runs + store
-CHG rothery_screener/jobs.py+; rothery_screener/store.py+; rothery_screener/runspec.py+; rothery_screener/api.py~; rothery_screener/server/registry.py~
-TST 327p 0f 0s 120s `python -m pytest rothery_screener/tests -q -p no:cacheprovider`
+CHG screenlab/jobs.py+; screenlab/store.py+; screenlab/runspec.py+; screenlab/api.py~; screenlab/server/registry.py~
+TST 327p 0f 0s 120s `python -m pytest screenlab/tests -q -p no:cacheprovider`
 DEV unpersistable runs stored under key `unpersistable:<id>` not NULL; callables run in-thread in process mode
 LIM run_key ignores `lab.config` and `lab.screens`; trial counts span all sessions in store
 NUM new tests ~40s; golden unchanged
