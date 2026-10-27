@@ -161,8 +161,15 @@ def _wrap(fn):
     return inner
 
 
-def main():
-    create_server().run()            # stdio transport
+def main(argv=None):
+    import argparse
+    ap = argparse.ArgumentParser(
+        prog="screenlab-mcp", description="screenlab MCP server. Speaks the Model Context Protocol over "
+        "standard input/output; it is started by an MCP client (for example `claude mcp add screenlab -- "
+        "screenlab-mcp`), not run by hand.")
+    ap.add_argument("--transport", choices=["stdio"], default="stdio", help="transport (stdio only)")
+    a = ap.parse_args(argv)
+    create_server().run(transport=a.transport)
 
 
 if __name__ == "__main__":

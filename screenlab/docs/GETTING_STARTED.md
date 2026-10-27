@@ -110,8 +110,7 @@ Check it worked:
 ```
 python -c "import screenlab; print('ok')"
 ```
-It prints `ok`. (screenlab has no `__version__` attribute; the package version, 0.1.0, is in
-`pyproject.toml`.)
+It prints `ok`. `screenlab-run --version` prints the installed version (for example `screenlab 0.1.0`).
 
 ## 5. First run
 
@@ -139,26 +138,29 @@ The synthetic market is random and made up, so these numbers mean nothing about 
 test the machinery. Drop `--freq monthly` for daily data (slower, more realistic for timing studies).
 
 ### 5b. Real S&P 500 sample data
-The command line has no flag for the bundled data yet, so use a short Python snippet. Save it as `sp500.py`
-or paste it into `python`:
+```
+screenlab-run --data sp500 --only momentum_12_1,low_vol --rebalance 1
+```
+Needs the `data` extra (included in `all`); without it the command stops with a message telling you to
+install it. Takes about 10 seconds and prints (trimmed):
+```
+Backtest 1991-02-04 to 2022-12-28, rebalance every 1m, benchmark SP500
+Data: sp500_bundled, 1990-01-02..2022-12-28, 20 names, benchmark SP500 (price), PIT n/a, delisted no, survivorship +10.1%/yr
+WARNING: benchmark SP500 is a price index (dividends left out) but the portfolios are total return, ...
+WARNING: survivorship score +10.1%/yr: ... results are likely flattered.
+
+                CAGR    Vol Sharpe   MaxDD Worst12m  AvgN BeatBenchYrs Excess/yr Turnover Costs/yr
+momentum_12_1  22.8%  23.8%   0.98  -47.2%   -40.6%  5.00        81.2%     15.0%    25.0%     1.5%
+low_vol        12.7%  15.3%   0.86  -35.1%   -28.3%  5.00        65.6%      4.9%     7.2%     0.4%
+SP500           7.8%  18.4%   0.50  -56.8%   -48.8%
+```
+The same in Python, if you prefer (`--data sp500` is the command-line form of this):
 ```python
 from screenlab.realdata.bundled import sp500_lab
 lab = sp500_lab()
 rep = lab.backtest(["momentum_12m", "low_vol"], rebalance_months=12, cost_bps=20)
 print(rep)
 print(lab.picks("momentum_12m"))
-```
-Needs the `data` extra. Takes about 2 seconds and prints:
-```
-Backtest 1991-02-04 to 2022-12-28, rebalance every 12m, benchmark SP500
-Data: sp500_bundled, 1990-01-02..2022-12-28, 20 names, benchmark SP500 (price), PIT n/a, delisted no, survivorship +10.1%/yr
-WARNING: benchmark SP500 is a price index (dividends left out) but the portfolios are total return, so excess return is overstated by about the index's dividend yield. Use a total-return benchmark.
-WARNING: survivorship score +10.1%/yr: an equal-weight basket of this dataset's names beat its benchmark by that much, so it probably holds survivors chosen with hindsight and results are likely flattered.
-
-               CAGR    Vol Sharpe   MaxDD Worst12m  AvgN BeatBenchYrs Excess/yr Turnover Costs/yr
-momentum_12m  21.2%  24.6%   0.90  -48.6%   -40.4%  5.00        75.0%     13.4%    69.4%     0.3%
-low_vol       11.7%  15.7%   0.78  -34.8%   -28.3%  5.00        59.4%      3.9%    30.7%     0.1%
-SP500          7.8%  18.4%   0.50  -56.8%   -48.8%                                               
 ```
 The bundled sample has only 20 hand-picked large companies that are still around. It only supports the
 price-only screens (`momentum_12_1`, `momentum_6m`, `momentum_12m`, `low_vol`); asking for `dogs` here gives
@@ -186,7 +188,7 @@ screenlab-timing --freq monthly --only dogs --stride 3
 About 3 seconds. Prints the spread of results across start dates (best and worst "anniversary") and a blended
 "tranche" result.
 
-Helpful flags for both commands: `screenlab-run --help`; examples: `--rebalance 6`, `--cost-bps 20`,
+Helpful flags for both commands (`--data sp500` switches to the real sample): `screenlab-run --help`; examples: `--rebalance 6`, `--cost-bps 20`,
 `--mer 0.002`, `--set graham_defensive.max_pe=18`, `--graham-report`, `--csv fundamentals.csv prices.csv`.
 
 ## 6. The notebook
@@ -258,9 +260,13 @@ Add this, with your own path (on Windows write backslashes doubled: `C:\\Users\\
 If the file already has an `mcpServers` section, add only the `"screenlab": {...}` entry inside it. Quit and
 reopen Claude Desktop fully.
 
-Verified here: the server answers the MCP `initialize` handshake with `serverInfo.name` = `screenlab`. It has
-no `--help` flag: running `python -m screenlab.server.mcp_server --help` just starts the server and waits for
-input (press Ctrl+C or Ctrl+D). That is normal.
+Verified here: the server answers the MCP `initialize` handshake with `serverInfo.name` = `screenlab`.
+`screenlab-mcp --help` (or `python -m screenlab.server.mcp_server --help`) prints usage and exits. Without
+`--help` the program starts the server and waits silently for input from a client; if you ever start it by
+hand, press Ctrl+C or Ctrl+D.
+
+On macOS / Linux, with the venv active, you can let the shell fill in the path: `claude mcp add screenlab --
+"$(which python)" -m screenlab.server.mcp_server`.
 
 ## 9. Where results are stored, and how to turn it off
 The REST and MCP servers record every run (settings, metrics, a data fingerprint) in a SQLite file:
@@ -321,5 +327,6 @@ optionally `~/.screenlab/`. Remove only the program but keep the venv: `pip unin
 Rows above that show a pip or Windows message word-for-word are the standard messages and were not reproduced here. If something fails that is not here, copy the last 15 lines of the error and ask.
 
 ## 13. Where next
-See `screenlab/docs/README.md` for the map of every document. Start with `screenlab/README.md` for the screens
-and the Python API.
+See `screenlab/docs/README.md` for the map of every document. Start with `screenlab/README.md` (what you can do,
+and how to read the output), then `screenlab/docs/SCREENS.md` for the screens and `screenlab/docs/REFERENCE.md`
+for every flag and the Python API.

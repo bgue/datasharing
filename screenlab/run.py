@@ -1,6 +1,7 @@
 """Backtest screens side by side and print today's picks (CLI over the Lab API).
 
 python -m screenlab.run
+python -m screenlab.run --data sp500 --only momentum_12_1,low_vol --rebalance 1   # bundled real S&P 500 sample
 python -m screenlab.run --only dogs,graham_defensive --rebalance 6 --cost-bps 20 --mer 0.002
 python -m screenlab.run --benchmark SYN_CAPWT --bench-mer 0.0006 --bench-cost-bps 5
 python -m screenlab.run --compare top60            # extra row: equal-weight 60 largest (never primary)
@@ -18,7 +19,7 @@ import dataclasses
 
 import pandas as pd
 
-from . import backtest
+from . import __version__, backtest
 from .api import Lab
 from .benchmarks import IndexBenchmark, equal_weight_top
 from .exit_policy import ExitPolicy
@@ -34,6 +35,10 @@ def _value(v: str):
 
 def add_common_args(ap: argparse.ArgumentParser):
     g = ap.add_argument_group("data")
+    g.add_argument("--version", action="version", version=f"screenlab {__version__}")
+    g.add_argument("--data", choices=["synthetic", "sp500"], default="synthetic",
+                   help="synthetic = made-up market (default); sp500 = 20 bundled real S&P 500 names "
+                        "(price-only screens; needs the 'data' extra)")
     g.add_argument("--csv", nargs="+", metavar="FILE", help="FUNDAMENTALS PRICES [INDICES]")
     g.add_argument("--freq", choices=["daily", "monthly"], default="daily", help="synthetic data frequency")
     g.add_argument("--start")
@@ -155,8 +160,19 @@ def build_config(a) -> backtest.Config:
 
 def build_lab(a) -> tuple[Lab, list]:
     cfg = build_config(a)
-    lab = (Lab.from_csv(*a.csv, config=cfg) if a.csv else
-           Lab.synthetic(freq="B" if a.freq == "daily" else "ME", config=cfg))
+    if a.csv and a.data != "synthetic":
+        raise SystemExit("--csv and --data sp500 are mutually exclusive: choose one data source")
+    if a.csv:
+        lab = Lab.from_csv(*a.csv, config=cfg)
+    elif a.data == "sp500":
+        try:
+            from .realdata.bundled import sp500_lab
+            lab = sp500_lab(config=cfg)
+        except ImportError as e:
+            raise SystemExit("--data sp500 needs the bundled S&P 500 data, which requires skfolio "
+                             f"({e}). Install it with: pip install -e \".[data]\"") from None
+    else:
+        lab = Lab.synthetic(freq="B" if a.freq == "daily" else "ME", config=cfg)
     is_top = lambda b: b.lower().startswith("top") and b[3:].isdigit()
     extra = [a.benchmark] if a.benchmark and is_top(a.benchmark) else []
     lab.compare = tuple(equal_weight_top(int(b[3:])) if is_top(b) else IndexBenchmark(b)

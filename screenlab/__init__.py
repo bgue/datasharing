@@ -29,6 +29,12 @@ Modules:
     realdata/      bundled S&P 500 + macro data, Bank of Canada and SEC adapters, ACQUIRE.md
     run.py         CLI: compare screens;   timing.py: CLI for timing studies
 """
+try:
+    from importlib.metadata import PackageNotFoundError, version as _version
+    __version__ = _version("screenlab")
+except Exception:                      # not installed (plain checkout on sys.path)
+    __version__ = "0.1.0"
+
 from .api import BacktestReport, Lab
 from .backtest import Config, cap_tiered
 from .benchmarks import IndexBenchmark, ScreenBenchmark, equal_weight_top, passive_index
@@ -56,7 +62,7 @@ from .store import NullStore, SQLiteStore
 from .jobs import Job, JobManager
 from .progress import Cancelled
 
-__all__ = ["Lab", "BacktestReport", "Config", "cap_tiered", "IndexBenchmark", "ScreenBenchmark",
+__all__ = ["__version__", "Lab", "BacktestReport", "Config", "cap_tiered", "IndexBenchmark", "ScreenBenchmark",
            "equal_weight_top", "passive_index", "Market", "synthetic_market", "DEFENSIVE", "ENTERPRISING", "REGISTRY", "GLOBE_PORTFOLIOS",
            "GrahamTests", "Screen", "ScreenBuilder", "ScreenSpec", "define_screen", "load_screens",
            "HoldRule", "blend", "union_screen", "MacroSeries", "decompose", "extended_summary",

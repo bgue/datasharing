@@ -1,375 +1,181 @@
-# screenlab: multi-portfolio screener & backtester (sketch)
+# screenlab
 
-This sketch runs several rules-based screens side by side, each as its own
-equal-weight portfolio rebalanced on a fixed schedule, the way The Globe and
-Mail tracks its screen portfolios: pick the stocks, hold them until the next
-rebalance, compare against a passive index, then repeat.
+screenlab backtests rules-based stock screens as equal-weight portfolios, the way The Globe and Mail
+publishes its screen portfolios: pick the stocks by a written rule, hold them until the next rebalance,
+then repeat. Every result is set against a **passive, buy-and-hold index**, so the question is always
+"did the rule beat just owning the index, after costs?" You can drive it from the command line, a
+notebook, a REST API, Claude (MCP) or Python.
 
+> **State of the data (read this first).** The only data bundled with the code is 20 large S&P 500 stocks
+> that all survived to 2022, plus a price-only S&P 500 index, and a made-up (synthetic) market for testing.
+> Results on these show how the machinery works, **not whether a screen has an edge**: survivors flatter
+> every strategy (about +10 points a year here) and the price-only index understates the benchmark.
+> The program prints warnings to that effect. For real, point-in-time data see
+> [realdata/ACQUIRE.md](realdata/ACQUIRE.md); for an honest list of what the numbers can and cannot
+> support, see [CRITIQUE.md](CRITIQUE.md).
+
+## Quick start (5 minutes)
+Needs Python 3.10 or newer and about 1.5 GB of disk. Details and troubleshooting:
+[docs/GETTING_STARTED.md](docs/GETTING_STARTED.md).
+
+**1. Get the code and open a terminal in its folder** (the one containing `pyproject.toml`).
 ```
-python -m screenlab.run                          # synthetic daily market, all screens
-python -m screenlab.run --only dogs,piotroski --rebalance 6 --cost-bps 20 --mer 0.002
-python -m screenlab.run --graham-report           # funnel: survivors after each Graham test
-python -m screenlab.run --set graham_defensive.max_pe=18 --set graham_defensive.min_passes=6
-python -m screenlab.timing --screens dogs --stride 1    # every daily start, one year of offsets
-python -m screenlab.run --csv fundamentals.csv prices.csv --start 2005-01-31
+git clone -b screenlab https://github.com/bgue/datasharing.git
+cd datasharing
+```
+No git? Download the ZIP of the `screenlab` branch from GitHub, unzip it and open a terminal there.
+
+**2. Make a private Python environment ("venv") and switch it on.** macOS / Linux:
+```
+python3 -m venv .venv && source .venv/bin/activate
+```
+Windows PowerShell:
+```
+py -3 -m venv .venv; .venv\Scripts\Activate.ps1
+```
+Your prompt now starts with `(.venv)`. Each new terminal window needs the activate step again.
+
+**3. Install** (about 1.5 minutes; `.[all]` includes the sample data, notebook, servers and tests):
+```
+python -m pip install --upgrade pip
+pip install -e ".[all]"
 ```
 
-## SDK
-```python
-from screenlab import Lab, ScreenBuilder, IndexBenchmark
-
-lab = Lab.synthetic()                       # or Lab.from_csv("fund.csv", "prices.csv", "indices.csv")
-lab.benchmark = IndexBenchmark("SYN_CAPWT", mer=0.0006, cost_bps=0)   # buy-and-hold index fund
-
-lab.define(ScreenBuilder("cheap_yield")
-           .universe(top=100, exclude_sectors=["Fin"])
-           .where("pe < 15", "div_yield > 0.03", "f_score >= 6")
-           .rank(div_yield="desc", pb="asc")        # composite: sum of ranks
-           .take(10))
-
-lab.picks("cheap_yield")                             # current names + key ratios
-rep = lab.backtest(["dogs", "cheap_yield"], rebalance_months=6, cost_bps=20, mer=0.002)
-print(rep); rep.table; rep.curves                    # formatted / raw stats / equity curves
-tr = lab.timing("cheap_yield", stride=5)             # daily-start timing study
-tr.distribution(); tr.tranche
-report, funnel = lab.graham("defensive", max_pe=18, min_passes=6)
+**4. First run** on the made-up market (takes a couple of seconds):
+```
+screenlab-run --freq monthly --only dogs,screaming_value
 ```
 
-You can also write a screen as a dict or JSON, and load it with
-`lab.define(...)` or `--screen-file`:
+**5. The real S&P 500 sample** (20 stocks, rebalanced monthly):
+```
+screenlab-run --data sp500 --only momentum_12_1,low_vol --rebalance 1
+```
 
+**6. Open the notebook** (a browser tab opens; choose Run, then Run All Cells; about a minute):
+```
+jupyter lab screenlab/notebooks/explore_runs.ipynb
+```
+
+**7. Start the REST API**, then open <http://127.0.0.1:8000/docs> in a browser (Ctrl+C stops it):
+```
+screenlab-rest
+```
+
+**8. Let Claude drive it** (Claude Code; macOS / Linux, then restart the Claude Code session):
+```
+claude mcp add screenlab -- "$(which python)" -m screenlab.server.mcp_server
+```
+Windows and Claude Desktop: see section 8 of [GETTING_STARTED.md](docs/GETTING_STARTED.md).
+
+Check the install any time with `screenlab-run --version`. `screenlab-run --help` lists every option.
+
+## How to read the output
+This is the command from step 5, trimmed:
+```
+Backtest 1991-02-04 to 2022-12-28, rebalance every 1m, benchmark SP500
+Data: sp500_bundled, 1990-01-02..2022-12-28, 20 names, benchmark SP500 (price), PIT n/a, delisted no, survivorship +10.1%/yr
+WARNING: benchmark SP500 is a price index (dividends left out) but the portfolios are total return, ...
+WARNING: survivorship score +10.1%/yr: ... results are likely flattered.
+
+                CAGR    Vol Sharpe   MaxDD Worst12m  AvgN BeatBenchYrs Excess/yr Turnover Costs/yr
+momentum_12_1  22.8%  23.8%   0.98  -47.2%   -40.6%  5.00        81.2%     15.0%    25.0%     1.5%
+low_vol        12.7%  15.3%   0.86  -35.1%   -28.3%  5.00        65.6%      4.9%     7.2%     0.4%
+SP500           7.8%  18.4%   0.50  -56.8%   -48.8%
+
+Current picks as of 2022-12-28
+  momentum_12_1        XOM, CVX, RRC, MRK, LLY
+```
+- **`Data:` line (the data card)** says what you tested on: synthetic or real, whether fundamentals were
+  known at the time (`PIT`), whether dead companies are included (`delisted`), and a measured
+  `survivorship` estimate in points a year.
+- **`WARNING` lines** are the program refusing to let you fool yourself. Take them seriously.
+- **Columns.** `CAGR` compound annual return; `Vol` volatility; `Sharpe` return per unit of risk;
+  `MaxDD` worst peak-to-trough fall; `Worst12m` worst rolling year; `AvgN` average holdings;
+  `BeatBenchYrs` share of years the portfolio beat the index; **`Excess/yr`** average yearly return above the
+  passive index (the number that matters, after costs); `Turnover` share traded per year; `Costs/yr` the
+  yearly drag from trading costs. The row with no `AvgN` (`SP500`) is the passive index itself.
+- **Exit rows.** With an exit rule (see below) two more columns appear: `TimeOut`, the share of time the
+  portfolio sat out in cash, and `Switches/yr`, how often it moved in or out. Rows ending `+exit` are the
+  same screen with the exit rule applied.
+- **Current picks** are the stocks the screen would hold today.
+
+## What you can do
+Every command works on the synthetic data (add `--data sp500` for the real sample). Detail is in
+[docs/REFERENCE.md](docs/REFERENCE.md) (all flags, benchmark, data files) and [docs/SCREENS.md](docs/SCREENS.md).
+
+**Compare screens, costs and rebalance schedules.** The built-in list is in [docs/SCREENS.md](docs/SCREENS.md).
+```
+screenlab-run --freq monthly --only dogs,piotroski --rebalance 6 --cost-bps 20 --mer 0.002
+```
+
+**Test timing luck**: does the start date matter? Reruns a screen from every possible rebalance day.
+```
+screenlab-timing --freq monthly --only dogs --stride 3
+```
+
+**Change a rule** without writing code, e.g. loosen Graham's P/E limit and see which stocks survive each test:
+```
+screenlab-run --freq monthly --only graham_defensive --set graham_defensive.max_pe=18 --graham-report
+```
+
+**Define your own screen in JSON.** Save this as `my_screen.json`, then run it:
 ```json
 {"name": "cheap_yield", "n": 10,
  "universe": {"top": 100, "exclude_sectors": ["Fin"]},
- "derive": {"pe_x_pb": "pe * pb"},
  "filters": ["pe < 15", "div_yield > 0.03"],
- "graham": {"preset": "defensive", "max_pe": 18, "min_passes": 6},
- "rank": {"div_yield": "desc", "pe_x_pb": "asc"}}
+ "rank": {"div_yield": "desc", "pb": "asc"}}
+```
+```
+screenlab-run --freq monthly --screen-file my_screen.json --only cheap_yield,dogs
+```
+Keys, multi-stage funnels and the Globe and Mail portfolios: [docs/SCREENS.md](docs/SCREENS.md).
+
+**Add an exit rule** (go to cash when the market looks weak, come back when it clears). Add `--exit-compare`
+to see each screen with and without it. Whether this helps is studied in
+[research/CALIBRATION_SP500.md](research/CALIBRATION_SP500.md): it cuts the worst losses, not returns.
+```
+screenlab-run --freq monthly --only dogs --exit "TrendBreak,Breadth" --exit-compare
+```
+Signals, policy options and calibration: [docs/EXITS.md](docs/EXITS.md).
+
+**Use Python** (the same engine; full tour in [docs/REFERENCE.md](docs/REFERENCE.md)):
+```python
+from screenlab import Lab
+lab = Lab.synthetic(freq="ME")                       # or: from screenlab.realdata.bundled import sp500_lab
+rep = lab.backtest(["dogs", "screaming_value"], rebalance_months=6, cost_bps=20)
+print(rep)                                           # the table; rep.table and rep.curves are raw data
+print(lab.picks("dogs"))                             # today's holdings with key ratios
 ```
 
-The steps run in this order: universe (size cut first, then sectors) →
-derived columns → filters → Graham tests → rank → take n. Filters are pandas
-expressions over the snapshot columns. For anything the spec can't express,
-register a plain function as `Screen(name, fn, n)` with
-`fn(snapshot, n, **params) -> [tickers]`.
+**Store and compare runs; run long jobs in the background.** The REST and MCP servers record every run in
+`~/.screenlab/runs.sqlite`; in Python, give the lab a store and submit jobs:
+```python
+from screenlab import Lab, SQLiteStore
+lab = Lab.synthetic(freq="ME")
+lab.name, lab.store = "synthetic", SQLiteStore("runs.sqlite")
+lab.backtest(["dogs"], rebalance_months=6)           # recorded
+job = lab.submit("timing", screen="dogs", stride=3)  # runs in the background
+res = job.result()                                   # wait for it
+print(job.status, job.cache_hit)                     # done False; run the identical call again: done True, instant
+print(res.table.head())
+```
+How runs are keyed, cached and queried: [docs/SERVERS_AND_STORAGE.md](docs/SERVERS_AND_STORAGE.md). The
+notebook walks through it with plots.
 
-**Benchmark.** Every result is benchmarked against a passive, buy-and-hold
-index: one purchase on the portfolio's start day, then daily MER drag (MER and
-trading cost are set separately from the portfolio's and default to 0). That
-is an explicit `IndexBenchmark`, else the first loaded index series (with the
-synthetic data, the cap-weighted `SYN_CAPWT`), else an index built from the
-universe and registered in `market.indices`: `PASSIVE_CAPWT` (cap-weighted
-total return of all live names) when market caps exist, otherwise
-`PASSIVE_EW` (equal weight at the first date, never rebalanced). Excess/yr,
-BeatBenchYrs, timing, significance, sweeps and the exit-signal default target
-all use it. A screen benchmark such as `equal_weight_top(60)` (passed as
-`benchmark=` or in `compare=`) only adds a `... (compare)` row and never
-replaces it. CLI: `--benchmark NAME` (index, replaces the passive one),
-`--compare NAME|top60`, `--bench-mer X --bench-cost-bps X`.
+**Use real data.** Your own CSV files: `screenlab-run --csv fundamentals.csv prices.csv [indices.csv]`
+(file layout in [docs/REFERENCE.md](docs/REFERENCE.md)); where to buy or download real Canadian and US data:
+[realdata/ACQUIRE.md](realdata/ACQUIRE.md).
 
-**Tests.** `python -m pytest screenlab/tests -q` runs about 200
-tests in roughly 50 seconds, through the SDK where that makes sense:
-- exact cost, MER, commission, delisting and benchmark arithmetic on a
-  hand-built market;
-- spec screens reproducing the built-in screens;
-- Graham test toggles;
-- the timing windows and tranche blend;
-- the CLIs.
-
-| screen | idea |
+## Where things are
+| I want to... | Read |
 |---|---|
-| `dogs` | the 10 highest yielders among the 30 largest names (Dogs of the TSX, Beat the TSX) |
-| `graham_defensive` | Graham's defensive investor: size, CR ≥ 2, no losses, a long dividend record, P/E ≤ 15, P/E×P/B ≤ 22.5 |
-| `graham_enterprising` | Graham's looser enterprising rules: P/E ≤ 10, P/B ≤ 1.2 |
-| `net_nets` | price below net current asset value |
-| `piotroski` | F-score ≥ 8 in the cheapest P/B quintile |
-| `magic_formula` | Greenblatt's ranking on earnings yield plus return on capital |
-| `value_momentum` | low P/E and low P/B, then the best 12-1 momentum |
-| `low_vol_dividend` | the least volatile dividend payers among large caps |
-| `screaming_value`, `stable_dividend`, `frugal_dividend`, `stable_high_yield`, `basic_buyback`, `momentum_6m`, `momentum_12m` | the Globe and Mail's published portfolios, see below |
-| `bluechip_dividend_growth` | rules-based approximation of a discretionary model dividend portfolio, see below |
+| install, fix an error, connect Claude | [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) |
+| see the map of all documents | [docs/README.md](docs/README.md) |
+| every flag, the benchmark rules, the data files, backtest mechanics | [docs/REFERENCE.md](docs/REFERENCE.md) |
+| the built-in screens, spec format, Globe and Mail portfolios | [docs/SCREENS.md](docs/SCREENS.md) |
+| exit signals, exit policy, calibration | [docs/EXITS.md](docs/EXITS.md) |
+| REST, MCP, background jobs, the run database | [docs/SERVERS_AND_STORAGE.md](docs/SERVERS_AND_STORAGE.md), [server/README.md](server/README.md) |
+| what the results can and cannot support | [CRITIQUE.md](CRITIQUE.md) |
+| what is done and what is next | [ROADMAP.md](ROADMAP.md) |
 
-Every screen above except `graham_*`, `net_nets` and `piotroski` is a JSON spec in `screenlab/specs/`
-(see below). The Graham, net-nets and Piotroski screens stay Python: Graham sorts by pass count and then
-P/E x P/B, net-nets and Piotroski select with a data-dependent quantile cut and a score, none of which a
-stage's filter / rank / keep can express exactly. Their thresholds are keyword arguments (`Screen(params=...)`
-in `screens.REGISTRY`); to add a Python screen, write `fn(snapshot, n, **params) -> list[ticker]` and register it.
-
-## Defining screens as specs
-A screen is plain data: a universe, derived columns, filters, optional Graham tests and a ranking, as one
-stage, or several stages run in order. The built-in spec screens live in `screenlab/specs/globe/*.json` and
-`screenlab/specs/classic/*.json`; copy one, edit it, and load it with `lab.define(path)`,
-`define_screen(path)` or `load_screens(path)` (a file may hold one spec or a list), or `--screen-file`.
-
-Keys of a single-stage spec: `name`, `n`, `note`, `universe` (`top`, `by`, `sectors`, `exclude_sectors`; the size
-cut comes first), `derive` (column -> pandas expression), `filters` (expressions that must all hold), `graham`,
-`rank` (column -> `asc` | `desc`; several columns are combined by summing their ranks; rows with a NaN rank
-column are dropped). For a funnel give `stages` instead, a list of objects with the same keys plus `keep`. Each
-stage runs on the rows the previous one kept, a ranked stage puts them best first, `keep` cuts to the first
-`keep`, and the final `n` takes the head. Single-stage keys are sugar for one stage and pick identically.
-Leave `keep` off the last stage: `Screen.ranked` (runner-ups) then sees the full ordering.
-
-The Frugal Dividend portfolio (`specs/globe/frugal_dividend.json`), dividend payers among the 300 largest, the
-50 lowest 260-day volatility, then the 10 lowest P/E:
-
-    {"name": "frugal_dividend", "n": 10,
-     "note": "Follows the Globe's Frugal Dividend: payers, 50 lowest 260-day vol, 10 lowest P/E",
-     "stages": [
-       {"universe": {"top": 300}, "filters": ["dividend > 0"], "rank": {"vol_260d": "asc"}, "keep": 50},
-       {"rank": {"pe": "asc"}}]}
-
-The same in Python: `.then()` opens the next stage, `.keep(n)` cuts the current one, and
-`.then_keep(n, by=..., asc=True)` is a new stage that ranks by `by` and keeps n.
-
-    ScreenBuilder("frugal_dividend", n=10).universe(top=300).where("dividend > 0").rank(vol_260d="asc").keep(50) \
-        .then().rank(pe="asc").build()
-
-`ScreenSpec.to_dict()` / `ScreenSpec.from_dict()` (and `to_json`) round-trip stages; that dict is what the run
-store persists. Reordering stages changes the result (P/E first, then volatility, picks other names).
-
-## Globe and Mail portfolios
-The Globe's "Inside the Market" columns publish several screen portfolios. We follow the published rules
-as closely as the data allows. Each is in `REGISTRY` as a `Screen`, and `GLOBE_PORTFOLIOS` holds ready
-`Portfolio` objects with the published rebalance frequency:
-
-    from screenlab import Lab, GLOBE_PORTFOLIOS
-    lab = Lab.synthetic(freq="ME", n_stocks=150, years=10, seed=3)
-    rep = lab.backtest(list(GLOBE_PORTFOLIOS.values()))
-    lab.picks("frugal_dividend", runners_up=2)       # picks + the next 2 by the screen's ranking, `runner_up` column
-
-"300 largest" means the 300 largest names by market cap in our data. Equal weight throughout.
-
-| portfolio | rule | rebalance | source | what our data can't reproduce |
-|---|---|---|---|---|
-| `screaming_value` | 300 largest, the 10 lowest EV/EBIT | monthly | [article](https://www.theglobeandmail.com/investing/markets/inside-the-market/article-the-screaming-value-portfolio-offers-outsized-returns/) | the true TSX 300 universe; "common stocks only" filtering (trusts, REITs, ETFs); the Globe's EV and EBIT definitions. EBIT <= 0 is excluded |
-| `stable_dividend` | dividend payers among the 300 largest, the 20 lowest volatility over 260 trading days | monthly | [article](https://www.theglobeandmail.com/investing/markets/inside-the-market/article-bargain-prices-for-stable-dividend-stocks/) | same universe and filtering gaps; monthly data uses a 12-month window (12 returns), not 260 days |
-| `frugal_dividend` | payers among the 300 largest, the 50 lowest 260-day volatility, then the 10 lowest P/E | monthly (annual noted as an alternative) | [article](https://www.theglobeandmail.com/investing/markets/inside-the-market/article-the-frugal-dividend-portfolio/) | same gaps; P/E is trailing price/EPS, negative EPS has no P/E and is skipped. Annual: `lab.backtest([Portfolio("frugal_annual", "frugal_dividend", rebalance_months=12)])` |
-| `stable_high_yield` | same first two steps as Frugal, then the 10 highest dividend yields | monthly | [article](https://www.theglobeandmail.com/investing/markets/inside-the-market/article-behold-a-new-high-yield-portfolio-for-dividend-fans/) | same gaps; yield is the trailing dividend over the marked-to-market price |
-| `basic_buyback` | the 20 highest buyback yields (percentage reduction in shares outstanding over four quarters) among the 300 largest | monthly | [article](https://www.theglobeandmail.com/investing/markets/inside-the-market/article-a-portfolio-with-the-highest-buyback-yields-on-the-tsx-plus-more/) | `buyback_yield = 1 - shares / shares_prev`, where `shares_prev` must be the count four quarters (one year) earlier; a source with a different lag would shift the measure. Net issuers (yield <= 0) are excluded |
-| `momentum_6m`, `momentum_12m` | the 300 largest, the 10 highest prior 6- (12-) month return | monthly | [article](https://www.theglobeandmail.com/investing/markets/inside-the-market/article-should-you-follow-the-crowds-these-momentum-portfolios-tell-the-story/) | plain price return over the window, no skipped month (`mom_6m`, `mom_12m`; the `mom_12_1` column is separate). The bundled S&P 500 lab registers price-only versions with no size cut |
-| `bluechip_dividend_growth` | **approximation of a discretionary portfolio** (the Globe's Strategy Lab model dividend portfolio: conservative blue chips with rising dividends, at most 12 stocks, rarely traded): 60 largest, payers with a 10+ year dividend record and EPS above last year's, the 12 lowest 260-day volatility | annual, with `HoldRule(keep_within=2, band=0.25)` | Strategy Lab description | everything discretionary: manager judgment, a true dividend-growth test (we have only the trailing dividend and years paid), and the actual holdings and trade timing. Treat results as a rules-based stand-in, not a replica |
-
-Runner-ups: each published portfolio lists two runner-up stocks. `Lab.picks(screen, asof, runners_up=2)` returns
-the picks plus the next two by the screen's ranking (`Screen.ranked`) with a boolean `runner_up` column.
-When fewer names qualify than asked for, there may be fewer rows.
-
-New data columns behind these: `mom_6m`, `mom_12m` (plain prior-period total returns), `vol_260d` (std of daily
-log returns over the last 260 trading days, annualized by the square root of periods per year; NaN with less than
-260 returns; for monthly data it is the 12-month calendar window, identical to `vol_1y`), `ev_ebit`
-(enterprise value over EBIT, NaN when EBIT <= 0) and `buyback_yield`. Existing columns are unchanged.
-
-## Data contract
-- `fundamentals.csv` has columns `date,ticker,...` (see the `data.py` docstring;
-  the Graham tests need `sales, eps_avg3, eps_avg3_10y_ago, loss_years_5y, loss_years_10y`).
-  Each row must hold only what was **known** on that date, so shift each value
-  by its reporting lag before you load the file.
-- `indices.csv` (optional) has columns `date,index,tri` and holds the
-  benchmark series.
-- `prices.csv` has columns `date,ticker,tri`: a total-return index. Use daily
-  data for timing studies; monthly is enough for everything else.
-- Delisted names have to stay in both files. The backtester charges
-  `delist_return` when a holding disappears.
-
-## Parameters
-| flag | what it does |
-|---|---|
-| `--rebalance N` | months between rebalances (12 = annual, like the Globe screen portfolios) |
-| `--cost-bps X` | one-way cost per security in bps (spread + slippage), charged on each trade's weight change |
-| `--cost-tiers '0:75,1000:30,10000:10'` | bps by market cap in $M, so small caps cost more to trade |
-| `--commission $ --capital $` | flat dollar commission per trade, scaled by portfolio size |
-| `--mer X` | annual expense ratio on every holding (e.g. 0.0025), accrued daily |
-| `--security-file f.csv` | per-ticker `cost_bps` and/or `mer` overrides (columns: `ticker,cost_bps,mer`) |
-| `--set screen.param=value` | override any screen parameter or Graham test; repeatable |
-
-In code, `Config.cost_bps` and `Config.mer` take a float, a `{ticker: value}`
-dict (with an optional `"_default"` key), or a function of the snapshot.
-
-### Graham tests
-`GrahamTests` (in `screens.py`) holds one threshold per test. Set a threshold
-to `None` to drop that test, or set `min_passes` to accept names that fail a
-few. There are two presets, `DEFENSIVE` (ch. 14) and `ENTERPRISING` (ch. 15):
-
-size (sales), current ratio, debt (LT debt vs net current assets; utilities
-use debt/equity instead), earnings stability (years with losses in a 5- or
-10-year window), dividend record, earnings growth (3-yr average EPS vs 10
-years ago), P/E (on 3-yr average or trailing EPS), and P/B *or* P/E x P/B.
-
-`--graham-report` prints how many names survive each test in turn, and how
-many tests each name passes.
-
-## Timing (daily starts)
-`timing.py` reruns one screen with its rebalance date moved forward one
-trading day at a time, across a full rebalance period. There are two modes:
-
-- `--mode phase` (default): every variant starts and ends on the same days,
-  and only the rebalance anniversary moves. Differences between the variants
-  are therefore pure timing luck. The tool also reports a **tranche blend**:
-  capital split evenly across all anniversaries, the usual cure for timing luck.
-- `--mode start`: actually start investing on each day and hold to the end.
-  Compare these runs on excess return, because each covers a different window.
-
-The output shows the spread of CAGR, excess return, drawdown, volatility and
-the share of years that beat the benchmark (min / 5% / median / 95% / max),
-plus the best and worst anniversary. `--out file.csv` saves the per-offset
-table. A full daily sweep takes about 70 seconds per screen on the synthetic
-data; `--stride 5` tests weekly offsets instead.
-
-## Backtest mechanics
-- Each rebalance day screens a snapshot of the latest *reported*
-  fundamentals. Price, market cap and EV are marked to that day's price, so
-  P/E, P/B and yield are current.
-- Picks are equal-weighted, and weights drift between rebalances. If fewer
-  than `min_holdings` stocks pass, the portfolio sits in cash, which is
-  common for strict Graham screens.
-- When a holding is delisted, its last value is cut by `delist_return` and
-  held as cash until the next rebalance.
-- The benchmark is a passive index bought and held (see above); a screen
-  can only be an extra comparison row.
-
-## Research features
-Each lives in its own module and is reachable from `Lab`; see `DESIGN.md`
-for the design and `tests/` for worked examples.
-
-- **Real data** (`realdata/`): `sp500_lab()` runs on 20 real S&P 500 names
-  and the S&P 500 index (1990–2022, bundled with `skfolio`); `macro_us()`
-  gives real US CPI and T-bill rates (bundled with `statsmodels`). Adapters
-  for the Bank of Canada Valet API (FX, prime, CPI) and the SEC Financial
-  Statement Data Sets (point-in-time US fundamentals) are written and tested
-  on fixtures; `realdata/ACQUIRE.md` lists what to acquire and from where.
-- **Construction** (`construction.py`, `Config`): `weighting` = equal / cap /
-  inverse-vol / callable, `max_weight`, `sector_cap`, `HoldRule(keep_within,
-  band)` for turnover control, `union_screen` and `blend` for
-  screen-of-screens portfolios.
-- **Statistics and sweeps** (`stats.py`, `sweep.py`): `lab.significance(rep)`
-  gives a block-bootstrap CI and Newey–West t-stat on excess return plus the
-  deflated Sharpe ratio across the screens tried; `lab.sweep(screen, grid,
-  splits=...)` runs grid or random sweeps with walk-forward out-of-sample
-  scoring. `bayes_search` uses `optuna` when installed;
-  `docs/BAYESIAN_SWEEPS.md` explains when (rarely) that is a good idea.
-- **Extended metrics** (`macro.py`, `metrics_ext.py`): `lab.extended(rep,
-  macro)` adds real (CPI-deflated) returns, home-currency returns via an FX
-  series, net-of-financing returns against prime plus a spread (with a
-  breakeven spread and a borrow-to-invest levered curve), and excess over a
-  time-varying risk-free rate, plus a geometric decomposition.
-- **Exit-signal screen** (`exit_signals.py`): a dated risk score built from
-  causal signals (trend break, breadth, volatility regime, drawdown,
-  valuation stretch, momentum crash, rate shock, dispersion) with
-  hysteresis (on at `threshold`, off again only below `threshold −
-  hysteresis`, so the flag doesn't flicker). It runs on its own clock,
-  separate from the rebalance calendar: `check="D"` (default), `"W-FRI"` or
-  `"M"` says how often the flag may change, `lag` is the bars between
-  signal and trade, `min_hold_days` stops whipsaw. `lab.exit_eval(...)`
-  reports forward returns in flagged vs unflagged states, lead time before
-  the largest drawdowns and a derisking overlay; `Config(exit=
-  ExitPolicy(screen))` (or `lab.backtest(..., exit=...)`) applies the flag
-  day by day inside a backtest without the entry screen ever seeing it.
-- **Exit policy** (`exit_policy.py`): the screen says *when*; `ExitPolicy`
-  says *what happens*. `park` = cash, a fixed rate, or any loaded series
-  (a T-bill or bond ETF total-return index) with its own MER and cost;
-  `exposure_when_flagged` (0 = fully out); `reentry` = `"signal"` (flag
-  clears), `"next_rebalance"` (stay out until the entry screen's next
-  scheduled date) or `"signal_or_rebalance"`; `reentry_delay_days`
-  (confirmation), `reentry_steps` (scale back in gradually);
-  `rescreen_on_reentry` (re-run the entry screen on the way back in instead
-  of returning to the paper portfolio). `lab.backtest(screens, exit=policy,
-  with_and_without=True)` runs every screen with and without it (rows
-  `name` / `name+exit`, columns `TimeOut`, `Switches/yr`); `Portfolio(name,
-  screen, exit=...)` lets portfolios in one report carry different
-  policies. Row labels are unique: two entries with the same name are both
-  kept as `dogs`, `dogs#2`, ... (a name equal to the benchmark's gets `#2`
-  too). `Config.exit` is the only way to attach an exit. CLI: `--exit "TrendBreak:index=SP500,Breadth" --exit-compare
-  --exit-park cash --exit-reentry signal`. The entry picks never depend on
-  the flag.
-- **More exit inputs** (`exit_inputs.py`): correlation spike, new lows minus
-  new highs, short/long vol ratio, death cross, distance from 52-week high,
-  downside deviation, a trailing stop on the portfolio's own drawdown,
-  portfolio-vs-index drawdown, earnings breadth, earnings yield minus rf,
-  yield-curve inversion, credit spread. Each declares what data it needs
-  and returns NaN without it.
-- **Calibration** (`calibration.py`): `lab.calibrate_exit(screen, grid,
-  splits=...)` sweeps threshold, hysteresis, cadence, lag, hold period,
-  signal weights and signal parameters, scored by Calmar (default), Sharpe,
-  CAGR, MaxDD or the flagged/unflagged forward-return gap, walk-forward,
-  under constraints (max switches per year, time flagged). It reports
-  out-of-sample vs in-sample, **stability** (how often the same point wins
-  across windows) and the deflated Sharpe of the winner, and hands back a
-  ready `ExitPolicy` (`result.policy`).
-- **Servers** (`server/`): a FastAPI REST API and an MCP server expose the
-  same operations (define, picks, backtest, timing, graham, sweep,
-  significance, extended, exit evaluate / calibrate) as JSON over one
-  `LabRegistry`. `pip install -r screenlab/requirements-server.txt`,
-  then `python -m screenlab.server.rest` or `claude mcp add screenlab
-  -- python -m screenlab.server.mcp_server`. See `server/README.md`.
-  Every error is `{"error": message}` with a status: 400 bad input (the
-  message names the offending field), 404 unknown lab / screen, 501 not
-  supported; unexpected failures are a bare 500 `internal error`. In the SDK,
-  `Lab.screen` / `Lab.picks` raise `KeyError("unknown screen: <name>")`.
-
-## Asynchronous runs and persistence
-Long studies (a daily timing study is minutes, a calibration longer) run as jobs, and nothing has to be
-recomputed. Three independent pieces (DESIGN.md section I):
-
-    from screenlab import Lab, SQLiteStore, JobManager, RunSpec
-
-    lab = Lab.synthetic(freq="ME", n_stocks=150, years=10, seed=3)
-    lab.name, lab.store = "synthetic", SQLiteStore("runs.sqlite")     # or env SCREENLAB_STORE=runs.sqlite
-    lab.backtest(["dogs"], rebalance_months=6)         # recorded: spec, metrics, trial counted
-    job = lab.submit("timing", screen="dogs", stride=1)   # runs in the background
-    job.status, job.progress, job.message              # queued/running/done/failed/cancelled, 0..1
-    job.cancel()                                       # stops within one rebalance / offset / point
-    res = job.result()                                 # the same object lab.timing(...) returns
-    lab.submit("timing", screen="dogs", stride=1).cache_hit    # identical run: from the store, instantly
-
-- **`RunSpec(kind, dataset, args, seed, label, tags)`** (`runspec.py`) is a run as plain data. `to_dict` /
-  `from_dict` serialize every input (Config with HoldRule / ExitPolicy / per-security maps / `cap_tiered` tiers,
-  ExitScreen and signals by name + params, Portfolio, benchmarks, screens, Grid, MacroSeries by reference).
-  The types own this (`to_dict()` / `from_dict()`, `serial.py`; `cap_tiered(...)` returns the picklable `CapTiered`),
-  and deprecated signal parameter names are replaced by the new ones first, so `Breadth(window_days=200)` and the
-  equivalent `Breadth(days=...)` share a run key.
-  `run_key = sha256(kind, args, seed, dataset_id, code_version)`; arguments that are None or equal to the
-  default are dropped, so `lab.timing("dogs")` and `{"screen": "dogs", "stride": 1}` are one run. A Python
-  callable input (function weighting, custom cost, a `Screen(fn=...)` whose function is a lambda, closure or
-  lives in `__main__`) still runs, but the spec is not
-  `persistable`: no key, no cache, no `rerun`. A `Screen` whose `fn` is an importable module-level function (like the
-  S&P 500 lab's price-only screens) is persistable: it is stored as `module:qualname` and re-imported, and the
-  reference is part of the lab-context hash. A MacroSeries needs `runspec.macro_ref(macro, name)` to be
-  persistable. The `run_key` of an SDK call ignores `lab.config` and `lab.screens`; pass overrides as arguments.
-- **Operations** (`operations.py`, `ops/*.py`): each analysis (picks, backtest, timing, graham, sweep, significance,
-  extended, exit_evaluate, exit_calibrate) is one `Operation` in `OPERATIONS`: name, typed `Args`, `run(lab, **kw)`,
-  `to_json`, `metrics`, `family`, `long_running`. `Lab.<name>`, `lab.run(name, ...)`, job kinds, run keys, store metrics,
-  REST routes (typed OpenAPI bodies, `GET /operations`) and MCP tools are all derived from the registry, so a new
-  analysis is one module: define a class, decorate it with `@register_operation`
-  (see `tests/test_operations.py` for a complete example).
-- **`metrics.METRICS`**: every metric name with label, unit, better-direction, format and description; code uses
-  `metrics.M.CAGR` etc. and the LinkML `StandardMetric` enum is generated from it.
-- **`JobManager(store, workers, mode="process"|"thread", labs={name: factory})`** (`jobs.py`): spawn-based
-  process pool (factories must be importable module-level callables; thread mode is for tests and small
-  machines). Dedups against the store and against jobs already running, reports progress and honours cancel
-  through `progress.py` hooks in `backtest.simulate`, `timing.study`, `run_sweep` and `calibrate_exit`.
-  Workers talk to the parent through the store's `jobs` table, or a multiprocessing Manager without a store.
-  `Lab(jobs=...)` shares a pool; without one `lab.submit` uses a private thread pool.
-- **`SQLiteStore(path)` / `NullStore`** (`store.py`): runs, long-format metrics, gzip-CSV artifacts, datasets,
-  trials and jobs in one SQLite file (WAL, safe for several processes). Off in the SDK by default (no files are
-  written). Levels `persist="none|inputs|metrics|full"` (`full` keeps curves and per-offset tables). Query with
-  `store.find(kind=, screen=, dataset=, since=, where={"Excess/yr": (">", 0.02)})`, compare with
-  `store.compare([k1, k2])`, check reproducibility with `store.rerun(key, executor)`, and manage with
-  `export`, `delete`, `prune(keep_last=, older_than=)`.
-- **Trial counting**: each distinct run_key is a trial of its family (kind + dataset + screen base); every
-  sweep / calibration grid point counts too. `significance`, `sweep` and `calibrate_exit` deflate the Sharpe by
-  that count (`result.attrs["n_trials"]`, `CalibrationResult.summary["n_trials"]`), and every server result
-  JSON carries `trials_in_family` and `trials_scope` ("store", or "process" when there is no store).
-- **Server**: the store is on by default, at `~/.screenlab/runs.sqlite` (override with `SCREENLAB_STORE`; `none`
-  turns it off). `POST /jobs {kind, lab, args, seed?, label?, tags?, force?}` -> `{job_id, run_key, status,
-  cache_hit}`, `GET /jobs/{id}` (status, progress), `GET /jobs/{id}/result` (the synchronous endpoint's JSON; 409
-  until done), `DELETE /jobs/{id}`, `GET /jobs?status=`; MCP: `submit_run, run_status, run_result,
-  cancel_run, list_runs`. Synchronous endpoints stop after `SCREENLAB_SYNC_TIMEOUT` seconds (default 120) with a
-  408 that points at `/jobs`. Details in `server/README.md`.
-
-### Schema and walk-through of the run store
-`schema/runstore.linkml.yaml` documents every table and column of the SQLite store (units, how `run_key` is built,
-enums for kind / status / persist level, the standard metric names); `tests/test_schema.py` fails when it drifts from
-`store.py`. `notebooks/explore_runs.ipynb` is a plain-language tour: run backtests and a background job into a store,
-then list, pivot, compare, plot, query with SQL and rerun them (see `notebooks/README.md`).
-
-## Next steps
-See [ROADMAP.md](ROADMAP.md).
+Run the tests with `pytest -q screenlab/tests -p no:cacheprovider` (about two minutes).

@@ -1,11 +1,15 @@
 # Documentation map
 
-Paths are relative to the `screenlab/` package folder unless stated. Read top to bottom if you are new.
+Paths are relative to the `screenlab/` package folder unless stated. Read top to bottom if you are new: install first, then the front-page README, then whatever you need.
 
 | Document | For | Read it when |
 |---|---|---|
 | [docs/GETTING_STARTED.md](GETTING_STARTED.md) | Anyone installing for the first time, no programming needed | You have just got the code and need a working venv, a first run, the notebook, the REST API or the Claude connection. |
-| [README.md](../README.md) | Users of the screens and the Python SDK | You want to know what each built-in screen does, how to define your own, costs and benchmarks, and the `Lab` API. |
+| [README.md](../README.md) | Everyone | The front page: what screenlab is, a 5-minute quick start, how to read the output, and a menu of things to do. |
+| [docs/REFERENCE.md](REFERENCE.md) | Users who want the details | Every command-line flag, the benchmark rules, the CSV data contract, backtest mechanics, timing studies, Graham tests, the `Lab` SDK tour, and research features (construction, statistics and sweeps, extended metrics). |
+| [docs/SCREENS.md](SCREENS.md) | Users of the screens | You want the list of built-in screens, how to define your own as JSON or in Python, or the Globe and Mail portfolios with their source articles and what our data cannot reproduce. |
+| [docs/EXITS.md](EXITS.md) | Users testing exit rules | You want the exit signals, the exit policy (where the money goes, when it returns), the extra exit inputs and walk-forward calibration. |
+| [docs/SERVERS_AND_STORAGE.md](SERVERS_AND_STORAGE.md) | Power users and tool builders | You want the REST and MCP servers in outline, background jobs, run keys, the SQLite run store and trial counting. |
 | [notebooks/README.md](../notebooks/README.md) | Notebook users | You want to open `explore_runs.ipynb` and understand what it writes and where. |
 | [server/README.md](../server/README.md) | Developers and tool builders | You want the REST endpoints, MCP tools, JSON shapes, async jobs and the `SCREENLAB_STORE` setting. |
 | [schema/runstore.linkml.yaml](../schema/runstore.linkml.yaml) | Anyone querying the run database (SQL) | You want the tables and columns of `runs.sqlite` and what each unit means. |

@@ -288,7 +288,7 @@ Run these in order; fix before moving on.
 5. **Currency mixing.** TSX cross-listed companies appear as `XYZ.TO` (CAD) and `XYZ` (USD). Keep one listing per company and one currency in `market_cap`. FX series from the Bank of Canada can convert a USD column.
 6. **Value sanity.** No negative prices; `shares` positive; `market_cap` within a plausible range per sector; `ev_ebit` not NaN for most profitable names; `eps_avg3_10y_ago` present for names older than 11 years if you run Graham.
 7. **Index kind.** Confirm the benchmark is total return (section 3). Compare with a published figure: the XIC factsheet's trailing 10-year annualized return vs your series.
-8. **Reconcile one published Globe portfolio.** Pick one screen (for example the `screaming_value` article linked in the README), choose the same start date and holdings count, and compare the picks and the first-year return with the article. Differences of a few names are normal given EV/EBIT definitions; a completely different list means the universe or EV is wrong. This is the Phase 1 acceptance test in the roadmap.
+8. **Reconcile one published Globe portfolio.** Pick one screen (for example the `screaming_value` article linked in `docs/SCREENS.md`), choose the same start date and holdings count, and compare the picks and the first-year return with the article. Differences of a few names are normal given EV/EBIT definitions; a completely different list means the universe or EV is wrong. This is the Phase 1 acceptance test in the roadmap.
 
 ---
 
