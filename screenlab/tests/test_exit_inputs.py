@@ -80,9 +80,10 @@ def test_signals_are_causal(sig, lab):
 def test_describe_and_registration():
     for sig in ALL:
         d = type(sig).describe()
-        assert set(d) == {"name", "params", "needs"} and d["name"] == sig.name and d["needs"]
+        assert set(d) == {"name", "params", "units", "needs"} and d["name"] == sig.name and d["needs"]
         assert all(n in ("prices", "index", "curve", "fundamentals") or n.startswith("macro:") for n in d["needs"])
-    assert CorrelationSpike.describe()["params"] == {"window_days": 21, "min_names": 10}
+    assert CorrelationSpike.describe()["params"] == {"days": 21, "min_names": 10}
+    assert CorrelationSpike.describe()["units"] == {"days": "trading days"}
     assert PortfolioStop.describe()["params"] == {"drawdown": 0.15}
     assert YieldCurve.describe()["needs"] == ["macro:rf", "macro:long_rate"]
     names = es.BUILTINS if isinstance(es.BUILTINS, dict) else {c.__name__: c for c in es.BUILTINS}

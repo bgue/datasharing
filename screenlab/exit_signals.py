@@ -4,8 +4,14 @@ Separate from the entry screens and never tuned jointly with them. Every `Signal
 (plus optional macro series) to a float Series on the trading-day index, higher = riskier, already
 normalized to a rolling percentile rank (10y calendar lookback, expanding before that), so signals
 are comparable and can be averaged. Everything is strictly causal: the value on day t only uses
-data up to t (trailing windows, no centered windows, no full-sample normalization). Windows are in
-calendar terms, so daily and monthly price frequencies both work.
+data up to t (trailing windows, no centered windows, no full-sample normalization).
+
+Window convention (one for every signal, see `calendar_window`): a parameter named `days` (or `*_days`
+such as `short_days`) is a number of TRADING days, a parameter named `months` (or `*_months`) is a number of
+CALENDAR months, and a parameter that is genuinely a calendar-day count says so (`lag_calendar_days`).
+Trading days are converted to calendar time once (x 365.25 / 252) and widened to a signal-specific minimum
+number of observations, so daily and monthly price frequencies both work. `describe()` reports every
+window parameter with its unit.
 
 `ExitScreen` averages signals into a score and a hysteresis flag; `evaluate` measures what the flag
 would have told you about a target curve; `overlay` trades the flag (cash when flagged).
@@ -14,9 +20,10 @@ Macro inputs are plain pandas Series, passed as a dict or any object with `.get(
 """
 from __future__ import annotations
 
+import functools
 import inspect
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import Protocol, runtime_checkable
 
 import numpy as np
@@ -77,8 +84,42 @@ def _target_series(mkt, index) -> pd.Series:
     return _universe_curve(mkt)
 
 
-def _window_days(months: float | None = None, days: float | None = None) -> int:
-    return max(1, int(round(days if days is not None else months * _DAYS_PER_MONTH)))
+TRADING_DAYS_PER_YEAR = 252
+CAL_PER_TRADING_DAY = 365.25 / TRADING_DAYS_PER_YEAR      # calendar days per trading day (~1.4494)
+
+TRADING_DAYS, CAL_MONTHS, CAL_DAYS = "trading days", "calendar months", "calendar days"
+
+
+def median_step(index: pd.DatetimeIndex) -> float:
+    """Median spacing of `index` in calendar days (1 for fewer than two bars, ~1.4 daily, ~30 monthly)."""
+    if len(index) < 2:
+        return 1.0
+    return float(np.median(np.diff(index.values).astype("timedelta64[D]").astype(float)))
+
+
+def calendar_window(index: pd.DatetimeIndex, days: float | None = None, months: float | None = None,
+                    min_obs: int = 1) -> int:
+    """Length in calendar days of a trailing window given in trading `days` XOR calendar `months`.
+
+    `days` x 365.25 / 252 and `months` x 30.4375, rounded, then widened to at least `min_obs` observations
+    of this index (`ceil(min_obs x median_step)`), so a 63-trading-day window on monthly data still spans a
+    few bars. Never shorter than one calendar day. The same call serves daily and monthly data; pass the
+    result to `rolling(f"{n}D")` or `pd.Timedelta(days=n)`.
+    """
+    if (days is None) == (months is None):
+        raise ValueError("give exactly one of `days` (trading days) or `months` (calendar months)")
+    n = int(round(days * CAL_PER_TRADING_DAY if days is not None else months * _DAYS_PER_MONTH))
+    return max(1, n, int(np.ceil(min_obs * median_step(index))))
+
+
+def window_not_full(index: pd.DatetimeIndex, calendar_days: int) -> np.ndarray:
+    """True where a `calendar_days`-long window starting at the first bar is not yet full."""
+    return np.asarray(index < index[0] + pd.Timedelta(days=calendar_days))
+
+
+def _renamed(new: str, to_new=lambda v: v, from_new=lambda v: v):
+    """Deprecation record for a renamed parameter: new name + value converters (old -> new, new -> old)."""
+    return (new, to_new, from_new)
 
 
 def _blank(mkt) -> pd.Series:
@@ -100,14 +141,14 @@ def uses_curve(sig) -> bool:
     flag = getattr(sig, "uses_curve", None)
     if flag is not None:
         return bool(flag)
-    needs = getattr(sig, "needs", None)          # exit_inputs declares e.g. needs = ("curve", "index")
+    needs = getattr(sig, "needs", None)          # e.g. needs = ("curve", "index")
     if needs is not None:
         return "curve" in needs
     cls = type(sig)
     if isinstance(sig, _Base):
-        own = cls.compute not in (_Base.compute, _MonthlySampled.compute)
-        return (_takes(cls.raw, "curve") or (own and _takes(cls.compute, "curve"))
-                or _takes(getattr(cls, "monthly", None), "curve"))
+        own = cls.compute is not _Base.compute
+        part = cls.monthly if sig.sampling == "monthly" else cls.raw
+        return _takes(part, "curve") or (own and _takes(cls.compute, "curve"))
     return _takes(getattr(cls, "compute", None), "curve")
 
 
@@ -132,75 +173,141 @@ class Signal(Protocol):
     def compute(self, mkt, macro=None, curve=None) -> pd.Series: ...
 
 
+def _signal(cls=None, *, renamed: dict | None = None):
+    """Dataclass decorator for signals (replaces `@dataclass(repr=False)`), with deprecated parameter names.
+
+    `renamed` maps an OLD parameter name to `_renamed(new, to_new, from_new)`. The constructor still accepts
+    the old keyword (DeprecationWarning, value converted to the new unit; if both are given the old one wins,
+    which is what `dataclasses.replace` needs), and the old attribute still reads
+    and writes through to the new one, so `dataclasses.replace(sig, old=...)` and grid keys like
+    "signals.Breadth.window_days" keep working for one release.
+    """
+    def wrap(cls):
+        cls = dataclass(repr=False)(cls)
+        ren = dict(renamed or {})
+        cls._renamed = {**getattr(cls.__mro__[1], "_renamed", {}), **ren}
+        if ren:
+            init = cls.__init__
+
+            @functools.wraps(init)
+            def __init__(self, *args, **kw):
+                for old, (new, to_new, _) in ren.items():
+                    if old in kw:               # the deprecated name wins (dataclasses.replace passes both)
+                        warnings.warn(f"{cls.__name__}({old}=...) is deprecated; use {new}= "
+                                      f"({cls.units.get(new, 'new unit')})", DeprecationWarning, stacklevel=2)
+                        kw[new] = to_new(kw.pop(old))
+                init(self, *args, **kw)
+            cls.__init__ = __init__
+            for old, (new, to_new, from_new) in ren.items():
+                def _get(self, old=old, new=new, from_new=from_new):
+                    warnings.warn(f"{type(self).__name__}.{old} is deprecated; use .{new}",
+                                  DeprecationWarning, stacklevel=2)
+                    return from_new(getattr(self, new))
+
+                def _set(self, v, old=old, new=new, to_new=to_new):
+                    warnings.warn(f"{type(self).__name__}.{old} is deprecated; use .{new}",
+                                  DeprecationWarning, stacklevel=2)
+                    setattr(self, new, to_new(v))
+                setattr(cls, old, property(_get, _set))
+        return cls
+    return wrap(cls) if cls is not None else wrap
+
+
+class _Describe:
+    """`describe` on the class returns the defaults, on an instance the current values."""
+    def __get__(self, obj, cls):
+        def describe() -> dict:
+            params = {f.name: (getattr(obj, f.name) if obj is not None else f.default) for f in fields(cls)}
+            return {"name": cls.__name__, "params": params,
+                    "units": {k: u for k, u in cls.units.items() if k in params},
+                    "needs": list(cls.needs or ())}
+        return describe
+
+
 class _Base:
-    """Shared plumbing: subclasses give `raw()`; `compute` normalizes it to a rolling percentile."""
+    """The one signal base. Subclasses give `raw()` (daily-sampled) or `monthly()` (`sampling = "monthly"`).
+
+    `compute` normalizes to a rolling percentile. Monthly-sampled signals (valuation, earnings) rank the
+    month-end series and pad it to the daily index; a month-end value is only visible from that month-end
+    day on, so padding stays causal. `raw`/`monthly` receive `curve` only when they declare it.
+
+    Class attributes: `needs` (inputs read: "prices", "index", "curve", "fundamentals", "macro:<name>"),
+    `units` (parameter -> unit string for every window-like parameter, reported by `describe()`),
+    `min_obs` (percentile warm-up; None = 20 daily / 12 monthly).
+    """
     lookback_years = 10
-    min_obs = 20
+    min_obs = None
+    sampling = "daily"                 # "daily" or "monthly"
+    needs = None                       # None = infer from the method signature (custom subclasses)
+    units: dict = {}
+    _renamed: dict = {}
+    describe = _Describe()
 
     @property
     def name(self) -> str:
         return type(self).__name__
 
-    def raw(self, mkt, macro=None) -> pd.Series:
+    def raw(self, mkt, macro=None, curve=None) -> pd.Series:
+        if self.sampling == "monthly":
+            return self._call(self.monthly, mkt, macro, curve).reindex(mkt.index, method="pad")
         raise NotImplementedError
 
+    def monthly(self, mkt, macro=None, curve=None) -> pd.Series:
+        raise NotImplementedError
+
+    @staticmethod
+    def _call(fn, mkt, macro, curve):
+        return fn(mkt, macro, curve=curve) if _takes(fn, "curve") else fn(mkt, macro)
+
     def normalize(self, x: pd.Series) -> pd.Series:
-        return rolling_percentile(x, self.lookback_years, self.min_obs)
+        n = self.min_obs if self.min_obs is not None else (12 if self.sampling == "monthly" else 20)
+        return rolling_percentile(x, self.lookback_years, n)
 
     def compute(self, mkt, macro=None, curve=None) -> pd.Series:
-        # `raw` only receives the curve when it declares a `curve` parameter (portfolio-based signals)
-        raw = self.raw(mkt, macro, curve=curve) if _takes(self.raw, "curve") else self.raw(mkt, macro)
-        return self.normalize(raw).reindex(mkt.index)
+        if self.sampling == "monthly":
+            return self.normalize(self._call(self.monthly, mkt, macro, curve)).reindex(mkt.index, method="pad")
+        return self.normalize(self._call(self.raw, mkt, macro, curve)).reindex(mkt.index)
 
     def __repr__(self):
         return f"{self.name}()"
 
 
-class _MonthlySampled(_Base):
-    """Signals built from monthly samples: rank on the monthly series, then pad to the daily index.
-
-    A month-end value is only visible from that month-end day on, so padding stays causal.
-    """
-    min_obs = 12
-
-    def monthly(self, mkt, macro=None) -> pd.Series:
-        raise NotImplementedError
-
-    def raw(self, mkt, macro=None):
-        return self.monthly(mkt, macro).reindex(mkt.index, method="pad")
-
-    def compute(self, mkt, macro=None, curve=None) -> pd.Series:
-        m = self.monthly(mkt, macro, curve=curve) if _takes(self.monthly, "curve") else self.monthly(mkt, macro)
-        return self.normalize(m).reindex(mkt.index, method="pad")
-
-
 # --------------------------------------------------------------------------- built-in signals
-@dataclass(repr=False)
+@_signal
 class TrendBreak(_Base):
     """Index below its `window_months` SMA (Faber); raw score = -(price / SMA - 1)."""
     index: str | None = "SP500"
     window_months: float = 10
+    needs = ("index",)
+    units = {"window_months": CAL_MONTHS}
 
-    def raw(self, mkt, macro=None):
+    def raw(self, mkt, macro=None, curve=None):
         p = _target_series(mkt, self.index)
-        days = _window_days(months=self.window_months)
+        days = calendar_window(p.index, months=self.window_months)
         sma = p.rolling(f"{days}D").mean()
         out = -(p / sma - 1)
-        out[p.index < p.index[0] + pd.Timedelta(days=days)] = np.nan     # window not yet full
+        out[window_not_full(p.index, days)] = np.nan
         return out
 
 
-@dataclass(repr=False)
+@_signal(renamed={"window_days": _renamed("days", lambda v: v / CAL_PER_TRADING_DAY,
+                                          lambda v: v * CAL_PER_TRADING_DAY)})
 class Breadth(_Base):
-    """1 - fraction of the universe above its `window_days` calendar-day moving average."""
-    window_days: int = 200
+    """1 - fraction of the universe above its `days`-trading-day moving average (default 138 ~ 200 calendar days).
 
-    def raw(self, mkt, macro=None):
+    The old `window_days` was a CALENDAR-day count; it is still accepted (deprecated) and converted.
+    """
+    days: float = 138
+    needs = ("prices",)
+    units = {"days": TRADING_DAYS}
+
+    def raw(self, mkt, macro=None, curve=None):
         px = mkt.prices
-        ma = px.rolling(f"{self.window_days}D").mean()
+        w = calendar_window(px.index, days=self.days, min_obs=6)
+        ma = px.rolling(f"{w}D").mean()
         first = px.notna().to_numpy().argmax(axis=0)
         eligible = px.index.to_numpy()[:, None] >= (px.index.to_numpy()[first]
-                                                    + np.timedelta64(self.window_days, "D"))[None, :]
+                                                    + np.timedelta64(w, "D"))[None, :]
         valid = eligible & px.notna().to_numpy() & ma.notna().to_numpy()
         above = (px.to_numpy() > ma.to_numpy()) & valid
         n = valid.sum(axis=1)
@@ -209,34 +316,36 @@ class Breadth(_Base):
         return pd.Series(1 - frac, index=px.index)
 
 
-@dataclass(repr=False)
+@_signal(renamed={"window": _renamed("days")})
 class VolRegime(_Base):
-    """Realized volatility of the index over `window` trading days (as calendar time, >= 6 observations)."""
+    """Realized volatility of the index over `days` trading days (as calendar time, >= 6 observations)."""
     index: str | None = "SP500"
-    window: int = 63
+    days: int = 63
+    needs = ("index",)
+    units = {"days": TRADING_DAYS}
 
-    def raw(self, mkt, macro=None):
+    def raw(self, mkt, macro=None, curve=None):
         p = _target_series(mkt, self.index)
         r = np.log(p).diff()
-        step = float(np.median(np.diff(p.index.values).astype("timedelta64[D]").astype(float)))
-        days = max(int(round(self.window * 365.25 / 252)), int(np.ceil(6 * step)))
-        vol = r.rolling(f"{days}D", min_periods=5).std() * np.sqrt(mkt.ppy)
-        vol[p.index < p.index[0] + pd.Timedelta(days=days)] = np.nan
+        w = calendar_window(p.index, days=self.days, min_obs=6)
+        vol = r.rolling(f"{w}D", min_periods=5).std() * np.sqrt(mkt.ppy)
+        vol[window_not_full(p.index, w)] = np.nan
         return vol
 
 
-@dataclass(repr=False)
+@_signal
 class DrawdownFromPeak(_Base):
     """Depth of the index's current drawdown from its running peak."""
     index: str | None = "SP500"
+    needs = ("index",)
 
-    def raw(self, mkt, macro=None):
+    def raw(self, mkt, macro=None, curve=None):
         p = _target_series(mkt, self.index)
         return -(p / p.cummax() - 1)
 
 
-@dataclass(repr=False)
-class ValuationStretch(_MonthlySampled):
+@_signal
+class ValuationStretch(_Base):
     """Universe aggregate of a valuation column (P/E, or CAPE-like `pe_avg3`); all-NaN if unavailable.
 
     Snapshots are expensive, so the series is sampled at calendar month-ends via `Market.view` and
@@ -244,8 +353,10 @@ class ValuationStretch(_MonthlySampled):
     """
     col: str = "pe"
     agg: str = "median"
+    sampling = "monthly"
+    needs = ("fundamentals",)
 
-    def monthly(self, mkt, macro=None):
+    def monthly(self, mkt, macro=None, curve=None):
         dates = _month_end_dates(mkt.index)
         first_report = pd.Timestamp(mkt.fund["date"].min()) if len(mkt.fund) else None
         vals = []
@@ -262,19 +373,22 @@ class ValuationStretch(_MonthlySampled):
         return pd.Series(vals, index=dates, name=self.name)
 
 
-@dataclass(repr=False)
-class MomentumCrash(_MonthlySampled):
+@_signal
+class MomentumCrash(_Base):
     """Momentum is losing money while the market is in a drawdown (the setup for momentum crashes).
 
     Each month, 12-1 momentum deciles are formed on month-end prices; the top-minus-bottom decile return
-    over the following month is the realized spread. Raw risk = max(0, -3-month spread) *
+    over the following month is the realized spread. Raw risk = max(0, -`spread_months`-month spread) *
     max(0, depth of the market's drawdown from its 12-month high).
     """
     index: str | None = None            # market proxy for the drawdown; default equal-weight universe
     decile: float = 0.1
     spread_months: int = 3
+    sampling = "monthly"
+    needs = ("prices",)
+    units = {"spread_months": CAL_MONTHS}
 
-    def monthly(self, mkt, macro=None):
+    def monthly(self, mkt, macro=None, curve=None):
         me = _month_end_dates(mkt.index)
         M = mkt.prices.reindex(me).to_numpy()
         n = len(me)
@@ -296,19 +410,21 @@ class MomentumCrash(_MonthlySampled):
         return (-recent).clip(lower=0) * (-dd)
 
 
-@dataclass(repr=False)
+@_signal(renamed={"lag_days": _renamed("lag_calendar_days")})
 class RateShock(_Base):
     """Change in a macro rate series (e.g. prime or the risk-free rate) over the last `months`; needs macro."""
     series: str = "prime"
     months: int = 12
-    lag_days: int = 0                    # publication lag to apply to the macro series
+    lag_calendar_days: int = 0           # publication lag applied to the macro series
+    needs = ("macro:prime",)
+    units = {"months": CAL_MONTHS, "lag_calendar_days": CAL_DAYS}
 
-    def raw(self, mkt, macro=None):
+    def raw(self, mkt, macro=None, curve=None):
         s = _macro_get(macro, self.series)
         if s is None or s.empty:
             return _blank(mkt)
         s = s.copy()
-        s.index = s.index + pd.Timedelta(days=self.lag_days)
+        s.index = s.index + pd.Timedelta(days=self.lag_calendar_days)
         now = s.reindex(mkt.index, method="pad")
         then = s.reindex(mkt.index - pd.DateOffset(months=self.months), method="pad")
         out = now - then.to_numpy()
@@ -316,13 +432,15 @@ class RateShock(_Base):
         return out
 
 
-@dataclass(repr=False)
+@_signal
 class Dispersion(_Base):
-    """Cross-sectional standard deviation of trailing 1-month returns across the universe."""
+    """Cross-sectional standard deviation of trailing `months`-month returns across the universe."""
     months: int = 1
     min_names: int = 10
+    needs = ("prices",)
+    units = {"months": CAL_MONTHS}
 
-    def raw(self, mkt, macro=None):
+    def raw(self, mkt, macro=None, curve=None):
         idx = mkt.index
         back = idx.searchsorted(idx - pd.DateOffset(months=self.months), side="left")
         px = mkt.prices.to_numpy()

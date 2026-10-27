@@ -1,73 +1,21 @@
 """Additional exit inputs (DESIGN H3), registered into `exit_signals.BUILTINS` on import.
 
-Same contract as the built-ins in `exit_signals`: `compute(mkt, macro=None, curve=None)` returns a float
-Series on `mkt.index`, higher = riskier, normalized to a rolling percentile rank (10y calendar lookback),
-strictly causal, NaN where the inputs are absent (missing columns, macro series, or `curve`). `curve` is
-the portfolio's own fully-invested equity curve (None when evaluating against an index). Windows are
-nominal trading days converted to calendar time (x 365.25 / 252) and widened to a minimum number of
-observations, so daily and monthly price data both work. Every class has a `describe()` classmethod.
-
-Each `compute` is implemented here (not inherited) so the signals work whether or not the base
-protocol in `exit_signals` already passes `curve` through.
+Same contract and the same base class as the built-ins in `exit_signals`: `compute(mkt, macro=None,
+curve=None)` returns a float Series on `mkt.index`, higher = riskier, normalized to a rolling percentile
+rank (10y calendar lookback), strictly causal, NaN where the inputs are absent (missing columns, macro
+series, or `curve`). `curve` is the portfolio's own fully-invested equity curve (None when evaluating
+against an index). Windows follow the shared convention (`exit_signals.calendar_window`): `days` =
+trading days, `months` = calendar months, converted to calendar time and widened to a minimum number of
+observations, so daily and monthly price data both work. `describe()` lists parameters with their units.
 """
 from __future__ import annotations
-
-from dataclasses import dataclass, fields
 
 import numpy as np
 import pandas as pd
 
 from . import exit_signals as _es
-from .exit_signals import _Base, _blank, _macro_get, _month_end_dates, _target_series
-
-_CAL = 365.25 / 252          # calendar days per nominal trading day
-
-
-def _step(index: pd.DatetimeIndex) -> float:
-    """Median spacing of the index in calendar days (1 for daily, ~30 for monthly)."""
-    if len(index) < 2:
-        return 1.0
-    return float(np.median(np.diff(index.values).astype("timedelta64[D]").astype(float)))
-
-
-def _days(index, n: float, min_obs: int = 1) -> int:
-    """Calendar-day length of an `n`-trading-day window, at least `min_obs` observations long."""
-    return max(int(round(n * _CAL)), int(np.ceil(min_obs * _step(index))))
-
-
-def _not_full(index, days: int) -> np.ndarray:
-    """True where a `days`-long window starting at the first bar is not yet full."""
-    return np.asarray(index < index[0] + pd.Timedelta(days=days))
-
-
-class _In(_Base):
-    """Base for the H3 signals: `raw(mkt, macro, curve)` -> `normalize` -> reindexed to `mkt.index`."""
-    needs: tuple = ()
-
-    def raw(self, mkt, macro=None, curve=None) -> pd.Series:
-        raise NotImplementedError
-
-    def compute(self, mkt, macro=None, curve=None) -> pd.Series:
-        return self.normalize(self.raw(mkt, macro, curve)).reindex(mkt.index)
-
-    @classmethod
-    def describe(cls) -> dict:
-        return {"name": cls.__name__, "params": {f.name: f.default for f in fields(cls)},
-                "needs": list(cls.needs)}
-
-
-class _InMonthly(_In):
-    """Monthly-sampled (like `ValuationStretch`): rank the month-end series, pad to daily (causal)."""
-    min_obs = 12
-
-    def monthly(self, mkt, macro=None, curve=None) -> pd.Series:
-        raise NotImplementedError
-
-    def raw(self, mkt, macro=None, curve=None):
-        return self.monthly(mkt, macro, curve).reindex(mkt.index, method="pad")
-
-    def compute(self, mkt, macro=None, curve=None):
-        return self.normalize(self.monthly(mkt, macro, curve)).reindex(mkt.index, method="pad")
+from .exit_signals import (CAL_DAYS, CAL_MONTHS, TRADING_DAYS, _Base, _blank, _macro_get, _month_end_dates,
+                           _renamed, _signal, _target_series, calendar_window, window_not_full)
 
 
 def _curve_on(mkt, curve) -> pd.Series | None:
@@ -82,9 +30,9 @@ def _curve_on(mkt, curve) -> pd.Series | None:
 
 
 # --------------------------------------------------------------------------- price-based
-@dataclass(repr=False)
-class CorrelationSpike(_In):
-    """Mean pairwise correlation of returns across the universe over `window_days` (crises: all move together).
+@_signal(renamed={"window_days": _renamed("days")})
+class CorrelationSpike(_Base):
+    """Mean pairwise correlation of returns across the universe over `days` trading days (crises: all move together).
 
     Efficient: no correlation matrix. Each name's return is scaled by its own trailing 1y volatility
     (known the bar before), S = sum of the scaled returns, and over the rolling window
@@ -92,9 +40,10 @@ class CorrelationSpike(_In):
     which is the mean pairwise correlation when the scale is constant over the window (an
     approximation under time-varying scale). Missing returns count as zero; needs >= `min_names` live names.
     """
-    window_days: int = 21
+    days: int = 21
     min_names: int = 10
     needs = ("prices",)
+    units = {"days": TRADING_DAYS}
 
     def raw(self, mkt, macro=None, curve=None):
         px, idx = mkt.prices, mkt.index
@@ -104,26 +53,27 @@ class CorrelationSpike(_In):
         z = (r / sd.where(sd > 0)).clip(-8, 8)
         live = z.notna().sum(axis=1)
         z = z.fillna(0.0)
-        days = _days(idx, self.window_days, 6)
+        days = calendar_window(idx, days=self.days, min_obs=6)
         v_i = z.rolling(f"{days}D", min_periods=5).var()
         var_s = z.sum(axis=1).rolling(f"{days}D", min_periods=5).var()
         a = v_i.sum(axis=1)
         b = v_i.pow(0.5).sum(axis=1) ** 2 - a
         with np.errstate(invalid="ignore", divide="ignore"):
             rho = ((var_s - a) / b.where(b > 0)).clip(-1, 1)
-        rho[(live < self.min_names).to_numpy() | _not_full(idx, days)] = np.nan
+        rho[(live < self.min_names).to_numpy() | window_not_full(idx, days)] = np.nan
         return rho
 
 
-@dataclass(repr=False)
-class NewLowsMinusHighs(_In):
-    """Fraction of names at a `window_days` (52-week) low minus the fraction at a high; needs >= 10 names."""
-    window_days: int = 252
+@_signal(renamed={"window_days": _renamed("days")})
+class NewLowsMinusHighs(_Base):
+    """Fraction of names at a `days`-trading-day (default 252 = 52-week) low minus the fraction at a high; needs >= 10 names."""
+    days: int = 252
     needs = ("prices",)
+    units = {"days": TRADING_DAYS}
 
     def raw(self, mkt, macro=None, curve=None):
         px, idx = mkt.prices, mkt.index
-        days = _days(idx, self.window_days, 6)
+        days = calendar_window(idx, days=self.days, min_obs=6)
         lo = px.rolling(f"{days}D").min()
         hi = px.rolling(f"{days}D").max()
         first = px.notna().to_numpy().argmax(axis=0)
@@ -138,74 +88,80 @@ class NewLowsMinusHighs(_In):
         return pd.Series(frac, index=idx)
 
 
-@dataclass(repr=False)
-class VolTermStructure(_In):
-    """Short / long realized volatility ratio of the index (a spike = stress); windows in trading days."""
-    short: int = 21
-    long: int = 126
+@_signal(renamed={"short": _renamed("short_days"), "long": _renamed("long_days")})
+class VolTermStructure(_Base):
+    """Short / long realized volatility ratio of the index (a spike = stress); `short_days` / `long_days` in trading days."""
+    short_days: int = 21
+    long_days: int = 126
     index: str | None = "SP500"
     needs = ("index",)
+    units = {"short_days": TRADING_DAYS, "long_days": TRADING_DAYS}
 
     def raw(self, mkt, macro=None, curve=None):
         p = _target_series(mkt, self.index)
         r = np.log(p).diff()
-        ds, dl = _days(p.index, self.short, 6), _days(p.index, self.long, 12)
+        ds = calendar_window(p.index, days=self.short_days, min_obs=6)
+        dl = calendar_window(p.index, days=self.long_days, min_obs=12)
         dl = max(dl, ds + 1)
         vs = r.rolling(f"{ds}D", min_periods=5).std()
         vl = r.rolling(f"{dl}D", min_periods=10).std()
         out = vs / vl.where(vl > 0)
-        out[_not_full(p.index, dl)] = np.nan
+        out[window_not_full(p.index, dl)] = np.nan
         return out
 
 
-@dataclass(repr=False)
-class DeathCross(_In):
-    """Fast MA (`fast` trading days) below slow MA (`slow`): raw = -(fast / slow - 1), so a wider gap = riskier."""
-    fast: int = 50
-    slow: int = 200
+@_signal(renamed={"fast": _renamed("fast_days"), "slow": _renamed("slow_days")})
+class DeathCross(_Base):
+    """Fast MA (`fast_days` trading days) below slow MA (`slow_days`): raw = -(fast / slow - 1), so a wider gap = riskier."""
+    fast_days: int = 50
+    slow_days: int = 200
     index: str | None = "SP500"
     needs = ("index",)
+    units = {"fast_days": TRADING_DAYS, "slow_days": TRADING_DAYS}
 
     def raw(self, mkt, macro=None, curve=None):
         p = _target_series(mkt, self.index)
-        df, ds = _days(p.index, self.fast, 2), _days(p.index, self.slow, 8)
+        df = calendar_window(p.index, days=self.fast_days, min_obs=2)
+        ds = calendar_window(p.index, days=self.slow_days, min_obs=8)
         ds = max(ds, df + 1)
         out = -(p.rolling(f"{df}D").mean() / p.rolling(f"{ds}D").mean() - 1)
-        out[_not_full(p.index, ds)] = np.nan
+        out[window_not_full(p.index, ds)] = np.nan
         return out
 
 
-@dataclass(repr=False)
-class DistanceFromHigh(_In):
-    """Fraction below the trailing `window_days` (52-week) high of the index."""
+@_signal(renamed={"window_days": _renamed("days")})
+class DistanceFromHigh(_Base):
+    """Fraction below the trailing `days`-trading-day (default 252 = 52-week) high of the index."""
     index: str | None = "SP500"
-    window_days: int = 252
+    days: int = 252
     needs = ("index",)
+    units = {"days": TRADING_DAYS}
 
     def raw(self, mkt, macro=None, curve=None):
         p = _target_series(mkt, self.index)
-        return 1 - p / p.rolling(f"{_days(p.index, self.window_days, 6)}D").max()
+        return 1 - p / p.rolling(f"{calendar_window(p.index, days=self.days, min_obs=6)}D").max()
 
 
-@dataclass(repr=False)
-class DownsideDeviation(_In):
-    """Annualized semi-deviation of the index's returns (negative returns only) over `window` trading days."""
-    window: int = 63
+@_signal(renamed={"window": _renamed("days")})
+class DownsideDeviation(_Base):
+    """Annualized semi-deviation of the index's returns (negative returns only) over `days` trading days."""
+    days: int = 63
     index: str | None = "SP500"
     needs = ("index",)
+    units = {"days": TRADING_DAYS}
 
     def raw(self, mkt, macro=None, curve=None):
         p = _target_series(mkt, self.index)
-        d = _days(p.index, self.window, 6)
+        d = calendar_window(p.index, days=self.days, min_obs=6)
         down = np.log(p).diff().clip(upper=0.0) ** 2
         out = down.rolling(f"{d}D", min_periods=5).mean() ** 0.5 * np.sqrt(mkt.ppy)
-        out[_not_full(p.index, d)] = np.nan
+        out[window_not_full(p.index, d)] = np.nan
         return out
 
 
 # --------------------------------------------------------------------------- portfolio-based
-@dataclass(repr=False)
-class PortfolioStop(_In):
+@_signal
+class PortfolioStop(_Base):
     """The portfolio's own drawdown from its running peak, as a trailing stop (needs `curve`).
 
     Unlike the other signals this is NOT a percentile: the score is the raw `drawdown / stop` ratio
@@ -227,8 +183,8 @@ class PortfolioStop(_In):
         return x
 
 
-@dataclass(repr=False)
-class PortfolioVsIndex(_In):
+@_signal
+class PortfolioVsIndex(_Base):
     """Relative drawdown of the portfolio against the index over the last `months` (needs `curve`).
 
     rel = curve / index; raw = 1 - rel / (max of rel over the trailing window), i.e. how much the portfolio
@@ -237,6 +193,7 @@ class PortfolioVsIndex(_In):
     months: int = 3
     index: str | None = "SP500"
     needs = ("curve", "index")
+    units = {"months": CAL_MONTHS}
 
     def raw(self, mkt, macro=None, curve=None):
         c = _curve_on(mkt, curve)
@@ -244,15 +201,16 @@ class PortfolioVsIndex(_In):
             return _blank(mkt)
         p = _target_series(mkt, self.index).reindex(mkt.index)
         rel = c / p
-        days = max(int(round(self.months * _es._DAYS_PER_MONTH)), int(np.ceil(2 * _step(mkt.index))))
+        days = calendar_window(mkt.index, months=self.months, min_obs=2)
         return 1 - rel / rel.rolling(f"{days}D").max()
 
 
 # --------------------------------------------------------------------------- fundamentals-based
-@dataclass(repr=False)
-class EarningsBreadth(_InMonthly):
+@_signal
+class EarningsBreadth(_Base):
     """Fraction of names whose earnings fell (`eps < eps_prev`), sampled at month-ends; NaN without those columns."""
     min_names: int = 5
+    sampling = "monthly"
     needs = ("fundamentals",)
 
     def monthly(self, mkt, macro=None, curve=None):
@@ -271,8 +229,8 @@ class EarningsBreadth(_InMonthly):
         return out
 
 
-@dataclass(repr=False)
-class YieldSpreadCompression(_InMonthly):
+@_signal
+class YieldSpreadCompression(_Base):
     """Fed-model style: universe median earnings yield minus the risk-free rate; lower = riskier.
 
     Sampled at month-ends; `rf` is an annual rate as a decimal (like `MacroSeries.rf`). NaN without the
@@ -280,6 +238,7 @@ class YieldSpreadCompression(_InMonthly):
     """
     rf: str = "rf"
     min_names: int = 5
+    sampling = "monthly"
     needs = ("fundamentals", "macro:rf")
 
     def monthly(self, mkt, macro=None, curve=None):
@@ -301,19 +260,20 @@ class YieldSpreadCompression(_InMonthly):
 
 
 # --------------------------------------------------------------------------- macro-based
-@dataclass(repr=False)
-class YieldCurve(_In):
+@_signal(renamed={"lag_days": _renamed("lag_calendar_days")})
+class YieldCurve(_Base):
     """Short minus long rate (macro series, decimals); inverted (positive) = riskier. NaN without both."""
     short: str = "rf"
     long: str = "long_rate"
-    lag_days: int = 0                    # publication lag to apply to the macro series
+    lag_calendar_days: int = 0           # publication lag applied to the macro series
     needs = ("macro:rf", "macro:long_rate")
+    units = {"lag_calendar_days": CAL_DAYS}
 
     def raw(self, mkt, macro=None, curve=None):
         s, l = _macro_get(macro, self.short), _macro_get(macro, self.long)
         if s is None or l is None or s.empty or l.empty:
             return _blank(mkt)
-        lag = pd.Timedelta(days=self.lag_days)
+        lag = pd.Timedelta(days=self.lag_calendar_days)
         both = pd.concat([s.rename("s"), l.rename("l")], axis=1)
         both.index = both.index + lag
         both = both.ffill().dropna()
@@ -322,8 +282,8 @@ class YieldCurve(_In):
         return spread
 
 
-@dataclass(repr=False)
-class CreditSpread(_In):
+@_signal(renamed={"lag_days": _renamed("lag_calendar_days")})
+class CreditSpread(_Base):
     """Credit-spread level and its change over `months`: score = mean of the two rolling percentiles.
 
     Wider and widening = riskier. NaN without the macro series (the change part is NaN for the first
@@ -331,15 +291,16 @@ class CreditSpread(_In):
     """
     series: str = "credit_spread"
     months: int = 3
-    lag_days: int = 0
+    lag_calendar_days: int = 0
     needs = ("macro:credit_spread",)
+    units = {"months": CAL_MONTHS, "lag_calendar_days": CAL_DAYS}
 
     def raw(self, mkt, macro=None, curve=None):
         s = _macro_get(macro, self.series)
         if s is None or s.empty:
             return _blank(mkt)
         s = s.copy()
-        s.index = s.index + pd.Timedelta(days=self.lag_days)
+        s.index = s.index + pd.Timedelta(days=self.lag_calendar_days)
         now = s.reindex(mkt.index, method="pad")
         now[mkt.index < s.index[0]] = np.nan
         return now

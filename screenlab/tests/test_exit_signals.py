@@ -298,3 +298,190 @@ def test_backtest_overlay_on_synthetic_market():
     assert res.exposure.index.equals(res.curve.index)
     assert plain.results["dogs"].exposure.eq(1.0).all() and plain.results["dogs"].switches == 0
     assert res.holdings.keys() == plain.results["dogs"].holdings.keys()    # picks untouched
+
+
+# --------------------------------------------------------------------------- one window convention (J2)
+import json
+import warnings
+from dataclasses import fields, replace
+from pathlib import Path
+
+from screenlab import exit_inputs as ei
+from screenlab import exit_signals as es
+from screenlab.exit_signals import calendar_window, median_step, window_not_full
+
+BASELINE = json.loads((Path(__file__).parent / "fixtures" / "signals_baseline.json").read_text())
+
+
+def test_calendar_window_daily_and_monthly_index():
+    daily = pd.bdate_range("2020-01-01", periods=300)
+    monthly = pd.date_range("2010-01-31", periods=60, freq="ME")
+    assert median_step(daily) == 1.0 and median_step(monthly) in (30.0, 31.0)
+    assert median_step(daily[:1]) == 1.0
+    # trading days -> x 365.25/252 (63 td ~ 91 calendar days); months -> x 30.4375
+    assert calendar_window(daily, days=63) == 91 and calendar_window(daily, days=252) == 365
+    assert calendar_window(daily, months=10) == 304 and calendar_window(monthly, months=10) == 304
+    # same trading-day request, different data frequency: widened to min_obs observations on monthly data
+    assert calendar_window(daily, days=21, min_obs=6) == 30
+    assert calendar_window(monthly, days=21, min_obs=6) == int(np.ceil(6 * median_step(monthly)))
+    assert calendar_window(monthly, days=21, min_obs=1) == int(median_step(monthly))   # one bar
+    assert calendar_window(daily, days=0.1) == 1                       # never below one day
+    for bad in ({}, {"days": 5, "months": 1}):
+        with pytest.raises(ValueError):
+            calendar_window(daily, **bad)
+    nf = window_not_full(daily, 30)                                    # first 30 calendar days = 22 bdays
+    assert nf[:22].all() and not nf[22:].any() and nf.sum() == (daily < daily[0] + pd.Timedelta(days=30)).sum()
+
+
+def _markets():
+    return {"monthly": Lab.synthetic(freq="ME", n_stocks=150, years=10, seed=3).market,
+            "daily": Lab.synthetic(freq="B", n_stocks=40, years=6, seed=5).market}
+
+
+def _macro_in(index, seed=1):
+    rng = np.random.default_rng(seed)
+    d = pd.date_range(index[0] - pd.DateOffset(months=2), index[-1] + pd.DateOffset(months=1), freq="ME")
+    n = len(d)
+    return {"rf": pd.Series(0.03 + np.cumsum(rng.normal(0, 0.002, n)), index=d),
+            "long_rate": pd.Series(0.04 + np.cumsum(rng.normal(0, 0.002, n)), index=d),
+            "credit_spread": pd.Series(0.02 + np.abs(np.cumsum(rng.normal(0, 0.002, n))), index=d),
+            "prime": pd.Series(0.05 + np.cumsum(rng.normal(0, 0.003, n)), index=d)}
+
+
+def _curve_in(mkt, seed=2):
+    rng = np.random.default_rng(seed)
+    return pd.Series(np.cumprod(1 + rng.normal(0.0004, 0.01, len(mkt.index))), index=mkt.index)
+
+
+@pytest.fixture(scope="module")
+def baseline_markets():
+    out = {}
+    for name, mkt in _markets().items():
+        out[name] = (mkt, _macro_in(mkt.index), _curve_in(mkt))
+    return out
+
+
+def _check_against(summary, s: pd.Series, label: str):
+    v = s.to_numpy(float)
+    ok = np.isfinite(v)
+    assert len(v) == summary["n"] and int(ok.sum()) == summary["n_valid"], label
+    import hashlib
+    assert hashlib.md5(ok.tobytes()).hexdigest() == summary["nan_mask_md5"], f"{label}: NaN pattern changed"
+    pos = np.linspace(0, len(v) - 1, 31).astype(int)
+    for i, want in zip(pos, summary["samples"]):
+        if want is None:
+            assert not ok[i], label
+        else:
+            assert v[i] == pytest.approx(want, abs=1e-9), f"{label} @ {i}"
+    if summary["sum"] is not None:
+        assert float(v[ok].sum()) == pytest.approx(summary["sum"], abs=1e-8), label
+
+
+def _expected(market: str, label: str) -> dict:
+    return BASELINE["known_changes"].get(market, {}).get(label) or BASELINE["results"][market][label]
+
+
+@pytest.mark.parametrize("market", ["monthly", "daily"])
+@pytest.mark.parametrize("label", [k for k in BASELINE["specs"] if k.startswith("default:")])
+def test_defaults_numerically_unchanged(label, market, baseline_markets):
+    """Defaults reproduce the pre-refactor outputs (fixtures/signals_baseline.json), daily and monthly."""
+    mkt, macro, curve = baseline_markets[market]
+    spec = BASELINE["specs"][label]
+    sig = es.BUILTINS[spec["cls"]](**spec["new_kwargs"])
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)            # defaults must not hit any deprecated path
+        s = sig.compute(mkt, macro, curve=curve)
+    _check_against(BASELINE["results"][market][label], s, f"{market}/{label}")
+
+
+@pytest.mark.parametrize("market", ["monthly", "daily"])
+@pytest.mark.parametrize("label", [k for k in BASELINE["specs"] if k.startswith("param:")])
+def test_nondefault_params_new_and_deprecated_names(label, market, baseline_markets):
+    """New names and the deprecated old names give the same series; only documented cases moved."""
+    mkt, macro, curve = baseline_markets[market]
+    spec = BASELINE["specs"][label]
+    want = _expected(market, label)
+    new = es.BUILTINS[spec["cls"]](**spec["new_kwargs"])
+    _check_against(want, new.compute(mkt, macro, curve=curve), f"new {market}/{label}")
+    if spec["old_kwargs"] != spec["new_kwargs"]:
+        with pytest.warns(DeprecationWarning):
+            old = es.BUILTINS[spec["cls"]](**spec["old_kwargs"])
+    else:                                                              # name unchanged: must not warn
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            old = es.BUILTINS[spec["cls"]](**spec["old_kwargs"])
+    _check_against(want, old.compute(mkt, macro, curve=curve), f"old {market}/{label}")
+
+
+def test_known_value_changes_are_only_the_documented_one():
+    assert {m: sorted(v) for m, v in BASELINE["known_changes"].items()} == {"monthly": ["param:Breadth_100d"]}
+
+
+RENAMED = [(es.Breadth, "window_days", "days", 200, 200 / es.CAL_PER_TRADING_DAY),
+           (es.VolRegime, "window", "days", 21, 21), (es.RateShock, "lag_days", "lag_calendar_days", 5, 5),
+           (ei.CorrelationSpike, "window_days", "days", 10, 10),
+           (ei.NewLowsMinusHighs, "window_days", "days", 100, 100),
+           (ei.VolTermStructure, "short", "short_days", 10, 10), (ei.VolTermStructure, "long", "long_days", 90, 90),
+           (ei.DeathCross, "fast", "fast_days", 20, 20), (ei.DeathCross, "slow", "slow_days", 100, 100),
+           (ei.DistanceFromHigh, "window_days", "days", 100, 100),
+           (ei.DownsideDeviation, "window", "days", 21, 21),
+           (ei.YieldCurve, "lag_days", "lag_calendar_days", 3, 3),
+           (ei.CreditSpread, "lag_days", "lag_calendar_days", 3, 3)]
+
+
+@pytest.mark.parametrize("cls,old,new,val,want", RENAMED, ids=lambda x: x if isinstance(x, str) else None)
+def test_deprecated_names_construct_read_write_and_warn(cls, old, new, val, want):
+    with pytest.warns(DeprecationWarning, match=old):
+        s = cls(**{old: val})
+    assert getattr(s, new) == pytest.approx(want)
+    with pytest.warns(DeprecationWarning):
+        assert getattr(s, old) == pytest.approx(val)                 # old attribute reads back in old units
+    with pytest.warns(DeprecationWarning):
+        s2 = replace(s, **{old: val})                                # grid keys / dataclasses.replace path
+    assert getattr(s2, new) == pytest.approx(want)
+    with pytest.warns(DeprecationWarning):
+        setattr(s, old, val)
+    assert getattr(s, new) == pytest.approx(want)
+    with pytest.warns(DeprecationWarning):
+        both = cls(**{old: val, new: want * 3 + 1})                  # both given: the deprecated one wins
+    assert getattr(both, new) == pytest.approx(want)
+    assert old not in {f.name for f in fields(cls)}                   # serialized specs use the new name
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        cls(**{new: want})                                           # new names never warn
+
+
+def test_breadth_default_is_200_calendar_days_and_unit_change():
+    assert calendar_window(pd.bdate_range("2020-01-01", periods=10), days=es.Breadth().days, min_obs=6) == 200
+    with pytest.warns(DeprecationWarning):
+        b = es.Breadth(window_days=250)
+    assert calendar_window(pd.bdate_range("2020-01-01", periods=10), days=b.days, min_obs=6) == 250
+
+
+def test_describe_every_signal_has_units_for_window_params():
+    import re
+    assert len(es.BUILTINS) == 20
+    for name, cls in es.BUILTINS.items():
+        d = cls.describe()
+        assert set(d) == {"name", "params", "units", "needs"} and d["name"] == name
+        assert d["params"] == {f.name: f.default for f in fields(cls)}
+        for p, default in d["params"].items():
+            if isinstance(default, (int, float)) and re.search(r"(^|_)(days|months|window|short|long|fast|slow)($|_)", p):
+                assert d["units"].get(p) in ("trading days", "calendar months", "calendar days"), (name, p)
+        for p, u in d["units"].items():
+            assert p in d["params"]
+            assert (u == "trading days") == (p == "days" or p.endswith("_days") and not p.startswith("lag"))
+            assert (u == "calendar months") == (p == "months" or p.endswith("_months"))
+        inst = cls().describe()                                       # instance form reports current values
+        assert inst["params"] == d["params"]
+    assert es.TrendBreak(window_months=6).describe()["params"]["window_months"] == 6
+    assert es.Breadth.describe()["units"] == {"days": "trading days"}
+    assert es.RateShock.describe()["units"] == {"months": "calendar months", "lag_calendar_days": "calendar days"}
+
+
+def test_one_base_family():
+    from screenlab import exit_inputs
+    assert not hasattr(es, "_MonthlySampled") and not hasattr(exit_inputs, "_In")
+    assert all(issubclass(c, es._Base) for c in es.BUILTINS.values())
+    assert {n for n, c in es.BUILTINS.items() if c.sampling == "monthly"} == {
+        "ValuationStretch", "MomentumCrash", "EarningsBreadth", "YieldSpreadCompression"}
