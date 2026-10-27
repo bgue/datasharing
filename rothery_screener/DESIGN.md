@@ -238,3 +238,94 @@ Tests: hand-built index with a crash — TrendBreak flags before the bottom;
 overlay with exposure 0 during the flagged window has a smaller drawdown;
 evaluate() returns the right shapes; every signal is strictly causal (score
 on day t unchanged when later prices are perturbed).
+
+---------------------------------------------------------------------------
+## F. Exit-signal timing and calibration (`exit_signals.py` additions, `calibration.py`)
+
+Two clocks, kept separate:
+- The **rebalance clock** belongs to the entry screen: every
+  `rebalance_months`, pick names, set weights. Nothing here changes it.
+- The **exit clock** belongs to the exit screen: a decision cadence at which
+  the flag may change. Default daily (`check="D"`), because the signals are
+  price-driven and the data is daily. `check="W-FRI"` or `"M"` are allowed
+  for slower regimes; intraday (`"H"`) is reserved for when intraday bars
+  exist — signals are already written in calendar windows, so a finer index
+  must work without code changes beyond the data layer.
+
+### F1. `ExitScreen` timing fields
+- `check: str = "D"` — decision cadence. `state()` is computed on the
+  market index, then sampled at the check points (last bar on/before each
+  check date) and padded forward, so the flag only changes at check points.
+- `lag: int = 1` — execution lag in bars (signal at close t, exposure from
+  close t+lag). `overlay()` takes the same `lag`.
+- `min_hold_days: int = 0` — once flagged (or unflagged), keep the state at
+  least this many calendar days: prevents whipsaw on top of hysteresis.
+- Keep every signal strictly causal (test exists). Document in the class
+  docstring that `check` and `rebalance_months` are independent.
+
+### F2. Backtest integration — `backtest.Config.exit_overlay`
+`ExitOverlay(screen: ExitScreen, exposure_when_flagged=0.0, cost_bps=5.0,
+macro=None)` precomputes the exposure series once per Market (cache on
+`id(mkt)`), then `simulate()` applies it *inside* each rebalance segment:
+daily portfolio return = e_t · r_t + (1 − e_t) · cash_t − cost · |Δe_t|,
+with e_t the lagged exposure. Picks and weights are untouched (the entry
+screen never sees the flag). The `Result` gains `exposure: pd.Series` and
+`switches: int`. Default `exit_overlay=None` must reproduce today's curves
+exactly (existing tests pin them).
+
+### F3. `calibration.py`
+`calibrate_exit(exit_screen, mkt, target, grid, objective="Calmar",
+splits=dict(train_years=.., test_years=..), constraints=None, macro=None)`:
+- `grid`: dict over `threshold`, `hysteresis`, `check`, `lag`,
+  `min_hold_days`, `weights` (list of weight vectors) and
+  `exposure_when_flagged`; dotted keys `signals.<Name>.<param>` (e.g.
+  `signals.TrendBreak.window_months: [8, 10, 12]`) rebuild that signal.
+- `objective`: "Calmar" (CAGR / |MaxDD| of the overlay curve), "Sharpe",
+  "CAGR", "MaxDD", "ForwardGap" (unflagged minus flagged mean 12-month
+  forward return), or a callable `(OverlayResult, ExitEvaluation) -> float`.
+- `constraints`: `max_switches_per_year`, `max_time_flagged`,
+  `min_time_flagged`; points that violate them are kept in the table but
+  excluded from selection.
+- Walk-forward exactly as in `sweep.walk_forward`: pick the best point per
+  train window, report its test-window objective; summary = mean OOS,
+  OOS/IS, and **stability** = fraction of windows won by the modal point.
+- Returns a `CalibrationResult` with `.table`, `.windows`, `.summary`,
+  `.best` (the modal point) and `.screen` (an ExitScreen built from `.best`).
+- Reuse `stats.summarize_trials` for the DSR of the winner.
+Tests: on a hand-built index with two crashes the calibrated threshold
+flags both and the OOS objective beats always-in; constraints exclude
+points; stability is 1.0 when one point wins every window; daily and
+monthly indexes both run.
+
+---------------------------------------------------------------------------
+## G. Service layer (`server/`)
+
+Both servers wrap one `LabRegistry` (`server/registry.py`): named Labs
+(`"synthetic"`, `"sp500"`, or `from_csv(...)` paths) created lazily and
+cached; every call takes a `lab` name (default `"sp500"` if skfolio is
+installed, else `"synthetic"`). Results are plain JSON: tables as
+`{"columns": [...], "rows": [...]}` records, curves downsampled to at most
+`max_points` (default 500) dated pairs.
+
+### G1. REST — `server/rest.py` (FastAPI)
+`GET /labs`, `GET /labs/{lab}/screens`, `POST /labs/{lab}/screens` (a
+ScreenSpec JSON), `GET /labs/{lab}/picks/{screen}?asof=`,
+`POST /labs/{lab}/backtest` (screens, start, end, config overrides),
+`POST /labs/{lab}/timing`, `GET /labs/{lab}/graham?preset=&overrides`,
+`POST /labs/{lab}/sweep`, `POST /labs/{lab}/significance`,
+`POST /labs/{lab}/exit/evaluate` (signal list + params),
+`POST /labs/{lab}/exit/calibrate`, `POST /labs/{lab}/extended`.
+`python -m rothery_screener.server.rest` serves on :8000. Tests use
+`fastapi.testclient.TestClient` (no network).
+
+### G2. MCP — `server/mcp_server.py` (`mcp` package, FastMCP)
+One tool per endpoint above with the same names and JSON shapes, plus
+`describe_columns` (the fundamentals column contract) and
+`list_signals`. `python -m rothery_screener.server.mcp_server` runs stdio
+transport. Document the Claude Code registration command in
+`server/README.md` (`claude mcp add rothery -- python -m
+rothery_screener.server.mcp_server`). Tests call the tool functions
+in-process (the MCP transport itself is not tested).
+
+Dependencies (`fastapi`, `httpx`, `mcp`) are optional: import lazily, and
+tests skip when absent. Add `requirements-server.txt`.
