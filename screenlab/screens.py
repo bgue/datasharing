@@ -188,6 +188,65 @@ def low_vol_dividend(s, n=15, universe=100):
     return u.nsmallest(n, "vol_1y").index.tolist()
 
 
+# --- The Globe and Mail's published screen portfolios -------------------------
+# Universe for all of them is the 300 largest stocks by market cap (our stand-in for the TSX 300).
+# Dividend payers = trailing dividend > 0. Each step is a cut, applied in the order published.
+GLOBE_UNIVERSE = 300
+
+
+def _payers(s, universe):
+    u = _largest(s, universe)
+    return u[u["dividend"] > 0]
+
+
+def screaming_value(s, n=10, universe=GLOBE_UNIVERSE):
+    """The n lowest EV/EBIT among the largest `universe` (EBIT <= 0 is NaN, hence excluded)."""
+    u = _largest(s, universe)
+    return u["ev_ebit"].dropna().nsmallest(n).index.tolist()
+
+
+def stable_dividend(s, n=20, universe=GLOBE_UNIVERSE):
+    """Dividend payers among the largest `universe`, the n with the lowest 260-day volatility."""
+    return _payers(s, universe)["vol_260d"].dropna().nsmallest(n).index.tolist()
+
+
+def frugal_dividend(s, n=10, universe=GLOBE_UNIVERSE, vol_pool=50):
+    """Payers -> the `vol_pool` lowest 260-day volatility -> the n lowest P/E (P/E is NaN for losses)."""
+    low = _payers(s, universe)["vol_260d"].dropna().nsmallest(vol_pool).index
+    return s.loc[low, "pe"].dropna().nsmallest(n).index.tolist()
+
+
+def stable_high_yield(s, n=10, universe=GLOBE_UNIVERSE, vol_pool=50):
+    """Payers -> the `vol_pool` lowest 260-day volatility -> the n highest dividend yields."""
+    low = _payers(s, universe)["vol_260d"].dropna().nsmallest(vol_pool).index
+    return s.loc[low, "div_yield"].dropna().nlargest(n).index.tolist()
+
+
+def basic_buyback(s, n=20, universe=GLOBE_UNIVERSE):
+    """The n highest buyback yields (1 - shares / year-ago shares) among the largest; net issuers excluded."""
+    y = _largest(s, universe)["buyback_yield"].dropna()
+    return y[y > 0].nlargest(n).index.tolist()
+
+
+def momentum_6m(s, n=10, universe=GLOBE_UNIVERSE):
+    """The n highest prior 6-month returns among the largest `universe`."""
+    return _largest(s, universe)["mom_6m"].dropna().nlargest(n).index.tolist()
+
+
+def momentum_12m(s, n=10, universe=GLOBE_UNIVERSE):
+    """The n highest prior 12-month returns among the largest `universe`."""
+    return _largest(s, universe)["mom_12m"].dropna().nlargest(n).index.tolist()
+
+
+def bluechip_dividend_growth(s, n=12, universe=60, min_div_years=10):
+    """Rules-based stand-in for a discretionary model dividend portfolio: the `universe` largest names,
+    paying a dividend with at least `min_div_years` of record and EPS above last year's, then the n with
+    the lowest 260-day volatility. Pair with an annual rebalance and a HoldRule (see GLOBE_PORTFOLIOS)."""
+    u = _payers(s, universe)
+    u = u[(u["div_years"] >= min_div_years) & (u["eps"] > 0) & (u["eps"] > u["eps_prev"])]
+    return u["vol_260d"].dropna().nsmallest(n).index.tolist()
+
+
 REGISTRY: dict[str, Screen] = {sc.name: sc for sc in [
     Screen("dogs", dogs, 10, note="Top-10 yield from the 30 largest (Dogs/Beat the TSX)"),
     Screen("graham_defensive", graham, 10, {"tests": DEFENSIVE}, "Graham defensive investor"),
@@ -197,4 +256,47 @@ REGISTRY: dict[str, Screen] = {sc.name: sc for sc in [
     Screen("magic_formula", magic_formula, 15, note="Greenblatt EY + ROIC rank"),
     Screen("value_momentum", value_momentum, 10, note="Low P/E+P/B, best 12-1 momentum"),
     Screen("low_vol_dividend", low_vol_dividend, 15, note="Least volatile dividend payers"),
+    Screen("screaming_value", screaming_value, 10,
+           note="Follows the Globe's Screaming Value: 300 largest, 10 lowest EV/EBIT"),
+    Screen("stable_dividend", stable_dividend, 20,
+           note="Follows the Globe's Stable Dividend: payers among 300 largest, 20 lowest 260-day volatility"),
+    Screen("frugal_dividend", frugal_dividend, 10,
+           note="Follows the Globe's Frugal Dividend: payers, 50 lowest 260-day vol, 10 lowest P/E"),
+    Screen("stable_high_yield", stable_high_yield, 10,
+           note="Follows the Globe's Stable High-Yield: payers, 50 lowest 260-day vol, 10 highest yield"),
+    Screen("basic_buyback", basic_buyback, 20,
+           note="Follows the Globe's Basic Buyback: 20 highest buyback yield among the 300 largest"),
+    Screen("momentum_6m", momentum_6m, 10,
+           note="Follows the Globe's momentum portfolios: 10 best prior 6-month returns of the 300 largest"),
+    Screen("momentum_12m", momentum_12m, 10,
+           note="Follows the Globe's momentum portfolios: 10 best prior 12-month returns of the 300 largest"),
+    Screen("bluechip_dividend_growth", bluechip_dividend_growth, 12,
+           note="APPROXIMATION of a discretionary model dividend portfolio (Strategy Lab): 60 largest, "
+                "long dividend record, EPS up, 12 lowest 260-day vol"),
 ]}
+
+# Ready-made portfolios carrying the published rebalance frequency of each Globe portfolio.
+# GLOBE_PORTFOLIOS (dict name -> Portfolio, built lazily). bluechip is annual with a hold rule (keep a holding while it ranks within 2x n; leave names untraded
+# while within +-25% of target weight) to keep turnover low, like a rarely traded model portfolio.
+def _build_globe_portfolios() -> dict:
+    from .construction import HoldRule      # imported here: construction.py imports this module
+    from .exit_policy import Portfolio
+    return {p.name: p for p in [
+        *(Portfolio(n, n, rebalance_months=1) for n in
+          ("screaming_value", "stable_dividend", "frugal_dividend", "stable_high_yield", "basic_buyback",
+           "momentum_6m", "momentum_12m")),
+        Portfolio("bluechip_dividend_growth", "bluechip_dividend_growth", rebalance_months=12,
+                  hold_rule=HoldRule(keep_within=2.0, band=0.25)),
+    ]}
+
+
+_globe: dict | None = None
+
+
+def __getattr__(name):                      # PEP 562: GLOBE_PORTFOLIOS is built on first access
+    global _globe
+    if name == "GLOBE_PORTFOLIOS":
+        if _globe is None:
+            _globe = _build_globe_portfolios()
+        return _globe
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

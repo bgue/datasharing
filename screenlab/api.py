@@ -78,9 +78,25 @@ class BacktestReport:
         c = {k: r.curve for k, r in self.results.items()}
         return pd.DataFrame({self.benchmark_label: self.benchmark, **self.compare, **c})
 
+    def _rebalance_text(self) -> str:
+        """Each row's actual rebalance spacing (median months between scheduled dates), since a
+        Portfolio can override the report's Config."""
+        per = {}
+        for name, res in self.results.items():
+            d = pd.DatetimeIndex(sorted(res.holdings))
+            gaps = (d[1:].year - d[:-1].year) * 12 + (d[1:].month - d[:-1].month)
+            per[name] = int(pd.Series(gaps).median()) if len(gaps) else self.config.rebalance_months
+        groups = {}
+        for name, m in per.items():
+            groups.setdefault(m, []).append(name)
+        if len(groups) <= 1:
+            return f"every {next(iter(groups), self.config.rebalance_months)}m"
+        return "; ".join(f"every {m}m: {', '.join(n)}" if len(n) <= 2 else f"every {m}m: {len(n)} portfolios"
+                         for m, n in sorted(groups.items()))
+
     def __str__(self):
-        span = f"{self.benchmark.index[0]:%Y-%m-%d} to {self.benchmark.index[-1]:%Y-%m-%d}"
-        head = (f"Backtest {span}, rebalance every {self.config.rebalance_months}m, "
+        span =f"{self.benchmark.index[0]:%Y-%m-%d} to {self.benchmark.index[-1]:%Y-%m-%d}"
+        head = (f"Backtest {span}, rebalance {self._rebalance_text()}, "
                 f"benchmark {self.benchmark_label}\n")
         return head + "\n" + format_table(self.table.sort_values("CAGR", ascending=False))
 
@@ -184,10 +200,21 @@ class Lab:
 
     @tracked("picks")
     def picks(self, screen, asof=None, columns=("sector", "market_cap", "pe", "pb", "div_yield",
-                                                  "f_score", "mom_12_1")) -> pd.DataFrame:
+                                                  "f_score", "mom_12_1"),
+              runners_up: int = 0) -> pd.DataFrame:
+        """Current picks with key ratios. `runners_up=k` appends the next k names by the screen's own
+        ranking (`Screen.ranked`) and adds a boolean `runner_up` column (False for the picks)."""
         s = self.snapshot(asof)
-        names = self.market.picks(self.screen(screen), self._asof(asof))
-        return s.loc[names, [c for c in columns if c in s]]
+        sc, d = self.screen(screen), self._asof(asof)
+        names = list(self.market.picks(sc, d))
+        n_picks = len(names)
+        if runners_up:
+            have = set(names)
+            names += [t for t in sc.ranked(s) if t not in have][:runners_up]
+        out = s.loc[names, [c for c in columns if c in s]]
+        if runners_up:
+            out = out.assign(runner_up=[i >= n_picks for i in range(len(names))])
+        return out
 
     # ---- analysis ---------------------------------------------------------
     @tracked("backtest")

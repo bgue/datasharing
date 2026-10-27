@@ -1,3 +1,5 @@
 __pycache__/
 .pytest_cache/
 research/results/
+notebooks/*.sqlite*
+notebooks/.ipynb_checkpoints/

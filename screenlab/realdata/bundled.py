@@ -1,7 +1,7 @@
 """Datasets that ship inside installed packages (skfolio, statsmodels): no network needed.
 
 Adjusted close stands in for a total-return index. `sp500_lab()` wires the 20 bundled
-names into a `Lab` with a price-only fundamentals table and two price-only screens.
+names into a `Lab` with a price-only fundamentals table and four price-only screens.
 """
 from __future__ import annotations
 
@@ -68,6 +68,16 @@ def momentum_12_1(s, n=10):
     return s["mom_12_1"].dropna().nlargest(n).index.tolist()
 
 
+def momentum_6m(s, n=10):
+    """Top n by plain prior 6-month return (no skipped month)."""
+    return s["mom_6m"].dropna().nlargest(n).index.tolist()
+
+
+def momentum_12m(s, n=10):
+    """Top n by plain prior 12-month return (no skipped month)."""
+    return s["mom_12m"].dropna().nlargest(n).index.tolist()
+
+
 def low_vol(s, n=10):
     """Bottom n by one-year annualized volatility."""
     return s["vol_1y"].dropna().nsmallest(n).index.tolist()
@@ -77,6 +87,10 @@ def price_screens(n: int = 5) -> dict:
     return {
         "momentum_12_1": Screen("momentum_12_1", momentum_12_1, n,
                                 note="top n by 12-1 momentum (price only)"),
+        "momentum_6m": Screen("momentum_6m", momentum_6m, n,
+                              note="price-only version of the Globe's 6-month momentum portfolio (no size cut)"),
+        "momentum_12m": Screen("momentum_12m", momentum_12m, n,
+                               note="price-only version of the Globe's 12-month momentum portfolio (no size cut)"),
         "low_vol": Screen("low_vol", low_vol, n, note="lowest n by 1y volatility (price only)"),
     }
 

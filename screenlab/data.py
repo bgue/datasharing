@@ -59,9 +59,14 @@ def add_ratios(f: pd.DataFrame) -> pd.DataFrame:
     f["pb"] = f["price"] / f["bvps"].where(f["bvps"] > 0)
     f["div_yield"] = f["dividend"] / f["price"]
     f["earnings_yield"] = f["ebit"] / f["enterprise_value"]
+    f["ev_ebit"] = f["enterprise_value"] / f["ebit"].where(f["ebit"] > 0)   # NaN when EBIT <= 0
     f["roic"] = f["ebit"] / f["invested_capital"]
     f["ncav_to_mcap"] = f["net_current_assets"] / f["market_cap"]
     f["book_equity"] = f["bvps"] * f["market_cap"] / f["price"]
+    if "shares" in f and "shares_prev" in f:
+        # Buyback yield: 1 - shares / shares four quarters ago. `shares_prev` is the year-ago count
+        # (the synthetic market and the F-score both read it that way); positive = net repurchase.
+        f["buyback_yield"] = 1 - f["shares"] / f["shares_prev"].where(f["shares_prev"] > 0)
     if all(c in f for c in F_SCORE_COLS):
         f["f_score"] = f_score(f)
     return f
@@ -169,19 +174,37 @@ class Market:
         return self._snaps[fd]
 
     def trailing_stats(self, asof: pd.Timestamp) -> pd.DataFrame:
-        """12-1 momentum and 1y annualized volatility, calendar based so any frequency works."""
+        """Trailing price statistics, calendar based so any frequency works.
+
+        mom_12_1 / vol_1y   12-1 momentum and 1y annualized volatility (pinned by golden tests).
+        mom_6m / mom_12m    plain prior 6 / 12 calendar-month total returns, no skipped month.
+        vol_260d            std of log returns over the last 260 trading days, annualized by sqrt(ppy).
+                            Needs 260 daily returns; with monthly data (index spacing > 5 days)
+                            260 days is not defined, so it uses the 12-month calendar window
+                            (12 returns), the same window as vol_1y.
+        """
         i = self.index.get_loc(asof)
-        i12 = self.index.searchsorted(asof - pd.DateOffset(months=12))
-        i1 = self.index.searchsorted(asof - pd.DateOffset(months=1), side="right") - 1
-        if asof - pd.DateOffset(months=12) < self.index[0]:
-            nan = np.full(len(self.prices.columns), np.nan)
-            return pd.DataFrame({"mom_12_1": nan, "vol_1y": nan}, index=self.prices.columns)
-        win = self._tri[i12:i + 1]
+        cols = self.prices.columns
+        nan = np.full(len(cols), np.nan)
+        out = {k: nan for k in ("mom_12_1", "vol_1y", "mom_6m", "mom_12m", "vol_260d")}
         with np.errstate(invalid="ignore", divide="ignore"), warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)   # names with < 2 returns -> NaN vol
-            mom = self._tri[i1] / self._tri[i12] - 1
-            vol = np.nanstd(np.diff(np.log(win), axis=0), axis=0, ddof=1) * np.sqrt(self.ppy)
-        return pd.DataFrame({"mom_12_1": mom, "vol_1y": vol}, index=self.prices.columns)
+            if asof - pd.DateOffset(months=6) >= self.index[0]:
+                i6 = self.index.searchsorted(asof - pd.DateOffset(months=6))
+                out["mom_6m"] = self._tri[i] / self._tri[i6] - 1
+            if asof - pd.DateOffset(months=12) >= self.index[0]:
+                i12 = self.index.searchsorted(asof - pd.DateOffset(months=12))
+                i1 = self.index.searchsorted(asof - pd.DateOffset(months=1), side="right") - 1
+                win = self._tri[i12:i + 1]
+                out["mom_12m"] = self._tri[i] / self._tri[i12] - 1
+                out["mom_12_1"] = self._tri[i1] / self._tri[i12] - 1
+                out["vol_1y"] = np.nanstd(np.diff(np.log(win), axis=0), axis=0, ddof=1) * np.sqrt(self.ppy)
+                if self.ppy <= 100:                      # monthly (or coarser) data: calendar window
+                    out["vol_260d"] = out["vol_1y"]
+            if self.ppy > 100 and i >= 260:
+                win = self._tri[i - 260:i + 1]            # 260 daily returns
+                out["vol_260d"] = np.nanstd(np.diff(np.log(win), axis=0), axis=0, ddof=1) * np.sqrt(self.ppy)
+        return pd.DataFrame(out, index=cols)
 
     def view(self, asof) -> pd.DataFrame:
         """Snapshot for screening on trading day `asof`: tradable names only, marked to market."""

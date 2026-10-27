@@ -6,12 +6,33 @@
     "Turnover": null,
     "Vol": 0.178255
   },
+  "basic_buyback": {
+    "CAGR": 0.086887,
+    "Excess/yr": -0.007562,
+    "MaxDD": -0.264612,
+    "Turnover": 0.877672,
+    "Vol": 0.177944
+  },
+  "bluechip_dividend_growth": {
+    "CAGR": 0.134001,
+    "Excess/yr": 0.039552,
+    "MaxDD": -0.366323,
+    "Turnover": 0.827567,
+    "Vol": 0.195191
+  },
   "dogs": {
     "CAGR": 0.062292,
     "Excess/yr": -0.032158,
     "MaxDD": -0.375506,
     "Turnover": 0.483964,
     "Vol": 0.199648
+  },
+  "frugal_dividend": {
+    "CAGR": 0.118201,
+    "Excess/yr": 0.023752,
+    "MaxDD": -0.342367,
+    "Turnover": 0.738363,
+    "Vol": 0.204593
   },
   "graham_defensive": {
     "CAGR": 0.041316,
@@ -41,6 +62,20 @@
     "Turnover": 0.55567,
     "Vol": 0.207891
   },
+  "momentum_12m": {
+    "CAGR": 0.146893,
+    "Excess/yr": 0.052443,
+    "MaxDD": -0.307569,
+    "Turnover": 0.843246,
+    "Vol": 0.208251
+  },
+  "momentum_6m": {
+    "CAGR": 0.112851,
+    "Excess/yr": 0.018401,
+    "MaxDD": -0.326644,
+    "Turnover": 0.843985,
+    "Vol": 0.197065
+  },
   "net_nets": {
     "CAGR": 0.069228,
     "Excess/yr": -0.025221,
@@ -54,6 +89,27 @@
     "MaxDD": -0.290863,
     "Turnover": 0.3125,
     "Vol": 0.145751
+  },
+  "screaming_value": {
+    "CAGR": 0.086167,
+    "Excess/yr": -0.008283,
+    "MaxDD": -0.461076,
+    "Turnover": 0.669277,
+    "Vol": 0.2138
+  },
+  "stable_dividend": {
+    "CAGR": 0.098131,
+    "Excess/yr": 0.003682,
+    "MaxDD": -0.234408,
+    "Turnover": 0.81563,
+    "Vol": 0.158642
+  },
+  "stable_high_yield": {
+    "CAGR": 0.077349,
+    "Excess/yr": -0.017101,
+    "MaxDD": -0.394391,
+    "Turnover": 0.724842,
+    "Vol": 0.210899
   },
   "value_momentum": {
     "CAGR": 0.147605,
