@@ -1,7 +1,10 @@
-"""Backtest screens side by side and print today's picks.
+"""Backtest screens side by side and print today's picks (CLI over the Lab API).
 
 python -m rothery_screener.run
 python -m rothery_screener.run --only dogs,graham_defensive --rebalance 6 --cost-bps 20 --mer 0.002
+python -m rothery_screener.run --benchmark SYN_CAPWT --bench-mer 0.0006 --bench-cost-bps 5
+python -m rothery_screener.run --benchmark top60          # equal-weight 60 largest instead
+python -m rothery_screener.run --screen-file my_screens.json --only cheap_yield,dogs
 python -m rothery_screener.run --set graham_defensive.max_pe=18 --set graham_defensive.min_passes=6
 python -m rothery_screener.run --graham-report
 """
@@ -12,8 +15,10 @@ import ast
 
 import pandas as pd
 
-from . import backtest, data, metrics
-from .screens import DEFENSIVE, ENTERPRISING, REGISTRY, graham_funnel, graham_report
+from . import backtest
+from .api import Lab
+from .benchmarks import IndexBenchmark, equal_weight_top
+from .spec import load_screens
 
 
 def _value(v: str):
@@ -25,13 +30,14 @@ def _value(v: str):
 
 def add_common_args(ap: argparse.ArgumentParser):
     g = ap.add_argument_group("data")
-    g.add_argument("--csv", nargs=2, metavar=("FUNDAMENTALS", "PRICES"))
+    g.add_argument("--csv", nargs="+", metavar="FILE", help="FUNDAMENTALS PRICES [INDICES]")
     g.add_argument("--freq", choices=["daily", "monthly"], default="daily", help="synthetic data frequency")
     g.add_argument("--start")
     g.add_argument("--end")
     g = ap.add_argument_group("portfolio")
     g.add_argument("--only", help="comma-separated screen names")
     g.add_argument("--screens", dest="only", help=argparse.SUPPRESS)
+    g.add_argument("--screen-file", action="append", default=[], help="JSON screen spec(s), repeatable")
     g.add_argument("--set", action="append", default=[], metavar="SCREEN.PARAM=VALUE",
                    help="override a screen or Graham-test parameter, repeatable")
     g.add_argument("--rebalance", type=int, default=12, help="months between rebalances")
@@ -42,13 +48,13 @@ def add_common_args(ap: argparse.ArgumentParser):
     g.add_argument("--capital", type=float, default=100_000)
     g.add_argument("--mer", type=float, default=0.0, help="annual expense ratio applied to every holding")
     g.add_argument("--security-file", help="CSV with ticker and optional cost_bps, mer columns (overrides)")
+    g = ap.add_argument_group("benchmark")
+    g.add_argument("--benchmark", help="index name / ticker to buy and hold, or 'topN' for equal-weight N largest")
+    g.add_argument("--bench-mer", type=float, default=0.0, help="benchmark fund's annual MER")
+    g.add_argument("--bench-cost-bps", type=float, default=0.0, help="benchmark one-time purchase cost")
 
 
-def build(a):
-    fund, prices = (data.load_csv(*a.csv) if a.csv else
-                    data.synthetic_market(freq="B" if a.freq == "daily" else "ME"))
-    mkt = data.Market(fund, prices)
-
+def build_config(a) -> backtest.Config:
     cost, mer = a.cost_bps, a.mer
     if a.cost_tiers:
         cost = backtest.cap_tiered({float(k): float(v) for k, v in
@@ -61,17 +67,31 @@ def build(a):
                 backtest.resolve(base, s.index, s).where(~s.index.isin(o.index), o.reindex(s.index))
         if "mer" in sec:
             mer = {"_default": a.mer, **sec["mer"].dropna().to_dict()}
-    cfg = backtest.Config(rebalance_months=a.rebalance, cost_bps=cost, commission=a.commission,
-                          capital=a.capital, mer=mer)
+    return backtest.Config(rebalance_months=a.rebalance, cost_bps=cost, commission=a.commission,
+                           capital=a.capital, mer=mer)
+
+
+def build_lab(a) -> tuple[Lab, list]:
+    cfg = build_config(a)
+    lab = (Lab.from_csv(*a.csv, config=cfg) if a.csv else
+           Lab.synthetic(freq="B" if a.freq == "daily" else "ME", config=cfg))
+    if a.benchmark:
+        b = a.benchmark
+        lab.benchmark = (equal_weight_top(int(b[3:])) if b.lower().startswith("top") and b[3:].isdigit()
+                         else IndexBenchmark(b, mer=a.bench_mer, cost_bps=a.bench_cost_bps))
+    elif isinstance(lab.benchmark, IndexBenchmark):
+        lab.benchmark = IndexBenchmark(lab.benchmark.index, a.bench_mer, a.bench_cost_bps)
+    for path in a.screen_file:
+        for sc in load_screens(path):
+            lab.define(sc)
 
     overrides: dict[str, dict] = {}
     for s in a.set:
         key, v = s.split("=", 1)
         name, param = key.split(".", 1)
         overrides.setdefault(name, {})[param] = _value(v)
-    names = a.only.split(",") if a.only else list(REGISTRY)
-    screens = [REGISTRY[k].with_overrides(**overrides.get(k, {})) for k in names]
-    return mkt, cfg, screens
+    names = a.only.split(",") if a.only else list(lab.screens)
+    return lab, [lab.screen(k, **overrides.get(k, {})) for k in names]
 
 
 def main(argv=None):
@@ -79,48 +99,28 @@ def main(argv=None):
     add_common_args(ap)
     ap.add_argument("--graham-report", action="store_true", help="show Graham test funnel as of the last date")
     a = ap.parse_args(argv)
-    mkt, cfg, screens = build(a)
-    asof = mkt.trading_day(a.end, "prev") if a.end else mkt.index[-1]
+    lab, screens = build_lab(a)
+    asof = lab._asof(a.end)
 
     if a.graham_report:
-        s = mkt.view(asof)
         for sc in screens:
             tests = sc.params.get("tests")
             if tests is None:
                 continue
-            print(f"\n{sc.name} as of {asof:%Y-%m-%d}: cumulative survivors / pass rate per test")
-            rep = graham_report(s, tests)
-            funnel = graham_funnel(s, tests)
+            rep, funnel = lab.graham(tests, asof)
             rate = rep.drop(columns="passes").mean().map("{:.0%}".format)
+            print(f"\n{sc.name} as of {asof:%Y-%m-%d}: cumulative survivors / pass rate per test")
             print(pd.DataFrame({"survivors": funnel, "pass_rate": rate.reindex(funnel.index)})
                   .fillna("").to_string())
             print("names by tests passed:", rep["passes"].value_counts().sort_index(ascending=False).to_dict())
         return
 
-    bench = backtest.run(backtest.benchmark_screen(), mkt, cfg, a.start, a.end)
-    rows = {"benchmark": {**metrics.summarize(bench.curve), "AvgN": 60.0, "Turnover": bench.turnover.mean()}}
-    results = {}
-    for sc in screens:
-        res = backtest.run(sc, mkt, cfg, a.start, a.end)
-        results[sc.name] = res
-        yrs = (res.curve.index[-1] - res.curve.index[0]).days / 365.25
-        rows[sc.name] = {**metrics.summarize(res.curve, bench.curve),
-                         "AvgN": pd.Series({k: len(v) for k, v in res.holdings.items()}).mean(),
-                         "Turnover": res.turnover.iloc[1:].mean(), "Costs/yr": res.costs.sum() / yrs}
-
-    tbl = pd.DataFrame(rows).T
-    pct = ["CAGR", "Vol", "MaxDD", "Worst12m", "BeatBenchYrs", "Excess/yr", "Turnover", "Costs/yr"]
-    fmt = tbl.copy()
-    for c in tbl.columns:
-        fmt[c] = tbl[c].map(lambda x: "" if pd.isna(x) else (f"{x:.1%}" if c in pct else f"{x:.2f}"))
-    span = f"{bench.curve.index[0]:%Y-%m-%d} to {bench.curve.index[-1]:%Y-%m-%d}"
-    print(f"\nBacktest {span}, rebalance every {cfg.rebalance_months}m\n")
-    print(fmt.sort_values("CAGR", ascending=False).to_string())
-
+    rep = lab.backtest(screens, a.start, a.end)
+    print("\n" + str(rep))
     print(f"\nCurrent picks as of {asof:%Y-%m-%d}")
     for sc in screens:
-        print(f"  {sc.name:<20} {', '.join(mkt.picks(sc, asof)) or '(no passes)'}")
-    return tbl, results
+        print(f"  {sc.name:<20} {', '.join(lab.picks(sc, asof).index) or '(no passes)'}")
+    return rep
 
 
 if __name__ == "__main__":

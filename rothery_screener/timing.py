@@ -18,7 +18,6 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 
-import numpy as np
 import pandas as pd
 
 from . import backtest, metrics
@@ -41,18 +40,24 @@ class TimingResult:
 
 def study(screen: Screen, mkt: Market, cfg: backtest.Config, start=None, end=None,
           mode: str = "phase", stride: int = 1, offsets=None,
-          bench: pd.Series | None = None, progress: bool = False) -> TimingResult:
+          benchmark=None, progress: bool = False) -> TimingResult:
+    """`benchmark` is any object with .curve(mkt, cfg, start, end) (see benchmarks.py);
+    it is bought on each variant's own start date."""
     start = mkt.trading_day(start or mkt.index[0] + pd.DateOffset(months=13))
     i0 = mkt.index.get_loc(start)
     period = mkt.index.searchsorted(start + pd.DateOffset(months=cfg.rebalance_months)) - i0
     offsets = list(offsets) if offsets is not None else list(range(0, period, stride))
 
-    rows, curves = [], {}
+    rows, curves, bench_cache = [], {}, {}
     for n, k in enumerate(offsets):
         if mode == "phase":
             res = backtest.run(screen, mkt, cfg, start, end, phase_days=k)
         else:
             res = backtest.run(screen, mkt, cfg, mkt.index[i0 + k], end)
+        d0 = res.curve.index[0]
+        if benchmark is not None and d0 not in bench_cache:
+            bench_cache[d0] = benchmark.curve(mkt, cfg, d0, end)
+        bench = bench_cache.get(d0)
         first = list(res.holdings)[1] if mode == "phase" and len(res.holdings) > 1 else list(res.holdings)[0]
         rows.append({"offset": k, "anniversary": first, **metrics.summarize(res.curve, bench),
                      "Turnover": res.turnover.iloc[1:].mean(), "Costs/yr": res.costs.sum() /
@@ -86,24 +91,25 @@ def report(tr: TimingResult, bench: pd.Series | None = None) -> str:
 
 
 def main(argv=None):
-    from .run import add_common_args, build
+    from .run import add_common_args, build_lab
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     add_common_args(ap)
     ap.add_argument("--mode", choices=["phase", "start"], default="phase")
     ap.add_argument("--stride", type=int, default=1, help="test every Nth trading day")
     ap.add_argument("--out", help="write per-offset table to this CSV")
     a = ap.parse_args(argv)
-    mkt, cfg, screens = build(a)
+    lab, screens = build_lab(a)
 
-    b = backtest.run(backtest.benchmark_screen(), mkt, cfg, a.start, a.end).curve
     tables = []
     for sc in screens:
-        tr = study(sc, mkt, cfg, a.start, a.end, a.mode, a.stride, bench=b, progress=True)
-        print(report(tr, b), flush=True)
+        tr = lab.timing(sc, a.mode, a.stride, a.start, a.end, progress=True)
+        bench = lab.benchmark.curve(lab.market, lab.config, tr.curves.index[0], a.end)
+        print(report(tr, bench), flush=True)
         tables.append(tr.table.assign(screen=sc.name))
     if a.out:
         pd.concat(tables).to_csv(a.out)
         print(f"\nwrote {a.out}")
+    return tables
 
 
 if __name__ == "__main__":

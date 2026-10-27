@@ -14,6 +14,62 @@ python -m rothery_screener.timing --screens dogs --stride 1    # every daily sta
 python -m rothery_screener.run --csv fundamentals.csv prices.csv --start 2005-01-31
 ```
 
+## SDK
+```python
+from rothery_screener import Lab, ScreenBuilder, IndexBenchmark
+
+lab = Lab.synthetic()                       # or Lab.from_csv("fund.csv", "prices.csv", "indices.csv")
+lab.benchmark = IndexBenchmark("SYN_CAPWT", mer=0.0006, cost_bps=0)   # buy-and-hold index fund
+
+lab.define(ScreenBuilder("cheap_yield")
+           .universe(top=100, exclude_sectors=["Fin"])
+           .where("pe < 15", "div_yield > 0.03", "f_score >= 6")
+           .rank(div_yield="desc", pb="asc")        # composite: sum of ranks
+           .take(10))
+
+lab.picks("cheap_yield")                             # current names + key ratios
+rep = lab.backtest(["dogs", "cheap_yield"], rebalance_months=6, cost_bps=20, mer=0.002)
+print(rep); rep.table; rep.curves                    # formatted / raw stats / equity curves
+tr = lab.timing("cheap_yield", stride=5)             # daily-start timing study
+tr.distribution(); tr.tranche
+report, funnel = lab.graham("defensive", max_pe=18, min_passes=6)
+```
+
+You can also write a screen as a dict or JSON, and load it with
+`lab.define(...)` or `--screen-file`:
+
+```json
+{"name": "cheap_yield", "n": 10,
+ "universe": {"top": 100, "exclude_sectors": ["Fin"]},
+ "derive": {"pe_x_pb": "pe * pb"},
+ "filters": ["pe < 15", "div_yield > 0.03"],
+ "graham": {"preset": "defensive", "max_pe": 18, "min_passes": 6},
+ "rank": {"div_yield": "desc", "pe_x_pb": "asc"}}
+```
+
+The steps run in this order: universe (size cut first, then sectors) →
+derived columns → filters → Graham tests → rank → take n. Filters are pandas
+expressions over the snapshot columns. For anything the spec can't express,
+register a plain function as `Screen(name, fn, n)` with
+`fn(snapshot, n, **params) -> [tickers]`.
+
+**Benchmark.** The default is a buy-and-hold `IndexBenchmark`: one purchase
+on the portfolio's start day, then daily MER drag. Its MER and trading cost
+are set separately from the portfolio's and default to 0. It uses the first
+loaded index series; with the synthetic data that is the cap-weighted
+`SYN_CAPWT`. If no index is loaded, the benchmark falls back to an
+equal-weight portfolio of the 60 largest names, which pays the portfolio's
+costs. CLI flags: `--benchmark NAME|top60 --bench-mer X --bench-cost-bps X`.
+
+**Tests.** `python -m pytest rothery_screener/tests -q` runs 20 tests in
+about 10 seconds, all through the SDK:
+- exact cost, MER, commission, delisting and benchmark arithmetic on a
+  hand-built market;
+- spec screens reproducing the built-in screens;
+- Graham test toggles;
+- the timing windows and tranche blend;
+- the CLIs.
+
 | screen | idea |
 |---|---|
 | `dogs` | the 10 highest yielders among the 30 largest names (Dogs of the TSX, Beat the TSX) |
@@ -34,6 +90,8 @@ All thresholds are keyword arguments, so you can change them through
   the Graham tests need `sales, eps_avg3, eps_avg3_10y_ago, loss_years_5y, loss_years_10y`).
   Each row must hold only what was **known** on that date, so shift each value
   by its reporting lag before you load the file.
+- `indices.csv` (optional) has columns `date,index,tri` and holds the
+  benchmark series.
 - `prices.csv` has columns `date,ticker,tri`: a total-return index. Use daily
   data for timing studies; monthly is enough for everything else.
 - Delisted names have to stay in both files. The backtester charges
@@ -92,15 +150,8 @@ data; `--stride 5` tests weekly offsets instead.
   common for strict Graham screens.
 - When a holding is delisted, its last value is cut by `delist_return` and
   held as cash until the next rebalance.
-- The benchmark is an equal-weight portfolio of the 60 largest names, standing
-  in for the TSX 60. It pays the same costs and MER.
+- The benchmark is an index bought and held (see SDK above), or optionally a
+  screen.
 
 ## Next steps
-- Use real data. A TMX/Refinitiv/EODHD export works, or a Globe screener
-  export for the current picks only.
-- Add a TSX/S&P 500 universe switch and country benchmarks.
-- Run the timing sweep in parallel (offsets are independent), and plot
-  CAGR against anniversary date.
-- Add a combo or "screen of screens" portfolio, plus bootstrap confidence
-  intervals on excess returns.
-- Write an HTML report with wealth curves and yearly return tables.
+See [ROADMAP.md](ROADMAP.md).

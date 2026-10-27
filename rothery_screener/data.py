@@ -1,6 +1,7 @@
 """Point-in-time data model.
 
-Two long-format tables drive everything:
+Two long-format tables drive everything (plus optional index series for
+buy-and-hold benchmarks):
 
 fundamentals  one row per (date, ticker) holding what was *knowable* on that
               date (apply your reporting lag before loading). Columns used by
@@ -28,6 +29,21 @@ import numpy as np
 import pandas as pd
 
 
+F_SCORE_COLS = ["roa", "roa_prev", "cfo_to_assets", "leverage", "leverage_prev", "current_ratio",
+                "current_ratio_prev", "shares", "shares_prev", "gross_margin", "gross_margin_prev",
+                "asset_turnover", "asset_turnover_prev"]
+
+
+def f_score(s: pd.DataFrame) -> pd.Series:
+    """Piotroski's nine-point F-score."""
+    pts = [s["roa"] > 0, s["cfo_to_assets"] > 0, s["roa"] > s["roa_prev"],
+           s["cfo_to_assets"] > s["roa"], s["leverage"] < s["leverage_prev"],
+           s["current_ratio"] > s["current_ratio_prev"], s["shares"] <= s["shares_prev"],
+           s["gross_margin"] > s["gross_margin_prev"],
+           s["asset_turnover"] > s["asset_turnover_prev"]]
+    return sum(p.astype(int) for p in pts)
+
+
 def add_ratios(f: pd.DataFrame) -> pd.DataFrame:
     f = f.copy()
     f["pe"] = f["price"] / f["eps"].where(f["eps"] > 0)
@@ -38,13 +54,20 @@ def add_ratios(f: pd.DataFrame) -> pd.DataFrame:
     f["roic"] = f["ebit"] / f["invested_capital"]
     f["ncav_to_mcap"] = f["net_current_assets"] / f["market_cap"]
     f["book_equity"] = f["bvps"] * f["market_cap"] / f["price"]
+    if all(c in f for c in F_SCORE_COLS):
+        f["f_score"] = f_score(f)
     return f
 
 
-def load_csv(fundamentals_path: str, prices_path: str):
+def load_csv(fundamentals_path: str, prices_path: str, indices_path: str | None = None):
+    """Returns (fundamentals, prices, indices). indices.csv has columns date,index,tri."""
     f = pd.read_csv(fundamentals_path, parse_dates=["date"])
     p = pd.read_csv(prices_path, parse_dates=["date"])
-    return add_ratios(f), p.pivot(index="date", columns="ticker", values="tri").sort_index()
+    idx = None
+    if indices_path:
+        i = pd.read_csv(indices_path, parse_dates=["date"])
+        idx = i.pivot(index="date", columns="index", values="tri").sort_index()
+    return add_ratios(f), p.pivot(index="date", columns="ticker", values="tri").sort_index(), idx
 
 
 def periods_per_year(index: pd.DatetimeIndex) -> float:
@@ -55,16 +78,27 @@ def periods_per_year(index: pd.DatetimeIndex) -> float:
 class Market:
     """Fundamentals + prices with cached per-day views for the screens."""
 
-    def __init__(self, fund: pd.DataFrame, prices: pd.DataFrame):
+    def __init__(self, fund: pd.DataFrame, prices: pd.DataFrame, indices: pd.DataFrame | None = None):
         self.fund = fund.sort_values("date")
         self.prices = prices.sort_index()
         self.index = self.prices.index
+        # Index total-return series (benchmarks), aligned to trading days.
+        self.indices = (indices.sort_index().reindex(self.index, method="pad")
+                        if indices is not None else pd.DataFrame(index=self.index))
         self.ppy = periods_per_year(self.index)
         self._tri = self.prices.to_numpy()
         self._fund_dates = np.sort(self.fund["date"].unique())
         self._snaps: dict = {}
         self._views: dict = {}
         self._picks: dict = {}
+
+    def series(self, name: str) -> pd.Series:
+        """An index series by name, or a single security's total-return index."""
+        if name in self.indices:
+            return self.indices[name]
+        if name in self.prices:
+            return self.prices[name]
+        raise KeyError(f"no index or ticker named {name!r}; indices: {list(self.indices)}")
 
     def trading_day(self, d, side="next") -> pd.Timestamp:
         """Snap a calendar date to a trading day (next by default)."""
@@ -124,10 +158,12 @@ class Market:
         return s
 
     def picks(self, screen, asof) -> list[str]:
+        # Keep the screen in the entry: a freed screen's id() can be reused by a new one.
         key = (id(screen), pd.Timestamp(asof))
-        if key not in self._picks:
-            self._picks[key] = screen(self.view(asof))
-        return self._picks[key]
+        hit = self._picks.get(key)
+        if hit is None or hit[0] is not screen:
+            hit = self._picks[key] = (screen, screen(self.view(asof)))
+        return hit[1]
 
 
 # --------------------------------------------------------------------------
@@ -165,6 +201,13 @@ def synthetic_market(n_stocks=250, start="2000-01-03", years=25, freq="B", seed=
     tri = np.where(np.arange(len(dates))[:, None] >= delist, np.nan, tri)
     prices = pd.DataFrame(tri, index=dates, columns=tickers)
 
+    # Cap-weighted total-return index of every live name (delisted names drop out flat).
+    cap = size * tri
+    w = np.nan_to_num(cap[:-1]) / np.nansum(cap[:-1], axis=1, keepdims=True)
+    r = np.nan_to_num(tri[1:] / tri[:-1] - 1)
+    index_tri = np.concatenate([[1.0], np.cumprod(1 + (w * r).sum(axis=1))])
+    indices = pd.DataFrame({"SYN_CAPWT": index_tri}, index=dates)
+
     rows = []
     for t in range(0, len(dates), ppy // 4):  # quarterly fundamentals
         alive = ~np.isnan(tri[t])
@@ -201,4 +244,4 @@ def synthetic_market(n_stocks=250, start="2000-01-03", years=25, freq="B", seed=
             "enterprise_value": mcap * 1.3,
             "invested_capital": mcap * (0.6 - 0.15 * quality).clip(0.1) * noise(),
         })[alive])
-    return add_ratios(pd.concat(rows, ignore_index=True)), prices
+    return add_ratios(pd.concat(rows, ignore_index=True)), prices, indices

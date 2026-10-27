@@ -14,6 +14,8 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 
+from .data import f_score
+
 
 @dataclass
 class Screen:
@@ -148,15 +150,6 @@ def net_nets(s, n=15, min_ncav=1.0):
 
 
 # --- Piotroski F-score applied to the cheapest book-value quintile -----------
-def f_score(s: pd.DataFrame) -> pd.Series:
-    pts = [s["roa"] > 0, s["cfo_to_assets"] > 0, s["roa"] > s["roa_prev"],
-           s["cfo_to_assets"] > s["roa"], s["leverage"] < s["leverage_prev"],
-           s["current_ratio"] > s["current_ratio_prev"], s["shares"] <= s["shares_prev"],
-           s["gross_margin"] > s["gross_margin_prev"],
-           s["asset_turnover"] > s["asset_turnover_prev"]]
-    return sum(p.astype(int) for p in pts)
-
-
 def piotroski(s, n=10, pb_quantile=0.2, min_score=8):
     cheap = s[s["pb"] <= s["pb"].quantile(pb_quantile)]
     sc = f_score(cheap)
