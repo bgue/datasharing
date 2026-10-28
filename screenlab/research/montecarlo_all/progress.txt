@@ -1,6 +1,0 @@
-[13:12:25] building Lab.synthetic() (250 names, daily)
-[13:12:26] annual run: 18 screens at 12 months
-[13:14:47] monthly run: 7 Globe portfolios at 1 month
-[13:15:55] writing tables
-[13:15:56] drawing charts
-[13:16:05] done in 219s -> /home/user/datasharing/screenlab/research/montecarlo_all

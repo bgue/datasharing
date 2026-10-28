@@ -8,3 +8,4 @@ notebooks/.ipynb_checkpoints/
 /data/
 research/montecarlo/*.csv
 research/montecarlo_all/*.csv
+research/montecarlo_all/progress.txt
