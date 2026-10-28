@@ -45,6 +45,11 @@ recomputed. Three independent pieces (DESIGN.md section I):
   S&P 500 lab's price-only screens) is persistable: it is stored as `module:qualname` and re-imported, and the
   reference is part of the lab-context hash. A MacroSeries needs `runspec.macro_ref(macro, name)` to be
   persistable. The `run_key` of an SDK call ignores `lab.config` and `lab.screens`; pass overrides as arguments.
+- **Config overrides over REST/MCP** (`ConfigOverrides` in `ops/_request.py`, typed in `/openapi.json`): besides the
+  scalar fields, `weighting` (`equal` / `cap` / `inv_vol`), `max_weight`, `sector_cap` and
+  `hold_rule` (`{"keep_within": number >= 1 | null, "band": number >= 0 | null}`, becomes a `HoldRule`) reach `Config`
+  for every operation that takes `config`; a bad value is a 400 naming the field, e.g.
+  `config.hold_rule.keep_within must be a number >= 1, got 'x'`. Different `hold_rule`s give different run keys.
 - **Operations** (`operations.py`, `ops/*.py`): each analysis (picks, backtest, timing, graham, sweep, significance,
   extended, exit_evaluate, exit_calibrate) is one `Operation` in `OPERATIONS`: name, typed `Args`, `run(lab, **kw)`,
   `to_json`, `metrics`, `family`, `long_running`. `Lab.<name>`, `lab.run(name, ...)`, job kinds, run keys, store metrics,

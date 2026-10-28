@@ -34,7 +34,7 @@ All are optional and imported only by the server modules.
 | `POST /labs/{lab}/exit/calibrate` | as evaluate plus `grid, objective, splits, constraints` |
 
 `config` holds Config overrides (rebalance_months, cost_bps, commission, capital, mer, delist_return,
-min_holdings, cash_rate). `macro` is `[{date, series, value}]` records, a `{series: {date: value}}` map,
+min_holdings, cash_rate, weighting, max_weight, sector_cap, hold_rule). `hold_rule` is `{"keep_within": number >= 1 | null, "band": number >= 0 | null}` (turnover control); `weighting` is one of `equal`, `cap`, `inv_vol`. `macro` is `[{date, series, value}]` records, a `{series: {date: value}}` map,
 or `"statsmodels"`. Signals are `{"type": "TrendBreak", "window_months": 10}` (calendar months) or `{"type": "Breadth", "days": 138}` (trading days); `GET /signals` lists every signal's parameters, units and deprecated names. Request bodies are typed per operation (see `/openapi.json`); an operation registered in code is routed automatically.
 
     curl localhost:8000/labs

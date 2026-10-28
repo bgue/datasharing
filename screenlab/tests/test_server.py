@@ -93,6 +93,45 @@ def test_backtest(client):
     assert client.post("/labs/synthetic/backtest", json={"config": {"nope": 1}}).status_code == 400
 
 
+def test_backtest_hold_rule_and_weighting(client):
+    def turnover(cfg):
+        r = client.post("/labs/synthetic/backtest", json={"screens": ["dogs"], "config": cfg, "max_points": 20})
+        assert r.status_code == 200, r.text
+        return {x["index"]: x for x in rows(r.json()["table"])}["dogs"]["Turnover"]
+    base = turnover({"rebalance_months": 1})
+    held = turnover({"rebalance_months": 1, "hold_rule": {"keep_within": 2.0, "band": 0.2}})
+    assert held != base and held < base
+    assert turnover({"weighting": "cap"}) is not None
+
+
+@pytest.mark.parametrize("cfg,needle", [
+    ({"hold_rule": {"keep_within": "x"}}, "config.hold_rule.keep_within must be a number >= 1, got 'x'"),
+    ({"hold_rule": {"keep_within": 0.5}}, "config.hold_rule.keep_within"),
+    ({"hold_rule": {"band": -0.1}}, "config.hold_rule.band"),
+    ({"hold_rule": {"bogus": 1}}, "bogus"),
+    ({"hold_rule": 3}, "config.hold_rule"),
+    ({"weighting": "foo"}, "'cap'"),
+    ({"max_weight": "x"}, "config.max_weight"),
+    ({"sector_cap": "x"}, "config.sector_cap"),
+])
+def test_backtest_bad_construction_overrides(client, cfg, needle):
+    r = client.post("/labs/synthetic/backtest", json={"screens": ["dogs"], "config": cfg})
+    assert r.status_code == 400 and needle in r.json()["error"], r.text
+
+
+def test_unknown_weighting_lists_allowed_names(client):
+    err = client.post("/labs/synthetic/backtest", json={"screens": ["dogs"], "config": {"weighting": "foo"}}).json()["error"]
+    assert "weighting" in err and all(n in err for n in ("equal", "cap", "inv_vol"))
+
+
+def test_mcp_hold_rule(reg):
+    t = build_tools(reg)
+    a = t["backtest"](["dogs"], config={"rebalance_months": 1}, max_points=20)
+    b = t["backtest"](["dogs"], config={"rebalance_months": 1, "hold_rule": {"keep_within": 2.0}}, max_points=20)
+    tv = lambda r: {x["index"]: x for x in rows(r["table"])}["dogs"]["Turnover"]
+    assert tv(a) != tv(b)
+
+
 def test_timing(client):
     r = client.post("/labs/synthetic/timing", json={"screen": "dogs", "stride": 3, "config": {"rebalance_months": 6}})
     assert r.status_code == 200

@@ -187,6 +187,8 @@ SAMPLES = {
     "montecarlo": {"screens": ["dogs"], "generator": {"type": "BlockBootstrap", "block_months": 6}, "n_paths": 20,
                    "horizon_years": [2.0, 3.0], "start_wealth": 50000.0, "seed": 3, "steps": "monthly",
                    "target_wealth": 60000.0, "config": {"cost_bps": 10}},
+    "fetch_data": {"sources": ["boc"], "dest": "data", "sec_user_agent": "A B a@b.c", "tickers": ["XIU.TO"],
+                   "start": "2010-01-01", "periods": ["2023q1"]},
     "exit_calibrate": {"signals": [{"type": "TrendBreak"}], "grid": {"threshold": [0.6, 0.8]},
                        "constraints": {"max_switches_per_year": 4.0}},
 }
@@ -354,3 +356,27 @@ def test_cap_tiered_is_a_picklable_class_not_a_closure(lab):
     pd.testing.assert_series_equal(f(snap), g(snap))
     assert g == f and R.to_dict(g) == {"__t": "cap_tiered", "tiers": [[0.0, 75.0], [1000.0, 30.0], [10000.0, 10.0]]}
     assert not hasattr(R, "_cap_tiers")
+
+
+def test_config_overrides_hold_rule_round_trip_and_run_key(lab):
+    from screenlab.operations import _models
+    op = OPERATIONS["backtest"]
+    model = _models.request_model(op)
+    a = model.model_validate({"screens": ["dogs"], "config": {"hold_rule": {"keep_within": 2.0, "band": 0.2},
+                                                               "weighting": "cap", "max_weight": 0.1, "sector_cap": 0.3}})
+    assert a.config.hold_rule.keep_within == 2.0 and a.config.weighting == "cap"
+    from screenlab.ops._request import config_overrides
+    cfg = config_overrides(a.config.model_dump(exclude_none=True))
+    assert cfg["hold_rule"] == HoldRule(keep_within=2.0, band=0.2)
+    assert cfg["max_weight"] == 0.1 and cfg["sector_cap"] == 0.3
+    with pytest.raises(Exception):
+        model.model_validate({"screens": ["dogs"], "config": {"hold_rule": {"nope": 1}}})
+    from screenlab.construction import WEIGHTINGS
+    assert set(model.model_json_schema()["$defs"]["ConfigOverrides"]["properties"]["weighting"]["anyOf"][0]["enum"]) == set(WEIGHTINGS)
+    ctx = R.lab_context(lab)
+    did = R.dataset_id(lab.market)
+    keys = []
+    for hr in (None, {"keep_within": 2.0}, {"keep_within": 3.0}):
+        cfg = {} if hr is None else {"hold_rule": hr}
+        keys.append(R.run_key_for(R.RunSpec("backtest", "synthetic", {"screens": ["dogs"], "config": cfg}), did, ctx, "t"))
+    assert None not in keys and len(set(keys)) == 3

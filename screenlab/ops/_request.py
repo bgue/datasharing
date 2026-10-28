@@ -17,6 +17,13 @@ from ..operations import arg, model_hook
 # typed request pieces (declarative: the functions below read plain dicts)
 # ---------------------------------------------------------------------------------------------------
 @dataclass
+class HoldRuleRequest:
+    """Turnover control (HoldRule): keep_within / band."""
+    keep_within: float | None = arg(None, "keep a holding while it ranks within keep_within * n (a number >= 1)")
+    band: float | None = arg(None, "leave a name untraded while its weight is within +-band (relative) of target (>= 0)")
+
+
+@dataclass
 class ConfigOverrides:
     """Config fields a request may override for one call."""
     rebalance_months: int | None = arg(None, "months between rebalances")
@@ -29,7 +36,8 @@ class ConfigOverrides:
     mer: float | dict[str, float] | None = arg(None, "annual expense ratio per security: a number or {ticker: value}")
     max_weight: float | None = arg(None, "per-name weight cap")
     sector_cap: float | None = arg(None, "per-sector weight cap")
-    weighting: Literal["equal", "cap", "inv_vol"] | None = arg(None, "weighting rule")
+    weighting: Literal["equal", "cap", "inv_vol"] | None = arg(None, "weighting rule: equal, cap or inv_vol")
+    hold_rule: HoldRuleRequest | None = arg(None, "turnover control: {keep_within, band}")
 
 
 class SignalSpec:
@@ -171,7 +179,7 @@ CONFIG_INT = ("rebalance_months", "min_holdings")
 CONFIG_NUM = ("commission", "capital", "delist_return", "cash_rate")
 CONFIG_NUM_OR_MAP = ("cost_bps", "mer")
 CONFIG_OPT_NUM = ("max_weight", "sector_cap")
-CONFIG_FIELDS = CONFIG_INT + CONFIG_NUM + CONFIG_NUM_OR_MAP + CONFIG_OPT_NUM + ("weighting",)
+CONFIG_FIELDS = CONFIG_INT + CONFIG_NUM + CONFIG_NUM_OR_MAP + CONFIG_OPT_NUM + ("weighting", "hold_rule")
 POLICY_FIELDS = ("exposure_when_flagged", "park", "park_mer", "park_cost_bps", "switch_cost_bps", "reentry",
                  "reentry_delay_days", "reentry_steps", "rescreen_on_reentry")
 
@@ -179,6 +187,27 @@ POLICY_FIELDS = ("exposure_when_flagged", "park", "park_mer", "park_cost_bps", "
 def clean(kw: dict) -> dict:
     """Keyword arguments without the None entries (an omitted argument and None mean the same everywhere)."""
     return {k: v for k, v in kw.items() if v is not None}
+
+
+def _hold_rule(v):
+    """A HoldRule from `{"keep_within": float|null, "band": float|null}` (or None / a HoldRule), else a 400."""
+    from ..construction import HoldRule
+    if v is None or isinstance(v, HoldRule):
+        return v
+    if not isinstance(v, dict):
+        raise ServerError(400, f"config.hold_rule must be an object {{keep_within, band}}, got {v!r}")
+    for k in v:
+        if k not in ("keep_within", "band"):
+            raise ServerError(400, f"unknown config.hold_rule field {k!r}; use ['keep_within', 'band']")
+    kw = {}
+    for k, lo, word in (("keep_within", 1, ">= 1"), ("band", 0, ">= 0")):
+        x = v.get(k)
+        if x is None:
+            continue
+        if isinstance(x, bool) or not isinstance(x, (int, float)) or x != x or x < lo:
+            raise ServerError(400, f"config.hold_rule.{k} must be a number {word}, got {x!r}")
+        kw[k] = x
+    return HoldRule(**kw)
 
 
 def config_overrides(config) -> dict:
@@ -189,6 +218,7 @@ def config_overrides(config) -> dict:
     if not isinstance(config, dict):
         raise ServerError(400, "`config` must be an object of Config overrides")
     num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)
+    out = dict(config)
     for k, v in config.items():
         if k == "exit":
             raise ServerError(400, "config.exit is not allowed; pass the top-level `exit` object")
@@ -202,9 +232,13 @@ def config_overrides(config) -> dict:
             raise ServerError(400, f"config.{k} must be a number or a {{ticker: value}} object, got {v!r}")
         if k in CONFIG_OPT_NUM and v is not None and not num(v):
             raise ServerError(400, f"config.{k} must be a number or null, got {v!r}")
-        if k == "weighting" and v not in ("equal", "cap", "inv_vol"):
-            raise ServerError(400, f"config.weighting must be 'equal', 'cap' or 'inv_vol', got {v!r}")
-    return dict(config)
+        if k == "weighting":
+            from ..construction import WEIGHTINGS
+            if v not in WEIGHTINGS:
+                raise ServerError(400, f"config.weighting must be one of {sorted(WEIGHTINGS)}, got {v!r}")
+        if k == "hold_rule":
+            out[k] = _hold_rule(v)
+    return out
 
 
 def parse_date(name, v):
