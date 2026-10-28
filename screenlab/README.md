@@ -61,7 +61,14 @@ jupyter lab screenlab/notebooks/explore_runs.ipynb
 screenlab-rest
 ```
 
-**8. Let Claude drive it** (Claude Code; macOS / Linux, then restart the Claude Code session):
+**8. Interactive TUI** (Ctrl+Q or `q` quits). A terminal app where you add a scenario, change a setting, press F2
+and see the new version (`dogs v2`) next to the old one and the passive index, with colours that never change:
+```
+screenlab-tui --lab synthetic          # in a browser instead: screenlab-tui --serve  (http://localhost:8000)
+```
+Keys, the browser mode and the control endpoint Claude can use: [tui/README.md](tui/README.md).
+
+**9. Let Claude drive it** (Claude Code; macOS / Linux, then restart the Claude Code session):
 ```
 claude mcp add screenlab -- "$(which python)" -m screenlab.server.mcp_server
 ```
@@ -148,6 +155,10 @@ from screenlab.realdata.bundled import sp500_lab
 lab = sp500_lab(n=5)
 print(lab.montecarlo(["momentum_12_1", "low_vol"], n_paths=1000, horizon_years=[5, 10, 20], rebalance_months=1))
 ```
+Any screen works: `selection="auto"` (default) re-ranks price-rank screens on every path and runs all others in
+*fixed* mode (picks from the base history, mapped through the resampled dates; they do not react to each path). The
+result records the mode per portfolio. Study of every screen and Globe portfolio on the synthetic market:
+[research/montecarlo_all/MONTECARLO_ALL.md](research/montecarlo_all/MONTECARLO_ALL.md).
 
 **Use Python** (the same engine; full tour in [docs/REFERENCE.md](docs/REFERENCE.md)):
 ```python
@@ -182,6 +193,7 @@ notebook walks through it with plots.
 |---|---|
 | install, fix an error, connect Claude | [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) |
 | see the map of all documents | [docs/README.md](docs/README.md) |
+| see the Monte Carlo range of outcomes vs the S&P 500 with charts, no code | [notebooks/montecarlo.ipynb](notebooks/montecarlo.ipynb) (about 20 seconds; guide in [notebooks/README.md](notebooks/README.md)) |
 | every flag, the benchmark rules, the data files, backtest mechanics | [docs/REFERENCE.md](docs/REFERENCE.md) |
 | the built-in screens, spec format, Globe and Mail portfolios | [docs/SCREENS.md](docs/SCREENS.md) |
 | exit signals, exit policy, calibration | [docs/EXITS.md](docs/EXITS.md) |

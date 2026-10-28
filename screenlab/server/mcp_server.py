@@ -115,6 +115,10 @@ def build_tools(reg: LabRegistry | None = None, typed: bool = False) -> dict:
              submit_run, run_status, run_result, cancel_run, list_runs]
     tools = {op.name: operation_tool(reg, op, typed) for op in OPERATIONS.values() if not _internal(op)}
     tools.update({f.__name__: f for f in fixed})
+    # --- TUI control tools (DESIGN §L4): forwarders to a running screenlab-tui, see tui_tools.py
+    from .tui_tools import build_tui_tools
+    tools.update(build_tui_tools())
+    # --- end TUI control tools
     return tools
 
 

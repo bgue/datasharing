@@ -222,6 +222,17 @@ returns JSON with a `table` of the same numbers as the command line. The server 
 (127.0.0.1); use `screenlab-rest --host 0.0.0.0` only if you understand that exposes it to your network.
 Another port: `screenlab-rest --port 8001`. All endpoints: `screenlab/server/README.md`.
 
+## 7b. Interactive terminal app (TUI)
+```
+screenlab-tui --lab synthetic
+```
+A full-screen app in the terminal: press `a` to add a scenario (pick a screen), `r` to run it, change a number in the
+editor on the left and press `F2` (Apply) to get a new version, for example `dogs v2`, which is run and shown beside
+`dogs` and the grey passive index in the Compare tab (the Curves tab draws them on a log scale in the same
+colours). `?` lists the keys and `q` quits. To use it in a browser instead: `screenlab-tui --serve`, then open
+http://localhost:8000 (`--port` changes it). While it runs it also listens on 127.0.0.1:8765 so that Claude (the
+`tui_*` MCP tools) can drive the same screen; `--control-port 0` turns that off. Details: `screenlab/tui/README.md`.
+
 ## 8. Connect the MCP server to Claude
 The MCP server lets Claude call screenlab itself ("backtest dogs vs screaming value on monthly data"). It
 talks to Claude over standard input/output; you never run it by hand. You need the **full path to the venv's

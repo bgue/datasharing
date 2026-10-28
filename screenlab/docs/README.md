@@ -11,6 +11,7 @@ Paths are relative to the `screenlab/` package folder unless stated. Read top to
 | [docs/EXITS.md](EXITS.md) | Users testing exit rules | You want the exit signals, the exit policy (where the money goes, when it returns), the extra exit inputs and walk-forward calibration. |
 | [docs/SERVERS_AND_STORAGE.md](SERVERS_AND_STORAGE.md) | Power users and tool builders | You want the REST and MCP servers in outline, background jobs, run keys, the SQLite run store and trial counting. |
 | [notebooks/README.md](../notebooks/README.md) | Notebook users | You want to open `explore_runs.ipynb` (saved runs) or `montecarlo.ipynb` (range of outcomes vs the index) and understand what each writes and where. |
+| [tui/README.md](../tui/README.md) | Interactive users and tool builders | You want the terminal/browser app (`screenlab-tui`): keys, the Compare/Curves tabs, versions of a scenario, and the local control endpoint (`tui/PROTOCOL.md`) that agents use. |
 | [server/README.md](../server/README.md) | Developers and tool builders | You want the REST endpoints, MCP tools, JSON shapes, async jobs and the `SCREENLAB_STORE` setting. |
 | [schema/runstore.linkml.yaml](../schema/runstore.linkml.yaml) | Anyone querying the run database (SQL) | You want the tables and columns of `runs.sqlite` and what each unit means. |
 | [realdata/ACQUIRE.md](../realdata/ACQUIRE.md) | The owner deciding where real data comes from | You want to move beyond the 20-stock sample: which vendors, what to buy, and the survivorship and point-in-time pitfalls. |

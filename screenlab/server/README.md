@@ -81,4 +81,26 @@ Labs live in the server process: a screen added with `define_screen` stays until
 For custom data: `default_registry().register_csv("mine", "fund.csv", "prices.csv", "indices.csv")`
 before starting, or build your own `LabRegistry` and `create_app(reg)` / `create_server(reg)`.
 
+### Driving the TUI from Claude
+The `tui_*` tools steer a running terminal UI (and read what the user sees) through its local control endpoint
+(`tui/PROTOCOL.md`). They are thin forwarders: no analysis, no REST routes. To compute without a UI keep using
+`backtest`, `timing`, `montecarlo`...; to change or read what is on the user's screen use `tui_*`.
+
+    screenlab-tui --control-port 8765            # in a terminal; the endpoint binds 127.0.0.1 only
+    export SCREENLAB_TUI_URL=http://127.0.0.1:8765   # client side, optional (this is the default)
+    export SCREENLAB_TUI_TOKEN=...               # optional; must match the token the TUI was started with
+
+Tools: `tui_status, tui_state, tui_view, tui_command(cmd, args)` and the wrappers `tui_add_scenario, tui_set_params,
+tui_run, tui_compare, tui_show, tui_montecarlo, tui_export`. Example calls:
+
+    tui_status()                                              # {"running": true, "lab": ..., ...} or a start hint
+    tui_add_scenario("dogs", params={"rebalance_months": 12, "cost_bps": 10}, run=True)
+    tui_set_params({"cost_bps": 25}, scenario="dogs", run=True)   # creates "dogs v2", keeps "dogs"
+    tui_run("all", ci=True, wait=True)
+    tui_compare()                                             # the Compare table, passive index first
+    tui_show("curves"); tui_view()                            # switch tab, then read it as text
+
+With no TUI running the tools fail with a 503 `ServerError` that includes `screenlab-tui --control-port 8765`
+(`tui_status` returns `running: false` instead). 400/404 from the TUI keep their status and message.
+
 Tests: `python -m pytest screenlab/tests/test_server.py -q` (skipped when fastapi/httpx/mcp are absent).

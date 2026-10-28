@@ -24,7 +24,7 @@ Checked against HEAD `b60a221` with `ls`, `grep` and `git log` only; the test su
 | Real data and survivorship (ROADMAP Phase 1) | open | `ROADMAP.md` Phase 1 |
 | Benchmark kind enforcement beyond a warning | partial | kind is recorded and warned about (`dataset.py:30`, `:98`); no refusal found |
 | Per-session labs and auth (ROADMAP Phase 2) | open | grep for session labs or auth tokens in non-test code: no matches |
-| UI (ROADMAP Phase 3) | open; not in tree | DESIGN §L is a design only. `/home/user/datasharing/pyproject.toml` declares `screenlab-tui = "screenlab.tui.app:main"`, but there is no `tui/` package. Commit `b60a221` is a design commit |
+| UI (ROADMAP Phase 3) | first version in tree | Textual TUI `tui/` (`screenlab-tui`, `--serve` for a browser), control endpoint `tui/PROTOCOL.md`, MCP control tools `server/tui_tools.py`; the guardrails from §5 (data card, pinned passive index, versions) are in; trial counter and CI columns partly |
 | Taxes | open | `ROADMAP.md` Phase 5 |
 
 *Reviewer's note, October 2026. Everything below was checked against the code at commit `448253b` and by running it: the full test suite (208 tests, 54 s, all pass), the bundled S&P 500 lab, the synthetic market, the REST app, and a small walk-forward sweep. Numbers quoted are from those runs. No package code was changed.*
