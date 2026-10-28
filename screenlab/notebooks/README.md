@@ -7,3 +7,7 @@
 * Headless, with outputs saved in place: `cd screenlab/notebooks && python -m nbclient --inplace explore_runs.ipynb` (or `jupyter nbconvert --to notebook --execute --inplace explore_runs.ipynb`).
 * It writes a local SQLite file, `screenlab/notebooks/runs.sqlite` (plus `-wal`/`-shm` side files while open), deleted and recreated on every run from the top. It is git-ignored; change `STORE_PATH` / `START_FRESH` in the first code cell. Nothing leaves your machine.
 * Column and unit reference for that file: `screenlab/schema/runstore.linkml.yaml` (guarded against drift by `tests/test_schema.py`).
+
+## `montecarlo.ipynb`
+
+How wide is the range of outcomes of momentum and low volatility (each with and without the fixed trend exit) against the S&P 500, on 1,000 resampled futures? Plain-language walk through the data card and warnings, the quantile table, the fan chart, 10-year growth histograms against the index, the paired per-path differences and the worst-fall (drawdown) histograms, then "how to read this" and "what this cannot tell you" (survivorship, +10 points a year; price-only index). About 20 seconds; it writes no files. Headless: `cd screenlab/notebooks && python -c "import nbformat; from nbclient import NotebookClient as C; nb=nbformat.read('montecarlo.ipynb',4); C(nb,kernel_name='python3').execute(); nbformat.write(nb,'montecarlo.ipynb')"`. Its charts come from `research/montecarlo_histograms.py`, so the notebook and the research script share one set of plotting functions.

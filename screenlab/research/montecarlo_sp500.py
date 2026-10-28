@@ -141,7 +141,8 @@ def _money(x):
     return f"{x / 1e6:.1f}M" if x >= 1e6 else f"{x / 1e3:.0f}k"
 
 
-def chart_fan(res, path):
+def chart_fan(res, path=None):
+    """Fan chart of the four portfolios vs the index; with `path=None` returns the Figure (notebook use)."""
     import matplotlib.pyplot as plt
     from matplotlib.ticker import FuncFormatter
     fan = res.fan
@@ -171,9 +172,11 @@ def chart_fan(res, path):
     fig.suptitle(f"After 20 years 100k grows to a median {_money(m['momentum_12_1|p50'])} (momentum) or {_money(m[lv + '|p50'])} "
                  f"(low volatility) vs {_money(m[INDEX + '|p50'])} for the S&P 500 price index, with a wide range around each",
                  x=0.01, ha="left", fontsize=12.5, fontweight="bold", y=0.995, wrap=True)
-    fig.text(0.01, 0.005, "Bands: 25-75% (dark) and 5-95% (light) of 1000 block-bootstrap paths; survivor-biased 20 names, "
+    fig.text(0.01, 0.005, f"Bands: 25-75% (dark) and 5-95% (light) of {res.n_paths:,} block-bootstrap paths; survivor-biased 20 names, "
              "price index. Same paths for every panel.", fontsize=8.5, color=INK2)
     fig.tight_layout(rect=(0, 0.02, 1, 0.95))
+    if path is None:
+        return fig
     fig.savefig(path)
     plt.close(fig)
 
