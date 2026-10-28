@@ -715,3 +715,95 @@ of one historical path.
   (DataCard warning carried into every MC result); the trial counter
   counts each generator configuration; results always paired with the
   passive index on identical paths.
+
+---------------------------------------------------------------------------
+## L. Terminal UI (Textual) with a control protocol, and MCP control
+
+Purpose: interactive exploration and *iterative refinement*: change a
+scenario, rerun, compare with the previous versions and the passive index,
+keep what works. Runs in a terminal (`screenlab-tui`) or in a browser
+(`screenlab-tui --serve`, via textual-serve). Everything the TUI computes
+goes through the existing operations (`operations.OPERATIONS`), jobs and
+store; the TUI adds no analysis of its own.
+
+### L1. Layout (`tui/app.py`)
+- Header: dataset data card (one line) + warnings (price-index, survivorship)
+  in red/yellow; store path; job progress.
+- Left: **Scenarios** list. A scenario = name, dataset, screen (built-in or a
+  ScreenSpec), rebalance months, cost profile (bps, commission, MER, cash
+  rate), optional exit policy, dates, n holdings. Each scenario has a fixed
+  colour from the Okabe-Ito order used by the research charts (identity,
+  never cycled); the **passive index is pinned** first in neutral grey and
+  cannot be removed. Versions: every Apply creates a new version (`name v2`,
+  `v3`…) and keeps the old ones, so a refinement is always compared with
+  what it replaced; a diff line shows what changed.
+- Right: **parameter editor** for the selected scenario (Select/Input/Switch
+  widgets) with Apply (= new version + run).
+- Main tabs: **Compare** (DataTable, passive row first, Excess/yr with
+  bootstrap CI when available, TimeOut/Switches for exits), **Curves**
+  (textual-plotext, log wealth, colours match scenarios), **Timing** (offset
+  distribution + tranche), **Picks**, **Exit** (forward returns flagged vs
+  not; overlay stats), **Monte Carlo** (quantile table; fan and histogram
+  via plotext), **Runs** (store browser: find/compare/rerun), **Log**.
+- Keys: `a` add, `c` clone, `r` run, `d` delete, `x` toggle exit, `m` Monte
+  Carlo, `t` timing, `s` save screen spec (JSON), `e` export (markdown +
+  CSV), `?` help. Mouse works too (Textual).
+- Theme: Textual built-in dark/light; chart colours validated by the
+  dataviz palette script (the research palette already passes).
+
+### L2. Session (`tui/session.py`) — pure state, no Textual imports
+`Session(registry: LabRegistry, store, jobs)` holds scenarios, versions,
+results (by run_key), the comparison set, the active tab, MC settings.
+Commands (all JSON-in/JSON-out, so the control endpoint and tests can call
+them without the UI): `add_scenario`, `clone_scenario`, `set_params`
+(creates a version), `remove_scenario`, `run` (submits through JobManager;
+returns job ids), `compare`, `timing`, `montecarlo`, `exit_eval`, `picks`,
+`show(tab)`, `select(scenario)`, `save_spec`, `export`, `history`,
+`snapshot` (whole state), `view` (plain-text description of what the active
+tab shows: for an agent to "read the screen"). Emits change events the app
+subscribes to. `Session` is also what tests drive.
+
+### L3. Control endpoint (`tui/control.py`) and protocol (`tui/PROTOCOL.md`)
+A local HTTP JSON endpoint inside the running TUI (stdlib `http.server` in
+a thread, marshalled into the app loop with `call_from_thread`), default
+`127.0.0.1:8765`, optional token `SCREENLAB_TUI_TOKEN`:
+- `GET /state` → `Session.snapshot()`; `GET /view` → `Session.view()`;
+- `POST /command` `{"cmd": "<name>", "args": {...}}` → the command's result,
+  or `{"error": msg}` with 400/404;
+- `GET /health` → version, dataset, store path.
+`PROTOCOL.md` is the contract: every command, its args, result shape, and
+an example — the MCP tools are built against it.
+
+### L4. MCP control tools (`server/tui_tools.py`, registered by `mcp_server.py`)
+Thin forwarders to the control endpoint (httpx): `tui_status` (running?
+summary), `tui_state`, `tui_view`, `tui_command(cmd, args)`, plus named
+wrappers for the common moves: `tui_add_scenario`, `tui_set_params`,
+`tui_run`, `tui_compare`, `tui_show`, `tui_montecarlo`, `tui_export`.
+They contain no analysis and add no REST routes; the existing `backtest`,
+`timing`, `montecarlo`… tools stay the way to compute without a UI. If no
+TUI is reachable the error says how to start one
+(`screenlab-tui --control-port 8765`). Host/port from env
+`SCREENLAB_TUI_URL`.
+
+### L5. Tests
+`Session` commands without Textual (thread-mode JobManager, NullStore and
+SQLite); `App.run_test()` pilot tests: launch, add + run a scenario, the
+Compare table has the passive row first, versions appear after Apply,
+tabs switch; control endpoint round trip inside `run_test`; `--serve`
+smoke (start, GET /, stop); MCP tools against a stub server implementing
+PROTOCOL.md, and one integration test against the real app.
+
+---------------------------------------------------------------------------
+## M. Monte Carlo for every portfolio
+
+`montecarlo` gains `selection="auto"`: price-rank screens run `per_path`;
+every other screen runs `fixed` (picks decided on the base schedule and
+mapped through `source_dates`, fundamentals travelling with their dates);
+the result records which mode each portfolio used. Study
+`research/montecarlo_all.py` on the synthetic market (it has fundamentals
+and a survivorship score near zero) for every REGISTRY screen plus the
+Globe portfolios at their published rebalance; outputs under
+`research/montecarlo_all/` (CSV ignored; PNG + MD committed): ranked
+P(trail the passive index) by horizon, CAGR distributions, fan small
+multiples, drawdown histograms vs the index, and a report that says
+plainly that fixed-mode picks do not react to each path.

@@ -25,10 +25,13 @@ server = ["fastapi", "uvicorn", "httpx", "mcp"]
 notebook = ["jupyterlab", "ipykernel", "matplotlib", "nbclient", "nbformat"]
 # Optional Bayesian search (sweep.bayes_search), see screenlab/docs/BAYESIAN_SWEEPS.md.
 bayes = ["optuna"]
+# Terminal UI (screenlab-tui), also served in a browser via `textual serve`.
+tui = ["textual>=8", "textual-plotext", "textual-serve", "plotext"]
 dev = ["pytest", "pyyaml"]
-all = ["screenlab[data,server,notebook,bayes,dev]"]
+all = ["screenlab[data,server,notebook,bayes,tui,dev]"]
 
 [project.scripts]
+screenlab-tui = "screenlab.tui.app:main"
 screenlab-run = "screenlab._cli:run"
 screenlab-timing = "screenlab._cli:timing"
 screenlab-rest = "screenlab.server.rest:main"
