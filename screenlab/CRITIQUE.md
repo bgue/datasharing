@@ -1,5 +1,32 @@
 # Review of `screenlab` before the UI
 
+## Status update (2026-10-28)
+
+Checked against HEAD `b60a221` with `ls`, `grep` and `git log` only; the test suite was not re-run for this update. Paths are relative to `screenlab/` unless shown in full.
+
+| Item from the review | Status | Where |
+|---|---|---|
+| B1–B6 bugs | done (Phase 0) | `tests/test_phase0.py` (`test_b1_*` to `test_b6_*`) |
+| B7 calibration curve bug | done | `tests/test_calibration.py::test_calibration_passes_target_curve_to_curve_signals`. `tests/test_phase0.py` has no B7 test |
+| `ExitOverlay` alias removed (`Config.exit` only) | done | no `ExitOverlay` or `exit_overlay` outside `tests/`; `tests/test_phase0.py::test_b3_exit_overlay_alias_is_gone` |
+| Golden regression tests | done | `tests/test_golden.py` (`test_golden_synthetic_all_builtin_screens`, `test_golden_bundled_sp500_with_and_without_trend_exit`) |
+| LRU bound on Market views | done | `data.py:91` (`DEFAULT_MAX_VIEWS = 2048`), `data.py:130-158` (`max_views`, `_LRU`) |
+| Research CSVs out of git | done | `/home/user/datasharing/.gitignore:3` (`research/results/`); `git ls-files` lists nothing under `research/results/` |
+| Async jobs, run store, trial counter (DESIGN §I) | done | `jobs.py` (`JobManager`, line 491), `store.py`, `tracking.py` (trial counting) |
+| Passive-index benchmark rule | done (test file present) | `tests/test_passive_benchmark.py` |
+| Data card with survivorship score and price-index warning | done | `dataset.py:41` (`survivorship_score`), `dataset.py:61` (`DataCard`), `dataset.py:98` and `:103` (warnings) |
+| Typed REST bodies and operations registry (DESIGN §J4) | done | `operations.py` (`pydantic_model`), `ops/` (one module per operation), `server/rest.py:63` (`create_model`) |
+| Dataset / universe abstraction (DESIGN §J1) | done | `dataset.py` (`KINDS`, `DataCard`), `universe.py` |
+| Multi-stage screen specs (DESIGN §J3) | done | `spec.py:29-30` and `:65` (`Stage`, `stages`); `specs/classic/*.json`, `specs/globe/*.json` (12 files) |
+| Simulation pipeline and `simulate_paths` (DESIGN §J5) | done | `pipeline.py` (stage protocols), `pipeline.py:228` (`simulate_paths`) |
+| Monte Carlo (DESIGN §K) | done | `ops/montecarlo.py`, `montecarlo/generators.py`, `research/montecarlo/MONTECARLO_SP500.md` |
+| Getting-started guide and pyproject packaging | done | `docs/GETTING_STARTED.md`; `/home/user/datasharing/pyproject.toml` (`name = "screenlab"`) |
+| Real data and survivorship (ROADMAP Phase 1) | open | `ROADMAP.md` Phase 1 |
+| Benchmark kind enforcement beyond a warning | partial | kind is recorded and warned about (`dataset.py:30`, `:98`); no refusal found |
+| Per-session labs and auth (ROADMAP Phase 2) | open | grep for session labs or auth tokens in non-test code: no matches |
+| UI (ROADMAP Phase 3) | open; not in tree | DESIGN §L is a design only. `/home/user/datasharing/pyproject.toml` declares `screenlab-tui = "screenlab.tui.app:main"`, but there is no `tui/` package. Commit `b60a221` is a design commit |
+| Taxes | open | `ROADMAP.md` Phase 5 |
+
 *Reviewer's note, October 2026. Everything below was checked against the code at commit `448253b` and by running it: the full test suite (208 tests, 54 s, all pass), the bundled S&P 500 lab, the synthetic market, the REST app, and a small walk-forward sweep. Numbers quoted are from those runs. No package code was changed.*
 
 ## Verdict
@@ -50,20 +77,20 @@ Other conventions worth unifying: `lab.benchmark` accepts an `IndexBenchmark`, a
 
 | # | Symptom | Repro | Severity |
 |---|---|---|---|
-| B1 | **Same-named portfolios silently collapse to one row**; the later one wins | `lab.backtest([Portfolio("dogs", "dogs", rebalance_months=6), "dogs"]).table.index` → `['SYN_CAPWT', 'dogs']` (also `["dogs", "dogs"]`) | High for a comparison UI: a scenario can vanish from a report with no error |
-| B2 | **`with_and_without=True` is ignored** when the exit comes from `lab.config.exit_overlay` | `Lab(mkt, config=Config(exit_overlay=ExitOverlay(es))).backtest(["dogs"], with_and_without=True).table.index` → one `dogs` row, with `TimeOut` 0.364 | Medium: the "+exit" comparison the owner wants is missing, silently |
-| B3 | **Both `exit` and `exit_overlay` set**: the overlay is ignored without a warning | `Config(exit=ExitPolicy(es, 0.5), exit_overlay=ExitOverlay(es, 0.0))` → curve equals the policy run | Low, but it is the alias problem in miniature |
-| B4 | **Unknown screen name raises `JSONDecodeError`** (SDK) and REST returns `400 "JSONDecodeError: Expecting value"` instead of 404 | `lab.picks("no_such_screen")`; `GET /labs/syn/picks/zzz` | Medium: every UI error path goes through this |
-| B5 | **`benchmark="top60"` works in the CLI and the server but not the SDK** | `lab.backtest(["dogs"], benchmark="top60")` → `KeyError: no index or ticker named 'top60'` | Low |
-| B6 | **REST leaks internal messages**: a `config` containing `exit` collides with the `exit=` keyword in `LabRegistry.backtest` | `POST /labs/syn/backtest {"screens":["dogs"],"config":{"exit":"x"}}` → `400 "bad request body: LabRegistry._call() got multiple values for keyword argument..."`; `{"config":{"rebalance_months":"twelve"}}` → `"invalid literal for int() with base 10: ''"` | Low, but typed request models would remove the whole class |
-| B7 | **Stale documentation**: `CALIBRATION_SP500.md` ("Software issue found, not fixed") says `calibrate_exit` drops curve-based signals. That is fixed at HEAD: `ExitScreen([PortfolioStop(0.15)]).components(mkt, curve=c).shape` → `(8313, 1)` and the calibration table now shows `FracFlagged` 0.22 and 100 switches. The note (and its fixed-stop reference table) should be updated | Doc only |
+| B1 | **Same-named portfolios silently collapse to one row**; the later one wins | `lab.backtest([Portfolio("dogs", "dogs", rebalance_months=6), "dogs"]).table.index` → `['SYN_CAPWT', 'dogs']` (also `["dogs", "dogs"]`) | High for a comparison UI: a scenario can vanish from a report with no error — **fixed** (Phase 0, tests/test_phase0.py) |
+| B2 | **`with_and_without=True` is ignored** when the exit comes from `lab.config.exit_overlay` | `Lab(mkt, config=Config(exit_overlay=ExitOverlay(es))).backtest(["dogs"], with_and_without=True).table.index` → one `dogs` row, with `TimeOut` 0.364 | Medium: the "+exit" comparison the owner wants is missing, silently — **fixed** (Phase 0, tests/test_phase0.py) |
+| B3 | **Both `exit` and `exit_overlay` set**: the overlay is ignored without a warning | `Config(exit=ExitPolicy(es, 0.5), exit_overlay=ExitOverlay(es, 0.0))` → curve equals the policy run | Low, but it is the alias problem in miniature — **fixed** (Phase 0, tests/test_phase0.py) |
+| B4 | **Unknown screen name raises `JSONDecodeError`** (SDK) and REST returns `400 "JSONDecodeError: Expecting value"` instead of 404 | `lab.picks("no_such_screen")`; `GET /labs/syn/picks/zzz` | Medium: every UI error path goes through this — **fixed** (Phase 0, tests/test_phase0.py) |
+| B5 | **`benchmark="top60"` works in the CLI and the server but not the SDK** | `lab.backtest(["dogs"], benchmark="top60")` → `KeyError: no index or ticker named 'top60'` | Low — **fixed** (Phase 0, tests/test_phase0.py) |
+| B6 | **REST leaks internal messages**: a `config` containing `exit` collides with the `exit=` keyword in `LabRegistry.backtest` | `POST /labs/syn/backtest {"screens":["dogs"],"config":{"exit":"x"}}` → `400 "bad request body: LabRegistry._call() got multiple values for keyword argument..."`; `{"config":{"rebalance_months":"twelve"}}` → `"invalid literal for int() with base 10: ''"` | Low, but typed request models would remove the whole class — **fixed** (Phase 0, tests/test_phase0.py) |
+| B7 | **Stale documentation**: `CALIBRATION_SP500.md` ("Software issue found, not fixed") says `calibrate_exit` drops curve-based signals. That is fixed at HEAD: `ExitScreen([PortfolioStop(0.15)]).components(mkt, curve=c).shape` → `(8313, 1)` and the calibration table now shows `FracFlagged` 0.22 and 100 switches. The note (and its fixed-stop reference table) should be updated | Doc only — **fixed** (calibration.py passes the curve; tests/test_calibration.py) |
 
 ### Hazards that are not bugs yet
-- **Shared mutable registry.** `LabRegistry.define_screen` writes into the one cached `Lab`; `reg.define_screen({"name": "dogs", ...})` replaces the built-in `dogs` for every client until the process restarts (verified). Any per-user UI needs per-session labs or immutable base labs plus session overlays.
-- **Unbounded caches.** `Market._views` holds one 119 KB DataFrame per rebalance date forever: 24 views after one annual backtest, 277 after a monthly one, 537 after a stride-21 timing study. A daily-stride timing study on the default synthetic market (252 offsets × 25 years) would cache on the order of 6,000 views, roughly 700 MB, in a long-running server. `ExitPolicy._cache` and `ExitOverlay._cache` are keyed on `id(mkt)`. None are bounded or evictable.
+- **Shared mutable registry.** `LabRegistry.define_screen` writes into the one cached `Lab`; `reg.define_screen({"name": "dogs", ...})` replaces the built-in `dogs` for every client until the process restarts (verified). Any per-user UI needs per-session labs or immutable base labs plus session overlays. — **still open (Phase 2 per-session labs)**
+- **Unbounded caches.** `Market._views` holds one 119 KB DataFrame per rebalance date forever: 24 views after one annual backtest, 277 after a monthly one, 537 after a stride-21 timing study. A daily-stride timing study on the default synthetic market (252 offsets × 25 years) would cache on the order of 6,000 views, roughly 700 MB, in a long-running server. `ExitPolicy._cache` and `ExitOverlay._cache` are keyed on `id(mkt)`. None are bounded or evictable. — **fixed: Market(max_views=2048)**
 - **Concurrency.** Six threads running backtests on one `Lab` through the registry gave identical results and no errors in my probe, but the caches are plain dicts touched without the lock (`_lock` only guards `get` and `define_screen`). FastAPI runs sync endpoints in a thread pool, so this will be exercised in production.
-- **Everything is synchronous.** Measured on this machine: 8 screens annual on the default synthetic market 6.2 s; monthly 66 s; `timing("dogs", stride=21)` 15.6 s (so a daily sweep is about 5 minutes per screen, not the 70 s the README quotes); 2 screens monthly on the bundled data 11.8 s; `significance` 7.3 s; the full calibration study 10 minutes on 4 cores. The REST layer blocks for all of it.
-- **Repository hygiene.** Two research CSVs of 4.0 MB and 4.8 MB are tracked in git; `.gitignore` is two lines. Fine for now, painful in a year.
+- **Everything is synchronous.** Measured on this machine: 8 screens annual on the default synthetic market 6.2 s; monthly 66 s; `timing("dogs", stride=21)` 15.6 s (so a daily sweep is about 5 minutes per screen, not the 70 s the README quotes); 2 screens monthly on the bundled data 11.8 s; `significance` 7.3 s; the full calibration study 10 minutes on 4 cores. The REST layer blocks for all of it. — **fixed: JobManager / /jobs (DESIGN §I)**
+- **Repository hygiene.** Two research CSVs of 4.0 MB and 4.8 MB are tracked in git; `.gitignore` is two lines. Fine for now, painful in a year. — **fixed: research/results ignored**
 
 ### Test suite: what it proves and what it does not
 208 tests in 54 s is a good suite for a research sketch, and its strengths are real: exact arithmetic for costs, MER, commissions, delisting, benchmark MER/cost, overlay returns, clipping, hold rules, Newey–West and PSR by hand; causality tests for every signal; both daily and monthly frequencies; CLIs and both servers exercised end to end. What it does not prove:
@@ -123,7 +150,10 @@ Keep without change: the data model, the cost model, screens and specs, the back
 
 Data correctness comes before features; the UI phases cannot start until the blockers marked **[UI blocker]** are done.
 
-### Phase 0: Freeze and fix (about a week)
+### **[DONE]** Phase 0: Freeze and fix (about a week)
+
+Done 2026-10-28. The live roadmap is `ROADMAP.md`.
+
 Fix B1–B6; remove the `ExitOverlay` alias and `_exit_of`; make `Lab.screen` raise `KeyError("unknown screen")`; route all server errors through `ServerError`; add a golden-value regression test for one full synthetic backtest and one bundled-data backtest; update `CALIBRATION_SP500.md` for B7; add an LRU bound to `Market._views`; move `research/results/*.csv` out of git or into LFS. **[UI blocker: B1, B4]**
 *Done when:* the repros in section 3 fail to reproduce, the suite still passes, and a `Portfolio` named like a screen produces two rows.
 
