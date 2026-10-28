@@ -264,14 +264,14 @@ def price_rank_of(screen) -> PriceRank | None:
 
 
 def per_path_ok(weighting) -> bool:
-    """True when `weighting` is plain equal weight (no caps, no hold rule): what per_path selection supports."""
+    """True when `weighting` is equal weight without caps (a HoldRule is fine): what per_path selection supports."""
     return type(weighting).__name__ == "StandardWeighting" and weighting.weighting == "equal" \
-        and weighting.max_weight is None and weighting.sector_cap is None and not weighting.hold_rule
+        and weighting.max_weight is None and weighting.sector_cap is None
 
 
 def auto_selection(screen, cfg) -> str:
     """The mode `selection="auto"` picks: per_path for a price rank (see `price_rank_of`) run with equal weight
-    and no hold rule, otherwise fixed."""
+    and no caps (a hold rule is applied per path), otherwise fixed."""
     return "per_path" if price_rank_of(screen) is not None and per_path_ok(cfg.construction) else "fixed"
 
 
@@ -297,6 +297,42 @@ def _trailing(stat: str, lev: np.ndarray, dates: pd.DatetimeIndex, i: int, ppy: 
             return lev[:, i1, :] / lev[:, i0, :] - 1
         win = lev[:, i0:i + 1, :]
         return np.nanstd(np.diff(np.log(win), axis=1), axis=1, ddof=1) * np.sqrt(ppy)
+
+
+def _hold_per_path(hr, sc, ok, cnt, idx, w, prev, n, min_holdings, K):
+    """`HoldRule.keep` + equal weight + `HoldRule.apply_band` for every path at once (what `StandardWeighting.retain`
+    and `.target` do in `simulate`): sc/ok [P, S] the path's score and eligibility, cnt [P] its pick count, idx/w
+    [P, K] the plain top-K picks and equal weights, prev [P, S] the drifted weights. Returns the new (idx, w)."""
+    P, S = sc.shape
+    if hr.keep_within:
+        order = np.argsort(-sc, axis=1, kind="stable")                    # ranking, best first; ineligible last
+        rank = np.empty((P, S), int)
+        np.put_along_axis(rank, order, np.tile(np.arange(S), (P, 1)), axis=1)
+        limit = int(np.ceil(hr.keep_within * n - 1e-9))
+        held = prev > 0
+        apply = (cnt >= min_holdings) & held.any(axis=1)
+        km = (held & ok & (rank < limit) & apply[:, None])
+        km = np.take_along_axis(km, order, axis=1)                         # in rank order
+        keep = km & (np.cumsum(km, axis=1) <= cnt[:, None])                # the best len(picks) kept names
+        pickable = (np.arange(S)[None, :] < cnt[:, None]) & ~keep          # picks not already kept, in order
+        fresh = pickable & (np.cumsum(pickable, axis=1) <= (cnt - keep.sum(axis=1))[:, None])
+        sel = np.where(apply[:, None], keep | fresh, np.arange(S)[None, :] < cnt[:, None])
+        pos = np.argsort(~sel, axis=1, kind="stable")[:, :K]
+        chosen = np.take_along_axis(sel, pos, axis=1)
+        idx = np.where(chosen, np.take_along_axis(order, pos, axis=1), S)
+        w = np.where(chosen & (cnt >= min_holdings)[:, None], 1.0 / np.maximum(cnt, 1)[:, None], 0.0)
+    if hr.band:
+        gi = np.minimum(idx, S - 1)
+        t, p = w, np.take_along_axis(prev, gi, axis=1) * (idx < S)
+        member = t > 0
+        frozen = member & (p > 0) & (np.abs(p - t) <= hr.band * t + 1e-12)
+        room = t.sum(axis=1) - np.where(frozen, p, 0.0).sum(axis=1)
+        rest = member & ~frozen
+        rsum = np.where(rest, t, 0.0).sum(axis=1)
+        go = frozen.any(axis=1) & rest.any(axis=1) & (room > 0)
+        scale = np.where(go, room / np.where(rsum > 0, rsum, 1.0), 1.0)
+        w = np.where(go[:, None] & frozen, p, np.where(go[:, None] & rest, t * scale[:, None], t))
+    return idx, w
 
 
 class _Cal:
@@ -330,8 +366,10 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
                   adds more; spec screens of a size cut + static filters + one trailing-price rank) re-rank every
                   path at every rebalance from that path's own trailing prices, vectorized across paths. The size
                   cut / filters use the base snapshot of each step's source date (caps do not resample).
-                  Equal weight only (no caps, no hold rule).
-      "auto"      per_path when the screen is a price rank and the weighting is plain equal weight, else fixed.
+                  Equal weight only (no caps). A hold rule runs per path: `keep_within` retains held names that
+                  still rank within keep_within * n on that path's own ranking, `band` freezes names near target
+                  on that path's drifted weights, as `simulate` does (`PathWealth.hold_rule_applied`).
+      "auto"      per_path when the screen is a price rank and the weighting is equal weight without caps, else fixed.
 
     Stages: `cfg.costs` (trade cost, MER), `cfg.cash` (cash rate, delisting haircut), `cfg.exit` (exposure computed
     per path from that path's own index: TrendBreak and signals with `compute_paths`; other signals raise
@@ -377,7 +415,7 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
         if screen.params and getattr(screen.fn, "__name__", None) != "rule_screen":
             raise NotImplementedError("per_path ranking does not support screen params")
         if not per_path_ok(weighting):
-            raise NotImplementedError("per_path selection supports equal weight without caps or hold rule")
+            raise NotImplementedError("per_path selection supports equal weight without max_weight / sector_cap")
     else:
         if market is None or source_idx is None:
             raise ValueError("selection='fixed' needs base= and the paths' source_idx (a PathSet)")
@@ -407,6 +445,8 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
     drag = np.asarray(cost_model.holding_drag(names, None), dtype=float) * np.ones(S)
 
     # ---- selection helpers
+    hr = getattr(weighting, "hold_rule", None)
+    hold_on = hr is not None and bool(hr.keep_within or hr.band)
     if selection == "per_path":
         K = min(screen.n, S)
         has_fund = None
@@ -429,8 +469,6 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
                 umask_cache[u] = np.isin(np.asarray(names, dtype=object), v.index.to_numpy(dtype=object))
             return umask_cache[u]
     else:
-        hr = getattr(weighting, "hold_rule", None)
-        hold_on = hr is not None and bool(hr.keep_within or hr.band)
         cache: dict = {}
         col = {n: i for i, n in enumerate(names)}
         empty = pd.Series(dtype=float)
@@ -489,6 +527,8 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
                 cnt = good.sum(axis=1)
                 idx = np.where(good, top, S)
                 w = np.where(good & (cnt >= cfg.min_holdings)[:, None], 1.0 / np.maximum(cnt, 1)[:, None], 0.0)
+                if hold_on:
+                    idx, w = _hold_per_path(hr, sc, ok, cnt, idx, w, prev[:, :S], screen.n, cfg.min_holdings, K)
         else:
             us, inv = np.unique(src[:, i_d], return_inverse=True)
             tabs = [base_pick(int(u)) for u in us]
@@ -564,4 +604,4 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
         g[:, 1:] *= 1 - index_cost_bps / 1e4
         iw = np.full((P, N), np.nan)
         iw[:, a:b] = g * float(start_wealth)
-    return PathWealth(W, iw, dates, held, turnover, rebal, selection, bool(selection == "fixed" and hold_on))
+    return PathWealth(W, iw, dates, held, turnover, rebal, selection, bool(hold_on))

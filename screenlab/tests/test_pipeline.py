@@ -354,6 +354,30 @@ def test_fixed_selection_with_a_hold_rule_equals_simulate_on_each_scenario(hr):
     assert not np.allclose(plain.portfolio, held.portfolio, equal_nan=True)         # the rule really trades differently
 
 
+@pytest.mark.parametrize("hr", [HoldRule(keep_within=2.0), HoldRule(band=0.25), HoldRule(keep_within=2.0, band=0.25)],
+                         ids=["keep", "band", "keep+band"])
+@pytest.mark.parametrize("which", ["momentum_12_1", "spec_mom_6m"])
+def test_per_path_selection_with_a_hold_rule_equals_simulate_on_each_scenario(hr, which):
+    """Per path: rank on the path's own prices, retain (keep_within * n of that ranking), band on its drifted
+    weights, equal weight: what `simulate` does on the scenario dataset."""
+    base = SyntheticBuilder(n_stocks=40, years=12, freq="ME", seed=4).build()
+    ps = BlockBootstrap(12).paths(base, 4, 5, seed=2)
+    screen = price_screens(6)["momentum_12_1"] if which == "momentum_12_1" else _spec_rank(1000, "mom_6m", n=6)
+    traded = False
+    for m in (3, 12):
+        cfg = Config(rebalance_months=m, hold_rule=hr, **FRICTION)
+        out = simulate_paths(screen, cfg, ps, base=base)                       # auto -> per_path
+        assert out.selection == "per_path" and out.hold_rule_applied is True
+        for p in range(4):
+            res = run(screen, Market(BlockBootstrap(12).scenario_dataset(base, p, pathset=ps)), cfg, start=ps.dates[0])
+            np.testing.assert_allclose(out.portfolio[p][ps.dates.get_indexer(res.curve.index)], res.curve.to_numpy(),
+                                       rtol=TOL)
+        plain = simulate_paths(screen, Config(rebalance_months=m, **FRICTION), ps, base=base)
+        assert plain.hold_rule_applied is False
+        traded |= not np.allclose(plain.portfolio, out.portfolio, equal_nan=True)
+    assert traded                                                              # the rule really trades differently
+
+
 def test_one_year_horizon_with_trendbreak_exit_equals_simulate():
     """A path shorter than the exit signal's history (all-NaN TrendBreak) used to give a [0]-wide exposure."""
     base = SyntheticBuilder(n_stocks=40, years=12, freq="ME", seed=4).build()
@@ -503,10 +527,12 @@ def test_unsupported_inputs_raise_not_implemented(world):
     with pytest.raises(NotImplementedError, match="equal weight"):
         simulate_paths(MOM, Config(weighting="inv_vol"), ps, base=base, selection="per_path")
     with pytest.raises(NotImplementedError, match="equal weight"):
-        simulate_paths(MOM, Config(hold_rule=HoldRule(band=0.1)), ps, base=base, selection="per_path")
-    # auto falls back to fixed when the weighting cannot run per path (then needs a consistent path set)
+        simulate_paths(MOM, Config(max_weight=0.5), ps, base=base, selection="per_path")
+    # auto falls back to fixed when the weighting cannot run per path (caps, non-equal weight); a hold rule runs per path
     from screenlab.pipeline import auto_selection
-    assert auto_selection(MOM, Config(hold_rule=HoldRule(band=0.1))) == "fixed" and auto_selection(MOM, Config()) == "per_path"
+    assert auto_selection(MOM, Config(max_weight=0.5)) == "fixed" and auto_selection(MOM, Config(sector_cap=0.4)) == "fixed"
+    assert auto_selection(MOM, Config(weighting="inv_vol")) == "fixed"
+    assert auto_selection(MOM, Config(hold_rule=HoldRule(band=0.1))) == "per_path" and auto_selection(MOM, Config()) == "per_path"
     with pytest.raises(NotImplementedError, match="callable"):
         simulate_paths(MOM, Config(cost_bps=lambda s: s["market_cap"] * 0), ps, base=base)
     with pytest.raises(NotImplementedError, match="registered price rank"):

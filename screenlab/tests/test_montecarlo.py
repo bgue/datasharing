@@ -321,25 +321,23 @@ def test_globe_spec_screens_are_price_ranks_where_they_reduce_to_one(syn):
     assert all(v["hold_rule_applied"] is False for v in r.selection_info.values())
 
 
-def test_hold_rule_runs_in_fixed_mode_and_is_recorded(syn):
+def test_hold_rule_runs_per_path_in_auto_mode_and_is_recorded(syn):
     from screenlab.construction import HoldRule
     kw = dict(n_paths=8, horizon_years=[2], seed=5, rebalance_months=12)
     plain = syn.montecarlo(["bluechip_dividend_growth"], **kw)
     held = syn.montecarlo(["bluechip_dividend_growth"], hold_rule=HoldRule(keep_within=2.0, band=0.25), **kw)
     assert plain.selection_info["bluechip_dividend_growth"] == {"mode": "per_path", "hold_rule_applied": False}
-    # a hold rule needs the drifted weights of the path's own holdings: auto falls back to fixed and applies it
-    assert held.selection_info["bluechip_dividend_growth"] == {"mode": "fixed", "hold_rule_applied": True}
-    assert held.selection_mode == {"bluechip_dividend_growth": "fixed"}
+    # the hold rule runs on each path's own ranking and drifted weights: auto stays per_path
+    assert held.selection_info["bluechip_dividend_growth"] == {"mode": "per_path", "hold_rule_applied": True}
+    assert held.selection_mode == {"bluechip_dividend_growth": "per_path"}
     op = OPERATIONS["montecarlo"]
-    assert op.to_json(held)["selection_info"]["bluechip_dividend_growth"]["hold_rule_applied"] is True
+    assert op.to_json(held)["selection_info"]["bluechip_dividend_growth"] == {"mode": "per_path", "hold_rule_applied": True}
     forced = syn.montecarlo(["bluechip_dividend_growth"], selection="fixed", **kw)
-    assert forced.selection_info["bluechip_dividend_growth"]["hold_rule_applied"] is False
-    with pytest.raises(NotImplementedError, match="hold rule"):
-        syn.montecarlo(["bluechip_dividend_growth"], selection="per_path", hold_rule=HoldRule(band=0.2), **kw)
-
-
-@pytest.mark.parametrize("h", [1, 2])
-def test_fixed_mode_trendbreak_exit_works_from_a_one_year_horizon(syn, h):
-    r = syn.montecarlo(["dogs"], n_paths=6, horizon_years=[h], exit=ExitPolicy(ExitScreen([TrendBreak("SYN_CAPWT")])),
-                       rebalance_months=12)
-    assert np.isfinite(r.table.loc[("dogs", float(h)), "CAGR_p50"]) and r.selection_mode == {"dogs": "fixed"}
+    assert forced.selection_info["bluechip_dividend_growth"] == {"mode": "fixed", "hold_rule_applied": False}
+    forced_held = syn.montecarlo(["bluechip_dividend_growth"], selection="fixed", hold_rule=HoldRule(band=0.2), **kw)
+    assert forced_held.selection_info["bluechip_dividend_growth"] == {"mode": "fixed", "hold_rule_applied": True}
+    # caps still force fixed in auto
+    capped = syn.montecarlo(["bluechip_dividend_growth"], max_weight=0.2, **kw)
+    assert capped.selection_mode == {"bluechip_dividend_growth": "fixed"}
+    with pytest.raises(NotImplementedError, match="max_weight"):
+        syn.montecarlo(["bluechip_dividend_growth"], selection="per_path", max_weight=0.2, **kw)

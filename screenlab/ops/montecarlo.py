@@ -196,8 +196,9 @@ class MonteCarlo(Operation):
         selection: Literal["auto", "per_path", "fixed"] = arg(
             "auto", "'auto': price-rank screens (momentum_*, low_vol, or a spec of a size cut + one trailing-price "
                     "rank; see pipeline.price_rank_of) re-rank on every path (per_path), every other screen uses "
-                    "picks fixed on the base schedule and mapped through the resampled dates (fixed; a hold rule "
-                    "runs on each path's drifted weights); or force one mode for all")
+                    "picks fixed on the base schedule and mapped through the resampled dates (fixed); a hold rule "
+                    "runs on each path's own ranking and drifted weights in either mode; caps and non-equal "
+                    "weighting force fixed; or force one mode for all")
         generator: GeneratorSpec | None = arg(None, "scenario generator, e.g. {'type': 'BlockBootstrap', "
                                                     "'block_months': 12} (the default); also StationaryBootstrap "
                                                     "(mean_block_months), RegimeBootstrap, IIDBootstrap")
