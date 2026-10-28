@@ -8,7 +8,8 @@ JobManager and the store. The command names below are the contract and are not r
 
 ## Transport
 
-* Default `http://127.0.0.1:8765` (`screenlab-tui --control-port N`, `0` = off). Bind address is always
+* Default `http://127.0.0.1:8765` (`screenlab-tui --control-port N`, `0` = off; with `--serve` the endpoint is the shared
+  session and always on, `0` picks a free port). Bind address is always
   loopback. Clients use env `SCREENLAB_TUI_URL` to override.
 * Token: if env `SCREENLAB_TUI_TOKEN` is set in the TUI process, every request must carry
   `Authorization: Bearer <token>` (or header `X-Screenlab-Token: <token>`); otherwise HTTP 401
@@ -17,15 +18,28 @@ JobManager and the store. The command names below are the contract and are not r
 
 | Request | Answer |
 |---|---|
-| `GET /health` | `{"ok": true, "version": "0.1.0", "protocol": 1, "lab": "synthetic", "dataset": "<data card line>", "store": "<path or null>", "control_port": 8765}` |
+| `GET /health` | `{"ok": true, "version": "0.1.0", "protocol": 1, "lab": "synthetic", "dataset": "<data card line>", "store": "<path or null>", "control_port": 8765, "seq": 17, "home_url": "http://127.0.0.1:8765/charts", "serve": false, "headless": false}` (`serve`: `--serve` mode; `headless`: the endpoint belongs to the shared-session parent, no UI in this process) |
 | `GET /state` | `Session.snapshot()` (below) |
-| `GET /view` | `{"view": "<plain text of the active tab>", "tab": "compare"}` |
+| `GET /view[?tab=<tab>]` | `{"view": "<plain text of the tab (default: the active one)>", "tab": "compare"}` |
+| `GET /seq?after=<seq>&timeout=<s>` | long-poll: answers `{"seq": n}` as soon as `Session.seq != after`, or after `timeout` seconds (max 30; `0` = answer now). The cheap change detector for clients that mirror the state (`RemoteSession`): fetch `GET /state` only when `seq` moved. |
+| `POST /await` body `{"result": {"jobs": [...]}, "timeout": 120}` | waits (in the HTTP thread; the UI keeps running) until the jobs of a command result are final and returns that result with the final job statuses, exactly like `wait` does (408 on timeout). |
 | `GET /charts`, `GET /charts/data?tab=`, `GET /theme`, `GET /events`, `GET /` (`--serve`) | browser chart panel (HTML page, tab JSON, theme colours, server-sent events); see README "Charts in the browser". `?token=` is accepted for the browser. |
 | `POST /command` body `{"cmd": "<name>", "args": {...}}` | the command's result (an object) |
 
 Errors: `{"error": "<message>"}` with HTTP 400 (bad or missing argument, invalid state), 404 (unknown
 command, scenario, job or run), 401 (token), 408 (`wait` timed out; the jobs keep running), 500 (internal).
 A command never leaves the TUI in a half-changed state.
+
+## One shared session (`--serve`)
+
+`screenlab-tui --serve` runs the control endpoint **in the parent process, which owns the one `Session`** (no UI there;
+`control.HeadlessHost` marshals calls and keeps `Session.poll()` going). textual-serve starts one app process per browser
+tab; each is started as `screenlab-tui --remote http://127.0.0.1:<control port>` and talks to the parent over this very
+protocol through `remote.RemoteSession` (token from `SCREENLAB_TUI_TOKEN`, which the children inherit). So every tab, the
+chart panel, curl and the MCP tools see and change the same scenarios, tab, selection and theme. `RemoteSession` has the
+`Session` interface the app uses (`command(cmd, args)`, `snapshot()`, `view(tab)`, `seq`, `poll()`, `await_jobs()`, and the
+read-only attributes the app draws from) and detects changes with `GET /seq?after=` (a watcher thread), fetching `GET /state`
+only when the seq moved. `screenlab-tui --remote URL` also joins a TUI running in another terminal.
 
 ## Concepts
 
@@ -135,7 +149,7 @@ selects (latest date by default). Result with `wait` (default): `{"scenario", "a
 (first column `ticker`); shown on the Picks tab.
 
 ### `show`
-Args: `{"tab": "compare"}`, one of `compare curves timing picks exit montecarlo runs log`. Switches the
+Args: `{"tab": "compare"}`, one of `compare curves timing picks exit montecarlo runs log data`. Switches the
 visible tab. Result `{"tab": "compare"}`.
 
 ### `select`
@@ -160,8 +174,44 @@ Optional `{"compare": ["<run_key>", ...]}` instead returns `{"columns", "rows"}`
 `{"cancelled": ["<job_id>"]}`.
 
 ### `set_theme`
-Args: `{"theme": "textual-dark"}` (any Textual theme name, e.g. `textual-light`). Result `{"theme": "..."}`.
+Args: `{"theme": "textual-dark", "variables": {"background": "#121212", "primary": "#0178D4", ...}}` (any Textual theme
+name, e.g. `textual-light`; `variables` is optional: the theme's colours, which an app pushes so the chart panel can match
+it when the endpoint has no UI of its own). Result `{"theme": "..."}`.
 (Not applied in a headless Session; it is stored and applied by the app.)
+
+### `curves`
+Args: `{}`. `{label: {"color", "points": [[iso_date, wealth], ...]}}`, wealth normalised to 1.0 at each curve's start,
+passive index first (what the Curves tab draws).
+
+### `screens`
+Args: `{"lab": null}`. `{"lab": "synthetic", "screens": ["dogs", ...]}`: screen names of a dataset (default: the session's).
+
+### `datasets`
+Args: `{}`. What the Data tab shows:
+```json
+{"labs": [{"name": "synthetic", "default": true, "session": true, "loaded": true,
+           "line": "Data: synthetic, ... benchmark SYN_CAPWT ...", "warnings": ["WARNING: ..."], "error": null}],
+ "downloader": true, "running": null, "last_fetch": null,
+ "sources": ["sec", "boc", "fred", "stooq", "statcan"],
+ "hosts": {"sec": ["www.sec.gov", "data.sec.gov"], "boc": ["www.bankofcanada.ca"], "...": []},
+ "allow_hosts": ["data.sec.gov", "..."],
+ "defaults": {"dest": "data", "start": "2000-01-01", "sec_user_agent": "", "tickers": ["XIU.TO"]}}
+```
+One entry per registry lab (a lab that cannot be built has `line: null` and `error`). `downloader` is false when the
+operation `fetch_data` is not registered ("downloader not installed"). `running` is the fetch job in flight, `last_fetch`
+the last result (`{"manifest", "labs", "registered": [...]}` or `{"error"}`). `hosts` are the network allow-list hostnames
+per source (the downloader's own table when it exports one).
+
+### `fetch_data`
+Args: `{"sources": ["sec", "boc", "fred", "stooq", "statcan"], "dest": "data", "sec_user_agent": "Name email",
+"tickers": ["XIU.TO"], "start": "2000-01-01", "periods": ["2024q1"], "force": false, "wait": false}`. Submits the
+operation `fetch_data` through the normal job path (`registry.submit_run("fetch_data", args)`), so there is progress and a
+result like any run. `sec_user_agent` is required when `sec` is among the sources (the SEC rejects anonymous clients;
+400 otherwise); 501 `downloader not installed` when the operation is not registered. The operation's result is
+`{"manifest": {"files": [{"source", "path", "bytes", "status"}], "errors": [...], "allow_hosts": [...]}, "labs":
+[{"name", "fundamentals", "prices", "indices"}]}`; when the job finishes the session keeps it as `last_fetch` and registers
+each listed lab it does not already know (`registry.register_csv`), so `datasets` lists it and the scenario editor's Dataset
+Select (and the `lab` param) offers it. Result: `{"jobs": [...]}`; with `wait` also `"fetch": <last_fetch>`.
 
 ### `snapshot` / `view`
 `snapshot` (also `GET /state`) -> the whole state:
@@ -169,14 +219,15 @@ Args: `{"theme": "textual-dark"}` (any Textual theme name, e.g. `textual-light`)
 {"protocol": 1, "seq": 17, "lab": "synthetic", "labs": ["synthetic", "sp500"],
  "data_card": {"name": "...", "start": "...", "n_names": 150, "benchmark": "SYN_CAPWT", "benchmark_kind": "total_return", "...": "..."},
  "data_line": "Data: ...", "warnings": ["WARNING: ..."], "store": null,
- "active_tab": "compare", "selected": "s2", "theme": "textual-dark",
+ "active_tab": "compare", "selected": "s2", "theme": "textual-dark", "screens": ["dogs", "..."],
+ "data": {"downloader": true, "running": null, "last_fetch": null},
  "passive": {"id": "passive", "label": "SYN_CAPWT", "color": "#6B6B6B"},
  "scenarios": [{"id": "s1", "name": "dogs", "version": 1, "label": "dogs", "color": "#0072B2", "params": {},
                 "status": "done", "job": {"job_id": "...", "status": "done", "progress": 1.0},
                 "metrics": {"CAGR": 0.095, "Excess/yr": 0.012}, "diff_from_previous": null}],
  "jobs": [], "mc": {"n_paths": 500, "horizon_years": [5, 10], "generator": null, "seed": 0},
  "analyses": {"timing": {}, "montecarlo": null, "exit": {}, "picks": {}},
- "log": ["12:00:01 added dogs", "..."]}
+ "log": ["12:00:01 added dogs", "..."]}   // the last 200 log lines
 ```
 `seq` increases on every state change (cheap change detection). Scenario `status` is one of `new`
 (never run), `queued`, `running`, `done`, `failed`, `cancelled`.

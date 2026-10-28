@@ -19,6 +19,7 @@ import json
 import os
 import threading
 import time
+from types import SimpleNamespace
 from dataclasses import dataclass, field
 
 from .. import metrics as _metrics
@@ -26,7 +27,7 @@ from ..errors import ServerError
 from ..jsonout import jsonify
 
 PROTOCOL = 1
-TABS = ("compare", "curves", "timing", "picks", "exit", "montecarlo", "runs", "log")
+TABS = ("compare", "curves", "timing", "picks", "exit", "montecarlo", "runs", "log", "data")
 # Okabe-Ito order, as the research charts use it (research/montecarlo_sp500.py COL); more hues after the eight
 PALETTE = ["#0072B2", "#56B4E9", "#D55E00", "#E69F00", "#009E73", "#CC79A7", "#F0E442", "#7B3294"]
 PASSIVE_COLOR = "#6B6B6B"
@@ -42,7 +43,11 @@ POLICY_ARGS = ("park", "park_mer", "park_cost_bps", "switch_cost_bps", "reentry"
 FINAL = ("done", "failed", "cancelled")
 COMMANDS = ("add_scenario", "clone_scenario", "set_params", "remove_scenario", "run", "compare", "timing",
             "montecarlo", "exit_eval", "picks", "show", "select", "save_spec", "export", "history", "jobs",
-            "cancel", "set_theme", "snapshot", "view")
+            "cancel", "set_theme", "snapshot", "view", "curves", "screens", "datasets", "fetch_data")
+# data downloader (operation `fetch_data`, implemented in ops/fetch_data.py); hosts are shown in the Data tab form
+FETCH_SOURCES = ("sec", "boc", "fred", "stooq", "statcan")
+FETCH_HOSTS = {"sec": ["www.sec.gov", "data.sec.gov"], "boc": ["www.bankofcanada.ca"], "fred": ["fred.stlouisfed.org"],
+               "stooq": ["stooq.com"], "statcan": ["www150.statcan.gc.ca"]}
 
 
 class SessionError(Exception):
@@ -123,6 +128,10 @@ class Session:
         self._next_color = 0
         self._log: list[str] = []
         self._listeners: list = []
+        self._seq_cond = threading.Condition()
+        self.theme_vars: dict | None = None            # Textual theme colours, pushed by an app (for /theme)
+        self.data_fetch: dict | None = None            # result (or error) of the last fetch_data job
+        self._cards: dict = {}
         self.control_port: int | None = None
         self._card = None
         self._plabel = None
@@ -135,11 +144,23 @@ class Session:
 
     def _emit(self, event: str) -> None:
         self.seq += 1
+        with self._seq_cond:
+            self._seq_cond.notify_all()
         for fn in list(self._listeners):
             try:
                 fn(self, event)
             except Exception:                           # a UI hook must not break a command
                 pass
+
+    def wait_seq(self, after: int, timeout: float = 0.0) -> int:
+        """Block up to `timeout` seconds until `seq` differs from `after`; returns the current seq."""
+        with self._seq_cond:
+            if self.seq == after and timeout > 0:
+                self._seq_cond.wait_for(lambda: self.seq != after, timeout)
+            return self.seq
+
+    def log_lines(self, n: int = 200) -> list:
+        return list(self._log[-n:])
 
     def log(self, msg: str) -> None:
         self._log.append(f"{time.strftime('%H:%M:%S')} {msg}")
@@ -344,6 +365,8 @@ class Session:
         with self._lock:
             if "picks_for" in result:
                 result.update(self.analyses["picks"].get(result["picks_for"], {}))
+            if any(j.get("kind") == "fetch_data" for j in result.get("jobs", [])):
+                result["fetch"] = self.data_fetch
         return result
 
     def _new_scenario(self, name, version, params) -> Scenario:
@@ -437,12 +460,25 @@ class Session:
         self._emit("tab")
         return {"tab": tab}
 
-    def cmd_set_theme(self, theme=None) -> dict:
+    def cmd_set_theme(self, theme=None, variables=None) -> dict:
         if not theme or not isinstance(theme, str):
             raise SessionError(400, "set_theme needs `theme`, e.g. 'textual-light'")
+        vars_ = None
+        if variables is not None:
+            if not isinstance(variables, dict):
+                raise SessionError(400, "`variables` must be an object of colour strings")
+            vars_ = {str(k): v for k, v in list(variables.items())[:40] if isinstance(v, str) and len(v) < 40}
+        changed = theme != self.theme or (vars_ is not None and vars_ != self.theme_vars)
         self.theme = theme
-        self._emit("theme")
+        if vars_ is not None:
+            self.theme_vars = vars_
+        if changed or variables is None:
+            self._emit("theme")
         return {"theme": theme}
+
+    def set_theme(self, theme: str, variables: dict | None = None) -> None:
+        """App hook (same name on RemoteSession): record the active Textual theme and its colours."""
+        self.command("set_theme", {"theme": theme, **({"variables": variables} if variables else {})})
 
     # ---------------------------------------------------------------- commands: runs
     def _track(self, job: dict, kind: str, scenario_ids, scenario_label=None, extra=None) -> dict:
@@ -454,11 +490,12 @@ class Session:
                 "progress": job.get("progress", 0.0), "cache_hit": bool(job.get("cache_hit"))}
 
     def _submit(self, kind, args, scs, label=None, lab=None, force=False, extra=None) -> dict:
-        job = self.registry.submit_run(kind, args, lab or scs[0].params.get("lab") or self.lab,
-                                       label=label or scs[0].label, force=force)
-        out = self._track(job, kind, [s.id for s in scs], label or scs[0].label, extra)
+        label = label or (scs[0].label if scs else kind)
+        job = self.registry.submit_run(kind, args, lab or (scs[0].params.get("lab") if scs else None) or self.lab,
+                                       label=label, force=force)
+        out = self._track(job, kind, [s.id for s in scs], label, extra)
         if not job.get("cache_hit") and job["status"] not in FINAL:
-            self.log(f"{kind} {label or scs[0].label} started")
+            self.log(f"{kind} {label} started")
         return out
 
     def _submit_backtests(self, scs, ci=False, force=False) -> list:
@@ -608,9 +645,11 @@ class Session:
     def _finish(self, jid, rec) -> None:
         st = rec["info"]["status"]
         scs = [s for s in self.scenarios if s.id in rec["scenarios"]]
-        label = scs[0].label if scs else jid[:8]
+        label = scs[0].label if scs else rec["kind"]
         if st != "done":
             msg = rec["info"].get("error") or st
+            if rec["kind"] == "fetch_data":
+                self.data_fetch = {"error": msg, "job_id": jid}
             if rec["kind"] == "backtest":
                 for s in scs:
                     s.error = msg
@@ -636,6 +675,8 @@ class Session:
                                            "hist": self._mc_hist(jid)}
         elif kind == "exit_evaluate":
             self.analyses["exit"][label] = res
+        elif kind == "fetch_data":
+            self._store_fetch(jid, res)
         elif kind == "picks":
             self.analyses["picks"][label] = {"scenario": label, "asof": res.get("asof"),
                                              "columns": res["columns"], "rows": res["rows"]}
@@ -805,6 +846,122 @@ class Session:
                 runs.append(d)
         return {"store": self.store_path(), "runs": runs}
 
+    # ---------------------------------------------------------------- datasets and the downloader
+    @staticmethod
+    def downloader_available() -> bool:
+        """True when the operation `fetch_data` is registered (ops/fetch_data.py)."""
+        try:
+            from .. import operations
+            operations.builtin_names()                       # make sure the built-in operations are imported
+            return "fetch_data" in operations.OPERATIONS
+        except Exception:                                    # noqa: BLE001
+            return False
+
+    @staticmethod
+    def fetch_hosts() -> dict:
+        """source -> hostnames the downloader needs on the network allow-list (the downloader's own table when it
+        exports one, else the defaults here)."""
+        try:
+            from ..realdata import fetch as _fetch
+            for name in ("SOURCE_HOSTS", "HOSTS_BY_SOURCE", "SOURCES_HOSTS"):
+                table = getattr(_fetch, name, None)
+                if isinstance(table, dict) and table:
+                    return {str(k): list(v) for k, v in table.items()}
+        except Exception:                                    # noqa: BLE001
+            pass
+        return {k: list(v) for k, v in FETCH_HOSTS.items()}
+
+    def lab_names(self) -> list:
+        return list(self.registry.factories)
+
+    def screen_names(self, lab=None) -> list:
+        return sorted(self._lab(lab).screens)
+
+    def cmd_screens(self, lab=None) -> dict:
+        L = self._lab(lab)
+        return {"lab": L.name or lab or self.lab, "screens": sorted(L.screens)}
+
+    def cmd_curves(self) -> dict:
+        return self.curves_data()
+
+    def active_jobs(self) -> list:
+        return [j for j in self.cmd_jobs()["jobs"] if j["status"] not in FINAL]
+
+    def _lab_card(self, name: str) -> dict:
+        """The data card facts of one registered lab (built on first use; failures are reported, not raised)."""
+        f = self.registry.factories.get(name)
+        hit = self._cards.get(name)
+        if hit is not None and hit[0] is f:
+            return hit[1]
+        try:
+            card = self._lab(name).data_card()
+            info = {"line": card.line(), "warnings": list(card.warnings()), "error": None}
+        except Exception as e:                               # noqa: BLE001  (a registered CSV may be unreadable)
+            info = {"line": None, "warnings": [], "error": f"{type(e).__name__}: {e}"}
+        self._cards[name] = (f, info)
+        return info
+
+    def cmd_datasets(self) -> dict:
+        """Datasets the session can use (registry labs with data card and warnings) plus the downloader's status."""
+        labs = []
+        for name in list(self.registry.factories):
+            labs.append({"name": name, "default": name == self.registry.default, "session": name == self.lab,
+                         "loaded": name in self.registry._labs, **self._lab_card(name)})
+        hosts = self.fetch_hosts()
+        return jsonify({"labs": labs, **self.data_state(), "sources": list(FETCH_SOURCES), "hosts": hosts,
+                        "allow_hosts": sorted({h for v in hosts.values() for h in v}),
+                        "defaults": {"dest": "data", "start": "2000-01-01",
+                                     "sec_user_agent": os.environ.get("SCREENLAB_SEC_USER_AGENT", ""),
+                                     "tickers": ["XIU.TO"]}}, None)
+
+    def data_state(self) -> dict:
+        running = [j for j in self.cmd_jobs()["jobs"] if j["kind"] == "fetch_data" and j["status"] not in FINAL]
+        return {"downloader": self.downloader_available(), "running": running[0] if running else None,
+                "last_fetch": self.data_fetch}
+
+    def cmd_fetch_data(self, sources=None, dest="data", sec_user_agent=None, tickers=None, start=None,
+                       periods=None, force=False, **extra) -> dict:
+        """Submit the `fetch_data` operation as a job (progress and result like any other run)."""
+        if not self.downloader_available():
+            raise SessionError(501, "downloader not installed: the operation fetch_data is not registered")
+        sources = list(sources) if sources else list(FETCH_SOURCES)
+        bad = [x for x in sources if x not in FETCH_SOURCES]
+        if bad:
+            raise SessionError(400, f"unknown source {bad[0]!r}; sources: {list(FETCH_SOURCES)}")
+        ua = (sec_user_agent or "").strip()
+        if "sec" in sources and ("@" not in ua or len(ua) < 6):
+            raise SessionError(400, "the SEC requires a contact in the User-Agent: pass `sec_user_agent` "
+                                    "as 'Your Name you@example.com' (or leave SEC out of `sources`)")
+        a: dict = {"sources": sources, "dest": dest or "data"}
+        if ua:
+            a["sec_user_agent"] = ua
+        for k, v in (("tickers", tickers), ("start", start), ("periods", periods)):
+            if v not in (None, "", []):
+                a[k] = v
+        a.update(extra)
+        j = self._submit("fetch_data", a, [], label="fetch_data", force=bool(force))
+        self._emit("jobs")
+        return {"jobs": [j]}
+
+    def _store_fetch(self, jid: str, res: dict) -> None:
+        """A finished fetch_data job: keep the manifest and make the labs it produced available."""
+        res = res if isinstance(res, dict) else {}
+        registered = []
+        for lab in res.get("labs") or []:
+            name = lab.get("name") if isinstance(lab, dict) else None
+            if not name:
+                continue
+            if name not in self.registry.factories and lab.get("fundamentals") and lab.get("prices"):
+                try:
+                    self.registry.register_csv(name, lab["fundamentals"], lab["prices"], lab.get("indices"))
+                    registered.append(name)
+                except Exception as e:                       # noqa: BLE001
+                    self.log(f"fetch_data: could not register lab {name}: {e}")
+        man = res.get("manifest") or {}
+        self.data_fetch = {"job_id": jid, "manifest": man, "labs": res.get("labs") or [], "registered": registered}
+        self.log(f"fetch_data: {len(man.get('files') or [])} file(s), {len(man.get('errors') or [])} error(s)"
+                 + (f", labs {', '.join(registered)}" if registered else ""))
+
     # ---------------------------------------------------------------- state / view
     def snapshot(self) -> dict:
         self.poll()
@@ -814,17 +971,19 @@ class Session:
                 "protocol": PROTOCOL, "seq": self.seq, "lab": self.lab, "labs": list(self.registry.factories),
                 "data_card": card.to_dict(), "data_line": card.line(), "warnings": card.warnings(),
                 "store": self.store_path(), "active_tab": self.active_tab, "selected": self.selected,
-                "theme": self.theme,
+                "theme": self.theme, "screens": self.screen_names(), "data": self.data_state(),
                 "passive": {"id": "passive", "label": self.passive_label(), "color": PASSIVE_COLOR},
                 "scenarios": [s.to_dict() for s in self.scenarios],
                 "jobs": [j for j in self.cmd_jobs()["jobs"] if j["status"] not in FINAL],
-                "mc": dict(self.mc), "analyses": self.analyses, "log": list(self._log[-50:])}, None)
+                "mc": dict(self.mc), "analyses": self.analyses, "log": self.log_lines(200)}, None)
 
     def cmd_snapshot(self) -> dict:
         return self.snapshot()
 
-    def cmd_view(self) -> dict:
-        return {"tab": self.active_tab, "view": self.view()}
+    def cmd_view(self, tab=None) -> dict:
+        if tab is not None and tab not in TABS:
+            raise SessionError(400, f"tab must be one of {list(TABS)}; got {tab!r}")
+        return {"tab": tab or self.active_tab, "view": self.view(tab)}
 
     @staticmethod
     def _grid(columns, rows, limit=40) -> str:
@@ -900,6 +1059,32 @@ class Session:
         if not h["runs"]:
             return f"store: {h['store'] or 'none (runs are not kept)'}"
         return f"store: {h['store']}\n" + self._grid(list(h["runs"][0]), [list(r.values()) for r in h["runs"]])
+
+    def _view_data(self) -> str:
+        d = self.cmd_datasets()
+        lines = ["datasets (name, state, data card):"]
+        for L in d["labs"]:
+            tags = ", ".join(t for t, on in (("default", L["default"]), ("session", L["session"]),
+                                             ("loaded", L["loaded"])) if on)
+            lines.append(f"  {L['name']} [{tags or 'not loaded'}] " + (L["line"] or f"unavailable: {L['error']}"))
+            lines += [f"      {w}" for w in L["warnings"]]
+        if not d["downloader"]:
+            lines.append("downloader not installed (operation fetch_data is not registered)")
+        else:
+            lines.append("downloader: fetch_data (sources " + ", ".join(d["sources"]) + ")")
+            lines.append("network allow-list hosts: " + ", ".join(d["allow_hosts"]))
+        if d["running"]:
+            lines.append(f"fetch running: {d['running'].get('progress') or 0:.0%}")
+        lf = d["last_fetch"]
+        if lf and lf.get("error"):
+            lines.append(f"last fetch failed: {lf['error']}")
+        elif lf:
+            man = lf.get("manifest") or {}
+            lines.append(f"last fetch: {len(man.get('files') or [])} file(s)")
+            lines += [f"  {f.get('source')} {f.get('status')} {f.get('bytes')} {f.get('path')}"
+                      for f in (man.get("files") or [])[:40]]
+            lines += [f"  error: {e}" for e in (man.get("errors") or [])[:20]]
+        return "\n".join(lines)
 
     def _view_log(self) -> str:
         return "\n".join(self._log[-40:]) or "(empty)"

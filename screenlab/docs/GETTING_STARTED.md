@@ -231,7 +231,7 @@ editor on the left and press `F2` (Apply) to get a new version, for example `dog
 `dogs` and the grey passive index in the Compare tab (the Curves tab draws them on a log scale in the same
 colours). `?` lists the keys and `q` quits. To use it in a browser instead: `screenlab-tui --serve`, then open
 http://localhost:8000 (`--port` changes it). While it runs it also listens on 127.0.0.1:8765 so that Claude (the
-`tui_*` MCP tools) can drive the same screen; `--control-port 0` turns that off. Details: `screenlab/tui/README.md`.
+`tui_*` MCP tools) can drive the same screen; in a terminal `--control-port 0` turns that off. Details: `screenlab/tui/README.md`.
 
 ### Charts in the browser
 Press `w` in the TUI: your browser opens interactive charts (hover for values, drag to zoom, click the legend to hide
@@ -239,8 +239,18 @@ a scenario, a PNG button on each chart) with tabs Curves, Compare, Timing, Monte
 scenarios in the same colours (the passive index is grey), take the colours of the TUI theme, and redraw by themselves
 when you run or change something in the terminal. The page loads Plotly.js from the internet; offline, set
 `SCREENLAB_PLOTLY_JS` to a local `plotly.min.js` file before starting. With `screenlab-tui --serve` the footer shows
-a page that puts the terminal and the charts side by side (drag the divider). Needs the control endpoint (on by
-default). Details: `screenlab/tui/README.md`.
+a page that puts the terminal and the charts side by side (drag the divider). In that mode the program keeps one
+shared session: every browser tab running the terminal, the chart panel and Claude's `tui_*` tools show and change the
+same scenarios, so nothing drifts apart when you open a second tab. In a plain terminal the control endpoint is
+optional (on by default; `--control-port 0` turns the charts off). Details: `screenlab/tui/README.md`.
+
+### Data tab: datasets and free downloads
+Press `D` for the Data tab. It lists the datasets the app can use, each with its data card and warnings (a price-index
+benchmark, survivorship), and a **Download free datasets** form: type your name and email for the SEC (it requires a
+contact), tick the sources (SEC, Bank of Canada, FRED, Stooq, Statistics Canada), and press the button. It runs as a
+normal job (progress bar at the top), then shows what was downloaded; a dataset it builds shows up in the list and in the
+Dataset choice of the scenario editor. The form also lists the website names (hosts) the downloads need, which is what to
+allow if your environment restricts outbound connections. If the downloader is not installed the tab says so.
 
 ## 8. Connect the MCP server to Claude
 The MCP server lets Claude call screenlab itself ("backtest dogs vs screaming value on monthly data"). It

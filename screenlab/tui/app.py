@@ -5,7 +5,11 @@
     screenlab-tui --lab synthetic --store runs.sqlite --control-port 0 --theme textual-light
 
 Keys: a add, c clone, r run, d delete, x toggle exit (then Apply), F2 Apply (new version + run), m Monte Carlo,
-t timing, p picks, s save screen spec, e export, w charts in the browser, T theme, ? help, q quit.
+t timing, p picks, s save screen spec, e export, w charts in the browser, D data tab, T theme, ? help, q quit.
+
+`screenlab-tui --serve` keeps ONE Session in the parent process; every browser tab runs this app over a
+`RemoteSession` (`--remote URL`, tui/remote.py), so all tabs and the chart panel show the same scenarios.
+The app reads state only through the Session interface (session.py / remote.py): no HTTP code here.
 """
 from __future__ import annotations
 
@@ -22,15 +26,16 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
-from textual.widgets import (Button, DataTable, Footer, Input, Label, OptionList, ProgressBar, RichLog, Select,
-                             Static, Switch, TabbedContent, TabPane)
+from textual.widgets import (Button, Checkbox, DataTable, Footer, Input, Label, OptionList, ProgressBar, RichLog,
+                             Select, Static, Switch, TabbedContent, TabPane)
 from textual.widgets.option_list import Option
 
 from .. import metrics as _metrics
-from .session import FINAL, PASSIVE_COLOR, TABS, Session, SessionError
+from .session import FETCH_SOURCES, PASSIVE_COLOR, TABS, Session, SessionError
 
 TAB_TITLES = {"compare": "Compare", "curves": "Curves", "timing": "Timing", "picks": "Picks", "exit": "Exit",
-              "montecarlo": "Monte Carlo", "runs": "Runs", "log": "Log"}
+              "montecarlo": "Monte Carlo", "runs": "Runs", "log": "Log", "data": "Data"}
+SOURCE_TITLES = {"sec": "SEC", "boc": "Bank of Canada", "fred": "FRED", "stooq": "Stooq", "statcan": "StatCan"}
 HELP = """\
 [b]screenlab-tui[/b]  scenarios are versions: Apply creates 'name v2' and keeps 'name'.
 
@@ -40,7 +45,8 @@ HELP = """\
  m  Monte Carlo           t  timing study         p  picks
  s  save screen spec JSON e  export markdown+CSV  T  light/dark theme
  w  charts in the browser (Plotly, follows this screen)
- 1-8 switch tab           ?  this help            q  quit
+ D  Data tab: datasets, download free datasets (needs an SEC contact)
+ 1-9 switch tab           ?  this help            q  quit
 
 Colours: every scenario keeps its colour; the passive index is grey.
 Control endpoint: see screenlab/tui/PROTOCOL.md."""
@@ -48,6 +54,14 @@ EXIT_PRESET = {"signals": [{"type": "TrendBreak"}], "threshold": 0.8, "hysteresi
 PARAM_FIELDS = (("n", "Holdings"), ("rebalance_months", "Rebalance (months)"), ("cost_bps", "Cost (bps)"),
                 ("commission", "Commission ($)"), ("mer", "MER (/yr)"), ("cash_rate", "Cash rate (/yr)"),
                 ("start", "Start date"), ("end", "End date"))
+
+
+_NULL = getattr(Select, "NULL", None)
+
+
+def _blank(v) -> bool:
+    """True when a Select shows no choice (the sentinel is `Select.NULL` in current Textual, `Select.BLANK` before)."""
+    return v is None or v is _NULL or v is Select.BLANK or v == ""
 
 
 def _hex_to_rgb(h: str) -> tuple:
@@ -113,13 +127,21 @@ class ScreenlabApp(App):
     PlotextPlot { height: 1fr; }
     #compare-note { height: auto; padding: 0 1; color: $text-muted; }
     .pane-title { padding: 0 1; text-style: bold; }
+    #t-datasets { height: 8; }
+    #data-form { height: 1fr; padding: 0 1; }
+    #data-form Label { color: $text-muted; margin-top: 1; }
+    #data-form Input { height: 3; }
+    #d-sources { height: auto; }
+    #d-hosts, #d-status, #d-errors { height: auto; padding: 0 1; }
+    #t-manifest { height: 8; }
     """
     BINDINGS = [
         Binding("a", "add", "Add"), Binding("c", "clone", "Clone"), Binding("r", "run", "Run"),
         Binding("R", "run_all", "Run all"), Binding("d", "delete", "Delete"),
         Binding("x", "toggle_exit", "Exit on/off"), Binding("m", "montecarlo", "Monte Carlo"),
         Binding("t", "timing", "Timing"), Binding("p", "picks", "Picks"), Binding("s", "save_spec", "Save spec"),
-        Binding("e", "export", "Export"), Binding("w", "charts", "Charts"), Binding("T", "theme", "Theme"), Binding("question_mark", "help", "Help"),
+        Binding("e", "export", "Export"), Binding("w", "charts", "Charts"), Binding("D", "tab('data')", "Data"), Binding("T", "theme", "Theme"),
+        Binding("question_mark", "help", "Help"),
         Binding("f2", "apply", "Apply", priority=True), Binding("q", "quit", "Quit"),
         *[Binding(str(i + 1), f"tab('{t}')", show=False) for i, t in enumerate(TABS)],
     ]
@@ -133,6 +155,10 @@ class ScreenlabApp(App):
         self._loaded = False
         self._shown: str | None = None           # scenario id the editor shows
         self._control = None
+        self._labs_key: tuple | None = None      # dataset names the editor's Select shows
+        self._syncing = False
+        self._data_ready = False                 # Data tab form prefilled
+        self._remote = bool(getattr(session, "remote", False))
 
     # ------------------------------------------------------------------ layout
     def compose(self) -> ComposeResult:
@@ -146,6 +172,8 @@ class ScreenlabApp(App):
                 yield Label("Scenarios (passive index first, fixed colours)", classes="pane-title")
                 yield OptionList(id="scen")
                 with VerticalScroll(id="editor"):
+                    yield Label("Dataset")
+                    yield Select([], id="f-lab", allow_blank=True)
                     yield Label("Screen")
                     yield Select([], id="f-screen", allow_blank=True)
                     for key, title in PARAM_FIELDS:
@@ -181,6 +209,29 @@ class ScreenlabApp(App):
                     yield DataTable(id="t-runs", cursor_type="row")
                 with TabPane("Log", id="log"):
                     yield RichLog(id="log-view", wrap=True, markup=False)
+                with TabPane("Data", id="data"):
+                    yield Static("", id="data-note", classes="pane-title")
+                    yield DataTable(id="t-datasets", cursor_type="row")
+                    with VerticalScroll(id="data-form"):
+                        yield Label("Download free datasets: SEC contact (the SEC requires 'Your Name you@example.com')")
+                        yield Input(id="d-sec", placeholder="Your Name you@example.com")
+                        yield Label("Sources")
+                        with Horizontal(id="d-sources"):
+                            for src in FETCH_SOURCES:
+                                yield Checkbox(SOURCE_TITLES.get(src, src), True, id=f"d-src-{src}")
+                        yield Label("Destination folder")
+                        yield Input(id="d-dest", value="data")
+                        yield Label("Tickers (comma separated; Stooq / prices)")
+                        yield Input(id="d-tickers", value="XIU.TO")
+                        yield Label("Start date")
+                        yield Input(id="d-start", value="2000-01-01")
+                        yield Label("SEC periods (comma separated, e.g. 2024q1,2024q2; empty = default)")
+                        yield Input(id="d-periods", placeholder="2024q1,2024q2")
+                        yield Static("", id="d-hosts")
+                        yield Button("Download free datasets", id="d-go", variant="primary")
+                        yield Static("", id="d-status")
+                        yield DataTable(id="t-manifest", cursor_type="row")
+                        yield Static("", id="d-errors")
         yield Static("", id="chartsbar")
         yield Footer()
 
@@ -190,13 +241,27 @@ class ScreenlabApp(App):
                 self.theme = self._want_theme
             except Exception:
                 self.notify(f"unknown theme {self._want_theme!r}", severity="warning")
-        self.session.theme = self.theme
-        self.theme_changed_signal.subscribe(self, lambda t: setattr(self.session, "theme", t.name))
+        if not self._remote or self._want_theme:     # a new browser tab must not reset the shared theme
+            self._push_theme()
+        self.theme_changed_signal.subscribe(self, lambda t: self._push_theme())
         self.query_one("#progress", ProgressBar).display = False
         self.run_worker(self._load, thread=True, exclusive=True)
         self.set_interval(0.25, self._tick)
         if self.control_port is not None:
             self._start_control()
+
+    def _push_theme(self) -> None:
+        keys = ("background", "surface", "panel", "foreground", "primary", "secondary", "accent", "success",
+                "warning", "error")
+        try:
+            css = self.get_css_variables()
+            variables = {k: str(css[k]) for k in keys if isinstance(css.get(k), str) and css[k].startswith("#")}
+        except Exception:                                                # noqa: BLE001
+            variables = {}
+        try:
+            self.session.set_theme(self.theme, variables or None)
+        except SessionError:
+            pass
 
     def _start_control(self) -> None:
         from .control import ControlServer
@@ -219,9 +284,20 @@ class ScreenlabApp(App):
 
     def _load(self) -> None:
         """Build the lab (can take a while for real data) off the UI thread, then draw the header."""
-        self.session.card()
-        self.session.passive_label()
+        try:
+            self.session.card()
+            self.session.passive_label()
+        except SessionError as e:
+            self.call_from_thread(self.notify, e.message, severity="error", title="session")
+            return
         self._loaded = True
+        if self._remote and getattr(self.session, "serve", False):
+            self.call_from_thread(self._show_remote_bar)
+
+    def _show_remote_bar(self) -> None:
+        bar = self.query_one("#chartsbar", Static)
+        bar.update(f"Shared session. Charts + terminal split view: {self.session.home_url}   (key w shows it)")
+        bar.display = True
 
     # ------------------------------------------------------------------ refresh
     def _tick(self) -> None:
@@ -235,7 +311,7 @@ class ScreenlabApp(App):
         self._progress()
 
     def _progress(self) -> None:
-        jobs = [j for j in self.session.cmd_jobs()["jobs"] if j["status"] not in FINAL]
+        jobs = self.session.active_jobs()
         bar = self.query_one("#progress", ProgressBar)
         txt = self.query_one("#jobtext", Static)
         if not jobs:
@@ -258,6 +334,7 @@ class ScreenlabApp(App):
         self.query_one("#warn", Static).display = bool(card.warnings())
         if s.theme != self.theme and s.theme in self.available_themes:
             self.theme = s.theme
+        self._refresh_labs()
         self._refresh_scenarios()
         self._refresh_editor()
         tc = self.query_one("#main", TabbedContent)
@@ -282,6 +359,29 @@ class ScreenlabApp(App):
         if sel is not None:
             ol.highlighted = sel
 
+    def _refresh_labs(self) -> None:
+        """The editor's dataset Select offers every dataset in the registry (including ones the downloader added)."""
+        names = tuple(self.session.lab_names())
+        if names == self._labs_key:
+            return
+        self._labs_key = names
+        sel = self.query_one("#f-lab", Select)
+        keep = sel.value
+        self._syncing = True
+        try:
+            sel.set_options([(n, n) for n in names])
+            if keep in names:
+                sel.value = keep
+        finally:
+            self._syncing = False
+        self._shown = None                                                # the editor reloads its values
+
+    def _screen_options(self, lab, scr) -> list:
+        opts = [(n, n) for n in self.session.screen_names(lab)]
+        if isinstance(scr, dict):
+            opts.insert(0, (f"{scr.get('name', 'spec')} (inline spec)", "__spec__"))
+        return opts
+
     def _refresh_editor(self) -> None:
         s = self.session
         sc = next((x for x in s.scenarios if x.id == s.selected), None)
@@ -292,13 +392,17 @@ class ScreenlabApp(App):
         if self._shown == sc.id:
             return
         self._shown = sc.id
-        names = sorted(s._lab(sc.params.get("lab")).screens)
         scr = sc.params.get("screen")
-        opts = [(n, n) for n in names]
-        if isinstance(scr, dict):
-            opts.insert(0, (f"{scr.get('name', 'spec')} (inline spec)", "__spec__"))
-        sel.set_options(opts)
-        sel.value = "__spec__" if isinstance(scr, dict) else scr
+        lab = sc.params.get("lab")
+        self._syncing = True
+        try:
+            lsel = self.query_one("#f-lab", Select)
+            if lab in (self._labs_key or ()):
+                lsel.value = lab
+            sel.set_options(self._screen_options(lab, scr))
+            sel.value = "__spec__" if isinstance(scr, dict) else scr
+        finally:
+            self._syncing = False
         for key, _ in PARAM_FIELDS:
             v = sc.params.get(key)
             self.query_one(f"#f-{key}", Input).value = "" if v is None else str(v)
@@ -323,7 +427,7 @@ class ScreenlabApp(App):
         return f"{v:.4g}" if isinstance(v, float) else str(v)
 
     def _draw_compare(self) -> None:
-        c = self.session.cmd_compare()
+        c = self.session.command("compare")
         t = self.query_one("#t-compare", DataTable)
         cols = c["columns"]
         rows = []
@@ -436,7 +540,7 @@ class ScreenlabApp(App):
         w.refresh()
 
     def _draw_runs(self) -> None:
-        h = self.session.cmd_history(limit=30)
+        h = self.session.command("history", {"limit": 30})
         t = self.query_one("#t-runs", DataTable)
         if not h["runs"]:
             self._fill(t, ["Runs"], [[f"store: {h['store'] or 'off (runs are not kept)'}"]])
@@ -449,32 +553,138 @@ class ScreenlabApp(App):
     def _draw_log(self) -> None:
         v = self.query_one("#log-view", RichLog)
         v.clear()
-        for line in self.session._log[-200:]:
+        for line in self.session.log_lines(200):
             v.write(line)
+
+    def _draw_data(self) -> None:
+        """Datasets (registry labs with data card and warnings) and the downloader form. The lab cards may need
+        a lab to be built, so the command runs in a thread and the result is painted back on the app thread."""
+        def work():
+            try:
+                res = self.session.command("datasets")
+            except SessionError as e:
+                res = {"error": e.message}
+            self.call_from_thread(self._paint_data, res)
+        self.run_worker(work, thread=True, group="datasets", exclusive=True)
+
+    def _paint_data(self, res: dict) -> None:
+        if "error" in res:
+            self.query_one("#data-note", Static).update(f"datasets unavailable: {res['error']}")
+            return
+        self.query_one("#data-note", Static).update(
+            "Datasets this session can use (the editor's Dataset Select offers them)")
+        rows = []
+        for L in res["labs"]:
+            state = ", ".join(t for t, on in (("default", L["default"]), ("session", L["session"]),
+                                              ("loaded", L["loaded"])) if on) or "not loaded"
+            card = L["line"] or f"unavailable: {L['error']}"
+            warn = Text()
+            for w in L["warnings"]:
+                warn.append(w + " ", style="bold red" if "price index" in w else "bold yellow")
+            rows.append([Text(L["name"], style="bold"), state, card, warn])
+        self._fill(self.query_one("#t-datasets", DataTable), ["Dataset", "State", "Data card", "Warnings"], rows)
+        if not self._data_ready:
+            self._data_ready = True
+            d = res["defaults"]
+            for wid, key in (("#d-sec", "sec_user_agent"), ("#d-dest", "dest"), ("#d-start", "start")):
+                if d.get(key):
+                    self.query_one(wid, Input).value = str(d[key])
+            self.query_one("#d-tickers", Input).value = ",".join(d.get("tickers") or [])
+        hosts = res["hosts"]
+        self.query_one("#d-hosts", Static).update(
+            "Network allow-list for the downloads (add these hosts to this environment's allowed domains):\n"
+            + "\n".join(f"  {SOURCE_TITLES.get(k, k)}: {', '.join(v)}" for k, v in hosts.items()))
+        go, status = self.query_one("#d-go", Button), self.query_one("#d-status", Static)
+        tbl, errs = self.query_one("#t-manifest", DataTable), self.query_one("#d-errors", Static)
+        go.disabled = not res["downloader"] or bool(res["running"])
+        lf = res["last_fetch"]
+        if not res["downloader"]:
+            status.update("downloader not installed (the operation fetch_data is not registered)")
+        elif res["running"]:
+            status.update(f"downloading... {(res['running'].get('progress') or 0):.0%} "
+                          f"{res['running'].get('message') or ''}".strip())
+        elif lf and lf.get("error"):
+            status.update(f"download failed: {lf['error']}")
+        elif lf:
+            man = lf.get("manifest") or {}
+            status.update(f"download finished: {len(man.get('files') or [])} file(s)"
+                          + (f"; new datasets: {', '.join(lf['registered'])}" if lf.get("registered") else ""))
+        else:
+            status.update("ready: fill in the SEC contact, pick sources, press the button")
+        files = ((lf or {}).get("manifest") or {}).get("files") or []
+        self._fill(tbl, ["Source", "Path", "Bytes", "Status"],
+                   [[str(f.get("source", "")), str(f.get("path", "")), self._cell(f.get("bytes")),
+                     str(f.get("status", ""))] for f in files])
+        problems = [str(e) for e in (((lf or {}).get("manifest") or {}).get("errors") or [])]
+        errs.update(Text("\n".join(problems), style="bold red") if problems else "")
+
+    def action_download(self) -> None:
+        """Submit the `fetch_data` operation (job path: progress bar in the header, result on the Data tab)."""
+        def val(i):
+            return self.query_one(i, Input).value.strip()
+
+        def split(x):
+            return [t.strip() for t in x.replace(";", ",").split(",") if t.strip()]
+        sources = [src for src in FETCH_SOURCES if self.query_one(f"#d-src-{src}", Checkbox).value]
+        if not sources:
+            self.notify("tick at least one source", severity="warning")
+            return
+        args = {"sources": sources, "dest": val("#d-dest") or "data", "sec_user_agent": val("#d-sec"),
+                "tickers": split(val("#d-tickers")), "start": val("#d-start") or None,
+                "periods": split(val("#d-periods"))}
+        res = self._cmd("fetch_data", args, "download")
+        if res:
+            self.notify("download started", title="Data")
 
     # ------------------------------------------------------------------ events
     @on(TabbedContent.TabActivated)
     def _tab(self, ev: TabbedContent.TabActivated) -> None:
         tab = ev.pane.id
         if tab and tab != self.session.active_tab:
-            self.session.active_tab = tab
-            self.session._emit("tab")
+            self._cmd("show", {"tab": tab})
         if tab and self._loaded:
             self._refresh_tab(tab)
 
     @on(OptionList.OptionHighlighted, "#scen")
     def _highlight(self, ev: OptionList.OptionHighlighted) -> None:
         if ev.option_id and ev.option_id != self.session.selected:
-            self.session.selected = ev.option_id
-            self.session._emit("selection")
+            self._cmd("select", {"scenario": ev.option_id})
 
     @on(Button.Pressed, "#apply")
     def _apply_btn(self) -> None:
         self.action_apply()
 
-    @on(Input.Submitted)
+    @on(Input.Submitted, "#editor Input")
     def _submit(self) -> None:
         self.action_apply()
+
+    @on(Input.Submitted, "#data-form Input")
+    def _submit_data(self) -> None:
+        self.action_download()
+
+    @on(Select.Changed, "#f-lab")
+    def _lab_changed(self, ev: Select.Changed) -> None:
+        """A different dataset offers its own screens: refill the screen Select, keeping the choice if it exists."""
+        if self._syncing or _blank(ev.value):
+            return
+        scr = self.query_one("#f-screen", Select)
+        keep = scr.value
+        try:
+            opts = self._screen_options(ev.value, None)
+        except SessionError as e:
+            self.notify(e.message, severity="error")
+            return
+        self._syncing = True
+        try:
+            scr.set_options(opts)
+            if keep in [v for _, v in opts]:
+                scr.value = keep
+        finally:
+            self._syncing = False
+
+    @on(Button.Pressed, "#d-go")
+    def _download_btn(self) -> None:
+        self.action_download()
 
     @on(DataTable.RowSelected, "#t-runs")
     def _rerun(self, ev: DataTable.RowSelected) -> None:
@@ -518,8 +728,11 @@ class ScreenlabApp(App):
                     raise SessionError(400, f"{key} must be a number, got {raw!r}") from None
             if new != old:
                 out[key] = new
+        lab = self.query_one("#f-lab", Select).value
+        if not _blank(lab) and lab != (sc.params.get("lab") or self.session.lab):
+            out["lab"] = lab
         scr = self.query_one("#f-screen", Select).value
-        if scr not in (Select.BLANK, "__spec__", None) and scr != sc.params.get("screen"):
+        if not _blank(scr) and scr != "__spec__" and scr != sc.params.get("screen"):
             out["screen"] = scr
         want_exit = self.query_one("#f-exit", Switch).value
         if want_exit and not sc.params.get("exit"):
@@ -554,7 +767,7 @@ class ScreenlabApp(App):
         self._cmd("show", {"tab": tab})
 
     def action_add(self) -> None:
-        names = list(self.session._lab().screens)
+        names = self.session.screen_names()
 
         def done(name):
             if name:
@@ -603,6 +816,11 @@ class ScreenlabApp(App):
     def action_charts(self) -> None:
         """Open the Plotly chart page in the default browser (terminal mode), or show the split-view URL (--serve)."""
         c = self._control
+        if c is None and self._remote:                       # a client of the shared session: its endpoint serves the pages
+            url = self.session.home_url
+            self.session.log(f"charts: {url}")
+            self.notify(f"{'split view with charts' if self.session.serve else 'charts'}: {url}", title="charts", timeout=10)
+            return
         if c is None:
             self.notify("the control endpoint is off (--control-port 0): the chart page is served from it",
                         severity="warning")
@@ -641,30 +859,67 @@ def build_session(lab: str | None, store: str | None) -> Session:
     return Session(reg, lab=lab, own=True)
 
 
-def serve_command(args: argparse.Namespace) -> str:
-    cmd = [sys.executable, "-m", "screenlab.tui.app"]
-    for flag, val in (("--lab", args.lab), ("--store", args.store), ("--theme", args.theme)):
-        if val:
-            cmd += [flag, val]
-    cmd += ["--control-port", str(args.control_port)]
+def serve_command(args: argparse.Namespace, control_port: int) -> str:
+    """The command textual-serve runs for every browser tab: an app process that is a client of the parent's
+    session (`--remote`), not a session of its own."""
+    cmd = [sys.executable, "-m", "screenlab.tui.app", "--remote", f"http://127.0.0.1:{control_port}",
+           "--control-port", "0"]
+    if args.theme:
+        cmd += ["--theme", args.theme]
     return " ".join(shlex.quote(c) for c in cmd)
+
+
+def serve_main(args: argparse.Namespace) -> None:
+    """`--serve`: this process owns the ONE Session and the control endpoint (charts, SSE, MCP control); each
+    textual-serve app process talks to it over HTTP (RemoteSession), so every browser tab shows the same state."""
+    from textual_serve.server import Server
+    from .control import ControlServer, HeadlessHost
+    session = build_session(args.lab, args.store)
+    serve_url = f"http://{'localhost' if args.host in ('0.0.0.0', '::') else args.host}:{args.port}"
+    # the endpoint is the shared session, so it is always on here: `--control-port 0` just picks a free port
+    try:
+        ctl = ControlServer(HeadlessHost(session), session, args.control_port, serve_url=serve_url).start()
+    except OSError as e:
+        raise SystemExit(f"cannot start the control endpoint on port {args.control_port}: {e}") from None
+    session.log(f"shared session; control endpoint http://127.0.0.1:{ctl.port}")
+    session.log(f"charts in the browser: {ctl.home_url()}")
+    print(f"screenlab-tui: shared session, control endpoint and charts at {ctl.home_url()}; terminal at {serve_url}",
+          flush=True)
+    try:
+        Server(serve_command(args, ctl.port), host=args.host, port=args.port, title="screenlab").serve()
+    finally:
+        ctl.stop()
+        session.close()
 
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(prog="screenlab-tui", description="Interactive terminal UI for screenlab.")
     ap.add_argument("--lab", help="dataset name (default: sp500 when skfolio is installed, else synthetic)")
     ap.add_argument("--store", help="run store SQLite path, or 'none' (default: SCREENLAB_STORE or ~/.screenlab/runs.sqlite)")
-    ap.add_argument("--control-port", type=int, default=8765, help="control endpoint port on 127.0.0.1; 0 = off")
+    ap.add_argument("--control-port", type=int, default=8765, help="control endpoint port on 127.0.0.1; 0 = off "
+                    "(with --serve the endpoint is the shared session and always on: 0 picks a free port)")
     ap.add_argument("--serve", action="store_true", help="serve the app in a browser (textual-serve) instead of the terminal")
+    ap.add_argument("--remote", metavar="URL", help="be a client of a running screenlab-tui control endpoint "
+                    "(its session) instead of building one; token from SCREENLAB_TUI_TOKEN. Used by --serve for "
+                    "each browser tab; also joins a terminal TUI from a second terminal")
     ap.add_argument("--host", default="localhost", help="with --serve: host (default localhost)")
     ap.add_argument("--port", type=int, default=8000, help="with --serve: port (default 8000)")
     ap.add_argument("--theme", help="Textual theme name, e.g. textual-dark, textual-light, nord, gruvbox")
     args = ap.parse_args(argv)
+    if args.serve and args.remote:
+        ap.error("--serve and --remote are exclusive")
     if args.serve:
-        from textual_serve.server import Server
-        # the app processes textual-serve starts inherit this: it turns on GET / (terminal + charts split page)
-        os.environ["SCREENLAB_TUI_SERVE_URL"] = f"http://{'localhost' if args.host in ('0.0.0.0', '::') else args.host}:{args.port}"
-        Server(serve_command(args), host=args.host, port=args.port, title="screenlab").serve()
+        return serve_main(args)
+    if args.remote:
+        from .remote import RemoteSession
+        try:
+            session = RemoteSession(args.remote)
+        except SessionError as e:
+            raise SystemExit(e.message) from None
+        try:
+            ScreenlabApp(session, control_port=None, theme=args.theme).run()
+        finally:
+            session.close()
         return
     session = build_session(args.lab, args.store)
     port = args.control_port if args.control_port != 0 else None

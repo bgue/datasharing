@@ -567,3 +567,335 @@ def test_app_serve_mode_shows_split_url(reg, monkeypatch):
             assert code == 200 and b"http://localhost:8000" in body
         s.close()
     arun(go())
+
+
+# ------------------------------------------------------------------ shared session: RemoteSession (--serve)
+from screenlab.tui.control import HeadlessHost                              # noqa: E402
+from screenlab.tui.remote import RemoteSession                              # noqa: E402
+
+
+@pytest.fixture
+def parent(reg):
+    """What `screenlab-tui --serve` runs in the parent process: the one Session behind a headless control endpoint."""
+    s = Session(reg)
+    srv = ControlServer(HeadlessHost(s), s, port=0, serve_url="http://localhost:8000").start()
+    clients = []
+
+    def connect(**kw):
+        c = RemoteSession(f"http://127.0.0.1:{srv.port}", **kw)
+        clients.append(c)
+        return c
+    yield SimpleNamespace(session=s, server=srv, connect=connect)
+    for c in clients:
+        c.close()
+    srv.stop()
+
+
+def wait_for(cond, timeout=10.0, step=0.05):
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        if cond():
+            return True
+        time.sleep(step)
+    return False
+
+
+def test_remote_session_round_trip(parent):
+    r = parent.connect()
+    assert r.remote and r.serve and r.home_url.endswith(f":{parent.server.port}/")
+    out = r.command("add_scenario", {"screen": "dogs", "run": True, "wait": True, "cost_bps": 10})
+    assert out["jobs"][0]["status"] == "done"                                  # wait ran in the parent
+    assert [x.label for x in parent.session.scenarios] == ["dogs"]            # one session, in the parent
+    assert [x.label for x in r.scenarios] == ["dogs"] and r.selected == out["scenario"]["id"]   # read your own write
+    assert r.scenarios[0].status == "done" and r.scenarios[0].color == PALETTE[0]
+    v2 = r.command("set_params", {"scenario": "dogs", "params": {"cost_bps": 30}, "run": True, "wait": True})
+    assert v2["diff_line"].startswith("dogs -> dogs v2") and r.scenarios[1].diff_line == v2["diff_line"]
+    c = r.command("compare")
+    assert [x["label"] for x in c["rows"]] == ["SYN_CAPWT", "dogs", "dogs v2"]
+    assert r.passive_label() == "SYN_CAPWT" and "SYN_CAPWT" in r.card().line() and r.card().warnings() is not None
+    assert r.snapshot()["seq"] == parent.session.seq == r.seq
+    assert "dogs v2" in r.view() and "== compare ==" in r.view("compare")
+    assert list(r.curves_data()) == ["SYN_CAPWT", "dogs", "dogs v2"]
+    assert r.screen_names() == parent.session.screen_names() and "dogs" in r.screen_names("synthetic")
+    assert r.lab_names() == ["synthetic"] and r.active_jobs() == []
+    for cmd, args, status in [("nope", {}, 404), ("select", {"scenario": "ghost"}, 404),
+                              ("add_scenario", {}, 400), ("show", {"tab": "x"}, 400)]:
+        with pytest.raises(SessionError) as e:
+            r.command(cmd, args)
+        assert e.value.status == status, cmd
+
+
+def test_remote_seq_poll_and_await_jobs(parent):
+    r = parent.connect()
+    assert r.poll(wait=2) is True                                              # first state counts as a change
+    assert r.poll() is False                                                   # nothing moved since
+    parent.session.command("add_scenario", {"screen": "dogs"})                 # changed behind the client's back
+    assert r.poll(wait=5) is True and [x.label for x in r.scenarios] == ["dogs"]
+    assert r.seq == parent.session.seq
+    q = r.command("run", {"scenario": "dogs"})                                 # no wait: submit, then await
+    done = r.await_jobs(q, 60)
+    assert done["jobs"][0]["status"] == "done" and r.scenarios[0].status == "done"
+    q = r.command("picks", {"scenario": "dogs"})                               # picks waits by default
+    assert q["columns"][0] == "ticker" and q["rows"]
+    t = r.command("timing", {"scenario": "dogs", "stride": 10})
+    assert r.await_jobs(t, 60)["jobs"][0]["status"] == "done"
+    assert "dogs" in r.analyses["timing"]
+    with pytest.raises(SessionError) as e:
+        r.await_jobs("not a result", 1)
+    assert e.value.status == 400
+    # no watcher thread: poll() is a single GET /seq?after= and refreshes only when the parent moved
+    r2 = parent.connect(watch=False)
+    assert r2.poll() is True and r2.poll() is False
+    parent.session.command("show", {"tab": "log"})
+    assert r2.poll() is True and r2.active_tab == "log" and r2.poll() is False
+
+
+def test_two_remote_clients_share_one_session(parent):
+    a, b = parent.connect(), parent.connect()
+    a.command("add_scenario", {"screen": "dogs", "run": True, "wait": True})
+    assert wait_for(lambda: b.poll(wait=1) or [x.label for x in b.scenarios] == ["dogs"])
+    b.command("clone_scenario", {"scenario": "dogs", "name": "twin"})
+    assert wait_for(lambda: [x.label for x in a.scenarios] == ["dogs", "twin"])
+    assert [x.label for x in a.scenarios] == [x.label for x in b.scenarios] == ["dogs", "twin"]
+    assert a.selected == b.selected and a.seq == b.seq == parent.session.seq
+    a.command("show", {"tab": "curves"})
+    assert wait_for(lambda: b.active_tab == "curves")
+    a.set_theme("nord", {"background": "#2E3440", "primary": "#88C0D0"})       # the chart panel follows via /theme
+    assert wait_for(lambda: b.theme == "nord")
+    code, _, body = raw(parent.server.port, "/theme")
+    t = json.loads(body)
+    assert code == 200 and t["name"] == "nord" and t["variables"]["background"] == "#2E3440"
+    assert chart(parent.server, "curves")["series"][1]["label"] == "dogs"       # charts read the same session
+
+
+def test_remote_token_and_unreachable(reg, monkeypatch):
+    s = Session(reg)
+    srv = ControlServer(HeadlessHost(s), s, port=0, token="sekret").start()
+    try:
+        with pytest.raises(SessionError) as e:
+            RemoteSession(f"http://127.0.0.1:{srv.port}", token="wrong", watch=False).snapshot()
+        assert e.value.status == 401
+        monkeypatch.setenv("SCREENLAB_TUI_TOKEN", "sekret")                      # children get the token via env
+        r = RemoteSession(f"http://127.0.0.1:{srv.port}", watch=False)
+        assert r.snapshot()["lab"] == "synthetic"
+    finally:
+        srv.stop()
+    with pytest.raises(SessionError) as e:
+        RemoteSession(f"http://127.0.0.1:{srv.port}", connect_timeout=0.5, watch=False)
+    assert e.value.status == 503
+
+
+def test_app_runs_with_remote_session(parent):
+    async def go():
+        r = parent.connect()
+        app = ScreenlabApp(r, control_port=None)
+        async with app.run_test(size=(170, 50)) as pilot:
+            await pilot.pause(0.8)
+            assert "SYN_CAPWT" in str(app.query_one("#head").render())
+            assert app._control is None and app._remote
+            # the other tab (here: the parent's session directly) adds a scenario: this app shows it
+            parent.session.command("add_scenario", {"screen": "dogs", "run": True, "wait": True, "cost_bps": 10})
+            await pilot.pause(1.0)
+            t = app.query_one("#t-compare")
+            assert [str(t.get_row_at(i)[0]) for i in range(t.row_count)] == ["● SYN_CAPWT (passive)", "● dogs"]
+            app.query_one("#f-cost_bps").value = "40"                    # Apply in the app -> new version in the parent
+            await pilot.press("f2")
+            for _ in range(60):
+                await pilot.pause(0.25)
+                if t.row_count == 3 and all(x.status == "done" for x in parent.session.scenarios):
+                    break
+            await pilot.pause(0.5)
+            assert [x.label for x in parent.session.scenarios] == ["dogs", "dogs v2"]
+            assert "cost_bps 10.0 -> 40.0" in str(app.query_one("#diff").render())
+            other = parent.connect()                                     # a second browser tab sees the same scenarios
+            assert [x.label for x in other.scenarios] == ["dogs", "dogs v2"]
+            await pilot.press("2")                                       # the tab is shared state too
+            await pilot.pause(0.6)
+            assert parent.session.active_tab == "curves" and app.query_one("#main").active == "curves"
+            parent.session.command("show", {"tab": "log"})
+            await pilot.pause(0.8)
+            assert app.query_one("#main").active == "log"
+            await pilot.press("T")
+            await pilot.pause(0.6)
+            assert parent.session.theme == "textual-light" and app.theme == "textual-light"
+            await pilot.press("w")                                       # no browser: shows the shared page URL
+            await pilot.pause(0.2)
+            assert any(f":{parent.server.port}/" in line for line in r.log_lines())
+            assert app.query_one("#chartsbar").display
+    arun(go())
+
+
+def test_serve_mode_shares_one_session():
+    pytest.importorskip("textual_serve")
+    with socket.socket() as sk:
+        sk.bind(("127.0.0.1", 0))
+        web_port = sk.getsockname()[1]
+    with socket.socket() as sk:
+        sk.bind(("127.0.0.1", 0))
+        ctl_port = sk.getsockname()[1]
+    p = subprocess.Popen([sys.executable, "-m", "screenlab.tui.app", "--serve", "--host", "127.0.0.1", "--port",
+                          str(web_port), "--lab", "synthetic", "--store", "none", "--control-port", str(ctl_port)],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        h = None
+        for _ in range(60):
+            try:
+                h = http(ctl_port, "GET", "/health")[1]
+                break
+            except OSError:
+                time.sleep(0.5)
+        assert h and h["headless"] is True and h["serve"] is True and h["control_port"] == ctl_port
+        code, r = http(ctl_port, "POST", "/command", {"cmd": "add_scenario", "args": {"screen": "dogs"}})
+        assert code == 200
+        code, st = http(ctl_port, "GET", "/state")
+        assert [x["label"] for x in st["scenarios"]] == ["dogs"]               # the parent holds the session
+        code, ctype, body = raw(ctl_port, "/")                                  # split page with the terminal iframe
+        assert code == 200 and f"http://127.0.0.1:{web_port}" in body.decode()
+        code, sq = http(ctl_port, "GET", f"/seq?after={st['seq']}&timeout=0")
+        assert code == 200 and sq["seq"] == st["seq"]
+    finally:
+        p.terminate()
+        try:
+            p.wait(10)
+        except subprocess.TimeoutExpired:
+            p.kill()
+
+
+# ------------------------------------------------------------------ Data tab and the fetch_data job
+from screenlab.operations import OPERATIONS, register_function            # noqa: E402
+
+
+def _stub_fetch(lab, sources=None, dest="data", sec_user_agent=None, tickers=None, start=None, periods=None):
+    """Stands in for ops/fetch_data.py: same arguments, same result shape, no network."""
+    files = [{"source": s, "path": f"{dest}/{s}/file.csv", "bytes": 1000 + i, "status": "downloaded"}
+             for i, s in enumerate(sources)]
+    return {"manifest": {"files": files, "errors": ["stooq: HTTP 403 (host not allowed)"],
+                         "allow_hosts": ["www.sec.gov", "stooq.com"], "args_seen": {
+                             "sec_user_agent": sec_user_agent, "tickers": tickers, "start": start, "periods": periods}},
+            "labs": [{"name": "real_ca", "fundamentals": "/nonexistent/f.csv", "prices": "/nonexistent/p.csv",
+                      "indices": None}]}
+
+
+@pytest.fixture
+def stub_fetch():
+    old = OPERATIONS.get("fetch_data")
+    register_function("fetch_data", _stub_fetch)
+    yield
+    if old is None:
+        OPERATIONS.pop("fetch_data", None)
+    else:
+        OPERATIONS["fetch_data"] = old
+
+
+def test_session_fetch_data_job_and_datasets(stub_fetch):
+    s = Session(make_registry(), own=True)
+    d = s.command("datasets")
+    assert d["downloader"] is True and d["sources"] == ["sec", "boc", "fred", "stooq", "statcan"]
+    assert [x["name"] for x in d["labs"]] == ["synthetic"] and "SYN_CAPWT" in d["labs"][0]["line"]
+    assert "www.sec.gov" in d["allow_hosts"] and d["last_fetch"] is None
+    with pytest.raises(SessionError) as e:
+        s.command("fetch_data", {"sources": ["sec"], "sec_user_agent": "nobody"})          # SEC needs a contact
+    assert e.value.status == 400 and "sec_user_agent" in e.value.message
+    with pytest.raises(SessionError) as e:
+        s.command("fetch_data", {"sources": ["nope"]})
+    assert e.value.status == 400
+    r = s.command("fetch_data", {"sources": ["sec", "stooq"], "dest": "dd", "sec_user_agent": "Ann Lee ann@example.com",
+                                 "tickers": ["XIU.TO"], "start": "2010-01-01", "wait": True})
+    assert r["jobs"][0]["kind"] == "fetch_data" and r["jobs"][0]["status"] == "done"
+    man = r["fetch"]["manifest"]
+    assert [f["source"] for f in man["files"]] == ["sec", "stooq"] and man["errors"]
+    assert man["args_seen"]["sec_user_agent"] == "Ann Lee ann@example.com" and man["args_seen"]["start"] == "2010-01-01"
+    d = s.command("datasets")
+    names = [x["name"] for x in d["labs"]]
+    assert names == ["synthetic", "real_ca"]                                  # the new lab is listed
+    assert d["labs"][1]["line"] is None and d["labs"][1]["error"]             # unreadable CSV: reported, not raised
+    assert s.command("snapshot")["labs"] == names and "fetch_data: 2 file(s)" in " ".join(s.log_lines())
+    assert "real_ca" in s.command("view", {"tab": "data"})["view"]
+    s.close()
+
+
+def test_session_downloader_not_installed(monkeypatch):
+    monkeypatch.setattr(Session, "downloader_available", staticmethod(lambda: False))
+    s = Session(make_registry(), own=True)
+    assert s.command("datasets")["downloader"] is False
+    with pytest.raises(SessionError) as e:
+        s.command("fetch_data", {"sources": ["boc"]})
+    assert e.value.status == 501 and "downloader not installed" in e.value.message
+    assert "downloader not installed" in s.command("view", {"tab": "data"})["view"]
+    s.close()
+
+
+def test_app_data_tab_cards_and_download(stub_fetch):
+    async def go():
+        s = Session(make_registry(), own=True)
+        app = ScreenlabApp(s, control_port=None)
+        async with app.run_test(size=(180, 60)) as pilot:
+            await pilot.pause(0.6)
+            s.command("add_scenario", {"screen": "dogs"})
+            await pilot.press("D")                                           # key D opens the Data tab
+            await pilot.pause(1.0)
+            assert s.active_tab == "data" and app.query_one("#main").active == "data"
+            t = app.query_one("#t-datasets")
+            assert t.row_count == 1 and "synthetic" in str(t.get_row_at(0)[0])
+            assert "SYN_CAPWT" in str(t.get_row_at(0)[2]) or "synthetic" in str(t.get_row_at(0)[2]).lower()
+            assert "www.sec.gov" in str(app.query_one("#d-hosts").render())   # allow-list hostnames are shown
+            assert not app.query_one("#d-go").disabled
+            app.query_one("#d-sec").value = ""                                 # SEC ticked, no contact: refused
+            await pilot.click("#d-go")
+            await pilot.pause(0.6)
+            assert s.data_fetch is None
+            app.query_one("#d-sec").value = "Ann Lee ann@example.com"
+            app.query_one("#d-src-fred").value = False
+            await pilot.click("#d-go")
+            for _ in range(60):
+                await pilot.pause(0.25)
+                if s.data_fetch and app.query_one("#t-manifest").row_count:
+                    break
+            await pilot.pause(0.8)
+            man = app.query_one("#t-manifest")
+            assert [str(man.get_row_at(i)[0]) for i in range(man.row_count)] == ["sec", "boc", "stooq", "statcan"]
+            assert "download finished: 4 file(s)" in str(app.query_one("#d-status").render())
+            assert "403" in str(app.query_one("#d-errors").render())
+            assert app.query_one("#t-datasets").row_count == 2                 # the lab the job produced is listed
+            sel = app.query_one("#f-lab")                                      # and the editor offers it
+            assert "real_ca" in [v for _, v in sel._options]
+            assert s.data_fetch["manifest"]["args_seen"]["tickers"] == ["XIU.TO"]
+        s.close()
+    arun(go())
+
+
+def test_app_data_tab_without_downloader(monkeypatch):
+    monkeypatch.setattr(Session, "downloader_available", staticmethod(lambda: False))
+
+    async def go():
+        s = Session(make_registry(), own=True)
+        app = ScreenlabApp(s, control_port=None)
+        async with app.run_test(size=(180, 60)) as pilot:
+            await pilot.pause(0.5)
+            await pilot.press("D")
+            await pilot.pause(0.8)
+            assert "downloader not installed" in str(app.query_one("#d-status").render())
+            assert app.query_one("#d-go").disabled and app.query_one("#t-datasets").row_count == 1
+        s.close()
+    arun(go())
+
+
+def test_data_tab_over_remote_session(parent, stub_fetch):
+    async def go():
+        r = parent.connect()
+        app = ScreenlabApp(r, control_port=None)
+        async with app.run_test(size=(180, 60)) as pilot:
+            await pilot.pause(0.8)
+            await pilot.press("D")
+            await pilot.pause(1.0)
+            assert app.query_one("#t-datasets").row_count == 1
+            app.query_one("#d-sec").value = "Ann Lee ann@example.com"
+            await pilot.click("#d-go")
+            for _ in range(60):
+                await pilot.pause(0.25)
+                if parent.session.data_fetch and app.query_one("#t-manifest").row_count:
+                    break
+            await pilot.pause(0.8)
+            assert app.query_one("#t-manifest").row_count == 5                  # all five sources ticked
+            assert parent.session.lab_names() == ["synthetic", "real_ca"]
+    arun(go())

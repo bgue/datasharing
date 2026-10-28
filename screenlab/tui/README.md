@@ -6,7 +6,8 @@ Every number comes from the same operations, job manager and run store as the co
 ```
 screenlab-tui                          # terminal; default lab sp500 (synthetic if skfolio is missing)
 screenlab-tui --lab synthetic --store none
-screenlab-tui --serve [--host localhost --port 8000]     # same app in a browser (textual-serve)
+screenlab-tui --serve [--host localhost --port 8000]     # same app in a browser (textual-serve), one shared session
+screenlab-tui --remote http://127.0.0.1:8765             # a second view on a running TUI's session
 screenlab-tui --theme textual-light    # any Textual theme: nord, gruvbox, tokyo-night, ...
 screenlab-tui --control-port 0         # no control endpoint (default 8765, 127.0.0.1 only)
 ```
@@ -21,7 +22,20 @@ Install: `pip install -e ".[tui]"` (Textual, textual-plotext, textual-serve; `.[
 * Right tabs: **Compare** (passive row first; CAGR, Vol, Sharpe, MaxDD, Excess/yr, CI5/CI95 when a bootstrap was
   run, TimeOut/Switches for exits), **Curves** (log wealth in scenario colours), **Timing** (offset distribution,
   tranche), **Picks**, **Exit** (forward returns flagged vs not, overlay stats), **Monte Carlo** (quantile table
-  and median fan), **Runs** (the store; Enter re-runs a stored run and checks it reproduces), **Log**.
+  and median fan), **Runs** (the store; Enter re-runs a stored run and checks it reproduces), **Log**, **Data**
+  (key `D`, see below). The parameter editor also has a **Dataset** Select (every dataset in the registry, including ones
+  the downloader added; the Screen Select follows it).
+
+## Data tab (key `D`)
+Lists the datasets the session can use (registry labs with their data card line and warnings: price-index benchmark,
+survivorship) and has a **Download free datasets** form: SEC contact (`Your Name you@example.com`, required by the SEC,
+prefilled from `SCREENLAB_SEC_USER_AGENT`), sources (SEC, Bank of Canada, FRED, Stooq, Statistics Canada), destination
+folder, tickers, start date and SEC periods. The button submits the operation `fetch_data` through the normal job path
+(`registry.submit_run`), so the header progress bar moves, and the tab then shows the manifest (source, path, bytes, status),
+the errors, and any new dataset, which also appears in the editor's Dataset Select. The form lists the network
+allow-list hostnames the downloads need (for a sandbox or cloud environment that restricts outbound hosts). If the
+operation `fetch_data` is not registered the tab says "downloader not installed" and the button is disabled. The same from a
+script: commands `datasets` and `fetch_data` ([PROTOCOL.md](PROTOCOL.md)).
 
 ## Refining a scenario
 Select a scenario, edit a field, press **F2** (or the Apply button, or Enter in a field). Apply never edits:
@@ -33,7 +47,7 @@ passive index together. Versions are kept until you delete them (`d`).
 `a` add, `c` clone, `r` run selected, `R` run all not yet run, `d` delete, `x` toggle trend exit (then F2),
 `F2` Apply, `m` Monte Carlo (selected scenario; price-rank screens only), `t` timing study, `p` picks,
 `s` save the screen as ScreenSpec JSON, `e` export Compare as markdown + CSV, `w` charts in the browser,
-`T` light/dark, `1`-`8` tabs,
+`D` Data tab, `T` light/dark, `1`-`9` tabs,
 `?` help, `q` quit. The mouse works too. In a field, `F2` or Enter applies.
 
 ## Control endpoint (for agents and scripts)
@@ -45,7 +59,20 @@ curl -s localhost:8765/health
 curl -s -X POST localhost:8765/command -d '{"cmd":"add_scenario","args":{"screen":"dogs","run":true}}'
 curl -s localhost:8765/view
 ```
-In browser mode (`--serve`) each browser tab starts its own app process, and only one of them can hold the control port.
+In browser mode (`--serve`) the endpoint belongs to the parent process, see the next section.
+
+## Browser mode: one shared session
+`textual-serve` starts one app process per browser tab. So that the tabs, the chart panel and the control endpoint do not
+drift apart, `screenlab-tui --serve` keeps **one `Session` in the parent process** together with the control endpoint
+(always on in this mode; `--control-port 0` picks a free port). Each app process is started as
+`screenlab-tui --remote http://127.0.0.1:<port>` and holds a `RemoteSession` ([remote.py](remote.py)): the same interface as
+`Session` (`command`, `snapshot`, `view`, `seq`, `poll`, `await_jobs`) forwarded over HTTP, with change detection by
+long-poll (`GET /seq?after=`) and `GET /state` only when the seq moved. So every tab shows the same scenarios, selected
+scenario, active tab and theme, a scenario added in one tab appears in the others, and the charts, curl and the MCP `tui_*`
+tools act on that same session. Jobs and the run store live in the parent. Set `SCREENLAB_TUI_TOKEN` before starting and
+the children use it too (inherited environment). In the terminal nothing changes: a local `Session`, endpoint optional.
+`app.py` has no HTTP code; it works against either session type. A tab that is closed leaves the session untouched;
+stopping `--serve` ends it.
 
 ## Charts in the browser
 The terminal plots are coarse. Press `w` (or open `http://127.0.0.1:8765/charts`) for interactive Plotly charts of
@@ -62,8 +89,8 @@ no per-path data is sent.
   `plotly.min.js` path (served at `/plotly.js`) or to another URL before starting the TUI.
 * `--serve`: the terminal runs in the browser (canvas), so charts cannot sit inside it. The footer shows
   `http://127.0.0.1:8765/`, a split page with the terminal on the left and the charts on the right (drag the divider;
-  the position is remembered). `w` shows the URL there instead of opening a browser. The terminal inside that page is
-  a new app process (one per browser tab), so its charts follow the process that holds the control port.
+  the position is remembered). `w` shows the URL there instead of opening a browser. Every terminal inside that page is
+  an app process on the same shared session (previous section), so the charts and all terminals show the same scenarios.
 * With `SCREENLAB_TUI_TOKEN` set, open the page as `/charts?token=<token>` (the page passes it on to its requests).
 * Needs the control endpoint (`--control-port 0` turns the charts off). Histograms are only available for Monte Carlo
   runs computed in this session (a result reloaded from the run store has the table and fan only).
@@ -72,5 +99,5 @@ no per-path data is sent.
   `static/index.html`.
 
 ## Code
-`session.py` state and commands (no Textual import, used by the tests), `app.py` the Textual app and `main`,
-`control.py` the HTTP endpoint, `web.py` + `static/` the browser charts. Tests: `python -m pytest screenlab/tests/test_tui.py`.
+`session.py` state and commands (no Textual import, used by the tests), `remote.py` the HTTP client with the same
+interface, `app.py` the Textual app and `main`, `control.py` the HTTP endpoint (and `HeadlessHost` for the parent), `web.py` + `static/` the browser charts. Tests: `python -m pytest screenlab/tests/test_tui.py`.

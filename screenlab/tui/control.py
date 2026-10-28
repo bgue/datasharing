@@ -32,6 +32,37 @@ def _version() -> str:
         return "0.1.0"
 
 
+class HeadlessHost:
+    """Stands in for the Textual app when the control endpoint runs without a UI (`screenlab-tui --serve`: the
+    parent process owns the one Session and the endpoint; the app processes are remote clients, remote.py).
+    `call_from_thread` runs the function directly under one lock (the role the app thread plays otherwise) and a
+    poller thread keeps `Session.poll()` going, since no app tick does it."""
+    headless = True
+
+    def __init__(self, session, interval: float = 0.2):
+        self.session, self.interval = session, interval
+        self._lock = threading.RLock()
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    def call_from_thread(self, fn, *a):
+        with self._lock:
+            return fn(*a)
+
+    def start(self) -> None:
+        def loop():
+            while not self._stop.wait(self.interval):
+                try:
+                    self.session.poll()
+                except Exception:                                # noqa: BLE001  (a failed poll must not kill the loop)
+                    pass
+        self._thread = threading.Thread(target=loop, name="screenlab-tui-poll", daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+
+
 class ControlServer:
     """`ControlServer(app, session, port).start()`; `.port` is the bound port (use 0 for an ephemeral one in
     tests); `.stop()` shuts it down."""
@@ -56,7 +87,8 @@ class ControlServer:
         s = self.session
         return {"ok": True, "version": _version(), "protocol": PROTOCOL, "lab": s.lab,
                 "dataset": self._on_app(lambda: s.card().line()), "store": s.store_path(),
-                "control_port": self.port}
+                "control_port": self.port, "seq": s.seq, "home_url": self.home_url(),
+                "serve": bool(self.serve_url), "headless": bool(getattr(self.app, "headless", False))}
 
     def charts_url(self) -> str:
         return f"http://{self.host}:{self.port}/charts"
@@ -71,8 +103,8 @@ class ControlServer:
             try:
                 t = self.app.current_theme
                 return t.name, bool(t.dark), self.app.get_css_variables()
-            except Exception:                                    # noqa: BLE001
-                return self.session.theme, "light" not in str(self.session.theme), None
+            except Exception:                                    # noqa: BLE001  (headless: what an app process pushed)
+                return self.session.theme, "light" not in str(self.session.theme), self.session.theme_vars
         name, dark, css = self._on_app(read)
         return web.theme_payload(name, dark, css)
 
@@ -184,22 +216,42 @@ class ControlServer:
                 if path == "/state":
                     return self._guard(lambda: outer._on_app(outer.session.snapshot))
                 if path == "/view":
-                    return self._guard(lambda: outer._on_app(outer.session.cmd_view))
-                self._send(404, {"error": f"unknown path {path}; use /health /state /view /command /charts /charts/data /theme /events"})
+                    tab = (self._query().get("tab") or [None])[0]
+                    return self._guard(lambda: outer._on_app(outer.session.cmd_view, tab))
+                if path == "/seq":                               # long-poll: answers when Session.seq != after
+                    q = self._query()
+                    try:
+                        after = int((q.get("after") or ["-1"])[0])
+                        wait = min(max(float((q.get("timeout") or ["0"])[0]), 0.0), 30.0)
+                    except ValueError:
+                        return self._send(400, {"error": "after must be an integer and timeout a number"})
+                    return self._guard(lambda: {"seq": outer.session.wait_seq(after, wait)})
+                self._send(404, {"error": f"unknown path {path}; use /health /state /view /seq /command /await /charts /charts/data /theme /events"})
 
             def do_POST(self):
                 path = self.path.split("?")[0].rstrip("/")
                 if not self._authorized():
                     return self._send(401, {"error": "unauthorized"})
-                if path != "/command":
-                    return self._send(404, {"error": f"unknown path {path}; POST /command"})
+                if path not in ("/command", "/await"):
+                    return self._send(404, {"error": f"unknown path {path}; POST /command or /await"})
                 try:
                     n = int(self.headers.get("Content-Length") or 0)
                     body = json.loads(self.rfile.read(n) or b"{}")
-                    if not isinstance(body, dict) or not isinstance(body.get("cmd"), str):
+                    if not isinstance(body, dict):
+                        raise ValueError
+                    if path == "/command" and not isinstance(body.get("cmd"), str):
+                        raise ValueError
+                    if path == "/await" and not isinstance(body.get("result"), dict):
                         raise ValueError
                 except ValueError:
-                    return self._send(400, {"error": 'body must be {"cmd": "<name>", "args": {...}}'})
+                    return self._send(400, {"error": 'body must be {"cmd": "<name>", "args": {...}}' if path == "/command"
+                                            else 'body must be {"result": {"jobs": [...]}, "timeout": 120}'})
+                if path == "/await":                              # wait here (HTTP thread) for the jobs of a result
+                    try:
+                        timeout = float(body.get("timeout") or 120)
+                    except (TypeError, ValueError):
+                        return self._send(400, {"error": "`timeout` must be a number"})
+                    return self._guard(lambda: outer.session.await_jobs(body["result"], timeout))
                 args = body.get("args") or {}
                 if not isinstance(args, dict):
                     return self._send(400, {"error": "`args` must be an object"})
@@ -214,10 +266,14 @@ class ControlServer:
         self.session.control_port = self.port
         self._thread = threading.Thread(target=self._httpd.serve_forever, name="screenlab-tui-control", daemon=True)
         self._thread.start()
+        if getattr(self.app, "headless", False):
+            self.app.start()
         return self
 
     def stop(self) -> None:
         self._stopping.set()
+        if getattr(self.app, "headless", False):
+            self.app.stop()
         if self._httpd is not None:
             self._httpd.shutdown()
             self._httpd.server_close()
