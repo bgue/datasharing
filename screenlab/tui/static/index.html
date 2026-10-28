@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>screenlab</title>
+<style>
+:root { --bg:#121212; --grid:#2c2c2c; --fg:#E0E0E0; --primary:#0178D4; }
+@media (prefers-color-scheme: light) { :root { --bg:#E0E0E0; --grid:#c4c4c4; --fg:#1F1F1F; } }
+* { box-sizing: border-box; }
+html, body { height:100%; margin:0; background:var(--bg); color:var(--fg); font:13px system-ui,sans-serif; overflow:hidden; }
+#wrap { display:flex; height:100%; }
+iframe { border:0; height:100%; background:var(--bg); min-width:0; }
+#term { width:50%; }
+#charts { flex:1; }
+#bar { width:8px; cursor:col-resize; background:var(--grid); flex:none; touch-action:none; }
+#bar:hover, #bar.drag { background:var(--primary); }
+.drag-shield iframe { pointer-events:none; }
+@media (max-width:800px) { #wrap { flex-direction:column; } #term { width:100% !important; height:50%; } #bar { display:none; }
+  iframe#charts { height:50%; } }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <iframe id="term" title="screenlab terminal" src="__SERVE_URL__"></iframe>
+  <div id="bar" role="separator" aria-orientation="vertical" aria-label="Resize terminal and charts" tabindex="0"></div>
+  <iframe id="charts" title="screenlab charts"></iframe>
+</div>
+<script>
+"use strict";
+const KEY = "screenlab.split";
+const wrap = document.getElementById("wrap"), term = document.getElementById("term"),
+      charts = document.getElementById("charts"), bar = document.getElementById("bar");
+const token = new URLSearchParams(location.search).get("token");
+charts.src = "charts" + (token ? "?token=" + encodeURIComponent(token) : "");
+function get() { try { return parseFloat(localStorage.getItem(KEY)); } catch (e) { return NaN; } }
+function put(v) { try { localStorage.setItem(KEY, String(v)); } catch (e) { /* storage may be blocked */ } }
+function setPct(p) { p = Math.min(85, Math.max(15, p)); term.style.width = p + "%"; return p; }
+setPct(isFinite(get()) ? get() : 50);
+function move(clientX) { return setPct(clientX / wrap.clientWidth * 100); }
+let last = null;
+bar.addEventListener("pointerdown", e => { bar.setPointerCapture(e.pointerId); bar.classList.add("drag"); document.body.classList.add("drag-shield"); });
+bar.addEventListener("pointermove", e => { if (bar.hasPointerCapture(e.pointerId)) last = move(e.clientX); });
+bar.addEventListener("pointerup", e => { bar.classList.remove("drag"); document.body.classList.remove("drag-shield"); if (last != null) put(last); });
+bar.addEventListener("keydown", e => {
+  const cur = parseFloat(term.style.width) || 50;
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") { put(setPct(cur + (e.key === "ArrowRight" ? 2 : -2))); e.preventDefault(); }
+});
+</script>
+</body>
+</html>

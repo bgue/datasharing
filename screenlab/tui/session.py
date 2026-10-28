@@ -632,13 +632,23 @@ class Session:
         elif kind == "timing":
             self.analyses["timing"][label] = {k: res.get(k) for k in ("table", "distribution", "tranche", "screen")}
         elif kind == "montecarlo":
-            self.analyses["montecarlo"] = {"scenarios": [s.label for s in scs], **res}
+            self.analyses["montecarlo"] = {"scenarios": [s.label for s in scs], **res,
+                                           "hist": self._mc_hist(jid)}
         elif kind == "exit_evaluate":
             self.analyses["exit"][label] = res
         elif kind == "picks":
             self.analyses["picks"][label] = {"scenario": label, "asof": res.get("asof"),
                                              "columns": res["columns"], "rows": res["rows"]}
         self.log(f"{kind} {label} done" + (" (cached)" if rec["info"].get("cache_hit") else ""))
+
+    def _mc_hist(self, jid):
+        """Binned CAGR / drawdown histograms for the chart panel (web.mc_hist), from the live result of the job;
+        None when the result came from the store (it keeps only the table and the fan)."""
+        try:
+            from .web import mc_hist
+            return mc_hist(getattr(self.registry.job_manager.get(jid).result(), "per_path", None))
+        except Exception:                                                 # noqa: BLE001
+            return None
 
     @staticmethod
     def _rows(table: dict) -> dict:

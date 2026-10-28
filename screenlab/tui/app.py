@@ -5,7 +5,7 @@
     screenlab-tui --lab synthetic --store runs.sqlite --control-port 0 --theme textual-light
 
 Keys: a add, c clone, r run, d delete, x toggle exit (then Apply), F2 Apply (new version + run), m Monte Carlo,
-t timing, p picks, s save screen spec, e export, T theme, ? help, q quit.
+t timing, p picks, s save screen spec, e export, w charts in the browser, T theme, ? help, q quit.
 """
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ import argparse
 import os
 import shlex
 import sys
+import webbrowser
 from datetime import datetime
 
 from rich.text import Text
@@ -38,6 +39,7 @@ HELP = """\
  x  toggle trend exit switch (then Apply)
  m  Monte Carlo           t  timing study         p  picks
  s  save screen spec JSON e  export markdown+CSV  T  light/dark theme
+ w  charts in the browser (Plotly, follows this screen)
  1-8 switch tab           ?  this help            q  quit
 
 Colours: every scenario keeps its colour; the passive index is grey.
@@ -95,6 +97,7 @@ class ScreenlabApp(App):
     CSS = """
     #head { height: auto; padding: 0 1; }
     #warn { height: auto; padding: 0 1; }
+    #chartsbar { height: auto; padding: 0 1; color: $text-muted; display: none; }
     #jobbar { height: 1; padding: 0 1; }
     #jobbar ProgressBar { width: 30; }
     #jobtext { width: 1fr; color: $text-muted; }
@@ -116,7 +119,7 @@ class ScreenlabApp(App):
         Binding("R", "run_all", "Run all"), Binding("d", "delete", "Delete"),
         Binding("x", "toggle_exit", "Exit on/off"), Binding("m", "montecarlo", "Monte Carlo"),
         Binding("t", "timing", "Timing"), Binding("p", "picks", "Picks"), Binding("s", "save_spec", "Save spec"),
-        Binding("e", "export", "Export"), Binding("T", "theme", "Theme"), Binding("question_mark", "help", "Help"),
+        Binding("e", "export", "Export"), Binding("w", "charts", "Charts"), Binding("T", "theme", "Theme"), Binding("question_mark", "help", "Help"),
         Binding("f2", "apply", "Apply", priority=True), Binding("q", "quit", "Quit"),
         *[Binding(str(i + 1), f"tab('{t}')", show=False) for i, t in enumerate(TABS)],
     ]
@@ -178,6 +181,7 @@ class ScreenlabApp(App):
                     yield DataTable(id="t-runs", cursor_type="row")
                 with TabPane("Log", id="log"):
                     yield RichLog(id="log-view", wrap=True, markup=False)
+        yield Static("", id="chartsbar")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -199,6 +203,11 @@ class ScreenlabApp(App):
         try:
             self._control = ControlServer(self, self.session, self.control_port).start()
             self.session.log(f"control endpoint http://127.0.0.1:{self._control.port}")
+            self.session.log(f"charts in the browser: {self._control.home_url()} (key w)")
+            if self._control.serve_url:
+                bar = self.query_one("#chartsbar", Static)
+                bar.update(f"Charts + terminal split view: {self._control.home_url()}   (key w shows it)")
+                bar.display = True
         except OSError as e:
             self.notify(f"control endpoint not started: {e}", severity="warning")
             self.session.log(f"control endpoint not started: {e}")
@@ -591,6 +600,24 @@ class ScreenlabApp(App):
         if res:
             self.notify("exported " + ", ".join(res["files"]))
 
+    def action_charts(self) -> None:
+        """Open the Plotly chart page in the default browser (terminal mode), or show the split-view URL (--serve)."""
+        c = self._control
+        if c is None:
+            self.notify("the control endpoint is off (--control-port 0): the chart page is served from it",
+                        severity="warning")
+            return
+        url = c.home_url()
+        self.session.log(f"charts: {url}" + ("?token=<SCREENLAB_TUI_TOKEN>" if c.token else ""))
+        if c.serve_url:
+            self.notify(f"split view with charts: {url}", title="charts", timeout=10)
+            return
+        try:
+            opened = webbrowser.open(url + (f"?token={c.token}" if c.token else ""))
+        except Exception:                                                # noqa: BLE001
+            opened = False
+        self.notify(f"opened {url}" if opened else f"open this in a browser: {url}", title="charts", timeout=8)
+
     def action_theme(self) -> None:
         self._cmd("set_theme", {"theme": "textual-light" if self.theme != "textual-light" else "textual-dark"})
 
@@ -635,6 +662,8 @@ def main(argv: list[str] | None = None) -> None:
     args = ap.parse_args(argv)
     if args.serve:
         from textual_serve.server import Server
+        # the app processes textual-serve starts inherit this: it turns on GET / (terminal + charts split page)
+        os.environ["SCREENLAB_TUI_SERVE_URL"] = f"http://{'localhost' if args.host in ('0.0.0.0', '::') else args.host}:{args.port}"
         Server(serve_command(args), host=args.host, port=args.port, title="screenlab").serve()
         return
     session = build_session(args.lab, args.store)

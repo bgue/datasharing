@@ -233,6 +233,15 @@ colours). `?` lists the keys and `q` quits. To use it in a browser instead: `scr
 http://localhost:8000 (`--port` changes it). While it runs it also listens on 127.0.0.1:8765 so that Claude (the
 `tui_*` MCP tools) can drive the same screen; `--control-port 0` turns that off. Details: `screenlab/tui/README.md`.
 
+### Charts in the browser
+Press `w` in the TUI: your browser opens interactive charts (hover for values, drag to zoom, click the legend to hide
+a scenario, a PNG button on each chart) with tabs Curves, Compare, Timing, Monte Carlo and Exit. They show the same
+scenarios in the same colours (the passive index is grey), take the colours of the TUI theme, and redraw by themselves
+when you run or change something in the terminal. The page loads Plotly.js from the internet; offline, set
+`SCREENLAB_PLOTLY_JS` to a local `plotly.min.js` file before starting. With `screenlab-tui --serve` the footer shows
+a page that puts the terminal and the charts side by side (drag the divider). Needs the control endpoint (on by
+default). Details: `screenlab/tui/README.md`.
+
 ## 8. Connect the MCP server to Claude
 The MCP server lets Claude call screenlab itself ("backtest dogs vs screaming value on monthly data"). It
 talks to Claude over standard input/output; you never run it by hand. You need the **full path to the venv's

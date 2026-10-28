@@ -61,6 +61,7 @@ screenlab = [
     "docs/*.md",
     "realdata/*.md",
     "server/*.md",
+    "tui/static/*.html",
     "*.md",
     "requirements-server.txt",
 ]

@@ -3,16 +3,24 @@
 A stdlib `http.server` in a daemon thread. Every command is marshalled into the app's event loop with
 `app.call_from_thread`, so the UI and the session are only touched from the app thread. Commands with
 `wait` submit on the app thread and then wait for the jobs in the HTTP thread (the UI keeps running).
-Bound to 127.0.0.1; if env `SCREENLAB_TUI_TOKEN` is set every request except `GET /health` must carry it
-(`Authorization: Bearer <token>` or `X-Screenlab-Token`)."""
+Bound to 127.0.0.1; if env `SCREENLAB_TUI_TOKEN` is set every request except `GET /health` and the static pages
+must carry it (`Authorization: Bearer <token>`, `X-Screenlab-Token`, or `?token=` for the browser pages, whose
+fetches and event stream cannot set headers).
+
+Browser chart panel (DESIGN.md L6, tui/web.py): `GET /charts` (page), `GET /charts/data?tab=` (JSON), `GET /theme`,
+`GET /events` (server-sent events on every `Session.seq` change), `GET /plotly.js` (local Plotly copy when
+`SCREENLAB_PLOTLY_JS` is a file) and, in `--serve` mode, `GET /` (terminal + charts split page)."""
 from __future__ import annotations
 
 import hmac
 import json
 import os
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlsplit
 
+from . import web
 from .session import PROTOCOL, SessionError
 
 
@@ -28,8 +36,11 @@ class ControlServer:
     """`ControlServer(app, session, port).start()`; `.port` is the bound port (use 0 for an ephemeral one in
     tests); `.stop()` shuts it down."""
 
-    def __init__(self, app, session, port: int = 8765, host: str = "127.0.0.1", token: str | None = None):
+    def __init__(self, app, session, port: int = 8765, host: str = "127.0.0.1", token: str | None = None,
+                 serve_url: str | None = None):
         self.app, self.session, self.host = app, session, host
+        self.serve_url = serve_url if serve_url is not None else os.environ.get("SCREENLAB_TUI_SERVE_URL") or None
+        self._stopping = threading.Event()
         self.token = token if token is not None else os.environ.get("SCREENLAB_TUI_TOKEN") or None
         self.port = port
         self._httpd: ThreadingHTTPServer | None = None
@@ -46,6 +57,24 @@ class ControlServer:
         return {"ok": True, "version": _version(), "protocol": PROTOCOL, "lab": s.lab,
                 "dataset": self._on_app(lambda: s.card().line()), "store": s.store_path(),
                 "control_port": self.port}
+
+    def charts_url(self) -> str:
+        return f"http://{self.host}:{self.port}/charts"
+
+    def home_url(self) -> str:
+        """Where to point a browser: the split page in --serve mode, else the chart page."""
+        return f"http://{self.host}:{self.port}/" if self.serve_url else self.charts_url()
+
+    def theme(self) -> dict:
+        """Active Textual theme: colours read on the app thread (headless: the session's stored theme name)."""
+        def read():
+            try:
+                t = self.app.current_theme
+                return t.name, bool(t.dark), self.app.get_css_variables()
+            except Exception:                                    # noqa: BLE001
+                return self.session.theme, "light" not in str(self.session.theme), None
+        name, dark, css = self._on_app(read)
+        return web.theme_payload(name, dark, css)
 
     def run_command(self, cmd: str, args: dict) -> dict:
         s = self.session
@@ -73,16 +102,48 @@ class ControlServer:
 
             def _send(self, code: int, obj) -> None:
                 body = json.dumps(obj).encode()
+                self._raw(code, body, "application/json")
+
+            def _raw(self, code: int, body: bytes, ctype: str) -> None:
                 self.send_response(code)
-                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Type", ctype)
                 self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
                 self.end_headers()
                 self.wfile.write(body)
+
+            def _html(self, name: str, **subst) -> None:
+                self._raw(200, web.page(name, **subst), "text/html; charset=utf-8")
+
+            def _events(self) -> None:
+                """Server-sent events: one `change` event now and one on every Session.seq change."""
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Accel-Buffering", "no")
+                self.end_headers()
+                s, last, idle = outer.session, None, 0.0
+                try:
+                    while not outer._stopping.is_set():
+                        seq = s.seq
+                        if seq != last:
+                            msg = {"seq": seq, "tab": s.active_tab}
+                            self.wfile.write(f"event: change\ndata: {json.dumps(msg)}\n\n".encode())
+                            self.wfile.flush()
+                            last, idle = seq, 0.0
+                        elif idle >= 15:
+                            self.wfile.write(b": keep-alive\n\n")
+                            self.wfile.flush()
+                            idle = 0.0
+                        time.sleep(0.2)
+                        idle += 0.2
+                except OSError:                                  # the browser went away
+                    pass
 
             def _authorized(self) -> bool:
                 if not outer.token:
                     return True
-                got = self.headers.get("X-Screenlab-Token") or ""
+                got = self.headers.get("X-Screenlab-Token") or (self._query().get("token") or [""])[0]
                 auth = self.headers.get("Authorization") or ""
                 if auth.lower().startswith("bearer "):
                     got = auth[7:].strip()
@@ -96,17 +157,35 @@ class ControlServer:
                 except Exception as e:                           # noqa: BLE001
                     self._send(500, {"error": f"internal error: {type(e).__name__}: {e}"})
 
+            def _query(self) -> dict:
+                return parse_qs(urlsplit(self.path).query)
+
             def do_GET(self):
                 path = self.path.split("?")[0].rstrip("/") or "/"
                 if path == "/health":
                     return self._guard(outer.health)
+                if path == "/charts":                            # static pages carry no data: no token needed
+                    return self._html("charts.html")
+                if path == "/" and outer.serve_url:
+                    return self._html("index.html", SERVE_URL=outer.serve_url)
+                if path == "/plotly.js":
+                    f = web.plotly_local_file()
+                    if f is None:
+                        return self._send(404, {"error": "SCREENLAB_PLOTLY_JS is not a local file"})
+                    return self._raw(200, f.read_bytes(), "application/javascript")
                 if not self._authorized():
                     return self._send(401, {"error": "unauthorized"})
+                if path == "/charts/data":
+                    return self._guard(lambda: web.chart_data(outer.session, (self._query().get("tab") or [""])[0]))
+                if path == "/theme":
+                    return self._guard(outer.theme)
+                if path == "/events":
+                    return self._events()
                 if path == "/state":
                     return self._guard(lambda: outer._on_app(outer.session.snapshot))
                 if path == "/view":
                     return self._guard(lambda: outer._on_app(outer.session.cmd_view))
-                self._send(404, {"error": f"unknown path {path}; use /health /state /view /command"})
+                self._send(404, {"error": f"unknown path {path}; use /health /state /view /command /charts /charts/data /theme /events"})
 
             def do_POST(self):
                 path = self.path.split("?")[0].rstrip("/")
@@ -138,6 +217,7 @@ class ControlServer:
         return self
 
     def stop(self) -> None:
+        self._stopping.set()
         if self._httpd is not None:
             self._httpd.shutdown()
             self._httpd.server_close()

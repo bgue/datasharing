@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>screenlab charts</title>
+<style>
+:root { --bg:#121212; --surface:#1E1E1E; --panel:#242F38; --fg:#E0E0E0; --muted:#A0A0A0; --grid:#2c2c2c;
+        --primary:#0178D4; --accent:#FEA62B; --error:#B93C5B; --warning:#FEA62B; --success:#4EBF71; }
+* { box-sizing: border-box; }
+html, body { margin:0; background:var(--bg); color:var(--fg);
+  font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+body { padding:0 16px 24px; }
+header { position:sticky; top:0; z-index:5; background:var(--bg); padding:10px 0 6px; border-bottom:1px solid var(--grid); }
+.row { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; }
+nav { display:flex; flex-wrap:wrap; gap:4px; }
+nav button { background:none; color:var(--muted); border:0; border-bottom:2px solid transparent; padding:6px 10px;
+  font:inherit; cursor:pointer; }
+nav button:hover { color:var(--fg); }
+nav button[aria-selected="true"] { color:var(--fg); border-bottom-color:var(--primary); font-weight:600; }
+.sp { flex:1; }
+.status { color:var(--muted); font-size:12px; display:flex; align-items:center; gap:6px; }
+.dot { width:8px; height:8px; border-radius:50%; background:var(--muted); }
+.dot.live { background:var(--success); }
+.dot.err { background:var(--error); }
+label.opt { color:var(--muted); font-size:12px; display:flex; align-items:center; gap:4px; cursor:pointer; }
+select, button.tool { background:var(--surface); color:var(--fg); border:1px solid var(--grid); border-radius:4px;
+  padding:3px 8px; font:inherit; font-size:12px; cursor:pointer; }
+button.tool:hover, select:hover { border-color:var(--muted); }
+main { padding-top:12px; transition:opacity .15s; }
+main.loading { opacity:.55; }
+.msg { color:var(--muted); padding:36px 4px; max-width:60ch; }
+.notes { color:var(--muted); font-size:12px; margin:2px 0 8px; }
+.notes .warn { color:var(--warning); }
+.grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr)); }
+.card { background:var(--surface); border:1px solid var(--grid); border-radius:6px; padding:8px 8px 4px; min-width:0; }
+.card h3 { margin:2px 6px 0; font-size:13px; font-weight:600; display:flex; align-items:center; gap:8px; }
+.card h3 span.sub { color:var(--muted); font-weight:400; font-size:12px; }
+.card h3 .sp { flex:1; }
+.plot { width:100%; height:360px; }
+.plot.tall { height:420px; }
+details { margin:4px 6px 8px; color:var(--muted); font-size:12px; }
+details summary { cursor:pointer; }
+table { border-collapse:collapse; margin-top:6px; width:100%; font-variant-numeric:tabular-nums; }
+th, td { padding:2px 10px 2px 0; text-align:right; white-space:nowrap; border-bottom:1px solid var(--grid); }
+th:first-child, td:first-child { text-align:left; }
+th { color:var(--muted); font-weight:500; }
+td { color:var(--fg); }
+td .key { display:inline-block; width:14px; height:0; border-top:3px solid; margin-right:6px; vertical-align:middle; }
+.tablewrap { overflow-x:auto; }
+@media (max-width:560px) { .plot { height:300px; } }
+</style>
+<script src="__PLOTLY_SRC__"></script>
+</head>
+<body>
+<header>
+  <div class="row">
+    <nav id="tabs" role="tablist"></nav>
+    <span class="sp"></span>
+    <label class="opt" title="The passive index is the yardstick: its legend entry is locked unless you tick this">
+      <input type="checkbox" id="allowHide"> allow hiding the index</label>
+    <span class="status"><span class="dot" id="dot"></span><span id="status">connecting</span></span>
+  </div>
+</header>
+<main id="main"><div class="msg">Loading…</div></main>
+
+<script>
+"use strict";
+const TABS = [["curves","Curves"],["compare","Compare"],["timing","Timing"],["montecarlo","Monte Carlo"],["exit","Exit"]];
+const params = new URLSearchParams(location.search);
+const TOKEN = params.get("token");
+const q = (path, extra) => {
+  const u = new URL(path, location.href);
+  if (extra) for (const [k, v] of Object.entries(extra)) u.searchParams.set(k, v);
+  if (TOKEN) u.searchParams.set("token", TOKEN);
+  return u.toString();
+};
+const store = {
+  get(k, d) { try { return localStorage.getItem(k) ?? d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage may be blocked */ } },
+};
+let active = store.get("screenlab.charts.tab", "curves");
+if (!TABS.some(t => t[0] === active)) active = "curves";
+if (params.get("tab") && TABS.some(t => t[0] === params.get("tab"))) active = params.get("tab");
+let allowHide = false;
+let theme = null, tpl = null;
+let lastData = {};
+let reqId = 0;
+const main = document.getElementById("main");
+
+// ---------------------------------------------------------------- helpers
+function el(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "class") e.className = v; else if (k === "style") e.style.cssText = v; else e.setAttribute(k, v);
+  }
+  for (const k of kids) if (k != null) e.append(k.nodeType ? k : document.createTextNode(String(k)));
+  return e;
+}
+const pct = (v, d = 1) => v == null ? "–" : (v * 100).toFixed(d) + "%";
+const num = (v, d = 2) => v == null ? "–" : Number(v).toFixed(d);
+const money = v => v == null ? "–" : Math.abs(v) >= 1e6 ? (v / 1e6).toFixed(2) + "M" : Math.abs(v) >= 1e3 ? (v / 1e3).toFixed(0) + "K" : Number(v).toFixed(0);
+const isPct = c => /CAGR|Vol|DD|Excess|Worst|CI5|CI95|P\(|Turnover|Costs|TimeOut|mean|median|hit_rate|worst/i.test(c) && !/Sharpe|Switches|AvgN|BeatBench/i.test(c);
+const cell = (c, v) => v == null ? "–" : typeof v === "number" ? (isPct(c) ? pct(v) : Math.abs(v) >= 1000 ? money(v) : num(v, 2)) : String(v);
+
+function table(columns, rows, keyColors) {
+  const t = el("table");
+  t.append(el("thead", {}, el("tr", {}, ...columns.map(c => el("th", {}, c)))));
+  const b = el("tbody");
+  rows.forEach((r, i) => {
+    const tr = el("tr");
+    r.forEach((v, j) => {
+      const td = el("td");
+      if (j === 0 && keyColors && keyColors[i]) td.append(el("span", {class: "key", style: "border-color:" + keyColors[i]}));
+      td.append(document.createTextNode(j === 0 ? String(v) : cell(columns[j], v)));
+      tr.append(td);
+    });
+    b.append(tr);
+  });
+  t.append(b);
+  return el("div", {class: "tablewrap"}, t);
+}
+
+// ---------------------------------------------------------------- theme -> Plotly template
+function buildTemplate(v) {
+  const font = {family: "system-ui,-apple-system,'Segoe UI',Roboto,sans-serif", color: v.foreground, size: 12};
+  const axis = {automargin: true, gridcolor: v.grid, gridwidth: 1, zerolinecolor: v.grid, linecolor: v.grid, tickcolor: v.grid,
+                tickfont: {color: v.text_muted}, title: {font: {color: v.text_muted, size: 12}}};
+  return {layout: {
+    paper_bgcolor: v.surface, plot_bgcolor: v.surface, font, colorway: [v.primary],
+    xaxis: axis, yaxis: axis,
+    legend: {font: {color: v.foreground, size: 12}, orientation: "h", x: 0, y: -0.3, yanchor: "top",
+             bgcolor: "rgba(0,0,0,0)"},
+    hoverlabel: {bgcolor: v.panel, bordercolor: v.grid, font: {color: v.foreground, size: 12}},
+    margin: {l: 56, r: 16, t: 14, b: 40}, showlegend: true,
+    modebar: {bgcolor: "rgba(0,0,0,0)", color: v.text_muted, activecolor: v.foreground},
+  }};
+}
+function applyTheme(t) {
+  theme = t; const v = t.variables; tpl = buildTemplate(v);
+  const r = document.documentElement.style;
+  r.setProperty("--bg", v.background); r.setProperty("--surface", v.surface); r.setProperty("--panel", v.panel);
+  r.setProperty("--fg", v.foreground); r.setProperty("--muted", v.text_muted); r.setProperty("--grid", v.grid);
+  r.setProperty("--primary", v.primary); r.setProperty("--accent", v.accent); r.setProperty("--error", v.error);
+  r.setProperty("--warning", v.warning); r.setProperty("--success", v.success);
+  document.documentElement.style.colorScheme = t.dark ? "dark" : "light";
+}
+
+// ---------------------------------------------------------------- Plotly plumbing
+const CONFIG = {displaylogo: false, responsive: true, scrollZoom: false,
+                modeBarButtonsToRemove: ["lasso2d", "select2d", "autoScale2d", "toggleSpikelines"]};
+function isPassive(tr) { return tr && tr.meta && tr.meta.passive === true; }
+function groupOf(tr) { return tr.legendgroup || tr.name; }
+
+function plot(box, traces, layout) {
+  const lay = Object.assign({}, tpl.layout, layout);
+  for (const k of ["xaxis", "yaxis"]) lay[k] = Object.assign({}, tpl.layout[k], (layout || {})[k] || {});
+  lay.legend = Object.assign({}, tpl.layout.legend, (layout || {}).legend || {});
+  lay.margin = Object.assign({}, tpl.layout.margin, (layout || {}).margin || {});
+  Plotly.react(box, traces, lay, CONFIG);
+  if (!box._wired) {
+    box._wired = true;
+    box.on("plotly_legendclick", ev => {
+      const tr = ev.data[ev.curveNumber];
+      return !(isPassive(tr) && !allowHide);                      // the passive index cannot be hidden by default
+    });
+    box.on("plotly_legenddoubleclick", ev => {
+      const data = box.data, g = groupOf(data[ev.curveNumber]);
+      const only = data.every(tr => groupOf(tr) === g || isPassive(tr) || tr.visible === "legendonly");
+      const vis = data.map(tr => only ? true : (groupOf(tr) === g || (isPassive(tr) && !allowHide)) ? true : "legendonly");
+      Plotly.restyle(box, {visible: vis});
+      return false;
+    });
+  }
+}
+function card(title, sub, name, cls) {
+  const box = el("div", {class: "plot " + (cls || "")});
+  const png = el("button", {class: "tool", title: "Save this chart as a PNG"}, "PNG");
+  png.onclick = () => Plotly.downloadImage(box, {format: "png", filename: "screenlab-" + name, scale: 2,
+    width: Math.max(900, box.clientWidth), height: Math.max(500, box.clientHeight)});
+  const c = el("div", {class: "card"}, el("h3", {}, title, sub ? el("span", {class: "sub"}, sub) : null, el("span", {class: "sp"}), png), box);
+  return [c, box];
+}
+function details(summary, node) {
+  const d = el("details", {}, el("summary", {}, summary), node);
+  return d;
+}
+function flag(n) { return el("div", {class: "notes"}, n); }
+
+// ---------------------------------------------------------------- tabs
+const tabs = {
+  curves(d, root) {
+    root.append(flag("Wealth, start = 1.0, log scale. Grey is the passive index. Drag to zoom, double-click to reset, click a legend entry to hide a scenario."));
+    const [c, box] = card("Wealth", "log scale", "curves", "tall");
+    root.append(c);
+    const traces = d.series.map(s => ({
+      type: "scatter", mode: "lines", name: s.label, x: s.x, y: s.y, meta: {passive: s.passive},
+      line: {color: s.color, width: s.passive ? 2 : 2, shape: "linear"}, legendgroup: s.label,
+      hovertemplate: "<b>%{y:.2f}×</b>  " + "%{fullData.name}<extra></extra>"}));
+    plot(box, traces, {hovermode: "x unified", yaxis: {type: "log", title: {text: "wealth (×)"}, tickformat: ".2~f", ticksuffix: "×"},
+      xaxis: {hoverformat: "%b %Y"}});
+    const rows = d.series.map(s => [s.label, s.y[0], s.y[s.y.length - 1], s.x[0].slice(0, 10), s.x[s.x.length - 1].slice(0, 10)]);
+    root.append(details("Values", table(["Series", "Start", "End ×", "From", "To"], rows.map(r => [r[0], r[1], r[2], r[3], r[4]]), d.series.map(s => s.color))));
+  },
+
+  compare(d, root) {
+    const rows = d.rows, cols = d.columns;
+    const notes = [];
+    if (d.missing.length) notes.push("not run yet: " + d.missing.join(", "));
+    d.diffs.forEach(x => notes.push(x));
+    if (notes.length) root.append(flag(notes.join("   |   ")));
+    const grid = el("div", {class: "grid"}); root.append(grid);
+    const labels = rows.map(r => r.label);
+    const [c1, b1] = card("CAGR", "annualised, per scenario", "compare-cagr");
+    const [c2, b2] = card("Excess/yr vs the passive index", "bars: bootstrap 5–95% interval when run with CI", "compare-excess");
+    grid.append(c1, c2);
+    const val = (r, k) => r.values[k] ?? null;
+    plot(b1, rows.map(r => ({type: "bar", orientation: "h", y: [r.label], x: [val(r, "CAGR")], name: r.label,
+      marker: {color: r.color}, width: 0.5, meta: {passive: r.passive}, legendgroup: r.label,
+      text: [pct(val(r, "CAGR"))], textposition: "outside", cliponaxis: false, textfont: {color: theme.variables.foreground},
+      hovertemplate: "<b>%{x:.2%}</b>  %{fullData.name}<extra></extra>"})),
+      {hovermode: "closest", barmode: "overlay", yaxis: {autorange: "reversed", type: "category", categoryorder: "array", categoryarray: labels},
+       xaxis: {tickformat: ".0%"}});
+    const ex = rows.filter(r => !r.passive);
+    plot(b2, ex.map(r => {
+      const v = val(r, "Excess/yr"), lo = val(r, "CI5"), hi = val(r, "CI95");
+      const t = {type: "scatter", mode: "markers", y: [r.label], x: [v], name: r.label, legendgroup: r.label,
+        marker: {color: r.color, size: 11, line: {color: theme.variables.surface, width: 2}},
+        hovertemplate: "<b>%{x:.2%}</b> per year  %{fullData.name}" + (lo != null && hi != null ? `<br>interval ${pct(lo)} to ${pct(hi)}` : "") + "<extra></extra>"};
+      if (lo != null && hi != null && v != null) t.error_x = {type: "data", symmetric: false, color: r.color, thickness: 2, width: 5, array: [hi - v], arrayminus: [v - lo]};
+      return t;
+    }), {hovermode: "closest", yaxis: {autorange: "reversed", type: "category", categoryorder: "array", categoryarray: ex.map(r => r.label)},
+      xaxis: {tickformat: ".1%", zeroline: true, zerolinecolor: d.passive.color, zerolinewidth: 2}});
+    root.append(details("Table", table(["Scenario", ...cols], rows.map(r => [r.label, ...cols.map(c => r.values[c])]), rows.map(r => r.color))));
+  },
+
+  timing(d, root) {
+    root.append(flag("Timing: the same strategy started at different months (offsets). The spread is the luck of the start date. Grey line: the passive index's CAGR."));
+    const grid = el("div", {class: "grid"}); root.append(grid);
+    const [c1, b1] = card("CAGR by start offset", "months after the first date", "timing-offsets");
+    grid.append(c1);
+    const tr = d.series.map(s => ({type: "scatter", mode: "lines+markers", name: s.label, x: s.offset, y: s.cagr,
+      line: {color: s.color, width: 2}, marker: {color: s.color, size: 8, line: {color: theme.variables.surface, width: 2}},
+      legendgroup: s.label, hovertemplate: "<b>%{y:.2%}</b> CAGR, offset %{x} months  %{fullData.name}<extra></extra>"}));
+    if (d.passive_cagr != null) {
+      const xs = d.series.flatMap(s => s.offset); const lo = Math.min(...xs), hi = Math.max(...xs);
+      tr.push({type: "scatter", mode: "lines", name: d.passive.label, x: [lo, hi], y: [d.passive_cagr, d.passive_cagr],
+        line: {color: d.passive.color, width: 2}, meta: {passive: true}, legendgroup: "passive",
+        hovertemplate: "<b>%{y:.2%}</b> CAGR  %{fullData.name}<extra></extra>"});
+    }
+    plot(b1, tr, {hovermode: "x unified", xaxis: {title: {text: "start offset (months)"}}, yaxis: {tickformat: ".0%", title: {text: "CAGR"}}});
+    const withTr = d.series.filter(s => s.tranche);
+    if (withTr.length) {
+      const [c2, b2] = card("Tranche", "all start offsets blended, log scale", "timing-tranche");
+      grid.append(c2);
+      plot(b2, withTr.map(s => ({type: "scatter", mode: "lines", name: s.label, x: s.tranche.x, y: s.tranche.y,
+        line: {color: s.color, width: 2}, legendgroup: s.label, hovertemplate: "<b>%{y:.2f}×</b>  %{fullData.name}<extra></extra>"})),
+        {hovermode: "x unified", yaxis: {type: "log", tickformat: ".2~f", ticksuffix: "×", title: {text: "wealth (×)"}}});
+    }
+    d.series.forEach(s => { if (s.distribution) root.append(details("Offset distribution: " + s.label, table(s.distribution.columns, s.distribution.rows))); });
+  },
+
+  montecarlo(d, root) {
+    const notes = [`${d.scenarios.join(", ")}: ${d.n_paths} paths, horizons ${d.horizon_years.join(", ")} years`];
+    const modes = Object.entries(d.selection_mode || {}).map(([k, v]) => k + ": " + v);
+    if (modes.length) notes.push("selection: " + modes.join(", "));
+    root.append(flag(notes.join("   |   ")));
+    (d.warnings || []).forEach(w => root.append(el("div", {class: "notes"}, el("span", {class: "warn"}, w))));
+    const grid = el("div", {class: "grid"}); root.append(grid);
+    const [c1, b1] = card("Wealth fan", "median line; bands 25–75% and 5–95%; log scale", "mc-fan", "tall");
+    grid.append(c1);
+    const hexA = (h, a) => { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+    const tr = [];
+    d.fan.series.forEach(s => {
+      const m = {passive: s.passive}, common = {type: "scatter", mode: "lines", x: d.fan.years, legendgroup: s.label, meta: m, showlegend: false,
+        line: {width: 0, color: s.color}, hoverinfo: "skip"};
+      if (s.p5 && s.p95 && !s.passive) {
+        tr.push(Object.assign({}, common, {y: s.p5}), Object.assign({}, common, {y: s.p95, fill: "tonexty", fillcolor: hexA(s.color, 0.07)}));
+      }
+      if (s.p25 && s.p75) {
+        tr.push(Object.assign({}, common, {y: s.p25}), Object.assign({}, common, {y: s.p75, fill: "tonexty", fillcolor: hexA(s.color, 0.13)}));
+      }
+      tr.push({type: "scatter", mode: "lines", name: s.label, x: d.fan.years, y: s.p50, legendgroup: s.label, meta: m,
+        line: {color: s.color, width: 2}, customdata: s.p5.map((_, i) => [s.p5[i], s.p25[i], s.p75[i], s.p95[i]]),
+        hovertemplate: "<b>%{y:$,.0f}</b> median  %{fullData.name}<br>25–75%: %{customdata[1]:$,.0f} – %{customdata[2]:$,.0f}<br>5–95%: %{customdata[0]:$,.0f} – %{customdata[3]:$,.0f}<extra></extra>"});
+    });
+    plot(b1, tr, {hovermode: "x unified", xaxis: {title: {text: "years since formation"}, hoverformat: ".1f"},
+      yaxis: {type: "log", tickprefix: "$", tickformat: "~s", title: {text: "wealth"}}});
+
+    const h = d.hist;
+    if (h) {
+      const sel = el("select", {title: "horizon"}, ...h.horizons.map(x => el("option", {value: String(x)}, x + " y")));
+      sel.value = store.get("screenlab.charts.horizon", "") && h.horizons.map(String).includes(store.get("screenlab.charts.horizon", "")) ? store.get("screenlab.charts.horizon", "") : String(h.horizons[h.horizons.length - 1]);
+      const histBox = el("div", {class: "grid"}); root.append(el("div", {class: "notes"}, "Histograms at horizon: ", sel), histBox);
+      const draw = () => {
+        store.set("screenlab.charts.horizon", sel.value);
+        histBox.replaceChildren();
+        const e = h.by_horizon[Number(sel.value).toString()] || h.by_horizon[sel.value];
+        for (const [key, title, fmt, name] of [["cagr", "Annualised return (CAGR)", ".0%", "mc-cagr"], ["maxdd", "Worst drawdown", ".0%", "mc-maxdd"]]) {
+          const b = e && e[key]; if (!b) continue;
+          const [c, box] = card(title, `share of ${d.n_paths} paths per bin, ${sel.value} years`, name);
+          histBox.append(c);
+          const mid = b.edges.slice(0, -1).map((x, i) => (x + b.edges[i + 1]) / 2), w = b.edges[1] - b.edges[0];
+          const labels = Object.keys(b.counts);
+          const order = labels.filter(l => l !== d.benchmark).concat(labels.filter(l => l === d.benchmark));
+          plot(box, order.map(l => ({type: "bar", name: l, x: mid, y: b.counts[l].map(c => c / (b.n[l] || 1)), width: w * 0.92,
+            marker: {color: l === d.benchmark ? d.passive.color : d.colors[l], opacity: l === d.benchmark ? 0.55 : 0.7},
+            meta: {passive: l === d.benchmark}, legendgroup: l,
+            customdata: b.edges.slice(0, -1).map((x, i) => [x, b.edges[i + 1]]),
+            hovertemplate: "<b>%{y:.1%}</b> of paths  %{fullData.name}<br>" + (key === "cagr" ? "CAGR" : "max drawdown") + " %{customdata[0]:.1%} to %{customdata[1]:.1%}<extra></extra>"})),
+            {barmode: "overlay", bargap: 0, hovermode: "closest", xaxis: {tickformat: fmt, title: {text: title}}, yaxis: {tickformat: ".0%", title: {text: "share of paths"}}});
+        }
+      };
+      sel.onchange = draw; draw();
+    } else if (d.hist_note) root.append(flag(d.hist_note));
+    root.append(details("Quantile table", table(d.table.columns, d.table.rows)));
+  },
+
+  exit(d, root) {
+    root.append(flag("Forward returns after the exit signal flagged vs not. Solid = not flagged, hatched = flagged. If flagged is not lower, the signal adds nothing."));
+    const grid = el("div", {class: "grid"}); root.append(grid);
+    d.items.forEach((it, i) => {
+      const [c, box] = card(it.label, `flagged ${pct(it.frac_flagged)} of the time, ${it.switches} switches`, "exit-" + i);
+      grid.append(c);
+      const hs = [...new Set(it.forward.map(r => r.horizon_months))];
+      const mk = state => {
+        const rs = hs.map(h => it.forward.find(r => r.horizon_months === h && r.state === state) || {});
+        return {type: "bar", name: state === "flagged" ? "flagged" : "not flagged", x: hs.map(h => h + " months"),
+          y: rs.map(r => r.mean ?? null), customdata: rs.map(r => [r.n, r.median, r.hit_rate, r.worst]),
+          marker: Object.assign({color: it.color}, state === "flagged" ? {pattern: {shape: "/", fgcolor: theme.variables.surface, bgcolor: it.color, size: 6, solidity: 0.45}} : {}),
+          width: 0.32, hovertemplate: "<b>%{y:.2%}</b> mean  " + (state === "flagged" ? "flagged" : "not flagged") +
+            "<br>n %{customdata[0]}, median %{customdata[1]:.2%}, hit rate %{customdata[2]:.0%}, worst %{customdata[3]:.1%}<extra></extra>"};
+      };
+      plot(box, [mk("unflagged"), mk("flagged")], {barmode: "group", bargap: 0.4, hovermode: "closest",
+        yaxis: {tickformat: ".0%", title: {text: "mean forward return"}}, xaxis: {type: "category", title: {text: "horizon"}}});
+      root.append(details("Overlay stats: " + it.label, table(it.overlay.columns, it.overlay.rows)));
+    });
+  },
+};
+
+// ---------------------------------------------------------------- load / render
+async function getJSON(path, extra) {
+  const r = await fetch(q(path, extra), {cache: "no-store"});
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || ("HTTP " + r.status));
+  return r.json();
+}
+function setStatus(kind, text) {
+  document.getElementById("dot").className = "dot " + kind;
+  document.getElementById("status").textContent = text;
+}
+async function load() {
+  const my = ++reqId;
+  main.classList.add("loading");
+  try {
+    const [d, t] = await Promise.all([getJSON("charts/data", {tab: active}), getJSON("theme")]);
+    if (my !== reqId) return;
+    if (!theme || JSON.stringify(theme) !== JSON.stringify(t)) applyTheme(t);
+    lastData[active] = d;
+    const root = el("div");
+    if (d.empty) root.append(el("div", {class: "msg"}, d.message));
+    else tabs[active](d, root);
+    main.replaceChildren(root);
+    // Plotly sizes to the container when it is attached
+    root.querySelectorAll(".plot").forEach(p => Plotly.Plots.resize(p));
+    setStatus("live", "live · seq " + d.seq);
+  } catch (e) {
+    if (my !== reqId) return;
+    setStatus("err", String(e.message || e));
+    if (!main.children.length || main.textContent === "Loading…") main.replaceChildren(el("div", {class: "msg"}, "Could not load the charts: " + e.message));
+  } finally { if (my === reqId) main.classList.remove("loading"); }
+}
+function renderTabs() {
+  const nav = document.getElementById("tabs"); nav.replaceChildren();
+  TABS.forEach(([id, title]) => {
+    const b = el("button", {role: "tab", "aria-selected": String(id === active)}, title);
+    b.onclick = () => { active = id; store.set("screenlab.charts.tab", id); renderTabs(); load(); };
+    nav.append(b);
+  });
+}
+document.getElementById("allowHide").onchange = e => { allowHide = e.target.checked; };
+
+let timer = null;
+function connect() {
+  const es = new EventSource(q("events"));
+  es.addEventListener("change", () => { clearTimeout(timer); timer = setTimeout(load, 250); setStatus("live", "updating…"); });
+  es.onerror = () => setStatus("err", "disconnected, retrying");
+}
+window.addEventListener("resize", () => document.querySelectorAll(".plot").forEach(p => { try { Plotly.Plots.resize(p); } catch (e) { /* not drawn yet */ } }));
+renderTabs();
+if (typeof Plotly === "undefined") {
+  main.replaceChildren(el("div", {class: "msg"}, "Plotly.js did not load (offline?). Set SCREENLAB_PLOTLY_JS to a local plotly.min.js path or URL and restart the TUI."));
+  setStatus("err", "plotly missing");
+} else { load(); connect(); }
+</script>
+</body>
+</html>

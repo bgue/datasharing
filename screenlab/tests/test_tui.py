@@ -305,3 +305,265 @@ def test_serve_smoke():
             p.wait(10)
         except subprocess.TimeoutExpired:
             p.kill()
+
+
+# ------------------------------------------------------------------ browser chart panel (DESIGN.md L6)
+import threading                                                           # noqa: E402
+from types import SimpleNamespace                                          # noqa: E402
+
+from screenlab.tui import web                                              # noqa: E402
+from screenlab.tui.control import ControlServer                            # noqa: E402
+
+
+class FakeApp:
+    """Stands in for the Textual app: the control server only needs call_from_thread and the theme."""
+    current_theme = SimpleNamespace(name="nord", dark=True)
+
+    def call_from_thread(self, fn, *a):
+        return fn(*a)
+
+    def get_css_variables(self):
+        return {"background": "#2E3440", "surface": "#3B4252", "panel": "#434C5E", "foreground": "#D8DEE9",
+                "primary": "#88C0D0", "secondary": "#81A1C1", "accent": "#B48EAD", "success": "#A3BE8C",
+                "warning": "#EBCB8B", "error": "#BF616A", "text-muted": "auto 60%"}
+
+
+def raw(port, path, token=None, timeout=30):
+    req = urllib.request.Request(f"http://127.0.0.1:{port}{path}", headers={"Authorization": f"Bearer {token}"} if token else {})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.status, r.headers.get("Content-Type", ""), r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.headers.get("Content-Type", ""), e.read()
+
+
+@pytest.fixture(scope="module")
+def charts(reg):
+    s = Session(reg)
+    s.command("add_scenario", {"screen": "dogs", "run": True, "wait": True, "cost_bps": 10})
+    s.command("add_scenario", {"screen": "momentum_6m", "run": True, "wait": True})
+    s.command("montecarlo", {"scenarios": ["dogs", "momentum_6m"], "n_paths": 30, "horizon_years": [3], "force": True, "wait": True})
+    srv = ControlServer(FakeApp(), s, port=0, serve_url="http://localhost:8000").start()
+    yield s, srv
+    srv.stop()
+
+
+def chart(srv, tab):
+    code, ctype, body = raw(srv.port, f"/charts/data?tab={tab}")
+    assert code == 200 and "json" in ctype, body
+    return json.loads(body)
+
+
+def test_chart_data_curves_and_compare(charts):
+    s, srv = charts
+    d = chart(srv, "curves")
+    assert d["tab"] == "curves" and d["empty"] is False and d["seq"] == s.seq
+    assert [x["label"] for x in d["series"]] == ["SYN_CAPWT", "dogs", "momentum_6m"]
+    assert [x["passive"] for x in d["series"]] == [True, False, False]
+    assert d["series"][0]["color"] == PASSIVE_COLOR and d["series"][1]["color"] == PALETTE[0]
+    assert all(len(x["x"]) == len(x["y"]) and 2 < len(x["x"]) <= web.MAX_POINTS for x in d["series"])
+    c = chart(srv, "compare")
+    assert [r["label"] for r in c["rows"]] == ["SYN_CAPWT", "dogs", "momentum_6m"] and "CAGR" in c["columns"]
+    assert c["rows"][0]["passive"] is True and c["benchmark"] == "SYN_CAPWT"
+
+
+def test_chart_data_montecarlo_binned_server_side(charts):
+    _, srv = charts
+    d = chart(srv, "montecarlo")
+    assert d["empty"] is False and d["n_paths"] == 30 and d["benchmark"] == "SYN_CAPWT"
+    labels = [x["label"] for x in d["fan"]["series"]]
+    assert labels == ["dogs", "momentum_6m", "SYN_CAPWT"] and d["colors"]["dogs"] == PALETTE[0]
+    for x in d["fan"]["series"]:
+        assert all(len(x[q]) == len(d["fan"]["years"]) for q in ("p5", "p25", "p50", "p75", "p95"))
+    assert d["fan"]["series"][-1]["passive"] is True and d["fan"]["series"][-1]["color"] == PASSIVE_COLOR
+    h = d["hist"]
+    assert h["horizons"] == [3.0]
+    for key in ("cagr", "maxdd"):
+        b = h["by_horizon"]["3"][key]
+        assert set(b["counts"]) == {"dogs", "momentum_6m", "SYN_CAPWT"}                 # portfolios and the index
+        assert len(b["edges"]) == len(next(iter(b["counts"].values()))) + 1            # one shared set of bins
+        assert all(sum(c) == 30 for c in b["counts"].values()) and all(n == 30 for n in b["n"].values())
+    assert "TermWealth_p50" in d["table"]["columns"]
+    code, _, body = raw(srv.port, "/charts/data?tab=montecarlo")
+    assert len(body) < 60_000                                                        # no per-path arrays on the wire
+
+
+def test_chart_data_timing_exit_empty_and_errors(charts):
+    s, srv = charts
+    for tab in ("timing", "exit"):
+        d = chart(srv, tab)
+        assert d["empty"] is True and d["message"]
+    s.command("timing", {"scenario": "dogs", "stride": 6, "wait": True})
+    t = chart(srv, "timing")
+    assert t["empty"] is False and t["series"][0]["label"] == "dogs" and t["series"][0]["color"] == PALETTE[0]
+    assert len(t["series"][0]["offset"]) == len(t["series"][0]["cagr"]) >= 2 and t["passive_cagr"] is not None
+    assert t["series"][0]["tranche"]["x"]
+    s.command("add_scenario", {"screen": "dogs", "name": "dx", "run": True, "wait": True,
+                               "exit": {"signals": [{"type": "TrendBreak"}], "threshold": 0.8}})
+    s.command("exit_eval", {"scenario": "dx", "wait": True})
+    e = chart(srv, "exit")
+    it = e["items"][0]
+    assert it["label"] == "dx" and {r["state"] for r in it["forward"]} == {"flagged", "unflagged"}
+    assert it["color"] == PALETTE[2] and it["frac_flagged"] is not None
+    code, _, body = raw(srv.port, "/charts/data?tab=nope")
+    assert code == 400 and "unknown chart tab" in json.loads(body)["error"]
+
+
+def test_chart_data_empty_session(reg):
+    s = Session(reg)
+    for tab in web.CHART_TABS:
+        assert web.chart_data(s, tab)["empty"] is True
+
+
+def test_mc_hist_shared_bins_and_robustness():
+    import pandas as pd
+    pp = pd.DataFrame({"portfolio": ["a"] * 4 + ["idx"] * 4, "horizon_years": [5.0] * 8, "path": list(range(4)) * 2,
+                       "cagr": [0.0, 0.1, 0.2, 0.3, -0.1, 0.0, 0.05, 0.4],
+                       "max_drawdown": [-0.1, -0.2, -0.3, -0.4, -0.5, -0.05, -0.15, -0.25]})
+    h = web.mc_hist(pp, bins=4)
+    b = h["by_horizon"]["5"]["cagr"]
+    assert b["edges"][0] == pytest.approx(-0.1) and b["edges"][-1] == pytest.approx(0.4) and len(b["edges"]) == 5
+    assert b["counts"]["a"] == [2, 1, 1, 0] or sum(b["counts"]["a"]) == 4
+    assert sum(b["counts"]["idx"]) == 4 and h["by_horizon"]["5"]["maxdd"]["edges"][0] == pytest.approx(-0.5)
+    assert web.mc_hist(None) is None and web.mc_hist(pp[["portfolio"]]) is None
+
+
+def test_chart_pages_reference_data_endpoints(charts):
+    _, srv = charts
+    code, ctype, body = raw(srv.port, "/charts")
+    html = body.decode()
+    assert code == 200 and ctype.startswith("text/html") and "<title>" in html
+    for ref in ("charts/data", '"theme"', '"events"', "Plotly", web.PLOTLY_CDN):
+        assert ref in html, ref
+    for tab in ("Curves", "Compare", "Timing", "Monte Carlo", "Exit"):
+        assert tab in html
+    code, ctype, body = raw(srv.port, "/")                                      # serve_url set: the split page
+    html = body.decode()
+    assert code == 200 and ctype.startswith("text/html")
+    assert 'src="http://localhost:8000"' in html and '"charts"' in html and "col-resize" in html
+    assert "/charts" in srv.charts_url() and srv.home_url().endswith(f":{srv.port}/")
+
+
+def test_root_is_not_a_page_without_serve_mode(reg):
+    srv = ControlServer(FakeApp(), Session(reg), port=0, serve_url=None).start()
+    try:
+        assert raw(srv.port, "/")[0] == 404
+        assert raw(srv.port, "/charts")[0] == 200 and srv.home_url().endswith("/charts")
+    finally:
+        srv.stop()
+
+
+def test_plotly_source_override_and_local_file(reg, tmp_path, monkeypatch):
+    monkeypatch.delenv("SCREENLAB_PLOTLY_JS", raising=False)
+    assert web.plotly_src() == web.PLOTLY_CDN and "plotly-2.35.2.min.js" in web.PLOTLY_CDN
+    monkeypatch.setenv("SCREENLAB_PLOTLY_JS", "https://example.invalid/p.js")
+    assert 'src="https://example.invalid/p.js"' in web.page("charts.html").decode()
+    f = tmp_path / "plotly.min.js"
+    f.write_text("window.Plotly = {};")
+    monkeypatch.setenv("SCREENLAB_PLOTLY_JS", str(f))
+    srv = ControlServer(FakeApp(), Session(reg), port=0).start()
+    try:
+        assert 'src="/plotly.js"' in raw(srv.port, "/charts")[2].decode()
+        code, ctype, body = raw(srv.port, "/plotly.js")
+        assert code == 200 and body == b"window.Plotly = {};" and "javascript" in ctype
+    finally:
+        srv.stop()
+
+
+def test_theme_endpoint_returns_variables(charts):
+    _, srv = charts
+    code, _, body = raw(srv.port, "/theme")
+    t = json.loads(body)
+    assert code == 200 and t["name"] == "nord" and t["dark"] is True
+    v = t["variables"]
+    for k in ("background", "surface", "panel", "foreground", "primary", "accent", "success", "warning", "error"):
+        assert v[k].startswith("#") and len(v[k]) == 7, k
+    assert v["background"] == "#2E3440" and v["error"] == "#BF616A"
+    assert v["text_muted"].startswith("#") and v["grid"].startswith("#")                  # derived, not "auto 60%"
+    light = web.theme_payload("textual-light", False, None)                               # no app: built-in fallback
+    assert light["dark"] is False and light["variables"]["background"] == "#E0E0E0"
+
+
+def test_charts_token_via_query(reg):
+    srv = ControlServer(FakeApp(), Session(reg), port=0, token="sekret").start()
+    try:
+        assert raw(srv.port, "/charts")[0] == 200                                           # page holds no data
+        assert raw(srv.port, "/charts/data?tab=curves")[0] == 401
+        assert raw(srv.port, "/theme")[0] == 401
+        assert raw(srv.port, "/charts/data?tab=curves&token=sekret")[0] == 200
+        assert raw(srv.port, "/theme", token="sekret")[0] == 200
+    finally:
+        srv.stop()
+
+
+def test_events_stream_emits_on_set_params(charts):
+    s, srv = charts
+    got: list = []
+    ready = threading.Event()
+
+    def reader():
+        with urllib.request.urlopen(f"http://127.0.0.1:{srv.port}/events", timeout=30) as r:
+            assert r.headers.get("Content-Type", "").startswith("text/event-stream")
+            ev = None
+            while len(got) < 2:
+                line = r.readline().decode().strip()
+                if line.startswith("event:"):
+                    ev = line[6:].strip()
+                elif line.startswith("data:") and ev == "change":
+                    got.append(json.loads(line[5:]))
+                    ready.set()
+
+    th = threading.Thread(target=reader, daemon=True)
+    th.start()
+    assert ready.wait(10), "no initial event"
+    first = got[0]
+    assert first["seq"] == s.seq and "tab" in first
+    s.command("set_params", {"scenario": "dogs", "params": {"cost_bps": 33}})
+    th.join(15)
+    assert len(got) == 2 and got[1]["seq"] > first["seq"] and got[1]["seq"] == s.seq
+
+
+def test_app_key_w_opens_charts_in_browser(reg, monkeypatch):
+    import webbrowser
+    opened = []
+    monkeypatch.setattr(webbrowser, "open", lambda url, *a, **k: opened.append(url) or True)
+    monkeypatch.delenv("SCREENLAB_TUI_TOKEN", raising=False)
+    monkeypatch.delenv("SCREENLAB_TUI_SERVE_URL", raising=False)
+
+    async def go():
+        s = Session(reg)
+        app = ScreenlabApp(s, control_port=0)
+        async with app.run_test(size=(170, 50)) as pilot:
+            await pilot.pause(0.5)
+            port = app._control.port
+            assert any("charts in the browser" in line for line in s._log)
+            await pilot.press("w")
+            await pilot.pause(0.3)
+            assert opened == [f"http://127.0.0.1:{port}/charts"]
+            code, ctype, body = await asyncio.to_thread(raw, port, "/theme")             # real Textual theme colours
+            t = json.loads(body)
+            assert code == 200 and t["name"] == "textual-dark" and t["variables"]["background"].startswith("#")
+            assert not app.query_one("#chartsbar").display             # footer line only in --serve mode
+        s.close()
+    arun(go())
+
+
+def test_app_serve_mode_shows_split_url(reg, monkeypatch):
+    import webbrowser
+    monkeypatch.setattr(webbrowser, "open", lambda *a, **k: pytest.fail("must not open a browser in --serve mode"))
+    monkeypatch.setenv("SCREENLAB_TUI_SERVE_URL", "http://localhost:8000")
+
+    async def go():
+        s = Session(reg)
+        app = ScreenlabApp(s, control_port=0)
+        async with app.run_test(size=(170, 50)) as pilot:
+            await pilot.pause(0.5)
+            port = app._control.port
+            assert app.query_one("#chartsbar").display
+            await pilot.press("w")
+            await pilot.pause(0.2)
+            assert any(f"charts: http://127.0.0.1:{port}/" in line for line in s._log)
+            code, ctype, body = await asyncio.to_thread(raw, port, "/")
+            assert code == 200 and b"http://localhost:8000" in body
+        s.close()
+    arun(go())

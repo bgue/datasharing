@@ -20,6 +20,7 @@ JobManager and the store. The command names below are the contract and are not r
 | `GET /health` | `{"ok": true, "version": "0.1.0", "protocol": 1, "lab": "synthetic", "dataset": "<data card line>", "store": "<path or null>", "control_port": 8765}` |
 | `GET /state` | `Session.snapshot()` (below) |
 | `GET /view` | `{"view": "<plain text of the active tab>", "tab": "compare"}` |
+| `GET /charts`, `GET /charts/data?tab=`, `GET /theme`, `GET /events`, `GET /` (`--serve`) | browser chart panel (HTML page, tab JSON, theme colours, server-sent events); see README "Charts in the browser". `?token=` is accepted for the browser. |
 | `POST /command` body `{"cmd": "<name>", "args": {...}}` | the command's result (an object) |
 
 Errors: `{"error": "<message>"}` with HTTP 400 (bad or missing argument, invalid state), 404 (unknown
