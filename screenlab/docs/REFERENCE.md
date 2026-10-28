@@ -198,3 +198,24 @@ after it. Result columns (all registered in `metrics.METRICS`): `TermWealth_p5..
 inherit the data's biases (survivors, price-only benchmark). The operation is `long_running`: `lab.submit("montecarlo", ...)`,
 `POST /labs/{lab}/montecarlo`, `POST /jobs {"kind": "montecarlo"}`, MCP tool `montecarlo`. Each distinct generator
 configuration is a new trial of the family. Store: summary metrics as rows `portfolio@10y`, the fan curves as an artifact.
+
+## Free dataset download (`fetch_data`, `realdata/fetch.py`, `screenlab-data`)
+
+`fetch_free(dest="data", sources=("sec","boc","fred","stooq","statcan"), sec_user_agent=None, periods=None,
+tickers=("XIU.TO","XIC.TO","SPY.US","^SPX"), start="2000-01-01", opener=None, progress=None) -> Manifest` downloads
+the free sources of [ACQUIRE.md](../realdata/ACQUIRE.md) 2A into `data/` (raw files under `data/raw/<source>/`;
+`fundamentals_sec.csv`, `macro_boc.csv`, `macro_fred.csv`, `macro_statcan.csv` in `date,series,value` form,
+`prices_stooq.csv` as `date,ticker,tri` and `indices_stooq.csv` as `date,index,tri` from the Close). `^SPX` and `SPY.US`
+are index proxies. Stooq is price-only unless the symbol is adjusted; SEC needs `sec_user_agent` ("Name email") or
+`SEC_USER_AGENT`; `periods` default to the last 12 completed quarters. Each source is isolated: a blocked host, a 403 or a
+missing user agent becomes an entry in `errors` with the host to allow, never an exception. `data/MANIFEST.json`
+holds `files` (source, path, bytes, status `ok`/`cached`, sha256), `errors`, `allow_hosts`, `labs` and `macro`; later
+partial runs merge into it. `register_labs(registry, manifest)` registers the `sec_us` lab (needs SEC fundamentals and
+Stooq prices) with `register_csv`.
+
+The operation `fetch_data` (`long_running`, no trials counted; args `sources, dest, sec_user_agent, tickers, start,
+periods`) returns `{"manifest": {"files": [{"source","path","bytes","status"}], "errors": [{"source","host","error"}],
+"allow_hosts": ["host", ...]}, "labs": [{"name","fundamentals","prices","indices"}]}`. Through a `LabRegistry` (REST
+`POST /labs/{lab}/fetch_data`, MCP tool `fetch_data`, `POST /jobs {"kind": "fetch_data"}`) the returned labs are also
+registered by name. Command line: `screenlab-data free|status|hosts`; the Makefile has `data-free`, `data-sec`,
+`data-boc`, `data-fred`, `data-prices`, `data-status`, `data-hosts`. Not yet run against the real hosts.

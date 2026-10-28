@@ -344,6 +344,8 @@ enums:
         description: Today's selected names with key ratios (lab.picks).
       montecarlo:
         description: Outcome distributions of screen portfolios and the passive index on resampled return paths (lab.montecarlo).
+      fetch_data:
+        description: Download the free datasets (SEC, Bank of Canada, FRED, Stooq, StatCan) into data/ and list the labs they allow (lab.fetch_data). Not an analysis; records no trials.
   RunStatus:
     description: Lifecycle of a run.
     permissible_values:

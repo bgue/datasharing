@@ -188,6 +188,10 @@ notebook walks through it with plots.
 (file layout in [docs/REFERENCE.md](docs/REFERENCE.md)); where to buy or download real Canadian and US data:
 [realdata/ACQUIRE.md](realdata/ACQUIRE.md).
 
+**Download the free datasets**: `make data-free SEC_USER_AGENT="Your Name you@example.com"` (from the repository root) or the TUI's Data tab.
+It fetches SEC fundamentals, Bank of Canada, FRED, Stooq and StatCan files into `data/`, writes `data/MANIFEST.json`, and
+says which hosts to allow if one is blocked (`make data-hosts`). Details: [realdata/ACQUIRE.md](realdata/ACQUIRE.md) section 4.
+
 ## Where things are
 | I want to... | Read |
 |---|---|

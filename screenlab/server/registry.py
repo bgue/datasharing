@@ -265,7 +265,7 @@ class LabRegistry:
         op = OPERATIONS.require(name)
         L = self.get(lab)
         kw = self._kw(name, L, args or {})
-        return result_json(name, L, kw, self._exec(L, name, kw), max_points)
+        return self._register_fetched(name, result_json(name, L, kw, self._exec(L, name, kw), max_points))
 
     def __getattr__(self, name):                     # operations registered after the class was built
         if not name.startswith("_") and name in OPERATIONS:
@@ -319,7 +319,8 @@ class LabRegistry:
         if st == "cancelled":
             raise ServerError(409, f"job {job_id} was cancelled")
         out = job.result_json()
-        return out if out is not None else jsonify(job.result())
+        out = out if out is not None else jsonify(job.result())
+        return self._register_fetched(job.spec.kind, out)
 
     @_guarded
     def cancel_run(self, job_id) -> dict:
@@ -353,6 +354,19 @@ class LabRegistry:
                         "deprecated_params": {old: new for old, (new, _, _) in getattr(cls, "_renamed", {}).items()},
                         "doc": doc[0] if doc else ""})
         return {"signals": out}
+
+    # ---- fetch_data lab registration (realdata/fetch.py; the operation returns lab specs, this registers them)
+    def _register_fetched(self, kind, out):
+        if kind == "fetch_data" and isinstance(out, dict):
+            seen = self.__dict__.setdefault("_fetched", {})
+            for spec in out.get("labs") or ():
+                key = (spec["fundamentals"], spec["prices"], spec.get("indices"))
+                if seen.get(spec["name"]) == key:                      # already registered (repeat run_result)
+                    continue
+                seen[spec["name"]] = key
+                self.register_csv(spec["name"], spec["fundamentals"], spec["prices"], spec.get("indices"))
+        return out
+    # ---- end fetch_data block
 
     # ---- helpers
     @staticmethod

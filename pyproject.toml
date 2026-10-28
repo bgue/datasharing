@@ -36,6 +36,7 @@ screenlab-run = "screenlab._cli:run"
 screenlab-timing = "screenlab._cli:timing"
 screenlab-rest = "screenlab.server.rest:main"
 screenlab-mcp = "screenlab.server.mcp_server:main"
+screenlab-data = "screenlab.realdata.cli:main"
 
 [project.urls]
 Repository = "https://github.com/bgue/datasharing"

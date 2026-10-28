@@ -132,6 +132,19 @@ Where only a price index exists, add the yield: `tri_t = tri_{t-1} * (1 + r_pric
 
 ## 4. Step-by-step recipes
 
+**One-command path (free sources).** From the repository root:
+```
+make data-free SEC_USER_AGENT="Your Name you@example.com"      # or: screenlab-data free --sec-user-agent "..."
+make data-status      # what is in data/ and which labs can be built
+make data-hosts       # hosts to allow in the cloud environment
+```
+This runs Steps 1 (SEC), 2 (Stooq prices, index proxies `^SPX` and `SPY.US`) and 3 (Bank of Canada, FRED, StatCan CPI) below
+for you (`screenlab/realdata/fetch.py`), writes `data/fundamentals_sec.csv`, `prices_stooq.csv`, `indices_stooq.csv`,
+`macro_boc.csv`, `macro_fred.csv`, `macro_statcan.csv` and `data/MANIFEST.json`, and reports every blocked host by name. The TUI's Data tab does the
+same. It has **not been run against the real hosts** (the development environment had no network), the StatCan URL is
+**unverified**, and Stooq's CAPTCHA key rule may make the Stooq step fail. The steps below remain the manual route and
+the way to add paid data.
+
 Do all work in a folder called `data/` (kept out of git, see section 7). You need Python with the repo's dependencies (`pandas`). If you do not program, ask someone to run steps 4-9 once; the download steps 1-3 are browser clicks.
 
 ### Step 0. Folder layout
@@ -314,6 +327,7 @@ Rules of thumb:
 - Exact current Sharadar, Norgate Canadian and Tiingo prices; Canadian coverage for Tiingo and FMP (TSX tickers).
 - Whether EODHD fundamentals are point-in-time or restated; FMP and Norgate fundamentals ditto.
 - Stooq terms, current API-key mechanics, and dividend adjustment.
+- The StatCan full-table CSV URL used by `realdata/fetch.py` (`https://www150.statcan.gc.ca/n1/tbl/csv/18100004-eng.zip`), the Stooq `.ca` symbol suffix for TSX names, and the FRED `fredgraph.csv` no-key access.
 - Bank of Canada Valet terms of use and the labels for `V80691311`, `V41690973`, `V39079`.
 - Whether the newest SEC data-set zips still contain `sub.txt`/`num.txt` and the exact 2009 start.
 - Canadian securities filing deadlines used in the lag defaults.
