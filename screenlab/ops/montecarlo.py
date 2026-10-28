@@ -124,12 +124,18 @@ class MonteCarloResult:
     data_card: DataCard | None = None
     warnings: list = field(default_factory=list)
     args: dict = field(default_factory=dict)
+    selection_mode: dict = field(default_factory=dict)
 
     def __str__(self):
         head = (f"Monte Carlo: {self.n_paths} paths, horizons {self.horizon_years} years, {self.steps} steps, "
                 f"start wealth {self.start_wealth:,.0f}, generator {self.generator.get('__t', '?')} "
                 f"{ {k: v for k, v in self.generator.items() if k != '__t'} }, seed {self.seed}, "
                 f"passive index {self.index_label}\n")
+        if self.selection_mode:
+            head += "selection mode: " + ", ".join(f"{k}={v}" for k, v in self.selection_mode.items()) + "\n"
+            if "fixed" in self.selection_mode.values():
+                head += ("note: fixed mode decides the picks on the base history's schedule and maps them through the "
+                         "resampled dates; the picks do not react to each path's own prices.\n")
         card = "\n".join(([self.data_card.line()] if self.data_card is not None else []) + list(self.warnings)) + "\n"
         t = self.table.copy()
         cols = {c: (lambda x: "" if pd.isna(x) else f"{x:,.0f}") for c in t.columns if c.startswith("TermWealth")}
@@ -180,13 +186,16 @@ class MonteCarlo(Operation):
     long_running = True
     takes_max_points = False
     method_names = ("monte_carlo",)
-    registry_order = ("screens", "generator", "n_paths", "horizon_years", "start_wealth", "contributions",
+    registry_order = ("screens", "selection", "generator", "n_paths", "horizon_years", "start_wealth", "contributions",
                       "withdrawals", "rebalance_months", "exit", "seed", "steps", "target_wealth", "config", "lab")
 
     @dataclass
     class Args:
-        screens: list[str] | None = arg(None, "screen names (price rank screens: momentum_12_1, momentum_6m, "
-                                              "momentum_12m, low_vol); default every screen of the lab")
+        screens: list[str] | None = arg(None, "screen names (any screen of the lab); default every screen of the lab")
+        selection: Literal["auto", "per_path", "fixed"] = arg(
+            "auto", "'auto': price-rank screens (momentum_*, low_vol) re-rank on every path (per_path), every other "
+                    "screen uses picks fixed on the base schedule and mapped through the resampled dates (fixed); "
+                    "or force one mode for all")
         generator: GeneratorSpec | None = arg(None, "scenario generator, e.g. {'type': 'BlockBootstrap', "
                                                     "'block_months': 12} (the default); also StationaryBootstrap "
                                                     "(mean_block_months), RegimeBootstrap, IIDBootstrap")
@@ -206,7 +215,7 @@ class MonteCarlo(Operation):
         config: ConfigOverrides | None = arg(None, "Config overrides: cost_bps, mer, cash_rate, ...")
 
     # ---- computation
-    def run(self, lab, screens=None, generator=None, n_paths: int = 1000, horizon_years=(5, 10, 20),
+    def run(self, lab, screens=None, selection: str = "auto", generator=None, n_paths: int = 1000, horizon_years=(5, 10, 20),
             start_wealth: float = 100_000.0, contributions: float = 0.0, withdrawals: float = 0.0,
             rebalance_months=None, exit=None, with_and_without: bool = False, seed: int = 0,
             steps: str = "monthly", target_wealth=None, benchmark=None, **cfg) -> MonteCarloResult:
@@ -214,10 +223,13 @@ class MonteCarlo(Operation):
         terminal wealth and CAGR (p5/p25/p50/p75/p95), P(trail the index), median excess CAGR, P(max drawdown
         worse than 30% / 50%), median years to recover from the worst drawdown, P(shortfall vs target_wealth).
 
-        `generator`: a scenario generator (BlockBootstrap(12) by default). The base dataset is first cut to
-        month-end steps (`steps="monthly"`). Screens must be price ranks (momentum_*, low_vol) with equal weight;
-        `exit` must be vectorizable (TrendBreak). See the module docstring for flows and horizons."""
-        from ..pipeline import simulate_paths
+        `selection`: "auto" (price ranks per_path, every other screen fixed), "per_path" or "fixed"; the mode
+        each portfolio used is `result.selection_mode`. `generator`: a scenario generator (BlockBootstrap(12) by default). The base dataset is first cut to
+        month-end steps (`steps="monthly"`). `exit` must be vectorizable (TrendBreak); other
+        signals raise NotImplementedError naming the signal. See the module docstring for flows and horizons."""
+        from ..pipeline import PRICE_RANKS, simulate_paths
+        if selection not in ("auto", "per_path", "fixed"):
+            raise ValueError(f"selection must be 'auto', 'per_path' or 'fixed', got {selection!r}")
         if steps not in STEPS_PER_YEAR:
             raise ValueError(f"steps must be 'monthly' or 'daily', got {steps!r}")
         hs = sorted({float(h) for h in (horizon_years if np.iterable(horizon_years) else [horizon_years])})
@@ -257,10 +269,13 @@ class MonteCarlo(Operation):
             raise ValueError("internal: horizon longer than the simulated paths")
         flow = (float(contributions) - float(withdrawals)) / spy
 
-        wealth, idx_w = {}, None
+        wealth, idx_w, modes = {}, None, {}
         for i, (label, sc, c) in enumerate(items):
+            mode = selection if selection != "auto" else \
+                ("per_path" if getattr(sc.fn, "__name__", None) in PRICE_RANKS else "fixed")
+            modes[label] = mode
             with _progress.scaled(i / len(items), (i + 1) / len(items)):
-                pw = simulate_paths(sc, c, ps, base=base, selection="per_path", start=start,
+                pw = simulate_paths(sc, c, ps, base=base, selection=mode, start=start,
                                     index=bench.index, index_mer=bench.mer, index_cost_bps=bench.cost_bps,
                                     start_wealth=1.0)
             wealth[label] = pw.portfolio
@@ -317,6 +332,10 @@ class MonteCarlo(Operation):
         years = np.arange(ends[hmax] - s0 + 1) / spy
         fan_df = pd.DataFrame(fan, index=pd.Index(years, name="years"))
         warns = [*card.warnings(), BIAS_NOTE]
+        if "fixed" in modes.values():
+            warns.append("Fixed selection: " + ", ".join(k for k, v in modes.items() if v == "fixed") + " pick on the "
+                         "base history's schedule (fundamentals travel with their dates); the picks do not react to "
+                         "each path's own prices.")
         if steps == "monthly":
             warns.append("Steps are month-ends: daily-clock rules (weekly exit checks, 10-day holds) act at "
                          "monthly granularity.")
@@ -324,7 +343,7 @@ class MonteCarlo(Operation):
         return MonteCarloResult(tbl, pd.concat(long, ignore_index=True), fan_df, bench.label, hs, P, int(seed),
                                 steps, float(start_wealth), gd, card, warns,
                                 dict(screens=[i[0] for i in items], contributions=contributions,
-                                     withdrawals=withdrawals, target_wealth=target_wealth))
+                                     withdrawals=withdrawals, target_wealth=target_wealth), modes)
 
     # ---- requests
     def build(self, lab, a) -> dict:
@@ -338,7 +357,9 @@ class MonteCarlo(Operation):
         hs = list(a.horizon_years or [5, 10, 20])
         if any((not isinstance(h, (int, float))) or h <= 0 for h in hs):
             raise ServerError(400, "`horizon_years` must be a list of positive numbers")
-        return clean(dict(screens=a.screens, generator=gen, n_paths=a.n_paths, horizon_years=hs,
+        if a.selection not in ("auto", "per_path", "fixed"):
+            raise ServerError(400, "`selection` must be 'auto', 'per_path' or 'fixed'")
+        return clean(dict(screens=a.screens, selection=a.selection if a.selection != "auto" else None, generator=gen, n_paths=a.n_paths, horizon_years=hs,
                           start_wealth=a.start_wealth, contributions=a.contributions or None,
                           withdrawals=a.withdrawals or None, rebalance_months=a.rebalance_months, exit=pol,
                           with_and_without=bool(a.with_and_without) or None, seed=a.seed, steps=a.steps,
@@ -354,7 +375,7 @@ class MonteCarlo(Operation):
         fan = result.fan.reset_index()
         return {"benchmark": result.index_label, "generator": result.generator, "n_paths": result.n_paths,
                 "seed": result.seed, "steps": result.steps, "horizon_years": result.horizon_years,
-                "start_wealth": result.start_wealth, "table": table(result.table),
+                "start_wealth": result.start_wealth, "selection_mode": dict(result.selection_mode), "table": table(result.table),
                 "fan": {"columns": [str(c) for c in fan.columns],
                         "rows": [[scalar(v) for v in r] for r in fan.itertuples(index=False, name=None)]},
                 "warnings": list(result.warnings)}

@@ -166,6 +166,7 @@ Question: "how wide is the range of outcomes for this portfolio, and how often d
 my horizon?" One scenario generator draws a `PathSet` from the lab's dataset; every screen and the passive index run
 on the same paths (`pipeline.simulate_paths`), and the distributions are read off per horizon. Worked study:
 [research/montecarlo/MONTECARLO_SP500.md](../research/montecarlo/MONTECARLO_SP500.md).
+Study of every REGISTRY screen and Globe portfolio on the synthetic market (auto selection, `python -m screenlab.research.montecarlo_all`): [research/montecarlo_all/MONTECARLO_ALL.md](../research/montecarlo_all/MONTECARLO_ALL.md).
 
 ```python
 from screenlab.realdata.bundled import sp500_lab
@@ -179,7 +180,8 @@ r.table, r.per_path, r.fan    # summary per (portfolio, horizon); one row per pa
 
 | Argument | Meaning |
 |---|---|
-| `screens` | price-rank screens (`momentum_12_1`, `momentum_6m`, `momentum_12m`, `low_vol`), equal weight; others raise `NotImplementedError` |
+| `screens` | any screen of the lab (default: all) |
+| `selection` | `"auto"` (default): registered price ranks (`PRICE_RANKS`: `momentum_12_1`, `momentum_6m`, `momentum_12m`, `low_vol` as price-only screens, equal weight) re-rank on every path (`per_path`); every other screen runs `fixed`: picks decided on the base history at each step's source date and shared by paths that land on it, so they do not react to the path's own prices. Or force `"per_path"` / `"fixed"`. `result.selection_mode` and the JSON record the mode per portfolio. Fixed mode with an exit: TrendBreak works, other signals raise `NotImplementedError` naming the signal; a hold rule is not supported |
 | `generator` | `BlockBootstrap(12)` default; `StationaryBootstrap(mean_block_months)`, `RegimeBootstrap`, `IIDBootstrap` as objects or `{"type": ..., ...}` |
 | `n_paths`, `horizon_years`, `seed` | paths (default 1000), horizons (default `[5, 10, 20]`), seed. Horizons are cuts of one set of paths drawn for the longest horizon, so changing the longest changes the paths |
 | `start_wealth`, `contributions`, `withdrawals` | per year, spread over the steps. Flows change terminal wealth and `P(shortfall)` only; CAGR, drawdowns and `P(trail)` stay time-weighted |

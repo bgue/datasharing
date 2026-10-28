@@ -250,3 +250,54 @@ def test_rest_and_mcp(reg):
     out = tools["montecarlo"](**body)
     assert out["table"]["rows"] == j["table"]["rows"]
     reg.job_manager.shutdown()
+
+
+# --------------------------------------------------------------------------- selection="auto" (DESIGN.md M)
+@pytest.fixture(scope="module")
+def syn():
+    return Lab.synthetic(freq="ME", n_stocks=40, years=12)
+
+
+def test_auto_selection_picks_the_right_path_per_screen(syn):
+    ps = price_screens(5)
+    r = syn.montecarlo([ps["momentum_12m"], ps["low_vol"], "low_vol_dividend", "momentum_6m", "dogs"], n_paths=8,
+                       horizon_years=[2], seed=3, rebalance_months=12)
+    # the registry's momentum_6m is a multi-stage spec (size cut), not a registered price rank: fixed
+    assert r.selection_mode == {"momentum_12m": "per_path", "low_vol": "per_path", "low_vol_dividend": "fixed",
+                                "momentum_6m": "fixed", "dogs": "fixed"}
+    s = str(r)
+    assert "selection mode:" in s and "dogs=fixed" in s and "low_vol=per_path" in s and "do not react" in s
+
+
+def test_fixed_mode_screen_runs_end_to_end_and_shares_paths_with_the_index(syn):
+    mom = price_screens(5)["momentum_12m"]
+    r = syn.montecarlo(["dogs", mom], n_paths=10, horizon_years=[2], seed=4, rebalance_months=12)
+    pp = r.per_path
+    assert r.selection_mode["dogs"] == "fixed" and r.index_label == "SYN_CAPWT"
+    assert np.isfinite(r.table.loc[("dogs", 2.0), "CAGR_p50"]) and 0 <= r.table.loc[("dogs", 2.0), "P(trail)"] <= 1
+    ic = pp[pp.portfolio != r.index_label].groupby("portfolio")["index_cagr"].apply(lambda s: s.to_numpy())
+    assert np.array_equal(ic["dogs"], ic["momentum_12m"])                          # one index per path, shared
+    own = pp[pp.portfolio == r.index_label].sort_values("path")
+    np.testing.assert_allclose(own["cagr"].to_numpy(), pp[pp.portfolio == "dogs"].sort_values("path")["index_cagr"])
+    # forcing a mode overrides auto; a non-rank screen cannot be forced per_path
+    assert syn.montecarlo([mom], n_paths=6, horizon_years=[1], selection="fixed",
+                          rebalance_months=12).selection_mode == {"momentum_12m": "fixed"}
+    with pytest.raises(NotImplementedError):
+        syn.montecarlo(["dogs"], n_paths=6, horizon_years=[1], selection="per_path", rebalance_months=12)
+
+
+def test_fixed_mode_exit_trendbreak_ok_other_signals_name_the_signal(syn):
+    from screenlab import Breadth
+    tb = ExitPolicy(ExitScreen([TrendBreak("SYN_CAPWT")]))
+    r = syn.montecarlo(["dogs"], n_paths=6, horizon_years=[2], exit=tb, rebalance_months=12)
+    assert r.selection_mode == {"dogs": "fixed"}
+    with pytest.raises(NotImplementedError, match="Breadth"):
+        syn.montecarlo(["dogs"], n_paths=6, horizon_years=[1], exit=ExitPolicy(ExitScreen([Breadth()])),
+                       rebalance_months=12)
+
+
+def test_selection_mode_in_json(syn):
+    op = OPERATIONS["montecarlo"]
+    r = syn.montecarlo([price_screens(5)["momentum_12m"], "dogs"], n_paths=6, horizon_years=[1], rebalance_months=12)
+    j = op.to_json(r)
+    assert j["selection_mode"] == {"momentum_12m": "per_path", "dogs": "fixed"}
