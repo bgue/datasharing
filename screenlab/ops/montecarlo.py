@@ -125,6 +125,7 @@ class MonteCarloResult:
     warnings: list = field(default_factory=list)
     args: dict = field(default_factory=dict)
     selection_mode: dict = field(default_factory=dict)
+    selection_info: dict = field(default_factory=dict)      # label -> {"mode": ..., "hold_rule_applied": bool}
 
     def __str__(self):
         head = (f"Monte Carlo: {self.n_paths} paths, horizons {self.horizon_years} years, {self.steps} steps, "
@@ -193,9 +194,10 @@ class MonteCarlo(Operation):
     class Args:
         screens: list[str] | None = arg(None, "screen names (any screen of the lab); default every screen of the lab")
         selection: Literal["auto", "per_path", "fixed"] = arg(
-            "auto", "'auto': price-rank screens (momentum_*, low_vol) re-rank on every path (per_path), every other "
-                    "screen uses picks fixed on the base schedule and mapped through the resampled dates (fixed); "
-                    "or force one mode for all")
+            "auto", "'auto': price-rank screens (momentum_*, low_vol, or a spec of a size cut + one trailing-price "
+                    "rank; see pipeline.price_rank_of) re-rank on every path (per_path), every other screen uses "
+                    "picks fixed on the base schedule and mapped through the resampled dates (fixed; a hold rule "
+                    "runs on each path's drifted weights); or force one mode for all")
         generator: GeneratorSpec | None = arg(None, "scenario generator, e.g. {'type': 'BlockBootstrap', "
                                                     "'block_months': 12} (the default); also StationaryBootstrap "
                                                     "(mean_block_months), RegimeBootstrap, IIDBootstrap")
@@ -224,10 +226,11 @@ class MonteCarlo(Operation):
         worse than 30% / 50%), median years to recover from the worst drawdown, P(shortfall vs target_wealth).
 
         `selection`: "auto" (price ranks per_path, every other screen fixed), "per_path" or "fixed"; the mode
-        each portfolio used is `result.selection_mode`. `generator`: a scenario generator (BlockBootstrap(12) by default). The base dataset is first cut to
+        each portfolio used is `result.selection_mode`, and `result.selection_info` adds whether a hold rule
+        (`hold_rule=HoldRule(...)` in the config overrides) was applied. `generator`: a scenario generator (BlockBootstrap(12) by default). The base dataset is first cut to
         month-end steps (`steps="monthly"`). `exit` must be vectorizable (TrendBreak); other
         signals raise NotImplementedError naming the signal. See the module docstring for flows and horizons."""
-        from ..pipeline import PRICE_RANKS, simulate_paths
+        from ..pipeline import auto_selection, simulate_paths
         if selection not in ("auto", "per_path", "fixed"):
             raise ValueError(f"selection must be 'auto', 'per_path' or 'fixed', got {selection!r}")
         if steps not in STEPS_PER_YEAR:
@@ -269,16 +272,16 @@ class MonteCarlo(Operation):
             raise ValueError("internal: horizon longer than the simulated paths")
         flow = (float(contributions) - float(withdrawals)) / spy
 
-        wealth, idx_w, modes = {}, None, {}
+        wealth, idx_w, modes, info = {}, None, {}, {}
         for i, (label, sc, c) in enumerate(items):
-            mode = selection if selection != "auto" else \
-                ("per_path" if getattr(sc.fn, "__name__", None) in PRICE_RANKS else "fixed")
+            mode = selection if selection != "auto" else auto_selection(sc, c)
             modes[label] = mode
             with _progress.scaled(i / len(items), (i + 1) / len(items)):
                 pw = simulate_paths(sc, c, ps, base=base, selection=mode, start=start,
                                     index=bench.index, index_mer=bench.mer, index_cost_bps=bench.cost_bps,
                                     start_wealth=1.0)
             wealth[label] = pw.portfolio
+            info[label] = {"mode": mode, "hold_rule_applied": bool(pw.hold_rule_applied)}
             idx_w = pw.index
         if idx_w is None:
             raise ValueError("the dataset has no index series to compare with")
@@ -343,7 +346,7 @@ class MonteCarlo(Operation):
         return MonteCarloResult(tbl, pd.concat(long, ignore_index=True), fan_df, bench.label, hs, P, int(seed),
                                 steps, float(start_wealth), gd, card, warns,
                                 dict(screens=[i[0] for i in items], contributions=contributions,
-                                     withdrawals=withdrawals, target_wealth=target_wealth), modes)
+                                     withdrawals=withdrawals, target_wealth=target_wealth), modes, info)
 
     # ---- requests
     def build(self, lab, a) -> dict:
@@ -375,7 +378,8 @@ class MonteCarlo(Operation):
         fan = result.fan.reset_index()
         return {"benchmark": result.index_label, "generator": result.generator, "n_paths": result.n_paths,
                 "seed": result.seed, "steps": result.steps, "horizon_years": result.horizon_years,
-                "start_wealth": result.start_wealth, "selection_mode": dict(result.selection_mode), "table": table(result.table),
+                "start_wealth": result.start_wealth, "selection_mode": dict(result.selection_mode),
+                "selection_info": {k: dict(v) for k, v in result.selection_info.items()}, "table": table(result.table),
                 "fan": {"columns": [str(c) for c in fan.columns],
                         "rows": [[scalar(v) for v in r] for r in fan.itertuples(index=False, name=None)]},
                 "warnings": list(result.warnings)}

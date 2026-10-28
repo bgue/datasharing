@@ -331,8 +331,96 @@ def test_fixed_selection_equals_simulate_when_paths_are_consistent():
             assert_paths_match(out, base, ps, screen, cfg)
     with pytest.raises(ValueError, match="base"):
         simulate_paths(screen, Config(), ps)
-    with pytest.raises(NotImplementedError, match="hold rule"):
-        simulate_paths(screen, Config(hold_rule=HoldRule(band=0.1)), ps, base=base)
+
+
+@pytest.mark.parametrize("hr", [HoldRule(keep_within=2.0), HoldRule(band=0.25), HoldRule(keep_within=2.0, band=0.25)],
+                         ids=["keep", "band", "keep+band"])
+def test_fixed_selection_with_a_hold_rule_equals_simulate_on_each_scenario(hr):
+    """The hold rule (keep_within / band) runs per path on the drifted weights, exactly as `simulate` does."""
+    base = SyntheticBuilder(n_stocks=40, years=12, freq="ME", seed=4).build()
+    ps = BlockBootstrap(12).paths(base, 3, 4, seed=2)
+    screen = Screen("roa5", roa_top, 5)
+    for m in (3, 12):
+        cfg = Config(rebalance_months=m, hold_rule=hr, **FRICTION)
+        out = simulate_paths(screen, cfg, ps, base=base, selection="fixed")
+        assert out.selection == "fixed" and out.hold_rule_applied is True
+        for p in range(3):
+            res = run(screen, Market(BlockBootstrap(12).scenario_dataset(base, p, pathset=ps)), cfg, start=ps.dates[0])
+            np.testing.assert_allclose(out.portfolio[p][ps.dates.get_indexer(res.curve.index)], res.curve.to_numpy(),
+                                       rtol=TOL)
+    plain = simulate_paths(screen, Config(rebalance_months=3, **FRICTION), ps, base=base, selection="fixed")
+    assert plain.hold_rule_applied is False
+    held = simulate_paths(screen, Config(rebalance_months=3, hold_rule=hr, **FRICTION), ps, base=base, selection="fixed")
+    assert not np.allclose(plain.portfolio, held.portfolio, equal_nan=True)         # the rule really trades differently
+
+
+def test_one_year_horizon_with_trendbreak_exit_equals_simulate():
+    """A path shorter than the exit signal's history (all-NaN TrendBreak) used to give a [0]-wide exposure."""
+    base = SyntheticBuilder(n_stocks=40, years=12, freq="ME", seed=4).build()
+    ps = BlockBootstrap(12).paths(base, 3, 2, seed=2)                     # 1 warm-up year + 1 year
+    pol = ExitPolicy(ExitScreen([TrendBreak("SYN_CAPWT")]))
+    screen = Screen("roa5", roa_top, 5)
+    cfg = Config(rebalance_months=12, exit=pol, **FRICTION)
+    start = ps.dates[0] + pd.DateOffset(months=12)
+    out = simulate_paths(screen, cfg, ps, base=base, selection="fixed", start=start)
+    assert out.exposure.shape == (3, len(ps.dates)) and (out.exposure == 1.0).all()
+    for p in range(3):
+        res = run(screen, Market(BlockBootstrap(12).scenario_dataset(base, p, pathset=ps)), cfg, start=start)
+        np.testing.assert_allclose(out.portfolio[p][ps.dates.get_indexer(res.curve.index)], res.curve.to_numpy(),
+                                   rtol=TOL)
+
+
+def _spec_rank(top, rank_col, direction="desc", filters=(), n=5):
+    from screenlab.spec import ScreenSpec
+    return ScreenSpec("spec_rank", n=n, universe={"top": top} if top else {}, filters=list(filters),
+                      rank={rank_col: direction}).build()
+
+
+@pytest.mark.parametrize("col,direction", [("mom_6m", "desc"), ("mom_12m", "desc"), ("vol_260d", "asc"), ("vol_1y", "asc"),
+                                           ("mom_12_1", "desc")])
+def test_spec_price_rank_per_path_equals_simulate_on_each_scenario(col, direction):
+    """A size cut (here wide enough to admit everyone) + static filter + one trailing rank, per path == `run`."""
+    from screenlab.pipeline import price_rank_of
+    base = SyntheticBuilder(n_stocks=40, years=12, freq="ME", seed=4).build()
+    ps = BlockBootstrap(12).paths(base, 3, 5, seed=2)
+    screen = _spec_rank(1000, col, direction, filters=["dividend > 0"])
+    pr = price_rank_of(screen)
+    assert (pr.column, pr.direction, pr.top, pr.n) == (col, direction, 1000, 5)
+    cfg = Config(rebalance_months=3, **FRICTION)
+    out = simulate_paths(screen, cfg, ps, base=base)
+    assert out.selection == "per_path" and out.hold_rule_applied is False
+    for p in range(3):
+        res = run(screen, Market(BlockBootstrap(12).scenario_dataset(base, p, pathset=ps)), cfg, start=ps.dates[0])
+        np.testing.assert_allclose(out.portfolio[p][ps.dates.get_indexer(res.curve.index)], res.curve.to_numpy(), rtol=TOL)
+
+
+def test_spec_price_rank_size_cut_restricts_the_ranked_names():
+    base = SyntheticBuilder(n_stocks=40, years=12, freq="ME", seed=4).build()
+    ps = BlockBootstrap(12).paths(base, 4, 5, seed=2)
+    cfg = Config(rebalance_months=12, cost_bps=0)
+    wide = simulate_paths(_spec_rank(1000, "mom_6m"), cfg, ps, base=base)
+    cut = simulate_paths(_spec_rank(8, "mom_6m"), cfg, ps, base=base)
+    assert cut.selection == "per_path" and np.isfinite(cut.portfolio[:, -1]).all()
+    assert not np.allclose(wide.portfolio, cut.portfolio, equal_nan=True)
+
+
+def test_price_rank_of_rejects_what_is_not_one():
+    from screenlab.pipeline import price_rank_of
+    from screenlab.spec import ScreenSpec, Stage
+    assert price_rank_of(_spec_rank(300, "mom_12m")).top == 300 and price_rank_of(_spec_rank(None, "vol_1y", "asc")).top is None
+    assert price_rank_of(_spec_rank(300, "mom_12m", filters=["price > 3"])) is None            # a price filter
+    assert price_rank_of(_spec_rank(300, "pe", "asc")) is None                                  # not a trailing column
+    assert price_rank_of(ScreenSpec("two", rank={"mom_6m": "desc", "mom_12m": "desc"}).build()) is None
+    two_stage = ScreenSpec("vp", n=5, stages=[Stage(universe={"top": 50}, rank={"vol_260d": "asc"}, keep=20),
+                                              Stage(rank={"pe": "asc"})]).build()
+    assert price_rank_of(two_stage) is None
+    assert price_rank_of(ScreenSpec("vp1", n=5, stages=[Stage(universe={"top": 50}, filters=["dividend > 0"]),
+                                                         Stage(rank={"vol_260d": "asc"})]).build()).column == "vol_260d"
+    assert price_rank_of(Screen("roa5", roa_top, 5)) is None
+    # per_path refuses a screen that is not one, loudly
+    base, ps = make_world(consistent=True)
+    with pytest.raises(NotImplementedError, match="price rank"):
+        simulate_paths(two_stage, Config(), ps, base=base, selection="per_path")
 
 
 def test_daily_paths_with_weekly_exit_checks():
@@ -413,9 +501,12 @@ def test_unsupported_inputs_raise_not_implemented(world):
     with pytest.raises(NotImplementedError, match="not among"):
         simulate_paths(MOM, Config(exit=ExitPolicy(ExitScreen([TrendBreak("SP500")]))), ps, base=base)
     with pytest.raises(NotImplementedError, match="equal weight"):
-        simulate_paths(MOM, Config(weighting="inv_vol"), ps, base=base)
+        simulate_paths(MOM, Config(weighting="inv_vol"), ps, base=base, selection="per_path")
     with pytest.raises(NotImplementedError, match="equal weight"):
-        simulate_paths(MOM, Config(hold_rule=HoldRule(band=0.1)), ps, base=base)
+        simulate_paths(MOM, Config(hold_rule=HoldRule(band=0.1)), ps, base=base, selection="per_path")
+    # auto falls back to fixed when the weighting cannot run per path (then needs a consistent path set)
+    from screenlab.pipeline import auto_selection
+    assert auto_selection(MOM, Config(hold_rule=HoldRule(band=0.1))) == "fixed" and auto_selection(MOM, Config()) == "per_path"
     with pytest.raises(NotImplementedError, match="callable"):
         simulate_paths(MOM, Config(cost_bps=lambda s: s["market_cap"] * 0), ps, base=base)
     with pytest.raises(NotImplementedError, match="registered price rank"):

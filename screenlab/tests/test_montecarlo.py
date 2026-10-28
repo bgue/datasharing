@@ -262,9 +262,9 @@ def test_auto_selection_picks_the_right_path_per_screen(syn):
     ps = price_screens(5)
     r = syn.montecarlo([ps["momentum_12m"], ps["low_vol"], "low_vol_dividend", "momentum_6m", "dogs"], n_paths=8,
                        horizon_years=[2], seed=3, rebalance_months=12)
-    # the registry's momentum_6m is a multi-stage spec (size cut), not a registered price rank: fixed
+    # the registry's momentum_6m is a spec of a size cut + one rank on mom_6m: a price rank, per_path
     assert r.selection_mode == {"momentum_12m": "per_path", "low_vol": "per_path", "low_vol_dividend": "fixed",
-                                "momentum_6m": "fixed", "dogs": "fixed"}
+                                "momentum_6m": "per_path", "dogs": "fixed"}
     s = str(r)
     assert "selection mode:" in s and "dogs=fixed" in s and "low_vol=per_path" in s and "do not react" in s
 
@@ -301,3 +301,45 @@ def test_selection_mode_in_json(syn):
     r = syn.montecarlo([price_screens(5)["momentum_12m"], "dogs"], n_paths=6, horizon_years=[1], rebalance_months=12)
     j = op.to_json(r)
     assert j["selection_mode"] == {"momentum_12m": "per_path", "dogs": "fixed"}
+
+
+def test_globe_spec_screens_are_price_ranks_where_they_reduce_to_one(syn):
+    from screenlab.pipeline import price_rank_of
+    reg = syn.screens
+    assert price_rank_of(reg["momentum_6m"]).column == "mom_6m" and price_rank_of(reg["momentum_6m"]).top == 300
+    mr = price_rank_of(reg["momentum_12m"])
+    assert (mr.column, mr.direction, mr.top, mr.n) == ("mom_12m", "desc", 300, 10)
+    sd = price_rank_of(reg["stable_dividend"])
+    assert (sd.column, sd.direction, sd.top, sd.n) == ("vol_260d", "asc", 300, 20)
+    for name in ("frugal_dividend", "stable_high_yield", "screaming_value", "basic_buyback", "dogs", "magic_formula",
+                 "graham_defensive"):
+        assert price_rank_of(reg[name]) is None, name
+    r = syn.montecarlo(["momentum_6m", "momentum_12m", "stable_dividend", "frugal_dividend", "stable_high_yield"],
+                       n_paths=6, horizon_years=[1], seed=2, rebalance_months=12)
+    assert r.selection_mode == {"momentum_6m": "per_path", "momentum_12m": "per_path", "stable_dividend": "per_path",
+                                "frugal_dividend": "fixed", "stable_high_yield": "fixed"}
+    assert all(v["hold_rule_applied"] is False for v in r.selection_info.values())
+
+
+def test_hold_rule_runs_in_fixed_mode_and_is_recorded(syn):
+    from screenlab.construction import HoldRule
+    kw = dict(n_paths=8, horizon_years=[2], seed=5, rebalance_months=12)
+    plain = syn.montecarlo(["bluechip_dividend_growth"], **kw)
+    held = syn.montecarlo(["bluechip_dividend_growth"], hold_rule=HoldRule(keep_within=2.0, band=0.25), **kw)
+    assert plain.selection_info["bluechip_dividend_growth"] == {"mode": "per_path", "hold_rule_applied": False}
+    # a hold rule needs the drifted weights of the path's own holdings: auto falls back to fixed and applies it
+    assert held.selection_info["bluechip_dividend_growth"] == {"mode": "fixed", "hold_rule_applied": True}
+    assert held.selection_mode == {"bluechip_dividend_growth": "fixed"}
+    op = OPERATIONS["montecarlo"]
+    assert op.to_json(held)["selection_info"]["bluechip_dividend_growth"]["hold_rule_applied"] is True
+    forced = syn.montecarlo(["bluechip_dividend_growth"], selection="fixed", **kw)
+    assert forced.selection_info["bluechip_dividend_growth"]["hold_rule_applied"] is False
+    with pytest.raises(NotImplementedError, match="hold rule"):
+        syn.montecarlo(["bluechip_dividend_growth"], selection="per_path", hold_rule=HoldRule(band=0.2), **kw)
+
+
+@pytest.mark.parametrize("h", [1, 2])
+def test_fixed_mode_trendbreak_exit_works_from_a_one_year_horizon(syn, h):
+    r = syn.montecarlo(["dogs"], n_paths=6, horizon_years=[h], exit=ExitPolicy(ExitScreen([TrendBreak("SYN_CAPWT")])),
+                       rebalance_months=12)
+    assert np.isfinite(r.table.loc[("dogs", float(h)), "CAGR_p50"]) and r.selection_mode == {"dogs": "fixed"}

@@ -320,15 +320,14 @@ def signal_paths(sig, dates: pd.DatetimeIndex, levels_of) -> np.ndarray:
 
 def flags_paths(screen: ExitScreen, dates: pd.DatetimeIndex, levels_of) -> np.ndarray:
     """`ExitScreen.state` for every path: bool [N, P]."""
-    cols = {}
+    cols, N, P = {}, len(dates), None
     for s in screen.signals:
         c = signal_paths(s, dates, levels_of)
+        P = c.shape[1] if P is None else P                       # P from the signal, even when it is all NaN
         if np.isfinite(c).any():
             cols[s.name] = c
-    N = len(dates)
-    P = next(iter(cols.values())).shape[1] if cols else 0
-    if not cols:
-        return np.zeros((N, P), bool)
+    if not cols:                                                   # no signal has history yet (short path)
+        return np.zeros((N, P or 0), bool)
     x = np.stack(list(cols.values()), axis=-1)                     # [N, P, C]
     w = screen._weights(list(cols))
     ok = np.isfinite(x)

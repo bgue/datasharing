@@ -179,6 +179,7 @@ class PathWealth(NamedTuple):
     turnover: np.ndarray             # one-way turnover [P, R] per rebalance
     rebalance_dates: list
     selection: str                   # "fixed" or "per_path"
+    hold_rule_applied: bool = False  # the Config's HoldRule (keep_within / band) was applied
 
 
 # screen function name -> (trailing statistic of Market.trailing_stats, True = take the largest)
@@ -188,18 +189,101 @@ PRICE_RANKS: dict = {"momentum_12_1": ("mom_12_1", True), "momentum_6m": ("mom_6
 
 def register_price_rank(fn, stat: str, largest: bool = True) -> None:
     """Declare that screen function `fn` (or its __name__) is 'top n by trailing statistic `stat`' (mom_12_1,
-    mom_6m, mom_12m, vol_1y), so `simulate_paths(selection="per_path")` can rank it vectorized on every path."""
+    mom_6m, mom_12m, vol_1y, vol_260d), so `simulate_paths(selection="per_path")` can rank it vectorized on every path."""
     if stat not in _STATS:
         raise ValueError(f"stat must be one of {sorted(_STATS)}, got {stat!r}")
     PRICE_RANKS[getattr(fn, "__name__", fn)] = (stat, bool(largest))
 
 
-_STATS = ("mom_12_1", "mom_6m", "mom_12m", "vol_1y")
+_STATS = ("mom_12_1", "mom_6m", "mom_12m", "vol_1y", "vol_260d")
+# columns a spec screen may use in its size cut / filters and still count as a price rank: they come from the base
+# data and do not change with a simulated path's prices (market_cap is the base's, as in fixed mode)
+_STATIC_COLS = frozenset({"market_cap", "dividend", "div_years", "eps", "eps_prev", "sector", "sales"})
+
+
+@dataclass(frozen=True)
+class PriceRank:
+    """A screen that is 'cut the universe, then take the n best by one trailing price statistic'.
+
+    column     trailing statistic ranked on (one of mom_6m, mom_12m, mom_12_1, vol_260d, vol_1y)
+    largest    True = the highest values win ("desc"), False = the lowest ("asc")
+    top        size cut (top-N by market_cap of the base snapshot), None without one
+    n          number of holdings
+    pre        the screen's stages without the rank (universe cut, static filters), run on the base snapshot of
+               each source date to decide which names may be ranked; () for a registered rank function"""
+    column: str
+    largest: bool
+    top: int | None
+    n: int
+    pre: tuple = ()
+
+    @property
+    def direction(self) -> str:
+        return "desc" if self.largest else "asc"
+
+
+def price_rank_of(screen) -> PriceRank | None:
+    """The `PriceRank` a screen reduces to, or None when it is not one (so Monte Carlo keeps its picks fixed).
+
+    A registered rank function (`PRICE_RANKS`: momentum_12_1, low_vol, ...) is one. A spec screen (rule_screen)
+    is one when its stages reduce to universe cuts / filters on columns that do not depend on the path's prices
+    (market_cap, dividend, div_years, eps, eps_prev, sector, sales) followed by a single rank on one trailing
+    column (mom_6m, mom_12m, mom_12_1, vol_260d, vol_1y) as the last step: no derived columns, Graham tests or
+    `keep` cuts, no second rank (frugal_dividend, stable_high_yield rank on P/E or yield after the volatility cut)."""
+    name = getattr(screen.fn, "__name__", None)
+    if name in PRICE_RANKS:
+        stat, largest = PRICE_RANKS[name]
+        return PriceRank(stat, largest, None, screen.n)
+    if name != "rule_screen":
+        return None
+    import re
+    from .spec import Stage
+    pr = screen.params
+    sts = [Stage.from_dict(x) for x in pr["stages"]] if pr.get("stages") else \
+        [Stage(pr.get("universe") or {}, pr.get("derive") or {}, list(pr.get("filters") or ()), pr.get("graham"),
+               pr.get("rank") or {})]
+    if not sts or any(st.derive or st.graham or st.keep for st in sts) or sts[-1].rank == {} \
+            or any(st.rank for st in sts[:-1]):
+        return None
+    col, direction = next(iter(sts[-1].rank.items()))
+    if len(sts[-1].rank) != 1 or col not in _STATS or str(direction).lower() not in ("asc", "desc"):
+        return None
+    tops = []
+    for st in sts:
+        uni = st.universe or {}
+        if set(uni) - {"top", "by", "sectors", "exclude_sectors"} or uni.get("by", "market_cap") != "market_cap":
+            return None
+        if uni.get("top"):
+            tops.append(int(uni["top"]))
+        for expr in st.filters or ():
+            if not set(re.findall(r"[A-Za-z_][A-Za-z_0-9]*", expr)) - {"and", "or", "not", "True", "False"} <= _STATIC_COLS:
+                return None
+    pre = tuple(Stage(st.universe, st.derive, list(st.filters), None, {}) for st in sts)
+    return PriceRank(col, str(direction).lower() == "desc", min(tops) if tops else None, screen.n,
+                     pre if any(st.universe or st.filters for st in pre) else ())
+
+
+def per_path_ok(weighting) -> bool:
+    """True when `weighting` is plain equal weight (no caps, no hold rule): what per_path selection supports."""
+    return type(weighting).__name__ == "StandardWeighting" and weighting.weighting == "equal" \
+        and weighting.max_weight is None and weighting.sector_cap is None and not weighting.hold_rule
+
+
+def auto_selection(screen, cfg) -> str:
+    """The mode `selection="auto"` picks: per_path for a price rank (see `price_rank_of`) run with equal weight
+    and no hold rule, otherwise fixed."""
+    return "per_path" if price_rank_of(screen) is not None and per_path_ok(cfg.construction) else "fixed"
 
 
 def _trailing(stat: str, lev: np.ndarray, dates: pd.DatetimeIndex, i: int, ppy: float):
     """`Market.trailing_stats(dates[i])[stat]` for every path: [P, S], or None when the history is too short."""
     asof = dates[i]
+    if stat == "vol_260d" and ppy > 100:                   # daily data: the last 260 returns
+        if i < 260:
+            return None
+        with np.errstate(invalid="ignore", divide="ignore"), warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            return np.nanstd(np.diff(np.log(lev[:, i - 260:i + 1, :]), axis=1), axis=1, ddof=1) * np.sqrt(ppy)
     months = 6 if stat == "mom_6m" else 12
     if asof - pd.DateOffset(months=months) < dates[0]:
         return None
@@ -240,10 +324,14 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
       "fixed"     picks and weights are decided on the base data at each step's source date (`source_idx` /
                   `PathSet.source_dates`) with the screen as it is, once per distinct source date and shared by
                   all paths that land on it: for screens whose inputs are fundamentals carried with the dates.
-      "per_path"  price screens (momentum_12_1, momentum_6m, momentum_12m, low_vol; `register_price_rank` adds
-                  more) re-rank every path at every rebalance from that path's own trailing prices, vectorized
-                  across paths. Equal weight only (no caps, no hold rule).
-      "auto"      per_path when the screen function is a registered price rank, else fixed.
+                  A hold rule (keep_within / band) runs per path on that path's drifted weights, exactly as
+                  `simulate` does (`PathWealth.hold_rule_applied`).
+      "per_path"  price ranks (`price_rank_of`: momentum_12_1, momentum_6m, low_vol, ...; `register_price_rank`
+                  adds more; spec screens of a size cut + static filters + one trailing-price rank) re-rank every
+                  path at every rebalance from that path's own trailing prices, vectorized across paths. The size
+                  cut / filters use the base snapshot of each step's source date (caps do not resample).
+                  Equal weight only (no caps, no hold rule).
+      "auto"      per_path when the screen is a price rank and the weighting is plain equal weight, else fixed.
 
     Stages: `cfg.costs` (trade cost, MER), `cfg.cash` (cash rate, delisting haircut), `cfg.exit` (exposure computed
     per path from that path's own index: TrendBreak and signals with `compute_paths`; other signals raise
@@ -272,9 +360,10 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
     # ---- stages and the screen's mode
     weighting, cost_model, accrual = cfg.construction, cfg.costs, cfg.cash
     ov = as_overlay(cfg.exit)
-    rank = PRICE_RANKS.get(getattr(screen.fn, "__name__", None))
+    pr = price_rank_of(screen)
+    rank = None if pr is None else (pr.column, pr.largest)
     if selection == "auto":
-        selection = "per_path" if rank is not None else "fixed"
+        selection = auto_selection(screen, cfg)
     if selection not in ("fixed", "per_path"):
         raise ValueError(f"selection must be 'fixed', 'per_path' or 'auto', got {selection!r}")
     market = None
@@ -283,19 +372,15 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
         market = base if isinstance(base, Market) else Market(base)
     if selection == "per_path":
         if rank is None:
-            raise NotImplementedError(f"screen function {getattr(screen.fn, '__name__', screen.fn)!r} is not a "
-                                      f"registered price rank (register_price_rank); use selection='fixed'")
-        if screen.params:
+            raise NotImplementedError(f"screen {screen.name!r} (function {getattr(screen.fn, '__name__', screen.fn)!r}) "
+                                      f"is not a registered price rank (register_price_rank / price_rank_of); use selection='fixed'")
+        if screen.params and getattr(screen.fn, "__name__", None) != "rule_screen":
             raise NotImplementedError("per_path ranking does not support screen params")
-        if type(weighting).__name__ != "StandardWeighting" or weighting.weighting != "equal" \
-                or weighting.max_weight is not None or weighting.sector_cap is not None or weighting.hold_rule:
+        if not per_path_ok(weighting):
             raise NotImplementedError("per_path selection supports equal weight without caps or hold rule")
     else:
         if market is None or source_idx is None:
             raise ValueError("selection='fixed' needs base= and the paths' source_idx (a PathSet)")
-        hr = getattr(weighting, "hold_rule", None)
-        if hr is not None and (hr.keep_within or hr.band):
-            raise NotImplementedError("fixed selection does not support a hold rule (it needs the drifted weights per path)")
 
     # ---- levels (the prices of the scenario dataset) and schedule
     lev = np.add(returns, 1.0, dtype=np.float64)
@@ -332,7 +417,20 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
             first = market.fund.groupby("ticker")["date"].min().reindex(list(names))
             has_fund = market.index.to_numpy()[:, None] >= first.to_numpy()[None, :]    # NaT -> False
         stat, largest = rank
+        umask_cache: dict = {}
+
+        def univ_mask(u):
+            """Names the screen's size cut / static filters admit at base step `u` (before the rank): [S] bool."""
+            if u not in umask_cache:
+                from .spec import _run_stage
+                v = market.view(market.index[u])
+                for st in pr.pre:
+                    v = _run_stage(v, st)
+                umask_cache[u] = np.isin(np.asarray(names, dtype=object), v.index.to_numpy(dtype=object))
+            return umask_cache[u]
     else:
+        hr = getattr(weighting, "hold_rule", None)
+        hold_on = hr is not None and bool(hr.keep_within or hr.band)
         cache: dict = {}
         col = {n: i for i, n in enumerate(names)}
         empty = pd.Series(dtype=float)
@@ -346,6 +444,18 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
                 tw = tw[[t in col for t in tw.index]]
                 cache[u] = (np.array([col[t] for t in tw.index], int), tw.to_numpy(float))
             return cache[u]
+
+        def held_pick(u, p, prev_row):
+            """The hold rule on one path: `retain` + `target` exactly as `simulate` runs them, on the base data at
+            source step `u` and this path's drifted weights `prev_row` [S]."""
+            d = market.index[u]
+            held = np.flatnonzero(prev_row > 0)
+            pv = pd.Series(prev_row[held], index=[names[k] for k in held])
+            snap = market.view(d)
+            picks = weighting.retain(market.picks(screen, d), screen, snap, pv, cfg.min_holdings)
+            tw = weighting.target(snap, picks, pv, cfg.min_holdings)
+            tw = tw[[t in col for t in tw.index]]
+            return np.array([col[t] for t in tw.index], int), tw.to_numpy(float)
 
     W = np.full((P, N), np.nan)
     W[:, pos[0]] = 1.0
@@ -363,6 +473,11 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
             elig = alive[:, i_d, :]
             if has_fund is not None:
                 elig = elig & has_fund[np.asarray(source_idx)[:, i_d]]
+            if pr.pre:
+                if market is None or source_idx is None:
+                    raise ValueError("a price rank with a size cut / filters needs base= and the paths' source_idx (a PathSet)")
+                us_, inv_ = np.unique(np.asarray(source_idx)[:, i_d], return_inverse=True)
+                elig = elig & np.stack([univ_mask(int(u)) for u in us_])[inv_]
             x = _trailing(stat, lev, dates, i_d, ppy)
             if x is None:
                 idx, w = np.full((P, K), S), np.zeros((P, K))
@@ -382,6 +497,15 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
             for r, (c, ww) in enumerate(tabs):
                 ti[r, :len(c)], tw_[r, :len(c)] = c, ww
             idx, w = ti[inv], tw_[inv]
+            if hold_on:                                              # retain / band need each path's drifted weights
+                rows_ = []
+                for p_ in range(P):
+                    c_, ww_ = held_pick(int(src[p_, i_d]), p_, prev[p_, :S])
+                    rows_.append((c_, ww_))
+                Kmax = max([len(c) for c, _ in rows_] + [1])
+                idx, w = np.full((P, Kmax), S), np.zeros((P, Kmax))
+                for p_, (c_, ww_) in enumerate(rows_):
+                    idx[p_, :len(c_)], w[p_, :len(c_)] = c_, ww_
             w = np.where(np.take_along_axis(alive[:, i_d, :], np.minimum(idx, S - 1), axis=1) & (idx < S), w, 0.0)
         gidx = np.minimum(idx, S - 1)
         target = np.zeros((P, S + 1))
@@ -440,4 +564,4 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
         g[:, 1:] *= 1 - index_cost_bps / 1e4
         iw = np.full((P, N), np.nan)
         iw[:, a:b] = g * float(start_wealth)
-    return PathWealth(W, iw, dates, held, turnover, rebal, selection)
+    return PathWealth(W, iw, dates, held, turnover, rebal, selection, bool(selection == "fixed" and hold_on))

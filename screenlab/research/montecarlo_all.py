@@ -7,9 +7,11 @@ Setup (write-up: research/montecarlo_all/MONTECARLO_ALL.md):
   * Base: `Lab.synthetic()` (250 names, daily, 2000-2024, fundamentals), cut to month-ends by the operation's own
     `to_monthly` (the helper the S&P 500 study uses). Benchmark SYN_CAPWT (cap-weighted total return).
   * Every REGISTRY screen at a 12-month rebalance, plus the Globe portfolios at their published monthly rebalance
-    (labelled `<name> (monthly)`; the 12-month run of the same screen is `<name> (annual)`).
+    (labelled `<name> (monthly)`; the 12-month run of the same screen is `<name> (annual)`). `bluechip_dividend_growth`
+    runs with its published HoldRule (a separate call with the same seed, so the same paths).
   * BlockBootstrap(12), 1000 paths, horizons 5/10/20 years, 100k start wealth, 25 bps one-way costs, fixed seed.
-    `selection="auto"`: price ranks re-rank on every path (per_path), every other screen is fixed.
+    `selection="auto"`: price ranks (momentum_*, low_vol, stable_dividend: a size cut + one trailing-price rank) re-rank
+    on every path (per_path), every other screen is fixed.
   * The two calls (annual, monthly) use the same seed and so draw identical paths; the study asserts the index agrees.
 Progress is written to research/montecarlo_all/progress.txt. About 5-10 minutes.
 Outputs: research/montecarlo_all/ (CSVs are git-ignored; PNGs and the .md are tracked).
@@ -40,9 +42,10 @@ H = 10
 # one hue per family (validated with dataviz/scripts/validate_palette.js: pass); the index is always neutral grey
 COL_PATH, COL_FIXED, COL_INDEX = "#0072B2", "#D55E00", "#6B6B6B"
 M_DD30 = "P(MaxDD<-30%)"
-# The registry's momentum screens are multi-stage specs (top-300 size cut), so they run in fixed mode. Two price-only
-# ranks (the S&P 500 study's screens, n=10) are added so that the per_path mode is represented too.
+# The registry's momentum_6m / momentum_12m / stable_dividend are a top-300 size cut + one trailing-price rank, which
+# `pipeline.price_rank_of` recognises (per_path). Two price-only ranks (the S&P 500 study's screens, n=10) are added too.
 EXTRA_PRICE_RANKS = ("momentum_12_1", "low_vol")
+BLUECHIP = "bluechip_dividend_growth"
 
 
 def log(msg):
@@ -71,15 +74,22 @@ def run_all(lab):
     extra = price_screens(10)
     annual = [extra[n] if n in EXTRA_PRICE_RANKS else n for n in annual]
     log(f"annual run: {len(annual)} screens at 12 months")
-    ra = lab.montecarlo(annual, rebalance_months=12, **common)
+    ra = lab.montecarlo([a for a in annual if a != BLUECHIP], rebalance_months=12, **common)
+    from screenlab.screens import GLOBE_PORTFOLIOS
+    rb = lab.montecarlo([BLUECHIP], rebalance_months=12, hold_rule=GLOBE_PORTFOLIOS[BLUECHIP].config_overrides["hold_rule"],
+                        **common)
+    assert rb.selection_info[BLUECHIP]["hold_rule_applied"], "the hold rule did not run"
     log(f"monthly run: {len(monthly)} Globe portfolios at 1 month")
     rm = lab.montecarlo(monthly, rebalance_months=1, **common)
     idx = ra.index_label
     a = ra.per_path[ra.per_path.portfolio == idx].reset_index(drop=True)
     b = rm.per_path[rm.per_path.portfolio == idx].reset_index(drop=True)
     assert np.allclose(a.cagr, b.cagr), "the two runs did not share paths"
+    c = rb.per_path[rb.per_path.portfolio == idx].reset_index(drop=True)
+    assert np.allclose(a.cagr, c.cagr), "the bluechip run did not share paths"
     pp, fan, mode = [], {}, {}
-    for res, rename in ((ra, annual_label), (rm, {n: f"{n} (monthly)" for n in monthly})):
+    for res, rename in ((ra, {k: v for k, v in annual_label.items() if k != BLUECHIP}),
+                        (rb, {BLUECHIP: BLUECHIP}), (rm, {n: f"{n} (monthly)" for n in monthly})):
         for old, new in rename.items():
             g = res.per_path[res.per_path.portfolio == old].copy()
             g["portfolio"] = new
@@ -98,7 +108,8 @@ def run_all(lab):
     # the two tables share portfolio names (monthly vs annual): rename each block separately
     ta = ra.table.reset_index(); ta["portfolio"] = ta["portfolio"].map(lambda p: annual_label.get(p, p))
     tm = rm.table.reset_index(); tm = tm[tm.portfolio != idx]; tm["portfolio"] = tm["portfolio"].map(lambda p: f"{p} (monthly)")
-    tbl = pd.concat([ta, tm], ignore_index=True)
+    tb_ = rb.table.reset_index(); tb_ = tb_[tb_.portfolio != idx]
+    tbl = pd.concat([ta, tb_, tm], ignore_index=True)
     return pp, pd.DataFrame(fan, index=ra.fan.index), tbl, mode, order, ra
 
 
@@ -287,6 +298,7 @@ def write_report(S, mode, order, idx, card, tbl, path, secs):
     main = _md(pd.DataFrame(rows))
     n = len(ranked)
     n_fixed = sum(v == "fixed" for v in mode.values())
+    pp_list = ", ".join(f"`{k}`" for k, v in mode.items() if v == "per_path")
     n_half = int((p10.P_trail > 0.5).sum())
     n_med = int((p10.median_cagr > ix10["CAGR_p50"]).sum())
     best, worst = ranked[0], ranked[-1]
@@ -317,12 +329,12 @@ def write_report(S, mode, order, idx, card, tbl, path, secs):
 
 1. **The history.** A synthetic market of 250 stocks, daily, 2000-2024, with accounting data (earnings, book value, dividends, ...) available as of each date, and a cap-weighted total-return index. It is cut to month-end prices.
 2. **{N_PATHS} alternative futures.** Cut the history into 12-month blocks (block bootstrap), draw blocks at random and glue them into 22-year paths. Within a block every stock, the index and the accounting data keep their real joint dates, so crashes hit everything together. The first year of each path is a warm-up; then 5, 10 and 20 years are measured. Every portfolio and the index see exactly the same futures.
-3. **The portfolios.** Every screen in the registry at a 12-month rebalance, plus the seven monthly Globe portfolios at their published monthly rebalance (marked `(monthly)`; the 12-month run of the same screen is marked `(annual)`), plus two price-only ranks added for the per-path mode (`momentum_12_1`, `low_vol`, 10 names). Equal weight, {COST_BPS:.0f} bps one-way trading cost. The Globe portfolio `bluechip_dividend_growth` is annual in the registry run; its published hold rule (keep a holding while it ranks in the top 2n) cannot run in fixed mode, so it appears once, without the hold rule.
+3. **The portfolios.** Every screen in the registry at a 12-month rebalance, plus the seven monthly Globe portfolios at their published monthly rebalance (marked `(monthly)`; the 12-month run of the same screen is marked `(annual)`), plus two price-only ranks added for the per-path mode (`momentum_12_1`, `low_vol`, 10 names). Equal weight, {COST_BPS:.0f} bps one-way trading cost. The Globe portfolio `bluechip_dividend_growth` is annual and runs with its published hold rule (keep a holding while it ranks within twice the target count, leave a name untraded while within 25% of its target weight), applied to each path's own drifted weights.
 4. **The numbers.** For each future: terminal wealth from 100,000, CAGR, the worst fall, and whether the portfolio ended behind the index; percentiles over the {N_PATHS} futures.
 
 ## The one caveat that matters: fixed-mode picks
 
-Only the {n - n_fixed} plain price-rank portfolios (`momentum_12_1`, `low_vol`) can be re-run on each simulated future's own prices (**per_path**). The other {n_fixed} of {n} use accounting data (earnings, book value, dividends) or a size cut, which the bootstrap does not re-create; this includes the registry's `momentum_6m` and `momentum_12m`, which are multi-stage screens (top 300 by size, then rank). For these the package decides the picks **once, on the real (synthetic) history, at each date, and carries them along when the date is reused in a simulated future (fixed mode)**. In plain words: **a fixed-mode portfolio does not react to what happens on the simulated path.** It holds the names the screen would have chosen at the matching date of the original history, whatever those names did in the new future. The result shows how those historical picks fare when their returns are rearranged, not how the screen would behave in a different world. Fixed-mode and per-path numbers are therefore not strictly like for like, and the fixed-mode ones understate how much a real screen's picks would change from future to future. The selection mode is recorded per portfolio in the result and in the table below.
+The {n - n_fixed} per_path portfolios ({pp_list}) are **re-ranked on every simulated future's own prices**. `momentum_6m`, `momentum_12m` and `stable_dividend` are a size cut (the 300 largest names) plus, for `stable_dividend`, a dividend-payer filter, then one rank on a trailing return or volatility; the package recognises that shape (`pipeline.price_rank_of`) and runs the rank per path. Market caps and dividends are not re-created by the bootstrap, so the size cut and the payer filter are read from the original history at the date each step is drawn from, and only the ranking follows the path. The other {n_fixed} of {n} use accounting data as well (earnings, book value, buyback, a second rank on P/E or yield after the volatility cut) and cannot be re-ranked on prices alone. For these the package decides the picks **once, on the real (synthetic) history, at each date, and carries them along when the date is reused in a simulated future (fixed mode)**. In plain words: **a fixed-mode portfolio does not react to what happens on the simulated path.** It holds the names the screen would have chosen at the matching date of the original history, whatever those names did in the new future. The result shows how those historical picks fare when their returns are rearranged, not how the screen would behave in a different world. Fixed-mode and per-path numbers are therefore not strictly like for like, and the fixed-mode ones understate how much a real screen's picks would change from future to future. `bluechip_dividend_growth` is fixed, and its hold rule runs on each path's own drifted weights (recorded as `hold_rule_applied` in the result). The selection mode is recorded per portfolio in the result and in the table below.
 
 ## Results
 
@@ -351,6 +363,7 @@ Only the {n - n_fixed} plain price-rank portfolios (`momentum_12_1`, `low_vol`) 
 * A forecast. All futures are rearrangements of 24 years of one synthetic history; a regime absent from it cannot appear.
 * Real-world edge. The synthetic market was generated with its own return rules, which is why results here can differ from the S&P 500 study; neither tells you what the screens do in the real full market.
 * Fixed-mode results as behaviour. See the caveat above: those picks are history's, not the path's.
+* Per-path momentum and `stable_dividend` are only partly path-driven: the ranking follows the path, but the 300-name size cut and the dividend-payer filter are the original history's at the matching date, so a name that grows large on a path cannot enter.
 * The two Graham portfolios: their growth near 0% and shallow falls look like a mostly-in-cash portfolio (few names pass the tests in this data), which is not evidence of safety or of skill.
 * Probabilities to the percentage point: with {N_PATHS} paths a probability near 50% carries about 1.5 points of sampling error, more because paths share content.
 
