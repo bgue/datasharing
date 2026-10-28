@@ -184,8 +184,11 @@ def test_default_periods():
 
 def test_data_dirs_are_git_ignored():
     import subprocess
+    root = fetch.Path(fetch.__file__).parents[2]
+    if not (root / ".git").exists():
+        pytest.skip("not a git checkout (e.g. unpacked from the zip)")
     r = subprocess.run(["git", "check-ignore", "data/x.csv", "screenlab/data/x.csv"], capture_output=True, text=True,
-                       cwd=fetch.Path(fetch.__file__).parents[2])
+                       cwd=root)
     assert r.stdout.split() == ["data/x.csv", "screenlab/data/x.csv"]
 
 
