@@ -807,3 +807,34 @@ Globe portfolios at their published rebalance; outputs under
 P(trail the passive index) by horizon, CAGR distributions, fan small
 multiples, drawdown histograms vs the index, and a report that says
 plainly that fixed-mode picks do not react to each path.
+
+### L6. Browser chart panel (companion to the TUI)
+`textual-serve` draws the terminal into a canvas, so JS charts cannot sit
+inside the Textual layout. Instead the control endpoint (`tui/control.py`)
+serves a companion page:
+- `GET /charts` — an HTML page using Plotly.js (CDN by default,
+  `SCREENLAB_PLOTLY_JS=<path|url>` to serve a local copy) with tabs that
+  mirror the TUI: Curves (wealth, log scale, hover values, zoom, legend
+  toggling), Compare (bar/dot chart of CAGR and Excess/yr with CI error
+  bars), Timing (offset distribution + tranche), Monte Carlo (fan with
+  25–75 and 5–95 bands, CAGR histogram vs index, drawdown histogram), Exit
+  (forward-return bars flagged vs not). The passive index is always drawn
+  in grey and cannot be hidden by default; scenario colours are the
+  session's fixed colours.
+- `GET /charts/data?tab=<tab>` — the JSON each tab needs (curves
+  downsampled to ≤ 2,000 points, fan quantiles, histograms binned
+  server-side so no path-level data crosses the wire).
+- `GET /theme` — the active Textual theme's variables (background, surface,
+  foreground, primary, accent, success/warning/error) so the page builds a
+  matching Plotly template; `GET /events` — server-sent events that fire
+  when `Session.seq` changes, so the page refreshes without polling.
+- `--serve` mode: `GET /` on the control port serves a wrapper page with
+  the textual-serve terminal in an iframe on the left and the chart panel
+  on the right (resizable split, remembered in localStorage); the TUI
+  footer shows the URL. In a plain terminal, key `w` opens `/charts` in the
+  default browser (`webbrowser.open`) and the Log tab prints the URL.
+- No new analysis: every dataset comes from results the Session already
+  holds. Tests: data endpoints return the documented shapes for a session
+  with two scenarios and a Monte Carlo result; the HTML pages are served
+  and reference the theme/data endpoints; SSE emits on a change; Plotly
+  itself is not loaded in tests (no network here).
