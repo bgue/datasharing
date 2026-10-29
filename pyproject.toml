@@ -18,7 +18,7 @@ dependencies = [
 
 [project.optional-dependencies]
 # Bundled S&P 500 data (skfolio) and the macro sample (statsmodels).
-data = ["skfolio", "statsmodels"]
+data = ["skfolio", "statsmodels", "xlrd", "openpyxl"]
 # REST (FastAPI) and MCP servers; mirrors screenlab/requirements-server.txt.
 server = ["fastapi", "uvicorn", "httpx", "mcp"]
 # Notebook screenlab/notebooks/explore_runs.ipynb.

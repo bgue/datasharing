@@ -45,7 +45,7 @@ COMMANDS = ("add_scenario", "clone_scenario", "set_params", "remove_scenario", "
             "montecarlo", "exit_eval", "picks", "show", "select", "save_spec", "export", "history", "jobs",
             "cancel", "set_theme", "snapshot", "view", "curves", "screens", "datasets", "fetch_data")
 # data downloader (operation `fetch_data`, implemented in ops/fetch_data.py); hosts are shown in the Data tab form
-FETCH_SOURCES = ("sec", "boc", "fred", "stooq", "statcan")
+FETCH_SOURCES = ("sec", "boc", "fred", "stooq", "statcan", "shiller", "tiingo")
 FETCH_HOSTS = {"sec": ["www.sec.gov", "data.sec.gov"], "boc": ["www.bankofcanada.ca"], "fred": ["fred.stlouisfed.org"],
                "stooq": ["stooq.com"], "statcan": ["www150.statcan.gc.ca"]}
 

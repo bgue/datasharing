@@ -107,26 +107,38 @@ If you are a student, staff member or faculty, the library route is the cheapest
 
 ---
 
-## 3. Benchmarks: total-return index proxies
+## 3. Benchmarks: total-return proxies
 
-`indices.csv` needs a **total-return** series. Price-only indices understate the market by the dividend yield, about 2-3%/yr for Canadian equities (the repo's own estimate for the S&P 500 is about 2%/yr; [CRITIQUE.md](../CRITIQUE.md) risk 2). A total-return portfolio compared with a price index looks about that much better every year.
+`indices.csv` needs a **total-return** series, and each index carries a `kind` (`price` or `total_return`). A price index understates the market by the dividend yield, about 2-3%/yr for Canadian equities (about 2%/yr for the S&P 500; [CRITIQUE.md](../CRITIQUE.md) risk 2), so a total-return portfolio compared with a price index looks about that much better every year. `screenlab-data free --sources shiller,tiingo` (or `make data-tr`) fetches real total-return series:
 
-| Want | Use as proxy | Notes |
+| Source | Cost | Frequency / history | Writes | Notes |
+|---|---|---|---|---|
+| `shiller` | free, no key | **monthly**, S&P 500 since 1871 | `indices_shiller.csv`: `SP500_TR` (`total_return`), `SP500_PRICE` (`price`); `macro_shiller.csv`: `cpi_us`, `long_rate_us` | `tri_t = tri_{t-1} * (P_t + D_t/12) / P_{t-1}`. Shiller's `D` is a trailing 12-month dividend that he **interpolates** to months, so the TR is a good approximation, not a ledger. Months with no dividend yet are in `SP500_PRICE` only. The rate is GS10 in percent. Full history is kept (`--start` is not applied). |
+| `tiingo` | free key (`TIINGO_API_KEY`, sign up at tiingo.com) | **daily**, US tickers | `indices_tiingo.csv` (ETF presets such as SPY, VOO; `total_return`), `prices_tiingo.csv` (stocks) | `adjClose` is split- and dividend-adjusted, already **net of the ETF's MER** (use `mer=0`). Canadian ETFs (XIU.TO etc.) on Tiingo are **unverified**. Missing key: an error entry with this hint, never an exception. |
+| `stooq` | free | daily | `indices_stooq.csv` with `kind=price` | Close only: a **price** index. |
+| vendors (EODHD, FMP, TMX, Norgate; section 2B/2C) | paid | daily | your own `indices.csv` | The route for **Canadian** TR (S&P/TSX Composite TR): XIC/XIU/ZCN/VCN adjusted close from a vendor, or the index provider's TR series. |
+
+ETF presets live in `fetch.ETF_PROXIES` (ticker, what it tracks, MER, issuer page); `screenlab-data status` prints them and suggests `IndexBenchmark(...)` lines. **Check each MER on the issuer page before use** (the table is from the project brief; XIU is quoted as 0.17% by some third-party pages). Rule of thumb: an ETF `adjClose` is already net of MER (`mer=0`); a gross index such as `SP500_TR` should be charged the MER of the fund you would actually hold.
+
+| Want | Proxy | Notes |
 |---|---|---|
-| S&P/TSX Composite TR | `XIC` (iShares Core S&P/TSX Capped Composite), `VCN` (Vanguard FTSE Canada All Cap, a different index) or `ZCN` (BMO) adjusted close | Closest to the Globe's TSX universe. ETF MER is already deducted from adjusted close, so set the benchmark `mer=0` as the old checklist said |
+| S&P 500 TR, long history | `SP500_TR` (Shiller) | Monthly, 1871+, gross of fees |
+| S&P 500 TR, daily | `SPY`, `VOO` (Tiingo); `VFV` CAD-listed | USD vs CAD matters: match your stocks' currency |
+| S&P/TSX Composite TR | `XIC`, `ZCN`, or `VCN` (FTSE Canada All Cap, a different index) adjusted close from a vendor | Closest to the Globe's TSX universe |
 | S&P/TSX 60 TR | `XIU` adjusted close | Large caps only |
-| S&P 500 TR | `SPY` (USD) or `VFV` (CAD hedge status: check the fund) adjusted close | USD vs CAD matters: pick the currency your stocks are in |
 
-Inception dates matter: ETFs start in the 1990s or 2000s (verify on the provider's page), so a TR proxy cannot reach back before then.
+Inception dates matter: ETFs start in the 1990s or 2000s (verify on the provider's page), so an ETF proxy cannot reach back before then. Use Shiller for long US history.
 
-**Building a TR series when you only have price and distributions** (spreadsheet recipe):
+**Fallback: the dividend-yield approximation** (only when no TR series exists for the index). `tri_t = tri_{t-1} * (1 + r_price + y/252)` for daily data (`y/12` monthly) with an average yield `y` from the index provider. It is an approximation, **good to roughly 2% a year at best**: the yield moves over time and the S&P 500 yield alone varied between about 1% and 4% across decades, so label the series as approximate and prefer a real TR source.
+
+**Building a TR series from price and distributions** (spreadsheet recipe):
 1. Columns: `date`, `close`, `div_per_unit` (the distribution on its ex-date, 0 otherwise).
 2. Daily return: `r = (close + div_per_unit) / prev_close - 1`.
 3. `tri` = 100 on the first date; each next row `tri = prev_tri * (1 + r)`.
 4. Use **unadjusted** closes with this recipe, or adjusted closes with no distributions, never both (that double counts).
 5. Sanity check: over ten years, `tri` CAGR should exceed price CAGR by roughly the trailing dividend yield.
 
-Where only a price index exists, add the yield: `tri_t = tri_{t-1} * (1 + r_price + y/252)` using an average yield `y` you source from the index provider. This is an approximation; label it as such.
+**Unverified (no network when written):** the Shiller download link (shillerdata.com hosts `ie_data.xls` on a rotating blob URL, so the page is scraped for the current link; the fallback constants in `fetch.py` are unconfirmed, and the old Yale URL is reported to have stopped updating); `.xls` needs the `xlrd` package, which is not in the `data` extra (if absent, save the sheet as `.xlsx` or CSV to `data/raw/shiller/ie_data.xlsx` and re-run); Tiingo free-tier coverage of Canadian ETFs; all issuer URLs except VOO.
 
 ---
 
@@ -280,6 +292,8 @@ Per the [cloud environment docs](https://code.claude.com/docs/en/cloud-environme
 | FRED (CSV links) | `fred.stlouisfed.org` |
 | FRED JSON API (needs key) | `api.stlouisfed.org` |
 | Stooq | `stooq.com` (also the CAPTCHA key page; bulk host unverified) |
+| Shiller S&P 500 (`shiller`) | `shillerdata.com`, `img1.wsimg.com` (file host **unverified**) |
+| Tiingo (`tiingo`) | `api.tiingo.com` |
 | EODHD | `eodhd.com` |
 | Financial Modeling Prep | `financialmodelingprep.com` (host name for the API is **unverified**; the docs site is `site.financialmodelingprep.com`) |
 | Nasdaq Data Link (Sharadar) | `data.nasdaq.com` (**unverified**) |

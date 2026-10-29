@@ -13,7 +13,7 @@ FETCH = $(PY) -m screenlab.realdata.cli free --dest "$(DEST)" --start $(START) \
 	$(if $(SEC_USER_AGENT),--sec-user-agent "$(SEC_USER_AGENT)") $(if $(PERIODS),--periods $(PERIODS))
 
 .PHONY: help install test test-fast tui tui-serve rest mcp notebook zip data-free data-sec data-boc \
-	data-fred data-prices data-status data-hosts clean
+	data-fred data-prices data-tr data-status data-hosts clean
 
 help:  ## list the targets
 	@echo "screenlab targets (variables: SEC_USER_AGENT, SOURCES, TICKERS, PERIODS, DEST, START, PORT)"
@@ -63,10 +63,13 @@ data-fred:  ## FRED macro only
 data-prices:  ## Stooq prices and index proxies only
 	$(FETCH) --sources stooq --tickers $(TICKERS)
 
+data-tr:  ## total-return benchmarks: Shiller S&P 500 (monthly, free) + Tiingo (TIINGO_API_KEY)
+	$(FETCH) --sources shiller,tiingo
+
 data-status:  ## show what is in data/ and which labs can be built
 	$(PY) -m screenlab.realdata.cli status --dest "$(DEST)"
 
-data-hosts:  ## print the network allow-list for the cloud environment
+data-hosts:  ## print the network allow-list (incl. shillerdata.com, api.tiingo.com)
 	$(PY) -m screenlab.realdata.cli hosts
 
 clean:  ## remove caches and dist/ (never data/)

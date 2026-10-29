@@ -10,6 +10,12 @@ Sources (each isolated: a failure is recorded in the manifest with the host to a
     fred     FRED fredgraph.csv per series   -> data/raw/fred/*.csv,   data/macro_fred.csv
     stooq    Stooq daily CSV per symbol      -> data/raw/stooq/*.csv,  data/prices_stooq.csv, data/indices_stooq.csv
     statcan  Statistics Canada CPI 18-10-0004-01 -> data/raw/statcan/, data/macro_statcan.csv
+    shiller  Shiller monthly S&P 500 (opt-in)   -> data/raw/shiller/, data/indices_shiller.csv, data/macro_shiller.csv
+    tiingo   Tiingo adjClose, key TIINGO_API_KEY (opt-in) -> data/raw/tiingo/, data/indices_tiingo.csv, data/prices_tiingo.csv
+
+`shiller` and `tiingo` are the total-return benchmark sources (ACQUIRE.md section 3); they are opt-in
+(`--sources shiller,tiingo`, `make data-tr`) and not part of the default `SOURCES`. Every index file written
+here has a `kind` column: "price" (Stooq) or "total_return" (Shiller TR, Tiingo adjClose).
 
 `data/MANIFEST.json` records what is on disk. Nothing here has been run against the real hosts (the
 development environment had no network); every parser is tested on fixture bytes through an injectable
@@ -33,7 +39,9 @@ import pandas as pd
 from .. import progress as _progress
 from . import boc_valet, sec_fsds
 
-SOURCES = ("sec", "boc", "fred", "stooq", "statcan")
+SOURCES = ("sec", "boc", "fred", "stooq", "statcan")        # the default run
+TR_SOURCES = ("shiller", "tiingo")                         # opt-in total-return benchmark sources
+ALL_SOURCES = SOURCES + TR_SOURCES
 FRED_SERIES = ("CPIAUCSL", "DGS3MO", "DGS10", "DPRIME", "DEXCAUS", "BAMLC0A0CM")
 FRED_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={id}"
 STOOQ_URL = "https://stooq.com/q/d/l/?s={sym}&i=d"
@@ -44,12 +52,45 @@ SEC_TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 STATCAN_CPI_URL = "https://www150.statcan.gc.ca/n1/tbl/csv/18100004-eng.zip"
 INDEX_PROXIES = ("^SPX", "SPY.US")             # written to indices_stooq.csv, the rest to prices_stooq.csv
 DEFAULT_TICKERS = ("XIU.TO", "XIC.TO", "SPY.US", "^SPX")
+# UNVERIFIED (no network when written). shillerdata.com hosts ie_data.xls on a GoDaddy blob URL whose id/version
+# changes, so the page is scraped for the current link first; SHILLER_FALLBACK_URL is the form seen in secondary
+# sources (id not confirmed) and the old Yale URL reportedly stopped updating in Dec 2025.
+SHILLER_PAGE_URL = "https://shillerdata.com/"
+SHILLER_FALLBACK_URL = "https://img1.wsimg.com/blobby/go/ie_data.xls"
+SHILLER_YALE_URL = "http://www.econ.yale.edu/~shiller/data/ie_data.xls"
+# Tiingo EOD endpoint is documented at https://www.tiingo.com/documentation/end-of-day ; the Canadian-listed ETF
+# symbols below are UNVERIFIED on the free tier.
+TIINGO_URL = "https://api.tiingo.com/tiingo/daily/{ticker}/prices?startDate={start}&token={token}"
+TIINGO_KEY_ENV = "TIINGO_API_KEY"
+TIINGO_SIGNUP = "https://www.tiingo.com/"
+TIINGO_DEFAULT_TICKERS = ("SPY", "VOO")
+# ETF presets: what each fund tracks and its MER as a fraction per year. MERs are as given in the task brief and
+# must be re-checked ("check current MER") on the issuer page; only the VOO page was confirmed to exist. A
+# total-return series from adjClose is already net of the MER, so use mer=0 for it; charge the MER on a GROSS index
+# (SP500_TR from Shiller) to compare it with the fund.
+ETF_PROXIES = {
+    "XIU": {"tracks": "S&P/TSX 60 (TR via adjusted close)", "mer": 0.0018, "ccy": "CAD", "url": "https://www.blackrock.com/ca/investors/en"},
+    "XIC": {"tracks": "S&P/TSX Capped Composite", "mer": 0.0006, "ccy": "CAD", "url": "https://www.blackrock.com/ca/investors/en"},
+    "ZCN": {"tracks": "S&P/TSX Capped Composite", "mer": 0.0006, "ccy": "CAD", "url": "https://www.bmogam.com/ca-en/"},
+    "VCN": {"tracks": "FTSE Canada All Cap", "mer": 0.0005, "ccy": "CAD", "url": "https://www.vanguardcanada.ca/"},
+    "SPY": {"tracks": "S&P 500", "mer": 0.000945, "ccy": "USD", "url": "https://www.ssga.com/us/en/intermediary/etfs/spdr-sp-500-etf-trust-spy"},
+    "VOO": {"tracks": "S&P 500", "mer": 0.0003, "ccy": "USD", "url": "https://advisors.vanguard.com/investments/products/voo/vanguard-sp-500-etf"},
+    "VFV": {"tracks": "S&P 500 (CAD-listed, unhedged)", "mer": 0.0009, "ccy": "CAD", "url": "https://www.vanguardcanada.ca/"},
+}
+ETF_NOTE = "check current MER on the issuer page (figures from the task brief; issuer URLs other than VOO unverified)"
 DOCS_URL = "https://code.claude.com/docs/en/cloud-environments#network-access"
 SOURCE_HOSTS = HOSTS = {"sec": ["www.sec.gov"], "boc": ["www.bankofcanada.ca"], "fred": ["fred.stlouisfed.org"],
-         "stooq": ["stooq.com"], "statcan": ["www150.statcan.gc.ca"]}
+         "stooq": ["stooq.com"], "statcan": ["www150.statcan.gc.ca"],
+         "shiller": ["shillerdata.com", "img1.wsimg.com"], "tiingo": ["api.tiingo.com"]}
 NOTES = {"stooq": "Stooq closes are split-adjusted; dividend adjustment is not guaranteed, so `tri` is a price "
-                  "index unless you verify the symbol (ACQUIRE.md section 6). Stooq may also require a CAPTCHA "
+                  "index unless you verify the symbol (ACQUIRE.md section 6). indices_stooq.csv is written with "
+                  "kind=\"price\" explicitly. Stooq may also require a CAPTCHA "
                   "API key; a non-CSV reply is reported as an error.",
+         "shiller": "Monthly (month-start dates), S&P 500 since 1871. SP500_TR chains (P+D/12)/P_prev; Shiller's D is a "
+                    "trailing-12-month dividend he interpolates to monthly, so TR is approximate. Months without a "
+                    "dividend yet are in SP500_PRICE only. Rate is GS10 in percent. Download URL is unverified.",
+         "tiingo": "adjClose is split- and dividend-adjusted (total return, net of the ETF's MER); needs env "
+                   "TIINGO_API_KEY (free key). Canadian ETF symbols on Tiingo are unverified.",
          "fred": "FRED rates are in percent; divide by 100 yourself. BAMLC0A0CM is an ICE index: check its notice.",
          "statcan": "STATCAN_CPI_URL is unverified.",
          "sec": "Coverage is US filers only; company_tickers.json holds current tickers only."}
@@ -287,7 +328,7 @@ def _fetch_stooq(m, root, opener, tickers, start, report):
                 raise FetchError(f"{t}: no rows on or after {start}", HOSTS["stooq"][0])
             _save(m, "stooq", root / "raw" / "stooq" / f"{t.replace('^', '_')}.csv", body)
             if t.upper() in INDEX_PROXIES:
-                indices.append(pd.DataFrame({"date": d["date"], "index": t, "tri": d["close"]}))
+                indices.append(pd.DataFrame({"date": d["date"], "index": t, "tri": d["close"], "kind": "price"}))
             else:
                 prices.append(pd.DataFrame({"date": d["date"], "ticker": t, "tri": d["close"]}))
             ok += 1
@@ -332,6 +373,185 @@ def _fetch_statcan(m, root, opener, start, report):
     report(1, f"{len(s)} months")
 
 
+# ------------------------------------------------------------------------------------------ shiller
+def _shiller_frame(body: bytes) -> pd.DataFrame:
+    """ie_data bytes (xlsx, xls or CSV) -> monthly frame indexed by month start with P, D, CPI, RATE columns."""
+    if body[:2] == b"PK":
+        raw = _read_sheet(body, "openpyxl")
+    elif body[:4] == b"\xd0\xcf\x11\xe0":
+        raw = _read_sheet(body, "xlrd")
+    else:
+        raw = pd.read_csv(io.BytesIO(body), header=None, dtype=object, skip_blank_lines=False, on_bad_lines="skip")
+    norm = raw.map(lambda v: "".join(str(v).split()).lower() if pd.notna(v) else "")
+    hdr = next((i for i in range(min(len(norm), 40)) if norm.iloc[i, 0] == "date" and "p" in set(norm.iloc[i])), None)
+    if hdr is None:
+        raise FetchError("Shiller sheet has no header row starting with 'Date' and a 'P' column", HOSTS["shiller"][0])
+    names = list(norm.iloc[hdr])
+
+    def col(pred):
+        return next((j for j, n in enumerate(names) if pred(n)), None)
+    idx = {"P": col(lambda n: n == "p"), "D": col(lambda n: n == "d"), "CPI": col(lambda n: n == "cpi"),
+           "RATE": col(lambda n: n.startswith("rate"))}
+    if idx["P"] is None or idx["D"] is None:
+        raise FetchError(f"Shiller sheet lacks P or D columns: {names[:12]}", HOSTS["shiller"][0])
+    body_rows = raw.iloc[hdr + 1:]
+    num = lambda j: (pd.to_numeric(body_rows.iloc[:, j], errors="coerce") if j is not None
+                     else pd.Series(float("nan"), index=body_rows.index))
+    date = pd.to_numeric(body_rows.iloc[:, 0], errors="coerce")
+    year = date.floordiv(1)
+    month = ((date - year) * 100).round()                       # 1871.01 -> 1, 1871.1 -> 10
+    ok = date.notna() & month.between(1, 12)
+    out = pd.DataFrame({"P": num(idx["P"]), "D": num(idx["D"]), "CPI": num(idx["CPI"]), "RATE": num(idx["RATE"])})[ok]
+    out.index = pd.to_datetime({"year": year[ok].astype(int), "month": month[ok].astype(int), "day": 1})
+    out = out.sort_index()
+    return out[out["P"].notna()]
+
+
+def _read_sheet(body: bytes, engine: str) -> pd.DataFrame:
+    try:
+        xl = pd.ExcelFile(io.BytesIO(body), engine=engine)
+    except ImportError as e:
+        raise FetchError(f"reading this Excel file needs the `{engine}` package ({e}); install it, or save the "
+                         f"sheet as .xlsx/.csv and put it in data/raw/shiller/ie_data.xlsx", "") from e
+    except Exception as e:
+        raise FetchError(f"cannot open the Shiller workbook ({type(e).__name__}: {e})", HOSTS["shiller"][0]) from e
+    name = "Data" if "Data" in xl.sheet_names else xl.sheet_names[min(1, len(xl.sheet_names) - 1)]
+    return xl.parse(name, header=None, dtype=object)
+
+
+def shiller_total_return(df: pd.DataFrame) -> pd.Series:
+    """tri_t = tri_{t-1} * (P_t + D_t/12) / P_{t-1}, tri = 100 at the first month; stops at the last month with D."""
+    d = df.dropna(subset=["D"])
+    tri = [100.0]
+    for k in range(1, len(d)):
+        tri.append(tri[-1] * (d["P"].iloc[k] + d["D"].iloc[k] / 12.0) / d["P"].iloc[k - 1])
+    return pd.Series(tri, index=d.index, name="SP500_TR")
+
+
+def _shiller_urls(page: bytes | None) -> list:
+    import re
+    urls = []
+    if page:
+        for u in re.findall(r"https?://[^\s\"'<>)]+", page.decode("utf-8", "replace")):
+            if "ie_data" in u.lower() and ".xls" in u.lower():
+                urls.append(u.replace("&amp;", "&"))
+    return urls + [SHILLER_FALLBACK_URL, SHILLER_YALE_URL]
+
+
+def _fetch_shiller(m, root, opener, start, report):
+    report(0, "shillerdata.com")
+    cached = root / "raw" / "shiller" / "ie_data.xlsx"
+    body, last = None, None
+    try:
+        page = _get(SHILLER_PAGE_URL, opener, timeout=60)
+    except FetchError as e:
+        page, last = None, e
+    if page is None and not cached.exists():
+        raise last                                   # host blocked: nothing else to try
+    for u in _shiller_urls(page) if page is not None else []:
+        try:
+            body = _get(u, opener, timeout=120)
+            break
+        except FetchError as e:
+            last = e
+    if body is None and cached.exists():
+        body = cached.read_bytes()                   # a manually placed file
+    if body is None:
+        raise FetchError(f"could not download ie_data.xls ({last}); URLs are unverified: download it from "
+                         f"{SHILLER_PAGE_URL} and save it as {cached}", getattr(last, "host", HOSTS["shiller"][0]))
+    df = _shiller_frame(body)
+    suffix = ".xlsx" if body[:2] == b"PK" else ".xls" if body[:2] == b"\xd0\xcf" else ".csv"
+    if cached.exists() and cached.read_bytes() == body:
+        _record(m, "shiller", cached, "cached")
+    else:
+        _save(m, "shiller", root / "raw" / "shiller" / f"ie_data{suffix}", body)
+    if df.empty:                                     # full history is kept: `start` is deliberately not applied
+        raise FetchError("Shiller sheet had no usable monthly rows", HOSTS["shiller"][0])
+    tri = shiller_total_return(df)
+    price = df["P"] / df["P"].iloc[0] * 100
+    long = pd.concat([pd.DataFrame({"date": tri.index, "index": "SP500_TR", "tri": tri.to_numpy(), "kind": "total_return"}),
+                      pd.DataFrame({"date": price.index, "index": "SP500_PRICE", "tri": price.to_numpy(), "kind": "price"})])
+    out = root / "indices_shiller.csv"
+    long.to_csv(out, index=False)
+    _record(m, "shiller", out, "ok")
+    macro = _long({"cpi_us": df["CPI"], "long_rate_us": df["RATE"]})
+    if not macro.empty:
+        out = root / "macro_shiller.csv"
+        macro.to_csv(out, index=False)
+        _record(m, "shiller", out, "ok")
+    report(1, f"{len(df)} months")
+
+
+# ------------------------------------------------------------------------------------------ tiingo
+def _fetch_tiingo(m, root, opener, tickers, start, api_key, report):
+    key = api_key or os.environ.get(TIINGO_KEY_ENV)
+    if not key:
+        raise FetchError(f"Tiingo needs an API key: get a free one at {TIINGO_SIGNUP} and set env {TIINGO_KEY_ENV} "
+                         f"(or pass tiingo_api_key=)", HOSTS["tiingo"][0])
+    prices, indices, ok = [], [], 0
+    tickers = list(tickers)
+    for i, t in enumerate(tickers):
+        report(i / max(len(tickers), 1), t)
+        try:
+            body = _get(TIINGO_URL.format(ticker=t.lower(), start=start, token=key), opener, timeout=60)
+            try:
+                rows = json.loads(body)
+            except ValueError as e:
+                raise FetchError(f"{t}: reply is not JSON: {body[:40]!r}", HOSTS["tiingo"][0]) from e
+            if not isinstance(rows, list):
+                raise FetchError(f"{t}: {str(rows)[:120]}", HOSTS["tiingo"][0])      # e.g. {"detail": "Not found."}
+            d = pd.DataFrame(rows)
+            if "adjClose" not in d or "date" not in d:
+                raise FetchError(f"{t}: no adjClose/date in reply (columns {list(d.columns)})", HOSTS["tiingo"][0])
+            d["date"] = pd.to_datetime(d["date"], errors="coerce", utc=True).dt.tz_localize(None).dt.normalize()
+            d["adj"] = pd.to_numeric(d["adjClose"], errors="coerce")
+            d = d.dropna(subset=["date", "adj"])
+            d = d[d["date"] >= pd.Timestamp(start)].sort_values("date")
+            if d.empty:
+                raise FetchError(f"{t}: no rows on or after {start}", HOSTS["tiingo"][0])
+            _save(m, "tiingo", root / "raw" / "tiingo" / f"{t.upper().replace('^', '_')}.json", body)
+            if t.upper() in ETF_PROXIES:
+                indices.append(pd.DataFrame({"date": d["date"], "index": t.upper(), "tri": d["adj"],
+                                             "kind": "total_return"}))
+            else:
+                prices.append(pd.DataFrame({"date": d["date"], "ticker": t.upper(), "tri": d["adj"]}))
+            ok += 1
+        except Exception as e:
+            msg = str(e).replace(key, "***")
+            _error(m, "tiingo", FetchError(msg, getattr(e, "host", "")), getattr(e, "host", ""))
+            if isinstance(e, NetworkError) and not ok:
+                break
+    if not ok:
+        raise FetchError("no Tiingo ticker downloaded", HOSTS["tiingo"][0])
+    for frames, name in ((indices, "indices_tiingo.csv"), (prices, "prices_tiingo.csv")):
+        if frames:
+            out = root / name
+            pd.concat(frames).to_csv(out, index=False)
+            _record(m, "tiingo", out, "ok")
+    report(1, f"{ok}/{len(tickers)} tickers")
+
+
+def etf_suggestions(dest="data") -> list:
+    """`IndexBenchmark(...)` lines for the ETF presets found as indices in `dest`, plus gross-index hints."""
+    root, names = Path(dest), set()
+    for f in sorted(root.glob("indices*.csv")):
+        try:
+            names |= set(pd.read_csv(f, usecols=["index"])["index"].astype(str))
+        except (ValueError, OSError):
+            pass
+    out = []
+    for n in sorted(names):
+        base = n.split(".")[0].upper()
+        e = ETF_PROXIES.get(base)
+        if e:
+            out.append(f'IndexBenchmark("{n}", mer=0.0)  # {base} tracks {e["tracks"]}; adjClose is already net of its '
+                       f'MER {e["mer"]:.4%} ({ETF_NOTE})')
+    if "SP500_TR" in names:
+        out.append(f'IndexBenchmark("SP500_TR", mer={ETF_PROXIES["VOO"]["mer"]})  # gross index: charge a VOO-like MER '
+                   f'(or SPY {ETF_PROXIES["SPY"]["mer"]}); {ETF_NOTE}')
+    return out
+
+
 # ------------------------------------------------------------------------------------------ labs
 def discover_labs(dest="data") -> tuple:
     """(lab specs, macro csv paths) that the files currently on disk allow."""
@@ -355,15 +575,18 @@ def register_labs(registry, manifest: "Manifest | None" = None, dest="data") -> 
 
 # ------------------------------------------------------------------------------------------ main
 def fetch_free(dest="data", sources=SOURCES, sec_user_agent=None, periods=None, tickers=DEFAULT_TICKERS,
-               start="2000-01-01", opener=None, progress=None) -> Manifest:
+               start="2000-01-01", opener=None, progress=None, tiingo_api_key=None,
+               tiingo_tickers=TIINGO_DEFAULT_TICKERS) -> Manifest:
     """Download the free datasets into `dest`; never raises for a source failure (see the manifest `errors`).
 
     `opener(request, timeout=...)` replaces urllib.request.urlopen (tests); `progress(frac, msg)` is called per
     step (default: screenlab.progress.report, a no-op outside a job)."""
     srcs = [s.strip().lower() for s in ([sources] if isinstance(sources, str) else sources) if s.strip()]
-    bad = [s for s in srcs if s not in SOURCES]
+    bad = [s for s in srcs if s not in ALL_SOURCES]
     if bad:
-        raise ValueError(f"unknown source {bad[0]!r}; use {list(SOURCES)}")
+        raise ValueError(f"unknown source {bad[0]!r}; use {list(ALL_SOURCES)}")
+    tiingo_tickers = [t.strip() for t in ([tiingo_tickers] if isinstance(tiingo_tickers, str) else
+                                          (tiingo_tickers or TIINGO_DEFAULT_TICKERS)) if t.strip()]
     root = Path(dest)
     root.mkdir(parents=True, exist_ok=True)
     tickers = [t.strip() for t in ([tickers] if isinstance(tickers, str) else (tickers or DEFAULT_TICKERS)) if t.strip()]
@@ -391,6 +614,10 @@ def fetch_free(dest="data", sources=SOURCES, sec_user_agent=None, periods=None, 
                 _fetch_fred(m, root, opener, start, report)
             elif s == "stooq":
                 _fetch_stooq(m, root, opener, tickers, start, report)
+            elif s == "shiller":
+                _fetch_shiller(m, root, opener, start, report)
+            elif s == "tiingo":
+                _fetch_tiingo(m, root, opener, tiingo_tickers, start, tiingo_api_key, report)
             else:
                 _fetch_statcan(m, root, opener, start, report)
         except _progress.Cancelled:

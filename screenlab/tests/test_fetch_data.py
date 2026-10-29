@@ -49,6 +49,32 @@ def statcan_zip() -> bytes:
     return b.getvalue()
 
 
+SHILLER_PAGE = ('<html><a href="https://img1.wsimg.com/blobby/go/abc-123/downloads/ie_data.xls?ver=1700000000">'
+                'ie_data.xls</a></html>')
+TIINGO_SPY = [{"date": "2023-12-29T00:00:00.000Z", "close": 475.0, "adjClose": 470.0, "divCash": 0.0},
+              {"date": "2024-01-02T00:00:00.000Z", "close": 472.0, "adjClose": 471.5, "divCash": 0.0},
+              {"date": "1999-01-04T00:00:00.000Z", "close": 1.0, "adjClose": 1.0, "divCash": 0.0}]
+
+
+def shiller_xlsx() -> bytes:
+    """A small synthetic ie_data: junk lines, a two-line-style header, data rows, a no-dividend last month, a footnote."""
+    import openpyxl
+    wb = openpyxl.Workbook()
+    wb.active.title = "Disclaimer"
+    ws = wb.create_sheet("Data")
+    ws.append(["Online Data Robert Shiller"])
+    ws.append([None, "S&P Composite"])
+    ws.append(["Date", "P", "D", "E", "CPI", "Date\nFraction", "Rate\nGS10", "Price", "Dividend"])
+    for r in ([2000.01, 100.0, 12.0, 5.0, 170.0, 2000.04, 6.5, 1, 1], [2000.02, 110.0, 12.0, 5.0, 171.0, 2000.12, 6.6, 1, 1],
+              [2000.03, 99.0, 12.6, 5.0, 172.0, 2000.21, 6.7, 1, 1], [2000.1, 120.0, 12.6, 5.0, 173.0, 2000.79, 6.8, 1, 1],
+              [2000.11, 121.0, None, None, 174.0, 2000.87, 6.9, 1, 1]):
+        ws.append(r)
+    ws.append(["Source: footnote text"])
+    b = io.BytesIO()
+    wb.save(b)
+    return b.getvalue()
+
+
 class FakeOpener:
     """Stands in for urlopen: routes by URL, records requests, can block hosts."""
 
@@ -73,6 +99,13 @@ class FakeOpener:
             body = self.stooq
         elif "statcan" in url:
             body = statcan_zip()
+        elif "shillerdata.com" in url:
+            body = SHILLER_PAGE
+        elif "ie_data" in url:
+            body = shiller_xlsx()
+        elif "api.tiingo.com" in url:
+            tk = url.split("/daily/")[1].split("/")[0]
+            body = json.dumps(TIINGO_SPY if tk in ("spy", "voo", "aapl") else {"detail": "Not found."})
         else:
             raise AssertionError(url)
         body = body.encode() if isinstance(body, str) else body
@@ -109,7 +142,8 @@ def test_every_source_parses_its_fixture(tmp_path):
     assert set(prices.ticker) == {"XIU.TO", "XIC.TO"} and list(prices.columns) == ["date", "ticker", "tri"]
     assert prices["date"].min() == "2023-12-29" and prices["tri"].max() == 11.0      # start filter, Close
     idx = pd.read_csv(d / "indices_stooq.csv")
-    assert set(idx["index"]) == {"SPY.US", "^SPX"} and list(idx.columns) == ["date", "index", "tri"]
+    assert set(idx["index"]) == {"SPY.US", "^SPX"} and list(idx.columns) == ["date", "index", "tri", "kind"]
+    assert set(idx["kind"]) == {"price"} and "kind=\"price\"" in m.notes["stooq"]
     sc = pd.read_csv(d / "macro_statcan.csv")
     assert sc.series.unique().tolist() == ["CPI_CA_STATCAN"] and sc.value.tolist() == [157.1, 157.5]
     urls = [u for u, _ in o.calls]
@@ -310,11 +344,97 @@ def test_operation_failure_is_data_not_an_exception(tmp_path, monkeypatch):
     assert out["manifest"]["allow_hosts"] == ["www.bankofcanada.ca"]
 
 
+# --------------------------------------------------------------------------- total-return sources
+def test_shiller_tr_arithmetic_is_exact(tmp_path):
+    o = FakeOpener()
+    m = run(tmp_path, o, sources=["shiller"])
+    d = tmp_path / "data"
+    assert m.errors == [] and m.allow_hosts["shiller"] == ["shillerdata.com", "img1.wsimg.com"]
+    assert any("ie_data.xls?ver=" in u for u, _ in o.calls)                       # link scraped from the page
+    idx = pd.read_csv(d / "indices_shiller.csv")
+    assert list(idx.columns) == ["date", "index", "tri", "kind"]
+    tr = idx[idx["index"] == "SP500_TR"].set_index("date")
+    t1 = 100 * (110 + 12 / 12) / 100
+    t2 = t1 * (99 + 12.6 / 12) / 110
+    assert tr.index.tolist() == ["2000-01-01", "2000-02-01", "2000-03-01", "2000-10-01"]      # 2000.1 is October
+    assert tr["tri"].iloc[0] == 100 and tr["tri"].iloc[1] == pytest.approx(t1, abs=1e-12)
+    assert tr["tri"].iloc[2] == pytest.approx(t2, abs=1e-12)
+    assert tr["tri"].iloc[3] == pytest.approx(t2 * (120 + 12.6 / 12) / 99, abs=1e-12)        # chained across the gap
+    assert set(tr["kind"]) == {"total_return"}
+    px = idx[idx["index"] == "SP500_PRICE"].set_index("date")
+    assert px["tri"].iloc[1] == pytest.approx(110.0) and set(px["kind"]) == {"price"} and len(px) == 5   # no D: price only
+    mac = pd.read_csv(d / "macro_shiller.csv")
+    assert list(mac.columns) == ["date", "series", "value"] and set(mac.series) == {"cpi_us", "long_rate_us"}
+    assert mac[(mac.series == "cpi_us") & (mac.date == "2000-02-01")]["value"].iloc[0] == 171.0
+    assert (d / "raw" / "shiller" / "ie_data.xlsx").exists() and "monthly" in m.notes["shiller"].lower()
+
+
+def test_shiller_unusable_sheet_and_blocked_host_are_error_entries(tmp_path):
+    m = run(tmp_path, FakeOpener(blocked={"shillerdata.com"}), sources=["shiller"])
+    assert m.errors[0]["source"] == "shiller" and m.errors[0]["host"] == "shillerdata.com"
+    bad = FakeOpener()
+    bad.__class__ = type("Bad", (FakeOpener,), {})
+    orig = FakeOpener.__call__
+    bad.__class__.__call__ = lambda self, req, timeout=None: (_Resp(b"Date,X\n1,2\n") if "ie_data" in req.full_url
+                                                              else orig(self, req, timeout))
+    m = run(tmp_path / "b", bad, sources=["shiller"])
+    assert "header row" in m.errors[0]["error"]
+
+
+def test_tiingo_adjclose_series_and_kinds(tmp_path, monkeypatch):
+    monkeypatch.setenv("TIINGO_API_KEY", "k3y")
+    o = FakeOpener()
+    m = run(tmp_path, o, sources=["tiingo"], tiingo_tickers=["SPY", "AAPL"], start="2000-01-01")
+    d = tmp_path / "data"
+    assert m.errors == [] and m.allow_hosts["tiingo"] == ["api.tiingo.com"]
+    idx = pd.read_csv(d / "indices_tiingo.csv")
+    assert list(idx.columns) == ["date", "index", "tri", "kind"] and idx["index"].unique().tolist() == ["SPY"]
+    assert idx["tri"].tolist() == [470.0, 471.5] and idx["date"].tolist() == ["2023-12-29", "2024-01-02"]   # adjClose, not close
+    assert set(idx["kind"]) == {"total_return"}
+    px = pd.read_csv(d / "prices_tiingo.csv")
+    assert list(px.columns) == ["date", "ticker", "tri"] and px["ticker"].unique().tolist() == ["AAPL"]
+    assert "https://api.tiingo.com/tiingo/daily/spy/prices?startDate=2000-01-01&token=k3y" in [u for u, _ in o.calls]
+
+
+def test_tiingo_missing_key_is_an_error_entry(tmp_path, monkeypatch):
+    monkeypatch.delenv("TIINGO_API_KEY", raising=False)
+    o = FakeOpener()
+    m = run(tmp_path, o, sources=["tiingo"])
+    assert m.errors[0]["source"] == "tiingo" and "TIINGO_API_KEY" in m.errors[0]["error"] and "tiingo.com" in m.errors[0]["error"]
+    assert m.errors[0]["host"] == "api.tiingo.com" and o.calls == []
+
+
+def test_tiingo_unknown_ticker_and_key_scrubbed(tmp_path, monkeypatch):
+    monkeypatch.setenv("TIINGO_API_KEY", "k3y")
+    m = run(tmp_path, FakeOpener(), sources=["tiingo"], tiingo_tickers=["SPY", "ZZZ"])
+    assert len(m.errors) == 1 and "Not found" in m.errors[0]["error"]
+    m = run(tmp_path / "b", FakeOpener(blocked={"api.tiingo.com"}), sources=["tiingo"])
+    assert m.errors[0]["host"] == "api.tiingo.com" and "k3y" not in json.dumps(m.errors)
+
+
+def test_etf_presets_and_status_suggestions(tmp_path, monkeypatch, capsys):
+    for t, mer in (("XIU", 0.0018), ("XIC", 0.0006), ("ZCN", 0.0006), ("VCN", 0.0005), ("SPY", 0.000945),
+                   ("VOO", 0.0003), ("VFV", 0.0009)):
+        assert fetch.ETF_PROXIES[t]["mer"] == mer and fetch.ETF_PROXIES[t]["url"].startswith("http")
+    monkeypatch.setenv("TIINGO_API_KEY", "k3y")
+    d = str(tmp_path / "tr")
+    rc = cli.main(["free", "--dest", d, "--sources", "shiller,tiingo", "--tiingo-tickers", "SPY"], opener=FakeOpener())
+    capsys.readouterr()
+    assert rc == 0
+    assert cli.main(["status", "--dest", d]) == 0
+    out = capsys.readouterr().out
+    for t in fetch.ETF_PROXIES:
+        assert t in out
+    assert 'IndexBenchmark("SPY", mer=0.0)' in out and 'IndexBenchmark("SP500_TR", mer=0.0003)' in out
+    assert "check current MER" in out
+
+
 # --------------------------------------------------------------------------- CLI
 def test_cli_hosts(capsys):
     assert cli.main(["hosts"]) == 0
     out = capsys.readouterr().out
-    for h in ("www.sec.gov", "www.bankofcanada.ca", "fred.stlouisfed.org", "stooq.com", "www150.statcan.gc.ca"):
+    for h in ("www.sec.gov", "www.bankofcanada.ca", "fred.stlouisfed.org", "stooq.com", "www150.statcan.gc.ca",
+              "shillerdata.com", "api.tiingo.com"):
         assert h in out
     assert "https://code.claude.com/docs/en/cloud-environments#network-access" in out
 
@@ -349,3 +469,13 @@ def test_makefile_data_free_command():
     assert 'screenlab.realdata.cli free --dest "data"' in out and '--sec-user-agent "x y@z"' in out
     assert "--sources sec,boc,fred,stooq,statcan" in out and "--tickers XIU.TO,XIC.TO,SPY.US,^SPX" in out
     assert "help" in subprocess.run(["make"], cwd=root, capture_output=True, text=True).stdout
+
+
+def test_makefile_data_tr_and_hosts():
+    import shutil
+    import subprocess
+    if shutil.which("make") is None:
+        pytest.skip("make not installed")
+    root = fetch.Path(fetch.__file__).parents[2]
+    out = subprocess.run(["make", "-n", "data-tr"], cwd=root, capture_output=True, text=True).stdout
+    assert "--sources shiller,tiingo" in out
