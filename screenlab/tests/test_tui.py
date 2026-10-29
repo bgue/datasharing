@@ -790,7 +790,7 @@ def stub_fetch():
 def test_session_fetch_data_job_and_datasets(stub_fetch):
     s = Session(make_registry(), own=True)
     d = s.command("datasets")
-    assert d["downloader"] is True and d["sources"] == ["sec", "boc", "fred", "stooq", "statcan"]
+    assert d["downloader"] is True and d["sources"] == ["sec", "boc", "fred", "stooq", "statcan", "shiller", "tiingo"]
     assert [x["name"] for x in d["labs"]] == ["synthetic"] and "SYN_CAPWT" in d["labs"][0]["line"]
     assert "www.sec.gov" in d["allow_hosts"] and d["last_fetch"] is None
     with pytest.raises(SessionError) as e:
@@ -853,8 +853,10 @@ def test_app_data_tab_cards_and_download(stub_fetch):
                     break
             await pilot.pause(0.8)
             man = app.query_one("#t-manifest")
-            assert [str(man.get_row_at(i)[0]) for i in range(man.row_count)] == ["sec", "boc", "stooq", "statcan"]
-            assert "download finished: 4 file(s)" in str(app.query_one("#d-status").render())
+            from screenlab.tui.session import FETCH_SOURCES
+            expected = [x for x in FETCH_SOURCES if x != "fred"]
+            assert [str(man.get_row_at(i)[0]) for i in range(man.row_count)] == expected
+            assert f"download finished: {len(expected)} file(s)" in str(app.query_one("#d-status").render())
             assert "403" in str(app.query_one("#d-errors").render())
             assert app.query_one("#t-datasets").row_count == 2                 # the lab the job produced is listed
             sel = app.query_one("#f-lab")                                      # and the editor offers it
@@ -896,6 +898,7 @@ def test_data_tab_over_remote_session(parent, stub_fetch):
                 if parent.session.data_fetch and app.query_one("#t-manifest").row_count:
                     break
             await pilot.pause(0.8)
-            assert app.query_one("#t-manifest").row_count == 5                  # all five sources ticked
+            from screenlab.tui.session import FETCH_SOURCES
+            assert app.query_one("#t-manifest").row_count == len(FETCH_SOURCES)   # every source ticked
             assert parent.session.lab_names() == ["synthetic", "real_ca"]
     arun(go())
