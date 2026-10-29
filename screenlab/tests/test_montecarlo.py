@@ -21,7 +21,7 @@ N = 24
 
 @pytest.fixture(scope="module")
 def lab():
-    return sp500_lab(n=5)
+    return sp500_lab(n=5, benchmark="price", allow_price_benchmark=True)
 
 
 # --------------------------------------------------------------------------- a base whose answer is known
@@ -62,7 +62,7 @@ def test_operation_is_registered_and_reachable_via_lab(lab):
 
 def test_family_counts_each_generator_configuration(tmp_path):
     store = SQLiteStore(tmp_path / "t.sqlite")
-    lab = sp500_lab(n=5, store=store)
+    lab = sp500_lab(n=5, store=store, benchmark="price", allow_price_benchmark=True)
     lab.name = "sp500"
     kw = dict(screens=["low_vol"], n_paths=8, horizon_years=[2])
     lab.montecarlo(generator=BlockBootstrap(12), **kw)
@@ -199,7 +199,7 @@ JOB = dict(screens=["low_vol"], n_paths=10, horizon_years=[2], seed=3)
 
 def test_runs_as_a_job_in_thread_mode(tmp_path):
     store = SQLiteStore(tmp_path / "t.sqlite")
-    lab = sp500_lab(n=5, store=store)
+    lab = sp500_lab(n=5, store=store, benchmark="price", allow_price_benchmark=True)
     lab.name = "sp500"
     job = lab.submit("montecarlo", **JOB)
     res = job.result(timeout=300)
@@ -214,7 +214,7 @@ def test_runs_as_a_job_in_thread_mode(tmp_path):
 @pytest.fixture(scope="module")
 def reg():
     from screenlab.server.registry import LabRegistry
-    return LabRegistry({"sp500": lambda: sp500_lab(n=5)}, default="sp500", mode="thread")
+    return LabRegistry({"sp500": lambda: sp500_lab(n=5, benchmark="price", allow_price_benchmark=True)}, default="sp500", mode="thread")
 
 
 def test_rest_and_mcp(reg):

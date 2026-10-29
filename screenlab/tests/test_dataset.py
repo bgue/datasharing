@@ -157,7 +157,10 @@ def test_passive_index_registers_total_return_in_card():
 def test_bundled_sp500_card_and_warnings():
     pytest.importorskip("skfolio")
     from screenlab.realdata.bundled import sp500_lab
-    lab = sp500_lab()
+    default = sp500_lab().data_card()                          # the default benchmark adds a 2%/yr dividend yield
+    assert default.benchmark_kind == "approx_total_return" and default.dividend_yield == 0.02
+    assert not any("is a price index" in w for w in default.warnings())
+    lab = sp500_lab(benchmark="price", allow_price_benchmark=True)       # the raw index, opted in
     c = lab.data_card()
     assert (c.name, c.n_names, c.benchmark, c.benchmark_kind, c.delisted_included) == (
         "sp500_bundled", 20, "SP500", "price", False)

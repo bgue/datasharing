@@ -70,7 +70,7 @@ def test_screens_pick_expected_names(lab):
 
 def test_backtest_runs_on_real_data(lab):
     rep = lab.backtest(["momentum_12_1", "low_vol"], start="1995-01-03")
-    assert set(rep.table.index) == {"SP500", "momentum_12_1", "low_vol"}
+    assert set(rep.table.index) == {"SP500 +2.0% div (approx. TR)", "momentum_12_1", "low_vol"}
     assert rep.table.loc["low_vol", "Vol"] < rep.table.loc["momentum_12_1", "Vol"]
     assert rep.table.loc["low_vol", "Vol"] < 0.30 and rep.table["CAGR"].notna().all()
 

@@ -1,7 +1,8 @@
 """Datasets that ship inside installed packages (skfolio, statsmodels): no network needed.
 
 Adjusted close stands in for a total-return index. `sp500_lab()` wires the 20 bundled
-names into a `Lab` with a price-only fundamentals table and four price-only screens.
+names into a `Lab` with a price-only fundamentals table and four price-only screens; its S&P 500 series
+is a price index, so the default benchmark adds a 2%/yr dividend yield (approximate total return).
 """
 from __future__ import annotations
 
@@ -105,7 +106,21 @@ def price_only_fundamentals(prices: pd.DataFrame, sectors: dict | None = None) -
     return f
 
 
-def sp500_lab(path_prices=None, path_index=None, n: int = 5, **kw) -> Lab:
-    """Lab on the 20 bundled S&P 500 names, benchmarked on the S&P 500 index."""
+def sp500_lab(path_prices=None, path_index=None, n: int = 5, dividend_yield: float | None = 0.02,
+              benchmark=None, **kw) -> Lab:
+    """Lab on the 20 bundled S&P 500 names, benchmarked on the S&P 500.
+
+    The bundled SP500 series is a PRICE index and the portfolios are total return, so by default the
+    benchmark is `IndexBenchmark("SP500", dividend_yield=0.02)`: the price index plus an assumed 2%/yr
+    dividend yield (an approximate total return, labelled as such on the data card). `dividend_yield`
+    changes that assumption. `benchmark="price"` gives the raw price index, which the Lab refuses to
+    compare with unless `allow_price_benchmark=True` is passed too. Any other `benchmark` (an
+    IndexBenchmark) is used as given."""
+    from ..benchmarks import IndexBenchmark
     from ..dataset import BundledSP500Builder
-    return Lab.from_dataset(BundledSP500Builder(path_prices, path_index).build(), screens=price_screens(n), **kw)
+    ds = BundledSP500Builder(path_prices, path_index).build()
+    if benchmark is None:
+        benchmark = IndexBenchmark("SP500", dividend_yield=dividend_yield)
+    elif isinstance(benchmark, str) and benchmark == "price":
+        benchmark = IndexBenchmark("SP500")
+    return Lab.from_dataset(ds, screens=price_screens(n), benchmark=benchmark, **kw)

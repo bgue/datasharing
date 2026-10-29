@@ -15,7 +15,7 @@ from ..exit_policy import Portfolio, as_policy
 from ..jsonout import DEFAULT_MAX_POINTS, curves, scalar, table
 from ..metrics import M
 from ..operations import Operation, arg, register_operation
-from ._request import ConfigOverrides, ExitRequest, benchmarks, clean, config_overrides, exit_policy, parse_date
+from ._request import BenchmarkRequest, ConfigOverrides, ExitRequest, benchmarks, clean, config_overrides, exit_policy, parse_date
 
 
 def format_table(tbl: pd.DataFrame) -> str:
@@ -49,6 +49,7 @@ class BacktestReport:
     config: _bt.Config
     compare: dict = field(default_factory=dict)   # label -> extra comparison curve (screen benchmarks etc.)
     data_card: DataCard | None = None             # what the data is (benchmark kind, survivorship, ...)
+    price_benchmark_allowed: bool = False         # the run was told to accept a price-index benchmark
 
     @property
     def curves(self) -> pd.DataFrame:
@@ -98,7 +99,7 @@ class Backtest(Operation):
     """Backtest screens against the passive index."""
     name = "backtest"
     registry_order = ("screens", "start", "end", "config", "lab", "max_points", "exit", "with_and_without",
-                      "benchmark", "compare")
+                      "benchmark", "compare", "allow_price_benchmark")
 
     @dataclass
     class Args:
@@ -109,11 +110,12 @@ class Backtest(Operation):
                                                    "capital, mer, delist_return, min_holdings, cash_rate, ...")
         exit: ExitRequest | None = arg(None, "exit policy applied to every screen")
         with_and_without: bool = arg(False, "also run each screen without the exit policy (rows name, name+exit)")
-        benchmark: str | None = arg(None, "index name replacing the lab's passive benchmark")
+        benchmark: str | BenchmarkRequest | None = arg(None, "index name, or {index, dividend_yield, mer, cost_bps}, replacing the lab's passive benchmark")
+        allow_price_benchmark: bool = arg(False, "keep a price-index benchmark (excess return is then overstated by about the dividend yield); by default it is refused")
         compare: list[str] | None = arg(None, "extra comparison rows: index names or 'topN'")
 
     def run(self, lab, screens=None, start=None, end=None, benchmark=None, exit=None,
-            with_and_without: bool = False, compare=(), **cfg) -> BacktestReport:
+            with_and_without: bool = False, compare=(), allow_price_benchmark=None, **cfg) -> BacktestReport:
         """Backtest screens (names, Screens or `Portfolio(name, screen, exit=None, **config_overrides)`).
 
         `exit`: an ExitPolicy (or ExitScreen, wrapped in a default policy) applied to every entry in the
@@ -125,9 +127,14 @@ class Backtest(Operation):
 
         The primary benchmark (`report.benchmark`, Excess/yr, BeatBenchYrs) is always a passive index:
         the lab's, or `benchmark` if that is an IndexBenchmark. A ScreenBenchmark passed as `benchmark`,
-        and anything in `compare`, only adds rows labelled "<name> (compare)"."""
+        and anything in `compare`, only adds rows labelled "<name> (compare)".
+
+        Portfolios are total return, so a price-index benchmark (`IndexBenchmark.kind == "price"`) is refused
+        with a `BenchmarkKindError` naming the fixes (`IndexBenchmark("SP500", dividend_yield=0.02)`, a TR
+        series, or `allow_price_benchmark=True` here or on the Lab, which keeps it with a warning)."""
         cfg = lab._cfg(**cfg)
-        bench, extras = lab.passive(benchmark), lab._extras(benchmark, compare)
+        bench = lab.benchmark_for(benchmark, allow_price_benchmark, "this backtest")
+        extras = lab._extras(benchmark, compare)
         call_exit = as_policy(exit) or cfg.exit
         items, used = [], set()                      # (label, screen, config, policy or None)
         for s in (screens or list(lab.screens)):
@@ -168,8 +175,11 @@ class Backtest(Operation):
                            M.COSTS_YR: res.costs.sum() / yrs}
             if res.exit is not None:
                 rows[label].update({M.TIMEOUT: res.time_out, M.SWITCHES_YR: res.switches / yrs})
-        return BacktestReport(pd.DataFrame(rows).T, results, bcurve, bench.label, cfg, ccurves,
-                              lab.data_card(benchmark))
+        rep = BacktestReport(pd.DataFrame(rows).T, results, bcurve, bench.label, cfg, ccurves,
+                             lab.data_card(benchmark))
+        rep.price_benchmark_allowed = bool(lab.allow_price_benchmark if allow_price_benchmark is None
+                                           else allow_price_benchmark)
+        return rep
 
     def annotate(self, result, args):
         if isinstance(result, BacktestReport):
@@ -183,7 +193,8 @@ class Backtest(Operation):
         pol = exit_policy(lab, a.exit) if a.exit else None
         bm, cmp = benchmarks(a.benchmark, a.compare)
         return clean(dict(screens=a.screens, start=start, end=end, benchmark=bm, exit=pol,
-                          with_and_without=bool(a.with_and_without) or None, compare=cmp or None, **cfg))
+                          with_and_without=bool(a.with_and_without) or None, compare=cmp or None,
+                          allow_price_benchmark=bool(a.allow_price_benchmark) or None, **cfg))
 
     def to_json(self, result, max_points=DEFAULT_MAX_POINTS, *, lab=None, kw=None):
         return report_json(result, max_points)

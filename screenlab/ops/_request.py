@@ -40,6 +40,18 @@ class ConfigOverrides:
     hold_rule: HoldRuleRequest | None = arg(None, "turnover control: {keep_within, band}")
 
 
+@dataclass
+class BenchmarkRequest:
+    """A passive-index benchmark with options (instead of a bare index name)."""
+    index: str = arg(doc="index name or ticker, e.g. SP500")
+    dividend_yield: float | None = arg(None, "annual dividend yield added back to a PRICE index, e.g. 0.02: "
+                                             "the benchmark becomes an approximate total return")
+    mer: float | None = arg(None, "annual expense ratio of the fund tracking it")
+    cost_bps: float | None = arg(None, "one-time purchase cost in bps")
+    kind: Literal["total_return", "price", "approx_total_return"] | None = arg(
+        None, "override the dataset's record of what the series is")
+
+
 class SignalSpec:
     """Marker annotation: one exit signal, `{"type": <name>, <parameters>}` (see list_signals)."""
 
@@ -257,9 +269,17 @@ def benchmarks(benchmark, compare):
     """(IndexBenchmark or None, [extra benchmarks]) from request strings: "topN" is never primary."""
     from ..benchmarks import IndexBenchmark, parse_benchmark as mk
     for name, v in (("benchmark", benchmark), ("compare", compare)):
-        if v is not None and not isinstance(v, (str, list, tuple)):
-            raise ServerError(400, f"`{name}` must be a string" + (" or a list of strings" if name == "compare" else ""))
+        ok = (str, list, tuple) if name == "compare" else (str, dict)
+        if v is not None and not isinstance(v, ok):
+            raise ServerError(400, f"`{name}` must be a string" + (" or a list of strings" if name == "compare"
+                              else " or an object {\"index\", \"dividend_yield\", \"mer\", \"cost_bps\"}"))
     extra = [compare] if isinstance(compare, str) else list(compare or [])
+    if isinstance(benchmark, dict):
+        try:
+            b = mk({k: v for k, v in benchmark.items() if v is not None})
+        except (ValueError, TypeError) as e:
+            raise ServerError(400, f"bad `benchmark`: {e}") from None
+        return b, [mk(x) for x in extra]
     if isinstance(benchmark, str):
         b = mk(benchmark)
         if isinstance(b, IndexBenchmark):

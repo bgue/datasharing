@@ -100,7 +100,7 @@ Second check, 10-year training / 3-year test windows (same objective):
 
 Notes on reading these tables:
 
-* **The passive S&P 500 here is a price index (no dividends)**, while the stocks use adjusted prices (dividends included). The "approx. total return" row adds 2% a year to give a fairer yardstick; it is an approximation, not data. Even on that basis the momentum portfolio's lead comes from stock selection among surviving winners (see caveats), not from the exit.
+* **The passive S&P 500 here is a price index (no dividends)**, while the stocks use adjusted prices (dividends included). The "approx. total return" row adds 2% a year to give a fairer yardstick (the same approximation as `IndexBenchmark("SP500", dividend_yield=0.02)`, which `sp500_lab()` now uses as its benchmark; the Lab refuses a bare price-index benchmark unless `allow_price_benchmark=True`); it is an approximation, not data. Even on that basis the momentum portfolio's lead comes from stock selection among surviving winners (see caveats), not from the exit.
 * Moving money out of the market earns 0% in the main rows. The row with 2.5% on parked money shows the effect of paying interest: about +0.7 percentage point of CAGR.
 
 ### Is the exit better than no exit? (statistical tests)

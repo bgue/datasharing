@@ -3,6 +3,9 @@
 IndexBenchmark   buy and hold an index (or an index fund/ETF) from the
                  portfolio's start date: one purchase, its own MER and
                  trading cost (both 0 by default, i.e. a frictionless index).
+                 It knows its `kind`: "total_return", "price" (dividends left out) or, with
+                 `dividend_yield`, "approx_total_return" (price x (1+y)^years). Portfolios are total
+                 return, so a "price" benchmark is refused by the Lab (see `Lab.passive`).
 ScreenBenchmark  run a screen as the benchmark (e.g. equal-weight top 60),
                  paying the same costs as the portfolio under test.
 """
@@ -15,6 +18,7 @@ import pandas as pd
 
 from . import backtest
 from .data import Market
+from .dataset import ALL_KINDS, approx_total_return
 from .screens import Screen
 from .serial import TAG, from_dict as _from, register_tag, serializable, to_dict as _to
 
@@ -26,13 +30,51 @@ class IndexBenchmark:
     mer: float = 0.0                  # annual expense ratio of the fund tracking it
     cost_bps: float = 0.0             # one-time purchase cost
     name: str | None = None
+    kind: str | None = None           # None: taken from the dataset; "total_return" | "price" | "approx_total_return"
+    dividend_yield: float | None = None   # annual yield added back to a PRICE index (0.02 = 2%): approx. total return
+
+    def __post_init__(self):
+        if self.kind is not None and self.kind not in ALL_KINDS:
+            raise ValueError(f"IndexBenchmark kind must be one of {ALL_KINDS} (or None), got {self.kind!r}")
+        if self.dividend_yield is not None and not 0.0 <= float(self.dividend_yield) < 1.0:
+            raise ValueError(f"dividend_yield must be a yearly rate in [0, 1), e.g. 0.02, got {self.dividend_yield!r}")
+        if self.kind == "approx_total_return" and self.dividend_yield is None:
+            raise ValueError("kind='approx_total_return' needs dividend_yield, e.g. dividend_yield=0.02")
+        if self.kind == "total_return" and self.dividend_yield is not None:
+            raise ValueError("dividend_yield is for a price index; kind='total_return' already includes dividends")
 
     @property
     def label(self) -> str:
-        return self.name or self.index
+        if self.name:
+            return self.name
+        if self.dividend_yield is not None:
+            return f"{self.index} +{self.dividend_yield:.1%} div (approx. TR)"
+        return self.index
+
+    def source_kind(self, mkt: Market) -> str:
+        """What the underlying series is: the explicit `kind` ("approx_total_return" means a price series),
+        else the dataset's record for this index ("total_return" for a ticker or an unrecorded index)."""
+        if self.kind in ("price", "total_return"):
+            return self.kind
+        if self.kind == "approx_total_return":
+            return "price"
+        return mkt.dataset.kind_of(self.index)
+
+    def effective_kind(self, mkt: Market) -> str:
+        """The kind of the curve this benchmark produces: approx_total_return with a dividend yield."""
+        base = self.source_kind(mkt)
+        if self.dividend_yield is None:
+            return base
+        if base != "price":
+            raise ValueError(f"dividend_yield={self.dividend_yield} given for {self.index!r}, which is already "
+                             f"a total-return series: adding dividends would count them twice")
+        return "approx_total_return"
 
     def curve(self, mkt: Market, cfg: backtest.Config, start, end=None) -> pd.Series:
         s = mkt.series(self.index).loc[pd.Timestamp(start):pd.Timestamp(end) if end else None].dropna()
+        if self.dividend_yield is not None:
+            self.effective_kind(mkt)                 # raises when the series already includes dividends
+            s = approx_total_return(s, float(self.dividend_yield))
         yrs = ((s.index - s.index[0]).days / 365.25).to_numpy()
         g = s / s.iloc[0] * np.power(1 - self.mer, yrs)
         g.iloc[1:] *= 1 - self.cost_bps / 1e4      # bought at the start-day close, like a screen
@@ -87,9 +129,27 @@ def equal_weight_top(n: int = 60) -> ScreenBenchmark:
     return ScreenBenchmark(backtest.benchmark_screen(n))
 
 
+def price_benchmark_message(index: str, what: str = "this comparison") -> str:
+    """The plain-language refusal for comparing total-return portfolios with a price index."""
+    return (f"Refused: {what} would compare total-return portfolios with {index!r}, a price index (dividends left "
+            f"out), which overstates excess return by about the index's dividend yield (roughly 2 points a year "
+            f"for the S&P 500). Fix it one of three ways: add the dividends back with "
+            f"IndexBenchmark({index!r}, dividend_yield=0.02) (REST/MCP: benchmark={{\"index\": \"{index}\", "
+            f"\"dividend_yield\": 0.02}}); use a total-return series as the benchmark; or pass "
+            f"allow_price_benchmark=True (Lab(allow_price_benchmark=True), REST/MCP `allow_price_benchmark`) to "
+            f"keep the price index, knowing the result is flattered.")
+
+
 def parse_benchmark(b):
     """A benchmark from a request-style string: "topN" -> equal-weight top-N ScreenBenchmark, any other
-    string -> IndexBenchmark of that index / ticker. Benchmark objects pass through."""
+    string -> IndexBenchmark of that index / ticker, a dict {"index", "dividend_yield", "mer", "cost_bps",
+    "kind", "name"} -> IndexBenchmark. Benchmark objects pass through."""
+    if isinstance(b, dict):
+        extra = sorted(set(b) - {"index", "dividend_yield", "mer", "cost_bps", "kind", "name"})
+        if extra or not isinstance(b.get("index"), str) or not b["index"].strip():
+            raise ValueError("a benchmark object needs a string `index` and may have dividend_yield, mer, cost_bps, "
+                             "kind, name" + (f"; unknown keys {extra}" if extra else ""))
+        return IndexBenchmark(**{**b, "index": b["index"].strip()})
     if isinstance(b, str):
         t = b.strip()
         if t.lower().startswith("top") and t[3:].isdigit():

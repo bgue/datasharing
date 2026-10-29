@@ -13,7 +13,10 @@ Setup (see MONTECARLO_SP500.md for the write-up):
     Sensitivity (10-year summary rows only): StationaryBootstrap(12), RegimeBootstrap (volatility regimes),
     IIDBootstrap.
   * The index is a price index: P(trail) is shown against it as-is and against it plus ~2%/yr of dividends
-    ("SP500 + ~2% div (approx. TR)").
+    ("SP500 + ~2% div (approx. TR)"). The Lab refuses a price-index benchmark by default (it flatters total-return
+    portfolios), so this study asks for the raw index explicitly (`sp500_lab(benchmark="price",
+    allow_price_benchmark=True)`) to show the gap. The "+2%" CAGR column is the same arithmetic as the Lab's own
+    `IndexBenchmark("SP500", dividend_yield=0.02)` (which `sp500_lab()` uses by default).
 Fixed seeds; about 1 minute. Outputs: research/montecarlo/ (CSV tables are git-ignored; PNGs and the .md are tracked).
 """
 from __future__ import annotations
@@ -344,7 +347,7 @@ def write_report(res, tabs, sens, path):
 ## Two warnings that apply to everything below
 
 1. **Survivor-biased stocks.** The 20 names are today's large, successful companies that were already listed in 1990. Companies that failed or shrank are missing. The package's survivorship score for this data is **{card.survivorship_score * 100:+.1f} percentage points a year**: an equal-weight basket of the 20 names beat the S&P 500 by that much. Resampling cannot remove this; every simulated path inherits it. Treat the portfolios' results as an upper bound on what picking from the full market would have delivered.
-2. **A price index as the yardstick.** The `SP500` series leaves dividends out, while the portfolios use adjusted prices that include them. Against the plain index the portfolios look better than they should, by about the index's dividend yield. We therefore show every comparison twice: against the index as it is, and against **"SP500 + ~2% div (approx. TR)"**, which adds 2% a year to the index on every path. The 2% is a rough long-run dividend yield, not data.
+2. **A price index as the yardstick.** The `SP500` series leaves dividends out, while the portfolios use adjusted prices that include them. Against the plain index the portfolios look better than they should, by about the index's dividend yield. We therefore show every comparison twice: against the index as it is (the Lab refuses a price-index benchmark unless told `allow_price_benchmark=True`, which this study does on purpose), and against **"SP500 + ~2% div (approx. TR)"**, which adds 2% a year to the index on every path (the same approximation as `IndexBenchmark("SP500", dividend_yield=0.02)`). The 2% is a rough long-run dividend yield, not data.
 
 The software prints the same two warnings on every result (`str(result)`), together with the note that bootstrap paths inherit the data's biases.
 
@@ -410,7 +413,7 @@ Seed {SEED}, {N_PATHS} paths, month-end steps, {COST_BPS:.0f} bps one-way costs.
 def main():
     t0 = time.time()
     OUT.mkdir(parents=True, exist_ok=True)
-    lab = sp500_lab(n=5)
+    lab = sp500_lab(n=5, benchmark="price", allow_price_benchmark=True)   # raw price index, on purpose (see header)
     res = run(lab, BlockBootstrap(12), HORIZONS)
     print(res)
     tabs = summary_tables(res)

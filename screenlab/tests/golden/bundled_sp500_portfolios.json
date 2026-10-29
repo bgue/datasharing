@@ -1,0 +1,26 @@
+{
+  "low_vol": {
+    "CAGR": 0.124904,
+    "MaxDD": -0.379438,
+    "Turnover": 0.074192,
+    "Vol": 0.154209
+  },
+  "low_vol+exit": {
+    "CAGR": 0.101674,
+    "MaxDD": -0.199596,
+    "Turnover": 0.074192,
+    "Vol": 0.111345
+  },
+  "momentum_12_1": {
+    "CAGR": 0.22511,
+    "MaxDD": -0.467235,
+    "Turnover": 0.24594,
+    "Vol": 0.240472
+  },
+  "momentum_12_1+exit": {
+    "CAGR": 0.193052,
+    "MaxDD": -0.339057,
+    "Turnover": 0.24594,
+    "Vol": 0.187611
+  }
+}

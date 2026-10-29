@@ -10,7 +10,7 @@ from ..jsonout import DEFAULT_MAX_POINTS, jsonify, scalar, table
 from ..metrics import M
 from ..operations import Operation, arg, register_operation
 from ..tracking import grid_points, note_points
-from ._request import SplitsRequest, clean, parse_date
+from ._request import BenchmarkRequest, SplitsRequest, benchmarks, clean, parse_date
 
 
 @register_operation(builtin=True)
@@ -20,7 +20,8 @@ class Sweep(Operation):
     long_running = True
     counts_points = True
     takes_max_points = False
-    registry_order = ("screen", "grid", "objective", "start", "end", "splits", "lab")
+    registry_order = ("screen", "grid", "objective", "start", "end", "splits", "benchmark", "allow_price_benchmark",
+                      "lab")
 
     @dataclass
     class Args:
@@ -30,9 +31,11 @@ class Sweep(Operation):
         start: str | None = arg(None, "first formation date")
         end: str | None = arg(None, "last date")
         splits: SplitsRequest | None = arg(None, "walk-forward windows (adds out-of-sample columns)")
+        benchmark: str | BenchmarkRequest | None = arg(None, "index name, or {index, dividend_yield, mer, cost_bps}, replacing the lab's passive benchmark")
+        allow_price_benchmark: bool = arg(False, "keep a price-index benchmark (excess return is then overstated); by default it is refused")
 
     def run(self, lab, screen, grid, objective=M.EXCESS_YR, start=None, end=None, splits=None,
-            benchmark=None) -> pd.DataFrame:
+            benchmark=None, allow_price_benchmark=None) -> pd.DataFrame:
         """Grid / random-search sweep; dotted keys ("dogs.n") hit the screen, bare keys Config.
         `splits=dict(train_years=.., test_years=..)` adds walk-forward out-of-sample columns.
         Every grid point counts as a trial: `result.attrs["n_trials"]` (also `trials_in_family`,
@@ -42,14 +45,18 @@ class Sweep(Operation):
             grid = Grid(grid)
         n = note_points(lab, "sweep", lab._tl.args or {}, grid_points(grid.spec if isinstance(grid, Grid) else grid)) \
             if getattr(lab._tl, "args", None) is not None else 0
-        tbl = run_sweep(lab, lab.screen(screen), grid, objective, start, end, splits, lab.passive(benchmark))
+        tbl = run_sweep(lab, lab.screen(screen), grid, objective, start, end, splits,
+                        lab.benchmark_for(benchmark, allow_price_benchmark, "this sweep"),
+                        allow_price_benchmark=allow_price_benchmark)
         info = lab.last_trials() or {}
         tbl.attrs.update(info, n_trials=max(len(tbl), n))
         return tbl
 
     def build(self, lab, a) -> dict:
         return clean(dict(screen=a.screen, grid=a.grid, objective=a.objective, start=parse_date("start", a.start),
-                          end=parse_date("end", a.end), splits=a.splits))
+                          end=parse_date("end", a.end), splits=a.splits,
+                          benchmark=benchmarks(a.benchmark, None)[0],
+                          allow_price_benchmark=bool(a.allow_price_benchmark) or None))
 
     def to_json(self, result, max_points=DEFAULT_MAX_POINTS, *, lab=None, kw=None):
         kw = kw or {}

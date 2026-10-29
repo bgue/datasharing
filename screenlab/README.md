@@ -9,7 +9,9 @@ notebook, a REST API, Claude (MCP) or Python.
 > **State of the data (read this first).** The only data bundled with the code is 20 large S&P 500 stocks
 > that all survived to 2022, plus a price-only S&P 500 index, and a made-up (synthetic) market for testing.
 > Results on these show how the machinery works, **not whether a screen has an edge**: survivors flatter
-> every strategy (about +10 points a year here) and the price-only index understates the benchmark.
+> every strategy (about +10 points a year here). The S&P 500 series leaves out dividends, so `--data sp500`
+> benchmarks against it plus an assumed 2% a year of dividends (an approximation, labelled as one); a bare
+> price index as the benchmark is refused unless you ask for it (`allow_price_benchmark`).
 > The program prints warnings to that effect. For real, point-in-time data see
 > [realdata/ACQUIRE.md](realdata/ACQUIRE.md); for an honest list of what the numbers can and cannot
 > support, see [CRITIQUE.md](CRITIQUE.md).
@@ -79,28 +81,35 @@ Check the install any time with `screenlab-run --version`. `screenlab-run --help
 ## How to read the output
 This is the command from step 5, trimmed:
 ```
-Backtest 1991-02-04 to 2022-12-28, rebalance every 1m, benchmark SP500
-Data: sp500_bundled, 1990-01-02..2022-12-28, 20 names, benchmark SP500 (price), PIT n/a, delisted no, survivorship +10.1%/yr
-WARNING: benchmark SP500 is a price index (dividends left out) but the portfolios are total return, ...
-WARNING: survivorship score +10.1%/yr: ... results are likely flattered.
+Backtest 1991-02-04 to 2022-12-28, rebalance every 1m, benchmark SP500 +2.0% div (approx. TR)
+Data: sp500_bundled, 1990-01-02..2022-12-28, 20 names, benchmark SP500 (approx_total_return: price index + assumed 2.0%/yr dividends), PIT n/a, delisted no, survivorship +7.9%/yr
+WARNING: benchmark SP500 is an approximate total return: the price index plus an assumed constant 2.0%/yr dividend yield, ...
+WARNING: survivorship score +7.9%/yr: ... results are likely flattered.
 
-                CAGR    Vol Sharpe   MaxDD Worst12m  AvgN BeatBenchYrs Excess/yr Turnover Costs/yr
-momentum_12_1  22.8%  23.8%   0.98  -47.2%   -40.6%  5.00        81.2%     15.0%    25.0%     1.5%
-low_vol        12.7%  15.3%   0.86  -35.1%   -28.3%  5.00        65.6%      4.9%     7.2%     0.4%
-SP500           7.8%  18.4%   0.50  -56.8%   -48.8%
+                               CAGR    Vol Sharpe   MaxDD Worst12m  AvgN BeatBenchYrs Excess/yr Turnover Costs/yr
+momentum_12_1                 22.8%  23.8%   0.98  -47.2%   -40.6%  5.00        81.2%     12.9%    25.0%     1.5%
+low_vol                       12.7%  15.3%   0.86  -35.1%   -28.3%  5.00        56.2%      2.8%     7.2%     0.4%
+SP500 +2.0% div (approx. TR)   9.9%  18.4%   0.61  -55.5%   -47.8%
 
 Current picks as of 2022-12-28
   momentum_12_1        XOM, CVX, RRC, MRK, LLY
 ```
 - **`Data:` line (the data card)** says what you tested on: synthetic or real, whether fundamentals were
-  known at the time (`PIT`), whether dead companies are included (`delisted`), and a measured
+  known at the time (`PIT`), whether dead companies are included (`delisted`), the **kind of the benchmark**
+  (`total_return`, `price`, or `approx_total_return` with the dividend yield assumed) and a measured
   `survivorship` estimate in points a year.
 - **`WARNING` lines** are the program refusing to let you fool yourself. Take them seriously.
+- **Benchmark kind.** Portfolios are total return (dividends reinvested), so the benchmark must be too.
+  Against a *price* index (dividends left out) `Excess/yr` is overstated by about the dividend yield (roughly
+  2 points a year for the S&P 500), so the program refuses: it raises a `BenchmarkKindError` that names the
+  fixes. Add the dividends back with `IndexBenchmark("SP500", dividend_yield=0.02)` (an approximation, shown as
+  such), use a total-return series, or keep the old behaviour with `allow_price_benchmark=True`
+  (`--allow-price-benchmark`; REST/MCP `allow_price_benchmark`).
 - **Columns.** `CAGR` compound annual return; `Vol` volatility; `Sharpe` return per unit of risk;
   `MaxDD` worst peak-to-trough fall; `Worst12m` worst rolling year; `AvgN` average holdings;
   `BeatBenchYrs` share of years the portfolio beat the index; **`Excess/yr`** average yearly return above the
   passive index (the number that matters, after costs); `Turnover` share traded per year; `Costs/yr` the
-  yearly drag from trading costs. The row with no `AvgN` (`SP500`) is the passive index itself.
+  yearly drag from trading costs. The row with no `AvgN` (`SP500 +2.0% div (approx. TR)`) is the passive index itself.
 - **Exit rows.** With an exit rule (see below) two more columns appear: `TimeOut`, the share of time the
   portfolio sat out in cash, and `Switches/yr`, how often it moved in or out. Rows ending `+exit` are the
   same screen with the exit rule applied.

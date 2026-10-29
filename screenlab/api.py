@@ -33,7 +33,9 @@ import pandas as pd
 
 from . import backtest, data, metrics
 from .dataset import CSVBuilder, DataCard, Dataset, SyntheticBuilder
-from .benchmarks import IndexBenchmark, ScreenBenchmark, equal_weight_top, parse_benchmark, passive_index
+from .benchmarks import (IndexBenchmark, ScreenBenchmark, equal_weight_top, parse_benchmark, passive_index,
+                         price_benchmark_message)
+from .errors import BenchmarkKindError
 from .metrics import PCT_COLS
 from .operations import OPERATIONS, _load_builtins, install_lab_methods, lab_method
 from .ops.backtest import BacktestReport, _unique_label, format_table   # noqa: F401  (re-exported)
@@ -52,6 +54,7 @@ class Lab:
     name: str | None = None                   # dataset name in RunSpecs (the server sets it)
     persist: str = "metrics"                  # persist level when a store is on: none|inputs|metrics|full
     session_id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    allow_price_benchmark: bool = False       # True: a price-index benchmark is allowed (flattered excess, with a warning)
 
     def __post_init__(self):
         self._tl = threading.local()
@@ -84,6 +87,29 @@ class Lab:
             return benchmark
         return self.benchmark if isinstance(self.benchmark, IndexBenchmark) else self._passive_default()
 
+    def benchmark_for(self, benchmark=None, allow_price_benchmark=None, what: str = "this comparison") -> IndexBenchmark:
+        """`passive(benchmark)` for an analysis: refuses a price-index benchmark (portfolios are total return,
+        so excess return would be overstated by about the dividend yield) with a `BenchmarkKindError` that
+        names the fixes, unless `allow_price_benchmark` (default: `lab.allow_price_benchmark`) is True."""
+        b = self.passive(benchmark)
+        self.check_kind(b.effective_kind(self.market), b.index, allow_price_benchmark, what)
+        return b
+
+    def check_kind(self, kind, index, allow_price_benchmark=None, what: str = "this comparison") -> None:
+        allow = self.allow_price_benchmark if allow_price_benchmark is None else bool(allow_price_benchmark)
+        if kind == "price" and not allow:
+            raise BenchmarkKindError(price_benchmark_message(index, what))
+
+    def check_report(self, report, allow_price_benchmark=None, what: str = "this analysis") -> None:
+        """Refuse an analysis of a BacktestReport whose benchmark is a price index, unless the report was run
+        with `allow_price_benchmark` or the flag is given here (see `benchmark_for`)."""
+        card = getattr(report, "data_card", None)
+        if card is None or not card.benchmark:
+            return
+        if allow_price_benchmark is None and getattr(report, "price_benchmark_allowed", False):
+            allow_price_benchmark = True
+        self.check_kind(card.benchmark_kind, card.benchmark, allow_price_benchmark, what)
+
     def _extras(self, benchmark, compare) -> list:
         """Comparison benchmarks: lab.compare, a non-index lab.benchmark / `benchmark`, and `compare`."""
         cmp = [compare] if isinstance(compare, (str, IndexBenchmark, ScreenBenchmark)) else list(compare or ())
@@ -113,7 +139,8 @@ class Lab:
     def data_card(self, benchmark=None) -> DataCard:
         """The data card, with the kind and survivorship score taken against `benchmark` (the passive
         index of this lab by default)."""
-        return self.market.dataset.card_for(self.passive(benchmark).index)
+        b = self.passive(benchmark)
+        return self.market.dataset.card_for(b.index, b.dividend_yield, b.kind if b.kind in ("price", "total_return") else None)
 
     # ---- screens ----------------------------------------------------------
     def define(self, spec) -> Screen:

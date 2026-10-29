@@ -127,8 +127,9 @@ def random_search(grid, n: int, seed: int = 0) -> list[dict]:
 class _Evaluator:
     """Runs and caches one backtest per point; slices its curve for any window."""
 
-    def __init__(self, lab, screen, objective, start, end, benchmark=None):
+    def __init__(self, lab, screen, objective, start, end, benchmark=None, allow_price_benchmark=None):
         self.lab, self.start, self.end, self.benchmark = lab, start, end, benchmark
+        self.allow = allow_price_benchmark
         self.screen = lab.screen(screen)
         self.objective = objective
         self.obj_name = objective if isinstance(objective, str) else "objective"
@@ -139,7 +140,8 @@ class _Evaluator:
         if key not in self.cache:
             sk, ck = split_point(point, self.screen.name)
             sc = self.screen.with_overrides(**sk) if sk else self.screen
-            rep = self.lab.backtest([sc], self.start, self.end, benchmark=self.benchmark, **ck)
+            rep = self.lab.backtest([sc], self.start, self.end, benchmark=self.benchmark,
+                                  allow_price_benchmark=self.allow, **ck)
             self.cache[key] = (rep.results[sc.name].curve, rep.benchmark, rep.table.loc[sc.name])
         return self.cache[key]
 
@@ -165,7 +167,8 @@ class _Evaluator:
 
 
 def run_sweep(lab, screen, grid, objective: str | Callable = M.EXCESS_YR, start=None, end=None,
-              splits=None, benchmark=None, _ev: _Evaluator | None = None) -> pd.DataFrame:
+              splits=None, benchmark=None, _ev: _Evaluator | None = None,
+              allow_price_benchmark=None) -> pd.DataFrame:
     """Backtest every point of `grid` (a Grid, or a list of point dicts) and tabulate.
 
     objective: a column of the backtest table ("Excess/yr", "Sharpe", ...) or a callable
@@ -180,7 +183,7 @@ def run_sweep(lab, screen, grid, objective: str | Callable = M.EXCESS_YR, start=
     df.attrs["walk_forward"] (one row per window), summary in df.attrs["summary"]: mean OOS of the
     picks, mean train objective of the picks, and ratio OOS/IS (the overfitting haircut).
     """
-    ev = _ev or _Evaluator(lab, screen, objective, start, end, benchmark)
+    ev = _ev or _Evaluator(lab, screen, objective, start, end, benchmark, allow_price_benchmark)
     points = list(grid)
     if not points:
         raise ValueError("empty grid")
@@ -219,7 +222,7 @@ def run_sweep(lab, screen, grid, objective: str | Callable = M.EXCESS_YR, start=
 
 def bayes_search(lab, screen, space: Mapping, n: int = 30, seed: int = 0,
                  objective: str | Callable = M.EXCESS_YR, start=None, end=None, splits=None,
-                 benchmark=None) -> pd.DataFrame:
+                 benchmark=None, allow_price_benchmark=None) -> pd.DataFrame:
     """Optuna TPE search over `space` ({key: list | (low, high)}), then the usual run_sweep table.
 
     With splits, the quantity maximized is the mean objective over the *train* slices of the
@@ -231,7 +234,7 @@ def bayes_search(lab, screen, space: Mapping, n: int = 30, seed: int = 0,
     except ImportError as exc:
         raise ImportError("bayes_search needs the optional package 'optuna' (pip install optuna). "
                           "Use random_search with run_sweep for a dependency-free alternative.") from exc
-    ev = _Evaluator(lab, screen, objective, start, end, benchmark)
+    ev = _Evaluator(lab, screen, objective, start, end, benchmark, allow_price_benchmark)
     state: dict = {}
 
     def target(point):
@@ -261,4 +264,5 @@ def bayes_search(lab, screen, space: Mapping, n: int = 30, seed: int = 0,
     for t in study.trials:
         if t.params not in tried:
             tried.append(dict(t.params))
-    return run_sweep(lab, screen, tried, objective, start, end, splits, benchmark, _ev=ev)
+    return run_sweep(lab, screen, tried, objective, start, end, splits, benchmark, _ev=ev,
+                     allow_price_benchmark=allow_price_benchmark)

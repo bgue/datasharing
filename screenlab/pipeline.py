@@ -347,7 +347,7 @@ class _Cal:
 
 def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, alive=None, index_returns=None,
                    dates=None, names=None, index_names=None, source_idx=None, index=None, index_mer: float = 0.0,
-                   index_cost_bps: float = 0.0, selection: str = "auto", start=None, end=None,
+                   index_cost_bps: float = 0.0, index_dividend_yield: float = 0.0, selection: str = "auto", start=None, end=None,
                    start_wealth: float = 1.0) -> PathWealth:
     """Wealth of a portfolio (screen + `cfg`) and of the passive index on many return paths at once.
 
@@ -376,7 +376,8 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
     NotImplementedError) and `cfg.construction` all act as in `backtest.simulate`: for one path the result
     equals `run(screen, Market(generator.scenario_dataset(...)), cfg, start)`. Rebalances follow
     `cfg.rebalance_months` from `start` (default: the first date). The index is `index` (a name, default the first
-    index) after `index_mer` and a one-off `index_cost_bps`, like `benchmarks.IndexBenchmark`.
+    index) after `index_mer` and a one-off `index_cost_bps`, like `benchmarks.IndexBenchmark`; a price index
+    gets `index_dividend_yield` (annual, e.g. 0.02) added back as `(1 + y) ** years`.
     """
     from .backtest import Config, schedule
     from .exit_policy import as_overlay
@@ -600,7 +601,7 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
         k = 0 if index is None else index_names.index(index)
         a, b = pos[0], i_end + 1
         yrs = ((dates[a:b] - dates[a]).days / 365.25).to_numpy()
-        g = ilev[:, a:b, k] / ilev[:, a:a + 1, k] * np.power(1 - index_mer, yrs)[None, :]
+        g = ilev[:, a:b, k] / ilev[:, a:a + 1, k] * np.power((1 - index_mer) * (1 + index_dividend_yield), yrs)[None, :]
         g[:, 1:] *= 1 - index_cost_bps / 1e4
         iw = np.full((P, N), np.nan)
         iw[:, a:b] = g * float(start_wealth)

@@ -41,7 +41,7 @@ def test_csv_and_data_sp500_conflict():
 def test_data_sp500_runs():
     pytest.importorskip("skfolio")
     rep = run.main(["--data", "sp500", "--only", "momentum_12_1,low_vol", "--rebalance", "12"])
-    assert {"momentum_12_1", "low_vol", "SP500"} <= set(rep.table.index)
+    assert {"momentum_12_1", "low_vol", "SP500 +2.0% div (approx. TR)"} <= set(rep.table.index)   # sp500 = price index + 2% dividends
 
 
 def test_timing_data_sp500_runs(capsys):

@@ -24,7 +24,7 @@ class ExitCalibrate(Operation):
     takes_max_points = False
     rest_path = "exit/calibrate"
     registry_order = ("signals", "grid", "weights", "threshold", "min_votes", "hysteresis", "screen_params",
-                      "objective", "splits", "constraints", "target", "macro", "lab", "policy")
+                      "objective", "splits", "constraints", "target", "macro", "lab", "policy", "allow_price_benchmark")
 
     @dataclass
     class Args:
@@ -42,15 +42,17 @@ class ExitCalibrate(Operation):
         target: str | None = arg(None, "index name or ticker (default: the passive index)")
         macro: MacroInput | None = arg(None, "macro series for the signals")
         policy: PolicyRequest | None = arg(None, "fixed ExitPolicy fields for every grid point")
+        allow_price_benchmark: bool = arg(False, "calibrate against a price-index passive benchmark (refused by default)")
 
     def run(self, lab, exit_screen, grid, target=None, objective=M.CALMAR, splits=None,
-            constraints=None, macro=None, **kw):
+            constraints=None, macro=None, allow_price_benchmark=None, **kw):
         """Walk-forward calibration of an ExitScreen's thresholds / timing (see calibration.py).
         `target`: index name, ticker or curve (default: the passive index curve)."""
         from ..calibration import calibrate_exit
         kw.setdefault("rebalance_months", lab.config.rebalance_months)
         if target is None:
-            target = lab.passive().curve(lab.market, lab.config, lab.market.index[0])
+            target = lab.benchmark_for(None, allow_price_benchmark, "this exit calibration").curve(
+                lab.market, lab.config, lab.market.index[0])
         n = (note_points(lab, "exit_calibrate", lab._tl.args, grid_points(grid))
              if getattr(lab._tl, "args", None) is not None else 0)
         res = calibrate_exit(exit_screen, lab.market, target, grid, objective, splits, constraints, macro,
@@ -64,7 +66,8 @@ class ExitCalibrate(Operation):
         es = exit_screen(lab, a.signals, a.weights, a.threshold, a.min_votes, a.hysteresis, a.screen_params)
         kw = {"policy": policy_from(es, a.policy, 0.0)} if a.policy else {}
         return clean(dict(exit_screen=es, grid=a.grid, objective=a.objective, splits=a.splits,
-                          constraints=a.constraints, target=a.target, macro=macro_from(a.macro, lab), **kw))
+                          constraints=a.constraints, target=a.target, macro=macro_from(a.macro, lab),
+                          allow_price_benchmark=bool(a.allow_price_benchmark) or None, **kw))
 
     def to_json(self, result, max_points=DEFAULT_MAX_POINTS, *, lab=None, kw=None):
         out = jsonify(result, max_points)

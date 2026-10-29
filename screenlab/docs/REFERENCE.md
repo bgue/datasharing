@@ -56,6 +56,43 @@ all use it. A screen benchmark such as `equal_weight_top(60)` (passed as
 replaces it. CLI: `--benchmark NAME` (index, replaces the passive one),
 `--compare NAME|top60`, `--bench-mer X --bench-cost-bps X`.
 
+### Benchmark kind: price vs total return
+Portfolios are total return, so the benchmark has to be. Every index series in a dataset has a **kind**,
+recorded in its data card (`DataCard.index_kinds`): `total_return`, `price` (dividends left out), and, for a
+benchmark built with a dividend yield, `approx_total_return`. `IndexBenchmark(index, mer, cost_bps, name,
+kind=None, dividend_yield=None)` takes its kind from the dataset unless `kind=` overrides it:
+
+| dataset | kind of its index |
+|---|---|
+| synthetic (`SYN_CAPWT`), the passive index built from the universe (`PASSIVE_CAPWT` / `PASSIVE_EW`), a ticker | `total_return` |
+| bundled S&P 500 (`SP500`) | `price` |
+| `CSVBuilder` / `Lab.from_csv` | the `kind` column of `indices.csv` (`price` or `total_return`, per index); with no such column `total_return` is **assumed** and the data card warns that it is assumed (`CSVBuilder(index_kind=...)` states it for all) |
+| `Dataset.from_frames(..., index_kinds={...})` | what you pass; unlisted indices count as `total_return` |
+
+`dividend_yield=0.02` turns a price index into an approximate total return, `price x (1 + y) ** years`
+(years from the benchmark's start, actual days / 365.25; MER and cost apply on top). It is labelled
+`SP500 +2.0% div (approx. TR)`, has kind `approx_total_return`, and the data card carries a warning that it
+is an approximation (the true S&P 500 yield varied between about 1% and 4%). A yield on a series that is
+already total return is an error (it would count dividends twice).
+
+**The rule.** Comparing total-return portfolios with a `kind="price"` benchmark is **refused** with a
+`BenchmarkKindError` (a `ValueError`; REST/MCP: 400 with the same message) in `backtest`, `timing`,
+`significance`, `extended`, `sweep`, `exit_eval`, `calibrate_exit` and `montecarlo`. The message names the three
+fixes: `IndexBenchmark("SP500", dividend_yield=0.02)` (REST/MCP `benchmark={"index": "SP500", "dividend_yield":
+0.02}`), a total-return series, or `allow_price_benchmark=True`. The flag (`Lab(allow_price_benchmark=True)`, or
+`lab.backtest(..., allow_price_benchmark=True)` per call, `--allow-price-benchmark` on the CLI, a request
+field over REST/MCP) keeps the old behaviour: it runs, with the "price index" warning on the data card.
+`significance` and `extended` follow the report they are given: a report made with the flag passes, any other
+report on a price benchmark is refused. Extra `compare=` rows are not checked, and `exit_eval` /
+`calibrate_exit` check only the default (passive) target, not a `target=` you name.
+
+`sp500_lab()` uses `IndexBenchmark("SP500", dividend_yield=0.02)` by default (`sp500_lab(dividend_yield=0.03)`
+changes the assumption); `sp500_lab(benchmark="price", allow_price_benchmark=True)` is the raw index.
+
+REST/MCP `benchmark` is an index name, `"topN"`, or an object `{"index": "SP500", "dividend_yield": 0.02,
+"mer": 0.0, "cost_bps": 0}` (`kind` is also accepted); `montecarlo`, `timing`, `significance`, `extended` and
+`sweep` take it as well as `backtest`.
+
 ## Tests
 `python -m pytest screenlab/tests -q` runs about 200
 tests in roughly 50 seconds, through the SDK where that makes sense:
@@ -195,7 +232,7 @@ after it. Result columns (all registered in `metrics.METRICS`): `TermWealth_p5..
 (share of paths ending behind the index), `ExcessCAGR_med`, `P(MaxDD<-30%)`, `P(MaxDD<-50%)`, `RecoverYrs_med`
 (median years from the worst trough back to its peak; empty when over half of the paths had not recovered),
 `P(unrecovered)`, `P(shortfall)`. The result carries the data card and its warnings plus a note that bootstrap paths
-inherit the data's biases (survivors, price-only benchmark). The operation is `long_running`: `lab.submit("montecarlo", ...)`,
+inherit the data's biases (survivors; a price-only benchmark is refused unless allowed, see Benchmark kind). The operation is `long_running`: `lab.submit("montecarlo", ...)`,
 `POST /labs/{lab}/montecarlo`, `POST /jobs {"kind": "montecarlo"}`, MCP tool `montecarlo`. Each distinct generator
 configuration is a new trial of the family. Store: summary metrics as rows `portfolio@10y`, the fan curves as an artifact.
 

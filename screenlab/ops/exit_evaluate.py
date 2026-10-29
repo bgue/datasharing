@@ -22,7 +22,8 @@ class ExitEvaluate(Operation):
     method_names = ("exit_eval",)
     rest_path = "exit/evaluate"
     registry_order = ("signals", "weights", "threshold", "min_votes", "hysteresis", "screen_params", "target",
-                      "horizons", "macro", "exposure_when_flagged", "cash_rate", "lab", "max_points", "policy")
+                      "horizons", "macro", "exposure_when_flagged", "cash_rate", "lab", "max_points", "policy",
+                      "allow_price_benchmark")
 
     @dataclass
     class Args:
@@ -38,10 +39,11 @@ class ExitEvaluate(Operation):
         macro: MacroInput | None = arg(None, "macro series for the signals")
         exposure_when_flagged: float = arg(0.0, "equity exposure while flagged")
         cash_rate: float = arg(0.0, "annual rate for park='cash'")
+        allow_price_benchmark: bool = arg(False, "evaluate against a price-index passive benchmark (refused by default)")
         policy: PolicyRequest | None = arg(None, "ExitPolicy fields (park, reentry, reentry_delay_days, reentry_steps, "
                                                  "park_mer, ...); when given, the overlay trades that policy")
 
-    def run(self, lab, exit_screen, target=None, horizons=(1, 3, 12), macro=None, policy=None, **kw):
+    def run(self, lab, exit_screen, target=None, horizons=(1, 3, 12), macro=None, policy=None, allow_price_benchmark=None, **kw):
         """Evaluate an ExitScreen against a target curve (default: the passive index).
 
         `exit_screen` may also be an ExitPolicy; with `policy` (or a policy as the first argument) the
@@ -51,7 +53,8 @@ class ExitEvaluate(Operation):
         if isinstance(exit_screen, ExitPolicy):
             policy, exit_screen = exit_screen, exit_screen.screen
         if target is None:
-            target = lab.passive().curve(lab.market, lab.config, lab.market.index[0])
+            target = lab.benchmark_for(None, allow_price_benchmark, "this exit evaluation").curve(
+                lab.market, lab.config, lab.market.index[0])
         elif isinstance(target, str):
             target = lab.market.series(target)
         macro = macro if macro is not None else (policy.macro if policy is not None else None)
@@ -68,7 +71,8 @@ class ExitEvaluate(Operation):
         pol = policy_from(es, a.policy, a.exposure_when_flagged) if a.policy else None
         return clean(dict(exit_screen=es, target=a.target, horizons=tuple(a.horizons or (1, 3, 12)),
                           macro=macro_from(a.macro, lab), policy=pol,
-                          exposure_when_flagged=a.exposure_when_flagged, cash_rate=a.cash_rate))
+                          exposure_when_flagged=a.exposure_when_flagged, cash_rate=a.cash_rate,
+                          allow_price_benchmark=bool(a.allow_price_benchmark) or None))
 
     def to_json(self, result, max_points=DEFAULT_MAX_POINTS, *, lab=None, kw=None):
         ov = result.overlay

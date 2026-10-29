@@ -83,6 +83,17 @@ def load_csv(fundamentals_path: str, prices_path: str, indices_path: str | None 
     return add_ratios(f), p.pivot(index="date", columns="ticker", values="tri").sort_index(), idx
 
 
+def load_index_kinds(indices_path: str) -> dict:
+    """{index name: kind} from the optional `kind` column ("price" or "total_return") of an indices csv;
+    an index with no (or a blank) kind is left out."""
+    i = pd.read_csv(indices_path)
+    if "kind" not in i or "index" not in i:
+        return {}
+    k = i.dropna(subset=["kind"]).assign(kind=lambda d: d["kind"].astype(str).str.strip().str.lower())
+    k = k[k["kind"] != ""].groupby("index")["kind"].agg(lambda v: v.iloc[-1])
+    return k.to_dict()
+
+
 def periods_per_year(index: pd.DatetimeIndex) -> float:
     yrs = (index[-1] - index[0]).days / 365.25
     return (len(index) - 1) / yrs

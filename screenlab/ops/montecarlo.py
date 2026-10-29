@@ -28,7 +28,7 @@ from ..exit_policy import as_policy
 from ..jsonout import DEFAULT_MAX_POINTS, scalar, table
 from ..metrics import M
 from ..operations import Operation, arg, model_hook, register_operation
-from ._request import ConfigOverrides, ExitRequest, clean, config_overrides, exit_policy
+from ._request import BenchmarkRequest, ConfigOverrides, ExitRequest, benchmarks, clean, config_overrides, exit_policy
 
 QUANTILES = (5, 25, 50, 75, 95)
 DD_LEVELS = (0.30, 0.50)
@@ -188,7 +188,7 @@ class MonteCarlo(Operation):
     takes_max_points = False
     method_names = ("monte_carlo",)
     registry_order = ("screens", "selection", "generator", "n_paths", "horizon_years", "start_wealth", "contributions",
-                      "withdrawals", "rebalance_months", "exit", "seed", "steps", "target_wealth", "config", "lab")
+                      "withdrawals", "rebalance_months", "exit", "seed", "steps", "target_wealth", "config", "benchmark", "allow_price_benchmark", "lab")
 
     @dataclass
     class Args:
@@ -216,12 +216,15 @@ class MonteCarlo(Operation):
                                                             "(fast); 'daily': the base's own steps (memory heavy)")
         target_wealth: float | None = arg(None, "report P(terminal wealth below this)")
         config: ConfigOverrides | None = arg(None, "Config overrides: cost_bps, mer, cash_rate, ...")
+        benchmark: str | BenchmarkRequest | None = arg(None, "index name, or {index, dividend_yield, mer, cost_bps}, replacing the lab's passive benchmark")
+        allow_price_benchmark: bool = arg(False, "keep a price-index benchmark (excess return is then overstated); by default it is refused")
 
     # ---- computation
     def run(self, lab, screens=None, selection: str = "auto", generator=None, n_paths: int = 1000, horizon_years=(5, 10, 20),
             start_wealth: float = 100_000.0, contributions: float = 0.0, withdrawals: float = 0.0,
             rebalance_months=None, exit=None, with_and_without: bool = False, seed: int = 0,
-            steps: str = "monthly", target_wealth=None, benchmark=None, **cfg) -> MonteCarloResult:
+            steps: str = "monthly", target_wealth=None, benchmark=None, allow_price_benchmark=None,
+            **cfg) -> MonteCarloResult:
         """Run every screen and the passive index on the SAME resampled paths and summarize per horizon:
         terminal wealth and CAGR (p5/p25/p50/p75/p95), P(trail the index), median excess CAGR, P(max drawdown
         worse than 30% / 50%), median years to recover from the worst drawdown, P(shortfall vs target_wealth).
@@ -243,7 +246,7 @@ class MonteCarlo(Operation):
             raise ValueError("n_paths must be at least 1")
         spy = STEPS_PER_YEAR[steps]
         gen = _generator(generator)
-        bench = lab.passive(benchmark)
+        bench = lab.benchmark_for(benchmark, allow_price_benchmark)
         base = lab.market.dataset
         card = lab.data_card(benchmark)
         if steps == "monthly":
@@ -280,6 +283,7 @@ class MonteCarlo(Operation):
             with _progress.scaled(i / len(items), (i + 1) / len(items)):
                 pw = simulate_paths(sc, c, ps, base=base, selection=mode, start=start,
                                     index=bench.index, index_mer=bench.mer, index_cost_bps=bench.cost_bps,
+                                    index_dividend_yield=bench.dividend_yield or 0.0,
                                     start_wealth=1.0)
             wealth[label] = pw.portfolio
             info[label] = {"mode": mode, "hold_rule_applied": bool(pw.hold_rule_applied)}
@@ -367,7 +371,8 @@ class MonteCarlo(Operation):
                           start_wealth=a.start_wealth, contributions=a.contributions or None,
                           withdrawals=a.withdrawals or None, rebalance_months=a.rebalance_months, exit=pol,
                           with_and_without=bool(a.with_and_without) or None, seed=a.seed, steps=a.steps,
-                          target_wealth=a.target_wealth, **cfg))
+                          target_wealth=a.target_wealth, benchmark=benchmarks(a.benchmark, None)[0],
+                          allow_price_benchmark=bool(a.allow_price_benchmark) or None, **cfg))
 
     def defaults(self) -> dict:
         d = super().defaults()

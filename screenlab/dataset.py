@@ -3,7 +3,7 @@
 `Dataset` is frozen and built by a `DatasetBuilder` (`build(**opts) -> Dataset`):
 
 SyntheticBuilder     the synthetic market (`data.synthetic_market`).
-BundledSP500Builder  20 S&P 500 names from the installed skfolio wheel (benchmark is a PRICE index).
+BundledSP500Builder  20 S&P 500 names from the installed skfolio wheel (its SP500 series is a PRICE index; sp500_lab adds a dividend yield).
 CSVBuilder           fundamentals / prices / indices csv files (`data.load_csv`).
 SECBuilder           SEC Financial Statement Data Sets zips (+ a prices frame) -> fundamentals.
 BoCMacro             Bank of Canada Valet json -> `MacroSeries` (macro data, not a Dataset).
@@ -27,7 +27,15 @@ import pandas as pd
 from .universe import AllListed, Universe
 
 SURVIVORSHIP_WARN = 0.02          # per year: above this the report warns
-KINDS = ("price", "total_return")
+KINDS = ("price", "total_return")                 # what an index series in a dataset can be
+ALL_KINDS = (*KINDS, "approx_total_return")        # + a price index with an assumed dividend yield added
+
+
+def approx_total_return(s: pd.Series, dividend_yield: float) -> pd.Series:
+    """A price series with a constant dividend yield added back: s * (1 + y) ** years since its first point."""
+    s = s.dropna()
+    yrs = ((s.index - s.index[0]).days / 365.25).to_numpy()
+    return s * np.power(1.0 + dividend_yield, yrs)
 
 
 def _cagr(s: pd.Series) -> float:
@@ -74,21 +82,31 @@ class DataCard:
     licence: str = ""
     universe: str = "AllListed()"
     index_kinds: dict = field(default_factory=dict, compare=False)   # index name -> kind
+    dividend_yield: float | None = None   # assumed constant yield added to a price benchmark (approx. TR)
+    assumed_kinds: tuple = field(default=(), compare=False)   # index names whose kind was assumed, not stated
 
     @property
     def span(self) -> str:
         return f"{self.start[:10]}..{self.end[:10]}"
 
-    def for_benchmark(self, name: str | None, kind: str | None = None, score: float | None = None) -> "DataCard":
+    def for_benchmark(self, name: str | None, kind: str | None = None, score: float | None = None,
+                      dividend_yield: float | None = None) -> "DataCard":
         kind = kind or self.index_kinds.get(name, "total_return" if name else None)
-        return replace(self, benchmark=name, benchmark_kind=kind,
+        if dividend_yield is not None:
+            kind = "approx_total_return"
+        return replace(self, benchmark=name, benchmark_kind=kind, dividend_yield=dividend_yield,
                        survivorship_score=self.survivorship_score if score is None else score)
 
     def line(self) -> str:
         pit = {True: "yes", False: "no", None: "n/a"}[self.pit]
         sc = "n/a" if self.survivorship_score != self.survivorship_score else f"{self.survivorship_score:+.1%}/yr"
         dl = f"yes ({self.n_delisted})" if self.delisted_included else "no"
-        bm = f"{self.benchmark} ({self.benchmark_kind})" if self.benchmark else "none"
+        if not self.benchmark:
+            bm = "none"
+        elif self.dividend_yield is not None:
+            bm = f"{self.benchmark} ({self.benchmark_kind}: price index + assumed {self.dividend_yield:.1%}/yr dividends)"
+        else:
+            bm = f"{self.benchmark} ({self.benchmark_kind})"
         return (f"Data: {self.name}, {self.span}, {self.n_names} names, benchmark {bm}, PIT {pit}, "
                 f"delisted {dl}, survivorship {sc}")
 
@@ -97,7 +115,17 @@ class DataCard:
         if self.benchmark_kind == "price":
             out.append(f"WARNING: benchmark {self.benchmark} is a price index (dividends left out) but the "
                        f"portfolios are total return, so excess return is overstated by about the index's "
-                       f"dividend yield. Use a total-return benchmark.")
+                       f"dividend yield. Use a total-return benchmark, or IndexBenchmark({self.benchmark!r}, "
+                       f"dividend_yield=0.02) for an approximation.")
+        if self.benchmark_kind == "approx_total_return":
+            out.append(f"WARNING: benchmark {self.benchmark} is an approximate total return: the price index plus "
+                       f"an assumed constant {self.dividend_yield:.1%}/yr dividend yield, not reinvested dividends. "
+                       f"Excess return is off by the gap between that assumption and the true yield "
+                       f"(the S&P 500's varied between about 1% and 4% a year).")
+        if self.benchmark in self.assumed_kinds:
+            out.append(f"WARNING: the kind of benchmark {self.benchmark} was assumed to be {self.benchmark_kind}: the "
+                       f"indices csv has no `kind` column. If it is a price index, excess return is overstated; "
+                       f"add a `kind` column (price or total_return).")
         sc = self.survivorship_score
         if sc == sc and sc > SURVIVORSHIP_WARN:
             out.append(f"WARNING: survivorship score {sc:+.1%}/yr: an equal-weight basket of this dataset's "
@@ -111,6 +139,7 @@ class DataCard:
                                             "survivorship_score", "currency", "licence", "universe")}
         if d["survivorship_score"] != d["survivorship_score"]:
             d["survivorship_score"] = None
+        d["dividend_yield"] = self.dividend_yield
         d["warnings"] = self.warnings()
         return d
 
@@ -133,9 +162,11 @@ class Dataset:
     @classmethod
     def from_frames(cls, fundamentals, prices, indices=None, universe: Universe | None = None, *,
                     name="custom", source="in-memory frames", index_kinds: dict | None = None,
-                    pit: bool | None = True, currency="n/a", licence="") -> "Dataset":
+                    pit: bool | None = True, currency="n/a", licence="",
+                    assumed_kinds: tuple = ()) -> "Dataset":
         """Build a Dataset and compute its card. `index_kinds` maps index name -> "price"|"total_return"
-        (unlisted indices count as total_return)."""
+        (unlisted indices count as total_return); `assumed_kinds` names the indices whose kind was not stated
+        by the source (the card warns about them)."""
         if not prices.index.is_monotonic_increasing:
             prices = prices.sort_index()
         idx = indices if indices is not None else pd.DataFrame(index=prices.index)
@@ -149,7 +180,8 @@ class Dataset:
         card = DataCard(name=name, source=source, start=str(prices.index[0].date()), end=str(prices.index[-1].date()),
                         n_names=int(prices.shape[1]), benchmark=None, benchmark_kind=None, pit=pit,
                         delisted_included=n_del > 0, n_delisted=n_del, survivorship_score=float("nan"),
-                        currency=currency, licence=licence, universe=uni.fingerprint(), index_kinds=kinds)
+                        currency=currency, licence=licence, universe=uni.fingerprint(), index_kinds=kinds,
+                        assumed_kinds=tuple(assumed_kinds))
         ds = cls(prices, fundamentals, idx, uni, card)
         first = idx.columns[0] if len(idx.columns) else None
         return ds._with_card(ds.card_for(first)) if first else ds
@@ -164,12 +196,20 @@ class Dataset:
             return self.prices[name]
         return None
 
-    def card_for(self, benchmark: str | None) -> DataCard:
+    def kind_of(self, name: str) -> str:
+        """"price" or "total_return": what the index series `name` is (a ticker in prices is total return)."""
+        return self.manifest.index_kinds.get(name, "total_return")
+
+    def card_for(self, benchmark: str | None, dividend_yield: float | None = None,
+                 kind: str | None = None) -> DataCard:
         """The card with `benchmark` as the reference: its kind and the survivorship score against it
-        (names in the universe on the first date)."""
+        (names in the universe on the first date); `kind` overrides the dataset's record. With `dividend_yield` the benchmark is the approximate
+        total return (price x (1 + y) ** years) and the score is taken against that."""
         s = self._series(benchmark) if benchmark else None
         if s is None:
-            return self.manifest.for_benchmark(benchmark)
+            return self.manifest.for_benchmark(benchmark, dividend_yield=dividend_yield)
+        if dividend_yield is not None:
+            s = approx_total_return(s, dividend_yield)
         px = self.prices
         start = max(px.index[0], s.first_valid_index() or px.index[0])
         try:
@@ -177,8 +217,7 @@ class Dataset:
         except Exception:                      # a universe that cannot answer: fall back to all names
             names = None
         score = survivorship_score(px, s, names)
-        kind = self.manifest.index_kinds.get(benchmark, "total_return")
-        return self.manifest.for_benchmark(benchmark, kind, score)
+        return self.manifest.for_benchmark(benchmark, kind or self.kind_of(benchmark), score, dividend_yield)
 
     def with_index(self, name: str, series: pd.Series, kind: str = "total_return") -> "Dataset":
         """A copy with one more index series (e.g. the built passive index) and the card recomputed
@@ -192,7 +231,7 @@ class Dataset:
     def with_universe(self, universe: Universe) -> "Dataset":
         card = replace(self.manifest, universe=universe.fingerprint())
         ds = Dataset(self.prices, self.fundamentals, self.indices, universe, card)
-        return ds._with_card(ds.card_for(card.benchmark))
+        return ds._with_card(ds.card_for(card.benchmark, card.dividend_yield))
 
 
 @runtime_checkable
@@ -244,7 +283,8 @@ class CSVBuilder:
     prices: str
     indices: str | None = None
     name: str = "csv"
-    index_kind: str = "total_return"      # indices.csv holds a `tri` column: total return unless you say otherwise
+    index_kind: str | None = None         # None: the csv's optional `kind` column per index, else "total_return"
+                                          # is assumed (and the data card says so)
     pit: bool | None = True               # you promise the fundamentals already carry their reporting lag
     currency: str = "n/a"
     licence: str = ""
@@ -252,12 +292,16 @@ class CSVBuilder:
     def build(self, **opts) -> Dataset:
         o = replace(self, **opts)
         from .data import load_csv
+        from .data import load_index_kinds
         fund, prices, idx = load_csv(o.fundamentals, o.prices, o.indices)
+        cols = list(idx.columns) if idx is not None else []
+        stated = load_index_kinds(o.indices) if o.indices else {}
+        kinds = {c: o.index_kind or stated.get(c) or "total_return" for c in cols}
+        assumed = tuple(c for c in cols if not (o.index_kind or stated.get(c)))
         return Dataset.from_frames(
             fund, prices, idx, name=o.name, source=f"csv: {o.fundamentals}, {o.prices}"
             + (f", {o.indices}" if o.indices else ""),
-            index_kinds={c: o.index_kind for c in (idx.columns if idx is not None else [])},
-            pit=o.pit, currency=o.currency, licence=o.licence)
+            index_kinds=kinds, assumed_kinds=assumed, pit=o.pit, currency=o.currency, licence=o.licence)
 
 
 @dataclass(frozen=True)

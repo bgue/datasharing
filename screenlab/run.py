@@ -22,6 +22,7 @@ import pandas as pd
 from . import __version__, backtest
 from .api import Lab
 from .benchmarks import IndexBenchmark, equal_weight_top
+from .errors import BenchmarkKindError
 from .exit_policy import ExitPolicy
 from .spec import load_screens
 
@@ -64,6 +65,11 @@ def add_common_args(ap: argparse.ArgumentParser):
                    help="extra comparison row: an index name or 'topN' equal-weight N largest, repeatable")
     g.add_argument("--bench-mer", type=float, default=0.0, help="benchmark fund's annual MER")
     g.add_argument("--bench-cost-bps", type=float, default=0.0, help="benchmark one-time purchase cost")
+    g.add_argument("--bench-dividend-yield", type=float, default=None, metavar="Y",
+                   help="annual dividend yield added back to a PRICE-index benchmark, e.g. 0.02 (approximate "
+                        "total return); --data sp500 already applies 2%%")
+    g.add_argument("--allow-price-benchmark", action="store_true",
+                   help="compare total-return portfolios with a price-index benchmark anyway (flattered excess)")
 
 
 def add_exit_args(ap: argparse.ArgumentParser):
@@ -178,9 +184,12 @@ def build_lab(a) -> tuple[Lab, list]:
     lab.compare = tuple(equal_weight_top(int(b[3:])) if is_top(b) else IndexBenchmark(b)
                         for b in [*extra, *a.compare])
     if a.benchmark and not is_top(a.benchmark):
-        lab.benchmark = IndexBenchmark(a.benchmark, mer=a.bench_mer, cost_bps=a.bench_cost_bps)
+        lab.benchmark = IndexBenchmark(a.benchmark, mer=a.bench_mer, cost_bps=a.bench_cost_bps,
+                                       dividend_yield=a.bench_dividend_yield)
     else:                                   # the default passive index, with the fund's MER / cost if given
-        lab.benchmark = IndexBenchmark(lab.benchmark.index, a.bench_mer, a.bench_cost_bps)
+        lab.benchmark = dataclasses.replace(lab.benchmark, mer=a.bench_mer, cost_bps=a.bench_cost_bps,
+                                **({"dividend_yield": a.bench_dividend_yield} if a.bench_dividend_yield is not None else {}))
+    lab.allow_price_benchmark = bool(a.allow_price_benchmark)
     for path in a.screen_file:
         for sc in load_screens(path):
             lab.define(sc)
@@ -216,7 +225,10 @@ def main(argv=None):
             print("names by tests passed:", rep["passes"].value_counts().sort_index(ascending=False).to_dict())
         return
 
-    rep = lab.backtest(screens, a.start, a.end, exit=build_exit(a, lab), with_and_without=a.exit_compare)
+    try:
+        rep = lab.backtest(screens, a.start, a.end, exit=build_exit(a, lab), with_and_without=a.exit_compare)
+    except BenchmarkKindError as e:
+        raise SystemExit(f"{e}\nOn the command line: --bench-dividend-yield 0.02 or --allow-price-benchmark.") from None
     print("\n" + str(rep))
     print(f"\nCurrent picks as of {asof:%Y-%m-%d}")
     for sc in screens:

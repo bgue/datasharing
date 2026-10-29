@@ -8,3 +8,8 @@ class ServerError(Exception):
     def __init__(self, status: int, message: str):
         super().__init__(message)
         self.status, self.message = status, message
+
+
+class BenchmarkKindError(ValueError):
+    """A total-return portfolio would be compared with a price-index benchmark (dividends left out), which
+    overstates excess return by about the dividend yield. The message names the ways out."""

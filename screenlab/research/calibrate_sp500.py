@@ -36,6 +36,7 @@ from screenlab.calibration import _policy_for, _screen_for, calibrate_exit
 from screenlab.exit_inputs import CorrelationSpike, DistanceFromHigh, NewLowsMinusHighs
 from screenlab.exit_policy import policy_overlay
 from screenlab.exit_signals import Breadth, ExitScreen, TrendBreak, VolRegime
+from screenlab.benchmarks import IndexBenchmark
 from screenlab.realdata.bundled import sp500_lab
 from screenlab.sweep import random_search, walk_forward
 
@@ -50,6 +51,7 @@ N_POINTS = 256
 SEED = 0
 CONSTRAINTS = dict(max_switches_per_year=4)
 COST_BPS = 5.0
+DIV_YIELD = 0.02       # dividend yield added to the price-only SP500 for the "approx. TR" comparison
 PARK_RATE = 0.025      # sensitivity: parked money earns 2.5%/yr instead of 0% (average T-bill rate 1990-2022 was ~2.5%)
 SPLITS = {"8/4": dict(train_years=8, test_years=4), "10/3": dict(train_years=10, test_years=3)}
 OBJECTIVES = ["Calmar", "Sharpe"]
@@ -283,9 +285,9 @@ def main():
         spc = sp.loc[ex.index[0]:ex.index[-1]]
         for k, v in perf(spc).items():
             row[f"sp500_{k}"] = v
-        # SP500 is a PRICE index here; approximate total return by adding ~2%/yr of dividends (labelled approx)
-        yrs = (spc.index - spc.index[0]).days / 365.25
-        for k, v in perf(spc * np.power(1.02, yrs)).items():
+        # SP500 is a PRICE index here; approximate total return with the Lab's own option: price x 1.02 ** years
+        sptr = IndexBenchmark("SP500", dividend_yield=DIV_YIELD).curve(MKT, LAB.config, spc.index[0], spc.index[-1])
+        for k, v in perf(sptr).items():
             row[f"sp500tr_{k}"] = v
         row.update(dsr_grid=summ["dsr"], n_points_tried=summ["points"], feasible=summ["feasible_points"],
                    mean_is=summ["mean_is"], mean_oos_picked=summ["mean_oos"], base_oos_obj=float(wf["base_oos"].mean()),
@@ -297,7 +299,7 @@ def main():
             vc = wf[k].astype(str).value_counts(normalize=True)
             stab_rows.append(dict(**key, param=k, modal_value=vc.index[0], modal_share=float(vc.iloc[0])))
         # OOS tests: exit vs no exit; exit vs passive SP500; exit vs approx TR
-        for nm, other in (("noexit", ne), ("passive_sp500", spc), ("passive_sp500_approxTR", spc * np.power(1.02, yrs))):
+        for nm, other in (("noexit", ne), ("passive_sp500", spc), ("passive_sp500_approxTR", sptr)):
             b = stats.bootstrap_excess(ex, other, n=2000, seed=SEED, curves=True)
             t = stats.t_stat_excess(ex, other, curves=True)
             stat_rows.append(dict(**key, versus=nm, excess_per_yr=b["mean"], ci5=b["ci_low"], ci95=b["ci_high"],

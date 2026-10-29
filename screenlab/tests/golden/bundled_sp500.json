@@ -1,35 +1,35 @@
 {
-  "SP500": {
-    "CAGR": 0.078142,
+  "SP500 +2.0% div (approx. TR)": {
+    "CAGR": 0.099705,
     "Excess/yr": null,
-    "MaxDD": -0.567754,
+    "MaxDD": -0.555467,
     "Turnover": null,
-    "Vol": 0.183624
+    "Vol": 0.183636
   },
   "low_vol": {
     "CAGR": 0.124904,
-    "Excess/yr": 0.046761,
+    "Excess/yr": 0.025198,
     "MaxDD": -0.379438,
     "Turnover": 0.074192,
     "Vol": 0.154209
   },
   "low_vol+exit": {
     "CAGR": 0.101674,
-    "Excess/yr": 0.023531,
+    "Excess/yr": 0.001968,
     "MaxDD": -0.199596,
     "Turnover": 0.074192,
     "Vol": 0.111345
   },
   "momentum_12_1": {
     "CAGR": 0.22511,
-    "Excess/yr": 0.146968,
+    "Excess/yr": 0.125405,
     "MaxDD": -0.467235,
     "Turnover": 0.24594,
     "Vol": 0.240472
   },
   "momentum_12_1+exit": {
     "CAGR": 0.193052,
-    "Excess/yr": 0.114909,
+    "Excess/yr": 0.093346,
     "MaxDD": -0.339057,
     "Turnover": 0.24594,
     "Vol": 0.187611

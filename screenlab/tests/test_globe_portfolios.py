@@ -190,7 +190,7 @@ def test_sp500_momentum_6m_12m():
     from screenlab.realdata.bundled import sp500_lab
     lab = sp500_lab()
     rep = lab.backtest(["momentum_6m", "momentum_12m"], rebalance_months=1, start="1995-01-03")
-    assert set(rep.table.index) == {"SP500", "momentum_6m", "momentum_12m"}
+    assert set(rep.table.index) == {"SP500 +2.0% div (approx. TR)", "momentum_6m", "momentum_12m"}
     assert rep.table.loc[["momentum_6m", "momentum_12m"], "CAGR"].notna().all()
     p6, p12 = lab.picks("momentum_6m", "2020-06-30"), lab.picks("momentum_12m", "2020-06-30")
     assert len(p6) == len(p12) == 5

@@ -22,7 +22,7 @@ Checked against HEAD `b60a221` with `ls`, `grep` and `git log` only; the test su
 | Monte Carlo (DESIGN §K) | done | `ops/montecarlo.py`, `montecarlo/generators.py`, `research/montecarlo/MONTECARLO_SP500.md` |
 | Getting-started guide and pyproject packaging | done | `docs/GETTING_STARTED.md`; `/home/user/datasharing/pyproject.toml` (`name = "screenlab"`) |
 | Real data and survivorship (ROADMAP Phase 1) | open | `ROADMAP.md` Phase 1 |
-| Benchmark kind enforcement beyond a warning | partial | kind is recorded and warned about (`dataset.py:30`, `:98`); no refusal found |
+| Benchmark kind enforcement | done | `IndexBenchmark(kind, dividend_yield)` (`benchmarks.py`); `Lab.benchmark_for` refuses a price benchmark with `BenchmarkKindError` in every analysis unless `allow_price_benchmark`; `sp500_lab()` defaults to SP500 + 2% dividends (approx. TR); `tests/test_benchmark_kind.py` |
 | Per-session labs and auth (ROADMAP Phase 2) | open | grep for session labs or auth tokens in non-test code: no matches |
 | UI (ROADMAP Phase 3) | first version in tree | Textual TUI `tui/` (`screenlab-tui`, `--serve` for a browser), control endpoint `tui/PROTOCOL.md`, MCP control tools `server/tui_tools.py`; the guardrails from §5 (data card, pinned passive index, versions) are in; trial counter and CI columns partly |
 | Taxes | open | `ROADMAP.md` Phase 5 |
@@ -158,7 +158,7 @@ Fix B1–B6; remove the `ExitOverlay` alias and `_exit_of`; make `Lab.screen` ra
 *Done when:* the repros in section 3 fail to reproduce, the suite still passes, and a `Portfolio` named like a screen produces two rows.
 
 ### Phase 1: Data correctness **[UI blocker]**
-1. Benchmark kind: `IndexBenchmark(kind=...)`; refuse or warn on price-vs-TR comparisons; accept a dividend-yield series to approximate TR; load a US TR proxy (SPY adjusted close) and the Canadian proxies (XIC/XIU) from Stooq once the hosts are allowed.
+1. **Done** (kind, refusal and dividend-yield approximation; the TR proxy loaders remain open). Benchmark kind: `IndexBenchmark(kind=...)`; refuse or warn on price-vs-TR comparisons; accept a dividend-yield series to approximate TR; load a US TR proxy (SPY adjusted close) and the Canadian proxies (XIC/XIU) from Stooq once the hosts are allowed.
 2. Dataset manifest and survivorship score computed at load time; shown by `print(report)` and in JSON.
 3. Universe history: index membership and delisting proceeds instead of a flat `delist_return`; a complete US universe via SEC FSDS as the first real fundamentals; Canadian fundamentals from EODHD or another PIT source.
 4. Reconciliation: reproduce one published Globe screen portfolio (picks and 12-month return) within a stated tolerance.

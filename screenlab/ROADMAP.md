@@ -81,10 +81,11 @@ unchanged.
 ## Phase 1: Data correctness **[UI blocker]**
 - **Network:** open www.sec.gov, www.bankofcanada.ca, stooq.com (or
   eodhd.com) and fred.stlouisfed.org, and run the adapters for real.
-- **Benchmark kind:** `IndexBenchmark(kind="price"|"total_return")`, with
-  a warning (or refusal) when a price index is compared against
-  total-return portfolios. Load TR proxies: SPY adjusted close, and
-  XIC/XIU for Canada.
+- [x] **Benchmark kind:** `IndexBenchmark(kind=..., dividend_yield=...)`;
+  a price index compared against total-return portfolios is refused
+  (`BenchmarkKindError`, `allow_price_benchmark` keeps the old behaviour);
+  `dividend_yield` builds an approximate TR. *Still open:* load TR proxies:
+  SPY adjusted close, and XIC/XIU for Canada.
 - **Dataset manifest and survivorship score:** computed at load and stored
   in the run store's `datasets` table. Shown on every result.
 - **Universe history:** index membership and delisting proceeds. SEC FSDS

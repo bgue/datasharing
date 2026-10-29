@@ -144,15 +144,15 @@ screenlab-run --data sp500 --only momentum_12_1,low_vol --rebalance 1
 Needs the `data` extra (included in `all`); without it the command stops with a message telling you to
 install it. Takes about 10 seconds and prints (trimmed):
 ```
-Backtest 1991-02-04 to 2022-12-28, rebalance every 1m, benchmark SP500
-Data: sp500_bundled, 1990-01-02..2022-12-28, 20 names, benchmark SP500 (price), PIT n/a, delisted no, survivorship +10.1%/yr
-WARNING: benchmark SP500 is a price index (dividends left out) but the portfolios are total return, ...
-WARNING: survivorship score +10.1%/yr: ... results are likely flattered.
+Backtest 1991-02-04 to 2022-12-28, rebalance every 1m, benchmark SP500 +2.0% div (approx. TR)
+Data: sp500_bundled, 1990-01-02..2022-12-28, 20 names, benchmark SP500 (approx_total_return: price index + assumed 2.0%/yr dividends), PIT n/a, delisted no, survivorship +7.9%/yr
+WARNING: benchmark SP500 is an approximate total return: the price index plus an assumed constant 2.0%/yr dividend yield, ...
+WARNING: survivorship score +7.9%/yr: ... results are likely flattered.
 
-                CAGR    Vol Sharpe   MaxDD Worst12m  AvgN BeatBenchYrs Excess/yr Turnover Costs/yr
-momentum_12_1  22.8%  23.8%   0.98  -47.2%   -40.6%  5.00        81.2%     15.0%    25.0%     1.5%
-low_vol        12.7%  15.3%   0.86  -35.1%   -28.3%  5.00        65.6%      4.9%     7.2%     0.4%
-SP500           7.8%  18.4%   0.50  -56.8%   -48.8%
+                               CAGR    Vol Sharpe   MaxDD Worst12m  AvgN BeatBenchYrs Excess/yr Turnover Costs/yr
+momentum_12_1                 22.8%  23.8%   0.98  -47.2%   -40.6%  5.00        81.2%     12.9%    25.0%     1.5%
+low_vol                       12.7%  15.3%   0.86  -35.1%   -28.3%  5.00        56.2%      2.8%     7.2%     0.4%
+SP500 +2.0% div (approx. TR)   9.9%  18.4%   0.61  -55.5%   -47.8%
 ```
 The same in Python, if you prefer (`--data sp500` is the command-line form of this):
 ```python
