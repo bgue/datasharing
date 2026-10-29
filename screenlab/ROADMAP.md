@@ -29,129 +29,118 @@
   re-entry), per-portfolio toggle with side-by-side backtests, twelve more
   exit inputs.
 - REST (FastAPI) and MCP servers over the `Lab` SDK.
+- Phase 0: bugs B1–B7 fixed, `ExitOverlay` alias removed, golden tests,
+  bounded caches, async jobs with progress/cancel, optional SQLite run
+  store with trial counting.
+- Phase 0.5: datasets with data cards and universes; one signal-window
+  convention; multi-stage JSON screen specs; operations registry (one
+  module per analysis, REST/MCP generated); self-serializing types; metric
+  registry; simulation as pluggable stages with a vectorized `simulate_paths`.
+- Monte Carlo: block / stationary / regime / iid bootstraps; `montecarlo`
+  operation with per-path re-ranking for price-rank screens (incl. hold
+  rules) and fixed picks otherwise; S&P 500 and all-portfolio studies.
+- Textual TUI (terminal or browser) with scenario versions, pinned passive
+  index, a Plotly chart panel themed from the TUI, one shared session in
+  `--serve` mode, a Data tab, and MCP `tui_*` control tools.
+- Free-dataset downloader (`make data-free`, `screenlab-data`, `fetch_data`
+  operation): SEC, Bank of Canada, FRED, Stooq, StatCan, Shiller, Tiingo.
+- Benchmark kind rule: price-index vs total-return comparisons are refused
+  unless a dividend assumption or a TR series is supplied; the bundled
+  S&P 500 defaults to an approximate TR benchmark.
+- Packaging (`pyproject.toml`, console scripts, `Makefile`), verified
+  getting-started guide, docs map, LinkML schema of the run store,
+  notebooks.
 
-The phases below follow the review in `CRITIQUE.md` §6, which has the
-reasoning and measured numbers. Data correctness comes before features, and
-items marked **[UI blocker]** must be done before the interactive UI starts.
+The phases below follow the review in `CRITIQUE.md` §6 and the owner's
+later suggestions. Data correctness comes before features. "Blocker" marks
+what has to be done before any result is used for a real decision.
 
-## Phase 0: Freeze, fix, and make runs asynchronous and storable **[UI blocker]**
-- **Bugs:** fix B1–B6 from `CRITIQUE.md` §3 (duplicate portfolio names
-  collapse, `with_and_without` ignored via the alias, unknown screen gives
-  a JSON error, `benchmark="top60"` fails in the SDK, server error leaks).
-  Update `research/CALIBRATION_SP500.md` now that curve-based signals
-  calibrate (B7).
-- **Simplify:** remove the `ExitOverlay` / `exit_overlay` alias so there is
-  one way to attach an exit, and route all server errors through
-  `ServerError`.
-- **Guard:** add golden-value regression tests for one full synthetic
-  backtest and one bundled-data backtest. Put an LRU bound on
-  `Market._views`, and move `research/results/*.csv` out of git.
-- **Asynchronous runs** (DESIGN.md §I2): a `JobManager` on a process pool,
-  with progress, cancel, and dedup by run key. `lab.submit(...)` in the
-  SDK, `/jobs` endpoints in REST, and run tools in MCP. Synchronous calls
-  stay as they are.
-- **Optional persistence** (DESIGN.md §I1, §I3):
-  - Every run is a serializable `RunSpec` with a stable `run_key` (inputs +
-    dataset fingerprint + code version).
-  - An optional SQLite `RunStore` keeps inputs, output metrics and
-    optionally curves. It is off in the SDK by default and on in the
-    server.
-  - The store offers `find` / `compare` / `rerun`, and keeps a trial
-    counter that feeds the deflated Sharpe.
+## Phase 1: Real data **[blocker for any real decision]**
+1. **First real run of the downloader** (owner's machine; every host is
+   blocked in the cloud environment): `make data-free SEC_USER_AGENT="Name
+   email"` and `make data-tr`, then fix whatever the manifest reports.
+   Expected first-contact failures: Stooq CAPTCHA key, the StatCan URL, the
+   SEC zip layout, the Shiller file link, Tiingo's Canadian coverage.
+2. **Total-return benchmarks from real data:** build `SP500_TR` from Shiller,
+   SPY/VOO adjusted closes from Tiingo, XIC/XIU for Canada; register them
+   with their MERs. Extend the kind check to `compare=` rows and named
+   `exit_eval` / `calibrate_exit` targets (the two known gaps).
+3. **Reconcile one published Globe portfolio:** same screen, real TSX data,
+   compare picks and the 12-month return with the column within a stated
+   tolerance. Until this passes, the Globe screens are faithful to their
+   descriptions, not verified against their results.
+4. **Universe history:** index membership and delisting proceeds instead
+   of the flat `delist_return`; "common stocks only" filtering; Canadian
+   point-in-time fundamentals (EODHD cheapest; TMX / Capital IQ / Refinitiv
+   proper; Norgate for survivorship-free prices).
+5. **Dataset manifest in the store** with the survivorship score, shown on
+   every result (card exists; persistence of the card is done; the score's
+   threshold is still a heuristic).
 
-*Done when:* the bug repros no longer reproduce; a `Portfolio` named like a
-screen produces two rows; a REST client can start a daily timing study,
-poll progress, disconnect and fetch the result later, with an identical
-second request returning from the store; every result carries its trial
-count; and the suite passes with persistence off.
+*Done when:* a US backtest runs on a universe that includes delisted names
+against a real TR benchmark with no warnings; one Globe portfolio
+reconciles; the data card shows a survivorship score near zero.
 
-## Phase 0.5: Extension refactors (prerequisites for Monte Carlo)
-See DESIGN.md §J. Run in waves; golden tests must stay identical.
-- **Wave 1:** datasets and universes (J1); one signal-window convention (J2).
-- **Wave 2:** multi-stage screen specs with the Globe portfolios as specs
-  (J3); operations registry, self-serializing types and a metric registry
-  (J4).
-- **Wave 3:** simulation as pluggable stages that can run over many price
-  paths (J5).
+## Phase 1.5: Make the existing studies honest
+- **Realistic costs:** re-run the all-portfolio study with the cap-tiered
+  cost model (50–100 bps for small caps) to see which monthly Globe
+  portfolios survive real trading.
+- **Timing luck on the Globe screens:** run the rebalance-timing study on
+  the eight Globe portfolios; report how much of each return is the start
+  month.
+- **Check one suspicious number:** Basic Buyback monthly trailing the index
+  in 92% of futures; inspect its turnover before believing it (likely a
+  cost artefact of buyback yield reshuffling the whole portfolio).
+- **Stop adding screens, signals and synthetic-market studies** until real
+  data is in: 20 signals and 25 portfolios are already more than the data
+  can rank, and the synthetic market has validated the machinery.
 
-*Done when:* adding an operation, a data source, a metric or a
-multi-stage screen each touches one module, and the golden tests are
-unchanged.
+## Phase 2: Guardrails against fooling yourself
+- **Trial counter in the TUI:** show `trials_in_family` and the deflated
+  Sharpe on every Compare row; the TUI makes 50 variants an afternoon's
+  work.
+- **Frozen scenarios:** once a scenario is marked frozen, later Apply
+  versions are flagged as out-of-sample candidates and counted by the
+  deflated Sharpe; distinguishes exploring from testing a conclusion.
+- **Pre-registration file:** `research/PREREGISTERED.md` listing the three
+  or four hypotheses that matter (e.g. "Frugal Dividend annual beats XIC
+  after costs over 15 years"), each with its metric and threshold, written
+  before the first real-data run; the trial counter references it.
+- **Benchmark kind everywhere:** extend the refusal to compare rows and
+  named targets (from Phase 1 item 2).
 
-## Phase 1: Data correctness **[UI blocker]**
-- **Network:** open www.sec.gov, www.bankofcanada.ca, stooq.com (or
-  eodhd.com) and fred.stlouisfed.org, and run the adapters for real.
-- [x] **Benchmark kind:** `IndexBenchmark(kind=..., dividend_yield=...)`;
-  a price index compared against total-return portfolios is refused
-  (`BenchmarkKindError`, `allow_price_benchmark` keeps the old behaviour);
-  `dividend_yield` builds an approximate TR. *Still open:* load TR proxies:
-  SPY adjusted close, and XIC/XIU for Canada.
-- **Dataset manifest and survivorship score:** computed at load and stored
-  in the run store's `datasets` table. Shown on every result.
-- **Universe history:** index membership and delisting proceeds. SEC FSDS
-  as the first real point-in-time fundamentals, then a Canadian source
-  (EODHD cheapest; TMX / Capital IQ / Refinitiv proper).
-- **Reconciliation:** reproduce one published Globe screen portfolio
-  within a stated tolerance.
+## Phase 3: Taxes (pulled forward)
+The owner has a separate Canadian dividend/salary tax module to contribute.
+- **Integrate it as a `TaxModel` stage** in the simulation pipeline (DESIGN
+  §J5 already has pluggable stages): account types taxable / TFSA / RRSP;
+  eligible-dividend gross-up and credit from the owner's module; extend it
+  to capital gains (inclusion rate, realized on each rebalance and on exit
+  switches, so the exit policy's trading cost includes tax); US withholding
+  on US dividends in each account type; provincial rates as parameters.
+- **Report after-tax metrics** beside pre-tax ones (after-tax CAGR, tax
+  drag per year), with the passive index taxed the same way on the same
+  account type.
+- **Expect rankings to move:** dividend screens vs momentum differ
+  materially in a taxable account; the exit policy becomes tax-expensive.
 
-*Done when:* bundled-data results carry red survivorship and price-index
-warnings; a US backtest runs on a universe that includes delisted names
-against a TR benchmark; and one Globe portfolio reconciles.
+*Done when:* a backtest can be run as taxable / TFSA / RRSP and the
+after-tax excess return over the equally-taxed index is reported, with
+the owner's module's numbers reproduced for a dividend-only portfolio.
 
-## Phase 2: Service hardening **[UI blocker]**
-- **Typed models:** request/response models (pydantic) and a real OpenAPI
-  document, with MCP tools generated from the same models.
-- **Session state:** per-session labs over read-only base labs, so a
-  screen defined by one client no longer changes it for everyone.
-- **Auth:** a minimal token.
-- **Concurrency:** thread-safe caches.
-
-*Done when:* a client generated from the OpenAPI document can run a
-backtest job and retrieve it later, and the document has no untyped
-bodies.
-
-## Phase 3: UI v1 (scenarios and comparisons)
-- **Scenarios:** a form for screen, rebalance period, costs, dates and
-  dataset, then compare up to about 6 scenarios side by side.
-- **Pinned benchmark:** the passive index is always the first row and
-  curve.
-- **Panels:** a timing-luck panel, current picks and the Graham funnel.
-- **Guardrails:** a data card on every result, a trial counter, and
-  confidence intervals on excess return.
-- **Saved runs:** come from the run store.
-- **Left out:** calibration, sweeps, leverage and financing metrics, and
-  the extra exit inputs.
-
-*Done when:* a user can build two scenarios, compare them against the
-index, see the data warnings, reopen yesterday's runs, and export a report.
-
-## Phase 4: Exit as drawdown control
-- **One toggle:** the fixed trend rule from `research/CALIBRATION_SP500.md`,
-  labelled as drawdown control, not a return enhancer.
-- **Rows:** "with and without" rows in the comparison.
-- **Cash:** earns a loaded T-bill series.
-- **Calibration:** stays an SDK diagnostic.
-
-*Done when:* the toggle adds a `+exit` row with time out and switches per
-year, and the UI states that it lowers drawdown and does not raise return.
-
-## Phase 4.5: Monte Carlo
-See DESIGN.md §K. Scenario generators (block / stationary / regime
-bootstrap, factor simulation) built as datasets, a `montecarlo` operation
-running as a job over many paths, outcome distributions for every portfolio
-and the passive index on the same paths, with the data card's survivorship
-warning carried through.
-
-*Done when:* a user can ask "how often does this portfolio trail the index
-over 10 years" and get a distribution with the passive index on identical
-paths, stored and comparable.
+## Phase 4: Service and UI hardening (only if the tool is shared)
+Decide first whether screenlab stays a personal workbench or becomes
+something other investors use. If personal, skip most of this.
+- Per-session labs over read-only base labs; auth token; thread-safety of
+  the shared `--serve` session under two people applying changes at once.
+- Python 3.11 / 3.12 test run (claimed 3.10+, tested on 3.13 only).
+- Faster TUI start: lazy-import Monte Carlo and server modules.
+- Exit as a single "drawdown control" toggle in the UI (the fixed trend
+  rule from `research/CALIBRATION_SP500.md`), calibration stays an SDK
+  diagnostic.
 
 ## Phase 5: Later
-- **Taxes:** taxable, TFSA and RRSP accounts.
-- **Credit and yield-curve exit inputs:** once FRED is reachable.
-- **Intraday exit cadence:** once intraday bars exist.
-- **Charts and an HTML report.**
-- **Advanced mode:** sweeps and significance tests, with the trial counter
-  wired in.
-- **Extended metrics:** on Bank of Canada data.
-- **Tracking:** scheduled picks and paper portfolios.
+- Credit-spread and yield-curve exit inputs once FRED data is loaded;
+  intraday exit cadence once intraday bars exist.
+- Extended metrics (real, FX, financing) on Bank of Canada data.
+- HTML report export; scheduled picks and paper portfolios.
+- Delete the old `rothery-screener` branch on GitHub (unchanged duplicate).
