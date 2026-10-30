@@ -50,6 +50,7 @@ class BacktestReport:
     compare: dict = field(default_factory=dict)   # label -> extra comparison curve (screen benchmarks etc.)
     data_card: DataCard | None = None             # what the data is (benchmark kind, survivorship, ...)
     price_benchmark_allowed: bool = False         # the run was told to accept a price-index benchmark
+    tax: dict = field(default_factory=dict)       # label -> tax table per year (taxes.TAX_COLS); empty without Config.tax
 
     @property
     def curves(self) -> pd.DataFrame:
@@ -135,6 +136,7 @@ class Backtest(Operation):
         cfg = lab._cfg(**cfg)
         bench = lab.benchmark_for(benchmark, allow_price_benchmark, "this backtest")
         extras = lab._extras(benchmark, compare)
+        lab.check_extras(extras, allow_price_benchmark, "this backtest's compare rows")
         call_exit = as_policy(exit) or cfg.exit
         items, used = [], set()                      # (label, screen, config, policy or None)
         for s in (screens or list(lab.screens)):
@@ -175,8 +177,14 @@ class Backtest(Operation):
                            M.COSTS_YR: res.costs.sum() / yrs}
             if res.exit is not None:
                 rows[label].update({M.TIMEOUT: res.time_out, M.SWITCHES_YR: res.switches / yrs})
+        # --- tax columns (taxes.py): AfterTaxCAGR, TaxDrag/yr, AfterTaxExcess/yr; the index is taxed the same way
+        from ..taxes import report_columns as _tax_columns
+        tax_tables = _tax_columns(rows, results, bench, bcurve, cfg, lab.market, start,
+                                  cfg.tax or next((c.tax for _, _, c, _ in screens if c.tax is not None), None))
+        # --- end tax columns
         rep = BacktestReport(pd.DataFrame(rows).T, results, bcurve, bench.label, cfg, ccurves,
                              lab.data_card(benchmark))
+        rep.tax = tax_tables
         rep.price_benchmark_allowed = bool(lab.allow_price_benchmark if allow_price_benchmark is None
                                            else allow_price_benchmark)
         return rep

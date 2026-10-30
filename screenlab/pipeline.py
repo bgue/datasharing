@@ -7,6 +7,7 @@
 * `CostModel`  trade cost on weight changes + holding cost (MER).       default `StandardCosts`
 * `Overlay`    exit exposure path and parked-money returns.            default `exit_policy.PolicyOverlay`
 * `Accrual`    cash rate and the delisting haircut.                     default `CashAccrual`
+* `TaxStage`   (optional, `Config.tax`) realized gains, dividend income, tax by year; see taxes.py
 
 `Config` carries the settings (`cfg.costs`, `cfg.construction`, `cfg.exit`, `cfg.cash`); any object that
 implements the matching protocol can be put there instead, so a new cost model, weighting or accrual is a class
@@ -167,6 +168,122 @@ class CashAccrual:
         last = np.where(pos >= 0, last, np.nan)
         dead = nan & (pos >= 0)
         return np.where(dead, last * (1 + self.delist_return), a), dead
+
+
+# --------------------------------------------------------------------------- tax
+class TaxStage:
+    """Collects the taxable events of one `simulate` run and has `taxes.assess` turn them into tax (DESIGN.md J5).
+
+    Everything is kept in pre-tax wealth units (start wealth 1.0). The accounting is homogeneous in wealth, so the
+    tax that is later paid from the portfolio (which shrinks positions and cost basis in proportion) does not change
+    any ratio recorded here; `taxes.assess` converts units to dollars with the after-tax factor in force.
+
+    Events:
+      trade      each rebalance sells the drop in weight of every name (realizing gain = proceeds - average cost
+                 of the part sold; average cost per name, "lot level" = one pooled lot) and buys the rise.
+      dividends  per bar, income = value at the start of the bar x the dividend yield x the bar's length in years.
+                 APPROXIMATION: the yield is `dividend / price` of the snapshot at the last rebalance, held
+                 constant to the next one, paid pro rata per bar; the real dates and amounts of dividends are not
+                 in the data. The dividends are inside the total-return prices, so they are reinvested: each adds
+                 to the name's cost basis (the price gain on a later sale excludes them).
+      switches   an exit-policy exposure change sells the matching share of the equity sleeve (gain realized) into
+                 the parked asset, or sells the parked asset (gain realized) to buy equity. The parked asset's
+                 gain is taxed as a capital gain when sold; interest on cash is not taxed. Between switches the mix
+                 is treated as rebalanced for free.
+      delisting  a name written off at the end of its segment realizes its loss (value at the haircut - cost).
+    Trading costs are not added to the cost basis nor deducted from proceeds. Tax payments are taken pro rata from
+    all holdings without realizing the gain on the part sold."""
+
+    def __init__(self, tax, capital: float):
+        self.tax, self.capital = tax, float(capital)
+        self.basis = pd.Series(dtype=float)          # name -> cost basis, wealth units
+        self.pb = None                               # cost basis of the parked asset (None until the first trade)
+        self._ev: list = []
+        self._last_mv = pd.Series(dtype=float)
+        self._last_park = 0.0
+
+    # ---- events
+    def _gains(self, date, gains) -> None:
+        g = np.asarray(gains, float)
+        self._ev.append(pd.DataFrame({"gain": [g[g > 0].sum()], "loss": [g[g < 0].sum()]}, index=[date]))
+
+    def trade(self, d, value: float, e: float, prev: pd.Series, target: pd.Series) -> None:
+        """Rebalance at `d`: `value` wealth before the trade cost, `e` equity share, `prev` / `target` drifted and new
+        sleeve weights."""
+        if self.pb is None:
+            self.pb = value * (1 - e)
+        M = value * e
+        names = prev.index.union(target.index)
+        p, t = prev.reindex(names, fill_value=0.0).to_numpy(), target.reindex(names, fill_value=0.0).to_numpy()
+        b = self.basis.reindex(names, fill_value=0.0).to_numpy()
+        sell, buy = np.maximum(p - t, 0.0) * M, np.maximum(t - p, 0.0) * M
+        den = p * M
+        frac = np.divide(sell, den, out=np.zeros_like(sell), where=den > 0)
+        gains = sell - b * frac
+        self._gains(d, gains[sell > 1e-15])
+        b = b * (1 - frac) + buy
+        self.basis = pd.Series(b, index=names)[lambda s: (s != 0) | s.index.isin(target.index)]
+
+    def segment(self, seg_index, yrs, value0: float, g: pd.DataFrame, target: pd.Series, S: np.ndarray, P: np.ndarray,
+                e: np.ndarray | None, dead: pd.DataFrame, snap: pd.DataFrame) -> None:
+        """One holding period. `value0` wealth after the trade cost, `g` growth of each name (after delisting and
+        MER), `S` / `P` sleeve / total growth path (equal without an overlay), `e` exposure per bar."""
+        names, tax = target.index, self.tax
+        n_b = len(seg_index)
+        e = np.ones(n_b) if e is None else np.asarray(e, float)
+        G = np.nan_to_num(g.to_numpy() * target.to_numpy())
+        V = value0 * np.asarray(P)
+        w = G / np.asarray(S)[:, None]
+        mv = (V * e)[:, None] * w                                      # market value of each name per bar
+        yld = snap["div_yield"].reindex(names).fillna(0.0).clip(lower=0.0).to_numpy() if "div_yield" in snap \
+            else np.zeros(len(names))
+        fx = tax.foreign_mask(names, snap)
+        alive = ~dead.to_numpy()
+        D = np.zeros_like(mv)
+        D[1:] = mv[:-1] * yld[None, :] * np.diff(yrs)[:, None] * alive[:-1]
+        self._ev.append(pd.DataFrame({"div_ca": D[:, ~fx].sum(axis=1), "div_fx": D[:, fx].sum(axis=1)}, index=seg_index))
+        cd = np.cumsum(D, axis=0)
+        b = self.basis.reindex(names, fill_value=0.0).to_numpy()
+        last, tiny = 0, 1e-12
+        sw = np.flatnonzero(np.abs(np.diff(e)) > tiny) + 1
+        for i in sw:
+            b = b + cd[i] - cd[last]
+            last = i
+            e0, e1, Vi = e[i - 1], e[i], V[i]
+            if e1 < e0 and e0 > 0:                                      # equity sold into the parked asset
+                s = (e0 - e1) / e0
+                mvpre = Vi * e0 * w[i]
+                self._gains(seg_index[i], s * (mvpre - b))
+                b = b * (1 - s)
+                self.pb += s * float(mvpre.sum())
+            elif e1 > e0 and e0 < 1:                                    # parked asset sold, equity bought
+                s = min((e1 - e0) / (1 - e0), 1.0)
+                pmv = Vi * (1 - e0)
+                self._gains(seg_index[i], [s * (pmv - self.pb)])
+                self.pb *= 1 - s
+                tot = G[i].sum()
+                if tot > 0:
+                    b = b + Vi * (e1 - e0) * G[i] / tot
+        b = b + cd[-1] - cd[last]
+        dd = dead.iloc[-1].to_numpy()
+        if dd.any():                                                    # written-off names realize their loss
+            self._gains(seg_index[-1], mv[-1][dd] - b[dd])
+            b[dd] = 0.0
+        self.basis = pd.Series(b, index=names)
+        self._last_mv = pd.Series(np.where(dd, 0.0, mv[-1]), index=names)
+        self._last_park = float(V[-1] * (1 - e[-1]))
+
+    def finish(self, curve: pd.Series, mkt=None) -> tuple:
+        """(tax table per year, after-tax curve) for the pre-tax `curve`."""
+        from .taxes import assess
+        if self.tax.liquidate_at_end:
+            gains = list((self._last_mv - self.basis.reindex(self._last_mv.index, fill_value=0.0)).to_numpy())
+            if self.pb is not None:
+                gains.append(self._last_park - self.pb)
+            self._gains(curve.index[-1], gains)
+        ev = pd.concat(self._ev) if self._ev else pd.DataFrame()
+        ev = ev.groupby(level=0).sum() if len(ev) else ev
+        return assess(curve, ev, self.tax, self.capital)
 
 
 # --------------------------------------------------------------------------- many paths at once
@@ -382,6 +499,10 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
     from .backtest import Config, schedule
     from .exit_policy import as_overlay
     cfg = cfg or Config()
+    if getattr(cfg, "tax", None) is not None:
+        raise NotImplementedError("Config.tax is not supported by simulate_paths (Monte Carlo): the tax stage keeps "
+                                  "per-lot cost basis path by path; run the backtest (backtest.run) with tax, or "
+                                  "drop Config.tax for Monte Carlo")
     if paths is not None:
         returns, alive, index_returns = paths.returns, paths.alive, paths.index_returns
         dates, names, index_names = paths.dates, paths.names, paths.index_names

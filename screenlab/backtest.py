@@ -22,7 +22,8 @@ from .serial import TAG, register_tag, serializable, to_dict as _to, from_dict a
 from .construction import HoldRule, StandardWeighting
 from .data import Market
 from .exit_policy import ExitPolicy, as_overlay
-from .pipeline import CashAccrual, PerSecurity, ScreenSelection, StandardCosts, resolve  # noqa: F401  (re-exported)
+from .pipeline import CashAccrual, PerSecurity, ScreenSelection, StandardCosts, TaxStage, resolve  # noqa: F401  (re-exported)
+from .taxes import TaxConfig  # noqa: F401  (re-exported; also registers the tax serialization tags)
 from .screens import Screen
 
 
@@ -56,6 +57,7 @@ class Config:
         construction  Weighting     default `StandardWeighting(weighting, max_weight, sector_cap, hold_rule)`
         cash          Accrual       default `CashAccrual(cash_rate, delist_return)`
         exit          ExitPolicy | None   exit policy: derisk on the exit screen's flag (None = always in)
+        tax           TaxConfig | None    taxes (taxes.py, docs/TAXES.md): None = no tax, every number as before
         rebalance_months, min_holdings (fewer passes than this -> hold cash)
 
     Any object implementing the stage protocol (pipeline.py) may be put in a group. The flat fields of the
@@ -76,9 +78,10 @@ class Config:
     construction: object = field(default_factory=StandardWeighting)
     exit: ExitPolicy | None = None
     cash: object = field(default_factory=CashAccrual)
+    tax: TaxConfig | None = None
 
     def __init__(self, rebalance_months: int = 12, *, min_holdings: int = 3, costs=None, construction=None,
-                 exit=None, cash=None, **flat):
+                 exit=None, cash=None, tax=None, **flat):
         bad = [k for k in flat if k not in _GROUP]
         if bad:
             raise TypeError(f"Config() got an unexpected keyword argument {bad[0]!r}")
@@ -96,6 +99,7 @@ class Config:
         object.__setattr__(self, "rebalance_months", rebalance_months)
         object.__setattr__(self, "min_holdings", min_holdings)
         object.__setattr__(self, "exit", exit)
+        object.__setattr__(self, "tax", tax)
 
     def __getattr__(self, name):
         g = _GROUP.get(name)
@@ -134,6 +138,8 @@ class Config:
                 out[k] = _to(v)
         for g in sorted(custom):
             out[g] = _to(getattr(self, g))
+        if self.tax is not None:
+            out["tax"] = _to(self.tax)
         return out
 
     @classmethod
@@ -153,6 +159,8 @@ class Result:
     time_out: float = 0.0             # fraction of bars with exposure below 1
     park_curve: pd.Series = None      # growth of 1 in the parked asset (None without an exit policy)
     exit: ExitPolicy | None = None    # the policy that produced this result
+    tax: pd.DataFrame | None = None   # tax per calendar year (taxes.TAX_COLS); None without Config.tax
+    after_tax_curve: pd.Series | None = None   # the portfolio value after the tax paid so far (None without Config.tax)
 
     @property
     def returns(self) -> pd.Series:
@@ -237,6 +245,8 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
     holdings, turn, costs = {}, {}, {}
     selection = selection or ScreenSelection()
     weighting, cost_model, accrual = cfg.construction, cfg.costs, cfg.cash
+    taxer = TaxStage(cfg.tax, cfg.tax.capital if cfg.tax.capital is not None else getattr(cfg, "capital", 100_000)) \
+        if cfg.tax is not None else None
     ov = as_overlay(cfg.exit)
     if ov is not None:
         held = exposure if exposure is not None else ov.exposure(mkt, rebal)
@@ -256,6 +266,8 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
         trade_cost = float(cost_model.trade_cost(dw, snap, value))                     # CostModel
         if ov is not None:
             trade_cost *= float(held.get(d, 1.0))    # only the invested share of the sleeve is traded
+        if taxer is not None:                                                          # TaxStage: gains realized by the trade
+            taxer.trade(d, value, float(held.get(d, 1.0)) if ov is not None else 1.0, prev, target)
         value *= 1 - trade_cost
         holdings[d], turn[d], costs[d] = picks, dw.sum() / 2, trade_cost
 
@@ -274,6 +286,7 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
                 path = path + (1 - target.sum()) * accrual.cash_factor(yrs)
             alive = ~dead.iloc[-1]
             prev = (g.iloc[-1] * target / path.iloc[-1])[alive]    # dead weight is uninvested cash
+            sleeve = path.to_numpy()
         if ov is not None:                                                             # Overlay
             e = held.reindex(seg.index).to_numpy()
             park_r = ov.park_returns(mkt, seg.index, yrs, accrual)
@@ -281,6 +294,9 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
             if not target.empty:
                 de = dheld.reindex(seg.index).to_numpy()
                 path = pd.Series(ov.apply(path.to_numpy(), e, de, park_r), index=seg.index)
+        if taxer is not None and not target.empty:                                     # TaxStage: income, switches, write-offs
+            taxer.segment(seg.index, yrs, value, g, target, sleeve, path.to_numpy(), e if ov is not None else None,
+                          dead, snap)
         pieces.append(value * path.iloc[1:])
         value *= path.iloc[-1]
 
@@ -295,8 +311,11 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
         time_out = float((expo < 1 - 1e-12).mean())
         pr = np.concatenate([np.zeros(1)] + park_pieces)
         park_curve = pd.Series(np.cumprod(1 + pr), index=curve.index, name="park")
+    tax_table = after_curve = None
+    if taxer is not None:
+        tax_table, after_curve = taxer.finish(curve)
     return Result(screen.name, curve, holdings, pd.Series(turn), pd.Series(costs), expo, switches,
-                  time_out, park_curve, ov.policy if ov is not None else None)
+                  time_out, park_curve, ov.policy if ov is not None else None, tax_table, after_curve)
 
 
 def run(screen: Screen, mkt: Market, cfg: Config = Config(), start=None, end=None,
@@ -311,7 +330,7 @@ def run(screen: Screen, mkt: Market, cfg: Config = Config(), start=None, end=Non
     curve = None
     if pol.needs_curve:
         with progress.scaled(0.0, 0.5):
-            curve = simulate(screen, mkt, replace(cfg, exit=None), rebal, end).curve
+            curve = simulate(screen, mkt, replace(cfg, exit=None, tax=None), rebal, end).curve
     expo = pol.exposure(mkt, rebal, curve)
     if pol.rescreen_on_reentry:
         stop = pd.Timestamp(end) if end else mkt.index[-1]

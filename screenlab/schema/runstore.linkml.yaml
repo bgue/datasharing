@@ -404,15 +404,16 @@ enums:
       Vol:
         description: Annualised standard deviation of the periodic returns (fraction per year).
       Sharpe:
-        description: Annualised mean return divided by annualised volatility, risk-free rate 0 (ratio, unitless).
+        description: Annualised mean return divided by annualised volatility, risk-free rate 0 (ratio,
+          unitless).
       MaxDD:
-        description: Maximum drawdown, the worst peak-to-trough fall of the curve (fraction, negative; -0.47
-          = -47%).
+        description: Maximum drawdown, the worst peak-to-trough fall of the curve (fraction, negative;
+          -0.47 = -47%).
       Worst12m:
         description: Worst rolling 12-month return (fraction, negative if a loss).
       BeatBenchYrs:
-        description: Share of calendar years in which the portfolio beat the passive index (fraction 0 to
-          1; 0.6 = 6 years in 10).
+        description: Share of calendar years in which the portfolio beat the passive index (fraction 0
+          to 1; 0.6 = 6 years in 10).
       Excess/yr:
         description: Portfolio CAGR minus the passive index's CAGR (fraction per year). In a significance
           run, the mean annualised arithmetic excess return instead.
@@ -422,8 +423,8 @@ enums:
         description: Average one-way turnover per rebalance (fraction of the portfolio traded; 0.3 = 30%
           bought and sold).
       Costs/yr:
-        description: Trading costs lost per year (fraction of portfolio value per year, from cost_bps and
-          commission).
+        description: Trading costs lost per year (fraction of portfolio value per year, from cost_bps
+          and commission).
       TimeOut:
         description: Share of days with less than full market exposure because an exit policy was active
           (fraction 0 to 1). Only for rows with an exit policy.
@@ -440,17 +441,17 @@ enums:
         description: Significance run; share of bootstrap samples with positive excess return (probability
           0 to 1).
       t:
-        description: Significance run; Newey-West t-statistic of excess return (unitless; beyond about 2
-          is conventionally significant).
+        description: Significance run; Newey-West t-statistic of excess return (unitless; beyond about
+          2 is conventionally significant).
       DSR:
-        description: Deflated Sharpe ratio, the probability (0 to 1) that the true Sharpe exceeds what the
-          luckiest of the trials in the family would show by chance. Falls as trials increase.
+        description: Deflated Sharpe ratio, the probability (0 to 1) that the true Sharpe exceeds what
+          the luckiest of the trials in the family would show by chance. Falls as trials increase.
       BonfP:
-        description: Bonferroni-adjusted one-sided p-value of Sharpe > 0, times the number of trials, capped
-          at 1.
+        description: Bonferroni-adjusted one-sided p-value of Sharpe > 0, times the number of trials,
+          capped at 1.
       Haircut:
-        description: Share of the Sharpe's z-score lost to the multiple-testing correction (0 to 1; 1 means
-          nothing survives).
+        description: Share of the Sharpe's z-score lost to the multiple-testing correction (0 to 1; 1
+          means nothing survives).
       Calmar:
         description: Exit calibration; CAGR divided by the absolute maximum drawdown of the overlay curve
           (ratio).
@@ -478,45 +479,53 @@ enums:
         description: Timing study distribution; largest value across start offsets.
       range:
         description: Timing study distribution; max minus min, the spread caused only by when you started.
-      P(>0):
-        description: Significance run; share of bootstrap samples with positive excess return (probability 0
-          to 1).
+      AfterTaxCAGR:
+        description: 'CAGR of the after-tax equity curve (fraction per year): tax on dividends, realized
+          capital gains and foreign withholding paid from the portfolio at each calendar year end, for
+          the account type in Config.tax. The passive index is taxed the same way. Only in a run with
+          Config.tax.'
+      TaxDrag/yr:
+        description: Pre-tax CAGR minus after-tax CAGR (fraction per year), the yearly growth lost to
+          tax. Only in a run with Config.tax.
+      AfterTaxExcess/yr:
+        description: After-tax CAGR minus the equally taxed passive index's after-tax CAGR (fraction per
+          year). Only in a run with Config.tax.
       TermWealth_p5:
-        description: Monte Carlo; 5th percentile of terminal wealth across paths at the horizon (currency units,
-          includes any contributions and withdrawals).
+        description: Monte Carlo; 5th percentile of terminal wealth across paths at the horizon (currency
+          units, includes any contributions and withdrawals).
       TermWealth_p25:
-        description: Monte Carlo; 25th percentile of terminal wealth across paths at the horizon (currency units,
-          includes any contributions and withdrawals).
+        description: Monte Carlo; 25th percentile of terminal wealth across paths at the horizon (currency
+          units, includes any contributions and withdrawals).
       TermWealth_p50:
-        description: Monte Carlo; 50th percentile of terminal wealth across paths at the horizon (currency units,
-          includes any contributions and withdrawals).
+        description: Monte Carlo; 50th percentile of terminal wealth across paths at the horizon (currency
+          units, includes any contributions and withdrawals).
       TermWealth_p75:
-        description: Monte Carlo; 75th percentile of terminal wealth across paths at the horizon (currency units,
-          includes any contributions and withdrawals).
+        description: Monte Carlo; 75th percentile of terminal wealth across paths at the horizon (currency
+          units, includes any contributions and withdrawals).
       TermWealth_p95:
-        description: Monte Carlo; 95th percentile of terminal wealth across paths at the horizon (currency units,
-          includes any contributions and withdrawals).
+        description: Monte Carlo; 95th percentile of terminal wealth across paths at the horizon (currency
+          units, includes any contributions and withdrawals).
       CAGR_p5:
-        description: 'Monte Carlo; 5th percentile of the compound annual growth rate across paths at the horizon
-          (fraction per year, time-weighted: without contributions and withdrawals).'
+        description: 'Monte Carlo; 5th percentile of the compound annual growth rate across paths at the
+          horizon (fraction per year, time-weighted: without contributions and withdrawals).'
       CAGR_p25:
-        description: 'Monte Carlo; 25th percentile of the compound annual growth rate across paths at the horizon
-          (fraction per year, time-weighted: without contributions and withdrawals).'
+        description: 'Monte Carlo; 25th percentile of the compound annual growth rate across paths at
+          the horizon (fraction per year, time-weighted: without contributions and withdrawals).'
       CAGR_p50:
-        description: 'Monte Carlo; 50th percentile of the compound annual growth rate across paths at the horizon
-          (fraction per year, time-weighted: without contributions and withdrawals).'
+        description: 'Monte Carlo; 50th percentile of the compound annual growth rate across paths at
+          the horizon (fraction per year, time-weighted: without contributions and withdrawals).'
       CAGR_p75:
-        description: 'Monte Carlo; 75th percentile of the compound annual growth rate across paths at the horizon
-          (fraction per year, time-weighted: without contributions and withdrawals).'
+        description: 'Monte Carlo; 75th percentile of the compound annual growth rate across paths at
+          the horizon (fraction per year, time-weighted: without contributions and withdrawals).'
       CAGR_p95:
-        description: 'Monte Carlo; 95th percentile of the compound annual growth rate across paths at the horizon
-          (fraction per year, time-weighted: without contributions and withdrawals).'
+        description: 'Monte Carlo; 95th percentile of the compound annual growth rate across paths at
+          the horizon (fraction per year, time-weighted: without contributions and withdrawals).'
       P(trail):
         description: Monte Carlo; share of paths on which the portfolio ends the horizon behind the passive
           index run on the same path (probability 0 to 1).
       ExcessCAGR_med:
-        description: Monte Carlo; median across paths of portfolio CAGR minus the passive index CAGR on the
-          same path (fraction per year).
+        description: Monte Carlo; median across paths of portfolio CAGR minus the passive index CAGR on
+          the same path (fraction per year).
       P(MaxDD<-30%):
         description: Monte Carlo; share of paths whose worst peak-to-trough fall within the horizon exceeds
           30% (probability 0 to 1).
@@ -524,8 +533,9 @@ enums:
         description: Monte Carlo; share of paths whose worst peak-to-trough fall within the horizon exceeds
           50% (probability 0 to 1).
       RecoverYrs_med:
-        description: Monte Carlo; median across paths of the years from the trough of the worst drawdown back
-          to its previous peak; empty when more than half of the paths had not recovered by the end of the horizon.
+        description: Monte Carlo; median across paths of the years from the trough of the worst drawdown
+          back to its previous peak; empty when more than half of the paths had not recovered by the end
+          of the horizon.
       P(unrecovered):
         description: Monte Carlo; share of paths that had not regained the peak before their worst drawdown
           by the end of the horizon (probability 0 to 1).

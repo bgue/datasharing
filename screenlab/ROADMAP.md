@@ -123,9 +123,28 @@ The owner has a separate Canadian dividend/salary tax module to contribute.
 - **Expect rankings to move:** dividend screens vs momentum differ
   materially in a taxable account; the exit policy becomes tax-expensive.
 
+*Scaffolded (docs/TAXES.md):* `TaxModel` interface (`tax_on_dividends`,
+`tax_on_capital_gain`, `tax_on_foreign_dividends`, `describe`; `register_tax_model`
+to serialize a model), `Config.tax = TaxConfig(model, account, us_withholding, ...)`,
+`pipeline.TaxStage` (average-cost gains on each rebalance and exit switch, loss
+carry-forward, dividend income from the snapshot yield, tax paid from the
+portfolio at each year end), `Result.tax` / `after_tax_curve`, report columns
+`AfterTaxCAGR`, `TaxDrag/yr`, `AfterTaxExcess/yr` with the passive index taxed the
+same way, taxable / TFSA / RRSP with US withholding by account. No tax by default
+(golden tests unchanged). Monte Carlo with a tax config raises NotImplementedError.
+
+*Needs the owner's module:* the real dividend / salary tax (the shipped
+`PlaceholderCanadianTax` rates are illustrative and unchecked against CRA tables),
+provincial rates for provinces other than ON, rates by year, progressive brackets
+driven by simulated income. *Open approximations:* dividend dates and amounts
+(yield held between rebalances), interest on cash and parked money untaxed,
+index yield when the series is total return without one, no tax on the final
+unrealized gain unless `liquidate_at_end`.
+
 *Done when:* a backtest can be run as taxable / TFSA / RRSP and the
 after-tax excess return over the equally-taxed index is reported, with
 the owner's module's numbers reproduced for a dividend-only portfolio.
+(Mechanics done; waiting on the owner's module for the reproduction check.)
 
 ## Phase 4: Service and UI hardening (only if the tool is shared)
 Decide first whether screenlab stays a personal workbench or becomes

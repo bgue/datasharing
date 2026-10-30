@@ -98,6 +98,14 @@ _m('max', 'Maximum', 'as measured', None, 'num',
 _m('range', 'Range', 'as measured', None, 'num',
    'Timing study distribution; max minus min, the spread caused only by when you started.'),
 
+# Taxes (taxes.py; only when Config.tax is set)
+_m('AfterTaxCAGR', 'After-tax CAGR', 'fraction/yr', 'higher', 'pct',
+   'CAGR of the after-tax equity curve (fraction per year): tax on dividends, realized capital gains and foreign withholding paid from the portfolio at each calendar year end, for the account type in Config.tax. The passive index is taxed the same way. Only in a run with Config.tax.'),
+_m('TaxDrag/yr', 'Tax drag per year', 'fraction/yr', 'lower', 'pct',
+   'Pre-tax CAGR minus after-tax CAGR (fraction per year), the yearly growth lost to tax. Only in a run with Config.tax.'),
+_m('AfterTaxExcess/yr', 'After-tax excess return per year', 'fraction/yr', 'higher', 'pct',
+   "After-tax CAGR minus the equally taxed passive index's after-tax CAGR (fraction per year). Only in a run with Config.tax."),
+
 # Monte Carlo (ops/montecarlo.py): distributions over resampled paths, per portfolio and horizon
 for _q in (5, 25, 50, 75, 95):
     _m(f'TermWealth_p{_q}', f'Terminal wealth p{_q}', 'currency', 'higher', 'num',
@@ -145,6 +153,9 @@ class M:
     OBS = 'Obs'
     PERYR = 'PerYr'
     CALMAR = 'Calmar'
+    AFTERTAX_CAGR = 'AfterTaxCAGR'
+    TAXDRAG_YR = 'TaxDrag/yr'
+    AFTERTAX_EXCESS_YR = 'AfterTaxExcess/yr'
     DIST_MEAN = 'mean'
     DIST_STD = 'std'
     DIST_MIN = 'min'
