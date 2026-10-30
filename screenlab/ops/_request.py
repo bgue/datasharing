@@ -26,8 +26,12 @@ class HoldRuleRequest:
 TAX_MODEL_NAMES = ("none", "placeholder", "canadian")      # the keys of taxes.TAX_MODELS
 TAX_ACCOUNTS = ("taxable", "tfsa", "rrsp")
 TAX_PROVINCES = ("AB", "BC")
-TAX_FIELDS = ("model", "account", "province", "year", "employment_income", "deductions", "eligible_share",
-              "us_withholding")
+TAX_FIELDS = ("model", "account", "province", "year", "other_income", "marginal_rate", "employment_income",
+              "deductions", "eligible_share", "us_withholding", "rrsp_withdrawal_rate", "harvest", "harvest_threshold_pct",
+              "harvest_when", "harvest_replacement")                      # Q1
+TAX_HARVEST_WHEN = ("year_end", "rebalance", "both")
+TAX_HARVEST_REPLACEMENT = ("cash", "stay_out", "second_pick")
+DEFAULT_OTHER_INCOME = 90_000.0           # Q1: the owner's own sanity-check income
 
 
 @dataclass
@@ -38,10 +42,20 @@ class TaxRequest:
     account: Literal["taxable", "tfsa", "rrsp"] = arg(doc="account the portfolio is held in")
     province: Literal["AB", "BC"] | None = arg(None, "province of residence (model canadian)")
     year: int = arg(2025, "tax year of the rate tables (model canadian)")
-    employment_income: float = arg(0.0, "other taxable income in $/yr that sets the marginal rate")
+    other_income: float | None = arg(None, "other taxable income in $/yr that sets your bracket; the portfolio's income "
+                                            "stacks on top (default 90000)")                      # Q1
+    marginal_rate: float | None = arg(None, "alternative to other_income: your ordinary marginal rate (0..1); the bracket "
+                                            "is the income whose tax_ca marginal rate is nearest (model canadian)")
+    employment_income: float | None = arg(None, "DEPRECATED alias of other_income (same numbers)")
     deductions: float = arg(0.0, "deductions in $/yr (model canadian)")
     eligible_share: float = arg(1.0, "share of Canadian dividends that are eligible, 0..1 (model canadian)")
     us_withholding: float = arg(0.15, "withholding rate on foreign dividends, 0..1")
+    rrsp_withdrawal_rate: float | None = arg(None, "assumed marginal rate at RRSP withdrawal; None = untaxed with a warning")
+    harvest: bool = arg(False, "explicitly enable tax-loss harvesting (taxable account); off by default")
+    harvest_threshold_pct: float = arg(0.10, "sell a name when its unrealized loss exceeds this share of cost")
+    harvest_when: Literal["year_end", "rebalance", "both"] = arg("year_end", "when harvesting is considered")
+    harvest_replacement: Literal["cash", "stay_out", "second_pick"] = arg(
+        "second_pick", "what happens to the money for the 30-day window: hold cash, stay out, or hold the screen's second pick")
 
 
 @dataclass
@@ -59,7 +73,7 @@ class ConfigOverrides:
     sector_cap: float | None = arg(None, "per-sector weight cap")
     weighting: Literal["equal", "cap", "inv_vol"] | None = arg(None, "weighting rule: equal, cap or inv_vol")
     hold_rule: HoldRuleRequest | None = arg(None, "turnover control: {keep_within, band}")
-    tax: TaxRequest | None = arg(None, "tax the results: {model, account, province, year, employment_income, ...}")
+    tax: TaxRequest | None = arg(None, "tax the results: {model, account, province, year, other_income, ...}")
 
 
 @dataclass
@@ -265,32 +279,59 @@ def _tax_config(v):
             raise ServerError(400, f"config.tax.{k} must be one of {list(allowed)}, got {v.get(k)!r}")
     if not (isinstance(v.get("year", 2025), int) and not isinstance(v.get("year", 2025), bool)):
         raise ServerError(400, f"config.tax.year must be an integer, got {v['year']!r}")
-    for k, lo, hi in (("employment_income", 0, None), ("deductions", 0, None), ("eligible_share", 0, 1),
-                      ("us_withholding", 0, 1)):
+    for k, lo, hi in (("other_income", 0, None), ("employment_income", 0, None), ("deductions", 0, None),
+                      ("eligible_share", 0, 1), ("us_withholding", 0, 1), ("marginal_rate", 0, 1),
+                      ("rrsp_withdrawal_rate", 0, 1), ("harvest_threshold_pct", 0, 1)):      # Q1
         x = v.get(k)
         if x is None:
             continue
         if not num(x) or x < lo or (hi is not None and x > hi):
             word = f"a number >= {lo}" if hi is None else f"a number in [{lo}, {hi}]"
             raise ServerError(400, f"config.tax.{k} must be {word}, got {x!r}")
+    for k, allowed in (("harvest_when", TAX_HARVEST_WHEN), ("harvest_replacement", TAX_HARVEST_REPLACEMENT)):    # Q1
+        if v.get(k) is not None and v[k] not in allowed:
+            raise ServerError(400, f"config.tax.{k} must be one of {list(allowed)}, got {v[k]!r}")
+    if v.get("harvest") is not None and not isinstance(v["harvest"], bool):
+        raise ServerError(400, f"config.tax.harvest must be true or false, got {v['harvest']!r}")
+    if v.get("other_income") is not None and v.get("employment_income") is not None:
+        raise ServerError(400, "give config.tax.other_income or its deprecated alias employment_income, not both")
+    if v.get("marginal_rate") is not None and (v.get("other_income") is not None or v.get("employment_income") is not None):
+        raise ServerError(400, "give config.tax.other_income or marginal_rate, not both")
+    if v.get("employment_income") is not None:
+        import warnings
+        warnings.warn("config.tax.employment_income is deprecated: use other_income", DeprecationWarning, stacklevel=2)
+    income = v.get("other_income", v.get("employment_income"))
+    income = DEFAULT_OTHER_INCOME if income is None else float(income)
     model, prov = v["model"], v.get("province")
     if model == "none":
         m = taxes.NoTax()
     elif model == "placeholder":
         if prov is not None:
             raise ServerError(400, "config.tax.province applies to model 'canadian' only (placeholder is Ontario-illustrative)")
-        m = taxes.PlaceholderCanadianTax(income=float(v.get("employment_income") or 0.0) or 100_000.0)
+        m = taxes.PlaceholderCanadianTax(income=income if income else 100_000.0)
     else:
         if prov is None:
             raise ServerError(400, f"config.tax.province must be one of {list(TAX_PROVINCES)} for model 'canadian', got None")
         cls = taxes.TAX_MODELS["canadian"]
         try:
-            m = cls(province=prov, year=v.get("year", 2025), employment_income=float(v.get("employment_income", 0.0)),
+            mr = v.get("marginal_rate")
+            m = cls(province=prov, year=v.get("year", 2025), other_income=0.0 if mr is not None else income,
+                    marginal_rate=None if mr is None else float(mr),
                     deductions=float(v.get("deductions", 0.0)), eligible_share=float(v.get("eligible_share", 1.0)))
         except (ValueError, TypeError) as e:
             raise ServerError(400, f"config.tax: {e}") from None
-    return taxes.TaxConfig(model=m, account=v["account"],
-                            withholding={"US": float(v.get("us_withholding", 0.15))})          # P3: us_withholding is deprecated
+    harvest = None
+    if v.get("harvest"):                                                        # Q1: only when explicitly enabled
+        from ..harvesting import TaxLossHarvest
+        harvest = TaxLossHarvest(threshold_pct=float(v.get("harvest_threshold_pct", 0.10)),
+                                 when=v.get("harvest_when", "year_end"),
+                                 replacement=v.get("harvest_replacement", "second_pick"))
+    rw = v.get("rrsp_withdrawal_rate")
+    try:
+        return taxes.TaxConfig(model=m, account=v["account"], withholding={"US": float(v.get("us_withholding", 0.15))},
+                               rrsp_withdrawal_rate=None if rw is None else float(rw), harvest=harvest)
+    except ValueError as e:
+        raise ServerError(400, f"config.tax: {e}") from None
 
 
 def config_overrides(config) -> dict:

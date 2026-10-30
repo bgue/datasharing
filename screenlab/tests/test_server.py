@@ -202,7 +202,7 @@ def test_tax_config_changes_the_run_key(reg):
 def test_openapi_shows_tax_sub_model(client):
     schemas = client.get("/openapi.json").json()["components"]["schemas"]
     assert "TaxRequest" in schemas
-    assert {"model", "account", "province", "year", "employment_income", "deductions", "eligible_share",
+    assert {"model", "account", "province", "year", "other_income", "deductions", "eligible_share",
             "us_withholding"} <= set(schemas["TaxRequest"]["properties"])
 
 
@@ -341,3 +341,33 @@ def test_backtest_compare_rows_never_primary(client):
     assert j["benchmark"] == "SYN_CAPWT"
     assert {"bench_top20 (compare)", "bench_top10 (compare)"} <= set(j["curves"])
     assert client.post("/labs/synthetic/timing", json={"screen": "dogs", "stride": 6}).json()["benchmark"] == "SYN_CAPWT"
+
+
+# Q1: TaxRequest account-centric fields
+def test_q1_tax_request_fields_and_harvest_toggle():
+    from screenlab.harvesting import TaxLossHarvest
+    from screenlab.ops._request import _tax_config
+    base = {"model": "canadian", "account": "taxable", "province": "AB"}
+    off = _tax_config(base)
+    assert off.harvest is None and off.model.other_income == 90_000.0
+    on = _tax_config({**base, "harvest": True, "harvest_threshold_pct": 0.2, "harvest_when": "both",
+                      "harvest_replacement": "second_pick"})
+    assert isinstance(on.harvest, TaxLossHarvest) and on.harvest.threshold_pct == 0.2 and on.harvest.when == "both"
+    r = _tax_config({"model": "canadian", "account": "rrsp", "province": "BC", "rrsp_withdrawal_rate": 0.3,
+                     "marginal_rate": 0.4})
+    assert r.rrsp_withdrawal_rate == 0.3 and r.model.marginal_rate == 0.4
+    with pytest.warns(DeprecationWarning):
+        assert _tax_config({**base, "employment_income": 50_000}).model.other_income == 50_000.0
+    for bad, needle in (({"harvest_when": "never"}, "harvest_when must be one of"),
+                        ({"harvest_replacement": "similar"}, "harvest_replacement must be one of"),
+                        ({"harvest": "yes"}, "harvest must be true or false"),
+                        ({"other_income": 1, "marginal_rate": 0.3}, "not both"),
+                        ({"rrsp_withdrawal_rate": 2}, "rrsp_withdrawal_rate must be")):
+        with pytest.raises(Exception, match=needle):
+            _tax_config({**base, **bad})
+
+
+def test_q1_openapi_tax_request_new_fields(client):
+    props = client.get("/openapi.json").json()["components"]["schemas"]["TaxRequest"]["properties"]
+    assert {"other_income", "marginal_rate", "rrsp_withdrawal_rate", "harvest", "harvest_threshold_pct", "harvest_when",
+            "harvest_replacement"} <= set(props)

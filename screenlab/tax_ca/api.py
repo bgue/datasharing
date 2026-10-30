@@ -11,7 +11,7 @@ from dataclasses import dataclass, field, asdict
 from .core import Jurisdiction, bracket_tax
 from .tables import FEDERAL, JURISDICTIONS, TAX_YEARS, CAPITAL_GAINS_INCLUSION
 
-__all__ = ["TaxResult", "TaxCaError", "compute", "marginal_rates"]
+__all__ = ["TaxResult", "TaxCaError", "compute", "marginal_rates", "income_for_marginal_rate"]
 
 _INCREMENT = 100.0
 
@@ -146,3 +146,15 @@ def marginal_rates(province: str, year: int, employment_income: float, deduction
         "non_eligible_dividend": rate(non_eligible_dividends=h),
         "capital_gain": rate(capital_gains=h),
     }
+
+
+def income_for_marginal_rate(province: str, year: int, rate: float, *, max_income: float = 500_000.0) -> float:
+    """# Q1: the other income ($, on a $100 grid) whose marginal ORDINARY rate is nearest to `rate` (a fraction).
+    Ties go to the lower income. Used to turn a direct `marginal_rate` into a bracket position."""
+    best, best_gap = 0.0, float("inf")
+    for i in range(int(max_income / _INCREMENT) + 1):
+        inc = i * _INCREMENT
+        gap = abs(compute(province, year, employment_income=inc).marginal_rate_ordinary - rate)
+        if gap < best_gap - 1e-12:
+            best, best_gap = inc, gap
+    return best

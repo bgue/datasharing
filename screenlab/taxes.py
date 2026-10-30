@@ -225,7 +225,13 @@ class CanadianTax:
     province        "AB" | "BC"
     year            tax year of the tables (2025); calendar years outside the tables use the nearest table year and
                     record a warning (`Result.tax.attrs["warnings"]`)
-    employment_income, deductions   the investor's other income and deductions, $ a year (constant over the simulation)
+    other_income    # Q1: other taxable income that sets the bracket, $ a year (constant over the simulation); the
+                    portfolio's income stacks on top. The TaxRequest / TUI default is 90000 (the owner's sanity-check income)
+    employment_income  # Q1: DEPRECATED alias of `other_income` (warns, same numbers); reads back as None
+    marginal_rate   # Q1: alternative to `other_income`: the ordinary marginal rate (fraction) of the bracket; resolved
+                    to the $100-grid income whose tax_ca ordinary marginal rate is nearest, so interest/foreign income,
+                    eligible dividends and gains all take that bracket's rates. `other_income` then reads back as that income
+    deductions      deductions, $ a year (kept; hidden from the TUI)
     eligible_share  share of the Canadian cash dividends that are eligible (rest non-eligible)
 
     Stacking within a year: salary -> dividends (grossed up) -> foreign income -> capital gains; each layer's tax is the
@@ -241,12 +247,19 @@ class CanadianTax:
     """
     province: str = "AB"
     year: int = 2025
-    employment_income: float = 0.0
+    other_income: float = 0.0
     deductions: float = 0.0
     eligible_share: float = 1.0
+    employment_income: float | None = None                       # Q1: deprecated alias of other_income
+    marginal_rate: float | None = None                           # Q1: direct bracket knob
 
     def __post_init__(self):
         from .tax_ca import JURISDICTIONS, TAX_YEARS
+        if self.employment_income is not None:                   # Q1
+            _warnings.warn("CanadianTax.employment_income is deprecated: use other_income",
+                           DeprecationWarning, stacklevel=3)
+            object.__setattr__(self, "other_income", float(self.employment_income))
+            object.__setattr__(self, "employment_income", None)
         object.__setattr__(self, "province", str(self.province).upper())
         if self.province not in JURISDICTIONS:
             raise ValueError(f"province must be one of {sorted(JURISDICTIONS)}, got {self.province!r}")
@@ -254,6 +267,12 @@ class CanadianTax:
             raise ValueError(f"year must be one of {list(TAX_YEARS)}, got {self.year!r}")
         if not 0.0 <= self.eligible_share <= 1.0:
             raise ValueError("eligible_share must be in [0, 1]")
+        if self.marginal_rate is not None:                       # Q1
+            if not 0.0 <= self.marginal_rate < 1.0:
+                raise ValueError("marginal_rate must be a rate in [0, 1)")
+            from .tax_ca import income_for_marginal_rate
+            object.__setattr__(self, "other_income",
+                               income_for_marginal_rate(self.province, int(self.year), float(self.marginal_rate)))
 
     def _table_year(self, year: int) -> tuple:
         from .tax_ca import TAX_YEARS
@@ -263,7 +282,7 @@ class CanadianTax:
 
     def _compute(self, year, *, extra_ordinary=0.0, **kw):
         from .tax_ca import compute
-        return compute(self.province, year, employment_income=self.employment_income + extra_ordinary,
+        return compute(self.province, year, employment_income=self.other_income + extra_ordinary,
                        deductions=self.deductions, **kw)
 
     def assess_year(self, year, *, eligible_dividends=0.0, non_eligible_dividends=0.0, foreign_income=0.0,
@@ -312,8 +331,8 @@ class CanadianTax:
     def describe(self) -> dict:
         from .tax_ca import TAX_YEARS
         return {"model": "CanadianTax", "province": self.province, "year": self.year, "tables": list(TAX_YEARS),
-                "employment_income": self.employment_income, "deductions": self.deductions,
-                "eligible_share": self.eligible_share,
+                "other_income": self.other_income, "marginal_rate": self.marginal_rate,
+                "deductions": self.deductions, "eligible_share": self.eligible_share,
                 "stacking": "salary -> dividends -> foreign -> capital gains", "ftc": "approximation",
                 "note": "tax_ca tables; not tax advice"}
 
@@ -422,6 +441,33 @@ class TaxConfig:
             return RRSP_UNTAXED_WARNING
         src = (f" from retirement income {self.rrsp_withdrawal_income:,.0f}" if self.rrsp_withdrawal_income is not None else "")
         return f"RRSP: deferred, taxed at withdrawal at {100 * r:.1f}% (assumed{src})"
+
+    def tax_line(self) -> str | None:
+        """# Q1: the report line "Tax: <account>, <province>, bracket at $<other_income> (marginal ordinary X%, eligible
+        dividend Y%, capital gains Z%)" for a tax_ca model (CanadianTax); None for other models."""
+        m = self.model
+        prov, yr = str(getattr(m, "province", "")).upper(), int(getattr(m, "year", 2025))
+        inc = getattr(m, "other_income", None)
+        from .tax_ca import JURISDICTIONS, TAX_YEARS, marginal_rates
+        if inc is None or prov not in JURISDICTIONS or yr not in TAX_YEARS or not hasattr(m, "assess_year"):
+            return None
+        r = marginal_rates(prov, yr, float(inc), float(getattr(m, "deductions", 0.0)))
+        return (f"Tax: {self.account}, {prov}, bracket at ${inc:,.0f} (marginal ordinary {100 * r['ordinary']:.1f}%, "
+                f"eligible dividend {100 * r['eligible_dividend']:.1f}%, capital gains {100 * r['capital_gain']:.1f}%)")
+
+    def harvest_line(self) -> str:
+        """# Q1: "Harvesting: off" or "Harvesting: on (threshold 10%, second pick, 30-day superficial-loss window)"."""
+        h = self.harvest
+        if h is None:
+            return "Harvesting: off"
+        word = {"similar": "second pick", "second_pick": "second pick", "stay_out": "stay out"}.get(h.replacement, h.replacement)
+        return (f"Harvesting: on (threshold {100 * h.threshold_pct:g}%, {word}, "
+                f"{h.superficial_days}-day superficial-loss window)")
+
+    def report_lines(self) -> str | None:
+        """# Q1: the RRSP convention (if any), the bracket line (if any) and the harvesting line, one per line."""
+        lines = [x for x in (self.rrsp_convention(), self.tax_line(), self.harvest_line()) if x]
+        return "\n".join(lines) or None
 
     def rate_for(self, country) -> float:
         """P3: treaty withholding rate on dividends paid from `country`."""
@@ -621,7 +667,7 @@ def assess(curve: pd.Series, events: pd.DataFrame, tax: TaxConfig, capital: floa
     table["refund"] = pd.Series({y: v[1] for y, v in back.items()})              # P2
     table.attrs["year_tax"] = year_tax                                           # P2: YearTax per year, breakdown has carried_back / refund
     table.attrs["warnings"] = warnings
-    table.attrs["convention"] = tax.rrsp_convention()                                  # P1
+    table.attrs["convention"] = tax.report_lines()                                    # P1 / Q1: RRSP convention + bracket + harvesting lines
     after_curve = curve * factor if tax.pay_from_portfolio else curve - paid_cum / capital
     return table, after_curve.rename("after_tax")
 

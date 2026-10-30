@@ -270,7 +270,7 @@ SAL = 90_000.0
 
 
 def ca(prov="AB", **kw):
-    return CanadianTax(province=prov, year=2025, employment_income=SAL, **kw)
+    return CanadianTax(province=prov, year=2025, other_income=SAL, **kw)
 
 
 def test_registry_and_validation():
@@ -516,7 +516,7 @@ def test_rrsp_deferred_is_taxed_at_withdrawal_on_the_last_bar():
     assert t.loc[2021, "tax_paid"] == pytest.approx(CAP * C * RATE, rel=1e-12)
     assert t.loc[2021, "wealth_after_tax"] == pytest.approx(CAP * C * (1 - RATE), rel=1e-12)
     assert t.loc[2021, "cum_drag"] == pytest.approx(RATE, rel=1e-12)
-    assert t.attrs["convention"] == "RRSP: deferred, taxed at withdrawal at 30.0% (assumed)" and not t.attrs["warnings"]
+    assert t.attrs["convention"].splitlines()[0] == "RRSP: deferred, taxed at withdrawal at 30.0% (assumed)" and not t.attrs["warnings"]
 
 
 def test_rrsp_withdrawal_outside_paid_and_tfsa_unchanged():
@@ -525,14 +525,14 @@ def test_rrsp_withdrawal_outside_paid_and_tfsa_unchanged():
     assert res.after_tax_curve.iloc[-1] == pytest.approx(C - RATE * C, rel=1e-12)
     tf = go(tx("tfsa", rrsp_withdrawal_rate=RATE))                                             # the rate is ignored off-RRSP
     pd.testing.assert_series_equal(tf.after_tax_curve, tf.curve, check_names=False)
-    assert tf.tax.attrs["convention"] is None and (tf.tax["tax_rrsp_withdrawal"] == 0).all()
+    assert "RRSP" not in tf.tax.attrs["convention"] and (tf.tax["tax_rrsp_withdrawal"] == 0).all()
 
 
 def test_rrsp_without_a_rate_keeps_untaxed_behaviour_with_a_warning():
     res = go(tx("rrsp"))
     pd.testing.assert_series_equal(res.after_tax_curve, res.curve, check_names=False)
     assert "RRSP withdrawals untaxed in this run" in res.tax.attrs["warnings"]
-    assert res.tax.attrs["convention"] == "RRSP withdrawals untaxed in this run"
+    assert res.tax.attrs["convention"].splitlines()[0] == "RRSP withdrawals untaxed in this run"
 
 
 def test_rrsp_rate_from_retirement_income_and_validation():
@@ -728,3 +728,35 @@ def test_roc_beyond_the_acb_is_a_capital_gain():
     assert gain == pytest.approx(0.02) and b == pytest.approx(0.04)
     b, gain = TaxStage.roc_step(1.0, 0.04, 0.04)          # plenty of ACB: no gain, ACB grows by the income part (0)
     assert gain == 0.0 and b == pytest.approx(1.0)
+
+
+# Q1: account-centric configuration: other_income (bracket knob), the employment_income alias, marginal_rate, report lines
+def test_q1_employment_income_alias_warns_and_gives_same_numbers():
+    with pytest.warns(DeprecationWarning, match="other_income"):
+        old = CanadianTax(province="AB", year=2025, employment_income=90_000)
+    new = CanadianTax(province="AB", year=2025, other_income=90_000)
+    assert old.other_income == 90_000 and old.employment_income is None
+    kw = dict(eligible_dividends=5_000, foreign_income=2_000, foreign_withholding=300, capital_gains_net=8_000)
+    assert old.assess_year(2025, **kw).total == new.assess_year(2025, **kw).total
+
+
+def test_q1_marginal_rate_picks_the_bracket_income():
+    from screenlab.tax_ca import marginal_rates
+    m = CanadianTax(province="AB", year=2025, marginal_rate=0.38)
+    got = marginal_rates("AB", 2025, m.other_income)["ordinary"]
+    assert abs(got - 0.38) < 0.02 and m.other_income % 100 == 0
+    twin = CanadianTax(province="AB", year=2025, other_income=m.other_income)
+    assert m.assess_year(2025, capital_gains_net=10_000).total == twin.assess_year(2025, capital_gains_net=10_000).total
+    with pytest.raises(ValueError, match="marginal_rate"):
+        CanadianTax(province="AB", marginal_rate=1.5)
+
+
+def test_q1_report_lines_bracket_and_harvesting():
+    from screenlab.harvesting import TaxLossHarvest
+    t = TaxConfig(model=CanadianTax(province="AB", year=2025, other_income=90_000), account="taxable")
+    assert t.tax_line().startswith("Tax: taxable, AB, bracket at $90,000 (marginal ordinary ")
+    assert "eligible dividend" in t.tax_line() and "capital gains" in t.tax_line()
+    assert t.harvest_line() == "Harvesting: off" and t.report_lines().endswith("Harvesting: off")
+    h = TaxConfig(model=t.model, harvest=TaxLossHarvest(replacement="second_pick"))
+    assert h.harvest_line() == "Harvesting: on (threshold 10%, second pick, 30-day superficial-loss window)"
+    assert TaxLossHarvest(replacement="similar").replacement == TaxLossHarvest(replacement="second_pick").replacement
