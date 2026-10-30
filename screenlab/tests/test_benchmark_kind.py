@@ -333,3 +333,64 @@ def test_cli_refuses_a_price_benchmark_and_accepts_the_fixes(capsys):
         run.main(base)
     assert run.main([*base, "--bench-dividend-yield", "0.02"]).benchmark_label == "SP500 +2.0% div (approx. TR)"
     assert run.main([*base, "--allow-price-benchmark"]).benchmark_label == "SP500"
+
+
+# --------------------------------------------------------------------------- compare rows and named targets
+@pytest.fixture(scope="module")
+def mixed_dataset() -> Dataset:
+    """Total-return passive index SYN_CAPWT plus a second series SYN_PX recorded as a price index."""
+    d = SyntheticBuilder(n_stocks=60, years=6, freq="ME", seed=3).build()
+    idx = d.indices.copy()
+    idx["SYN_PX"] = idx["SYN_CAPWT"] * 0.97
+    return Dataset.from_frames(d.fundamentals, d.prices, idx, name="syn_mixed",
+                               index_kinds={"SYN_CAPWT": "total_return", "SYN_PX": "price"})
+
+
+@pytest.fixture
+def mixed_lab(mixed_dataset) -> Lab:
+    return Lab.from_dataset(mixed_dataset)
+
+
+def test_compare_row_with_a_price_index_is_refused_unless_allowed(mixed_lab):
+    lab = mixed_lab
+    for cmp in ("SYN_PX", ["SYN_PX"], IndexBenchmark("SYN_PX"), {"index": "SYN_PX"}):
+        with pytest.raises(BenchmarkKindError, match="allow_price_benchmark") as e:
+            lab.backtest(["dogs"], compare=cmp)
+        assert "SYN_PX" in str(e.value) and "compare rows" in str(e.value)
+    ok = lab.backtest(["dogs"], compare="SYN_PX", allow_price_benchmark=True)
+    assert "SYN_PX (compare)" in ok.table.index
+    fixed = lab.backtest(["dogs"], compare=IndexBenchmark("SYN_PX", dividend_yield=0.02))
+    assert any("SYN_PX" in r for r in fixed.table.index)
+    tr = lab.backtest(["dogs"], compare=["SYN_CAPWT", "top20"])                  # TR index / screen rows pass
+    assert len(tr.table) >= 3
+    on = Lab.from_dataset(lab.market.dataset, allow_price_benchmark=True)        # the Lab-wide flag allows it
+    on.backtest(["dogs"], compare="SYN_PX")
+
+
+def test_lab_level_price_compare_is_refused(mixed_dataset):
+    lab = Lab.from_dataset(mixed_dataset, compare=(IndexBenchmark("SYN_PX"),))
+    with pytest.raises(BenchmarkKindError):
+        lab.backtest(["dogs"])
+
+
+def test_named_exit_targets_are_kind_checked(mixed_lab):
+    lab = mixed_lab
+    es = ExitScreen([TrendBreak("SYN_CAPWT")])
+    with pytest.raises(BenchmarkKindError, match="exit evaluation"):
+        lab.exit_eval(es, target="SYN_PX")
+    with pytest.raises(BenchmarkKindError, match="exit calibration"):
+        lab.calibrate_exit(es, {"threshold": [0.6, 0.8]}, target="SYN_PX")
+    lab.exit_eval(es, target="SYN_PX", allow_price_benchmark=True)
+    lab.calibrate_exit(es, {"threshold": [0.6, 0.8]}, target="SYN_PX", allow_price_benchmark=True)
+    lab.exit_eval(es, target="SYN_CAPWT")                                        # TR target and a curve pass
+    lab.exit_eval(es, target=lab.market.series("SYN_PX"))
+
+
+def test_montecarlo_named_price_index_is_refused(mixed_lab):
+    kw = dict(screens=["dogs"], n_paths=5, horizon_years=[1])
+    with pytest.raises(BenchmarkKindError, match="allow_price_benchmark"):
+        mixed_lab.montecarlo(benchmark="SYN_PX", **kw)
+    with pytest.raises(BenchmarkKindError):
+        mixed_lab.montecarlo(benchmark={"index": "SYN_PX"}, **kw)
+    mixed_lab.montecarlo(benchmark="SYN_PX", allow_price_benchmark=True, **kw)
+    mixed_lab.montecarlo(benchmark={"index": "SYN_PX", "dividend_yield": 0.02}, **kw)

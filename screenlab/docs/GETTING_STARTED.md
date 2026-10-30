@@ -25,7 +25,7 @@ keeps screenlab from disturbing anything else on your computer, and you can dele
 
 ## 1. What you need
 
-1. **Python 3.10 or newer** (3.13 was used for the checks here). Check:
+1. **Python 3.10 or newer** (3.13 was used for the checks here; tested on 3.11, 3.12 and 3.13 with every extra installed: the suite passes on 3.12, and on 3.11 and 3.13 only occasional Textual app tests flake; 3.10 is the declared minimum and has not been run). Check:
    ```
    python3 --version
    ```
@@ -232,6 +232,18 @@ editor on the left and press `F2` (Apply) to get a new version, for example `dog
 colours). `?` lists the keys and `q` quits. To use it in a browser instead: `screenlab-tui --serve`, then open
 http://localhost:8000 (`--port` changes it). While it runs it also listens on 127.0.0.1:8765 so that Claude (the
 `tui_*` MCP tools) can drive the same screen; in a terminal `--control-port 0` turns that off. Details: `screenlab/tui/README.md`.
+
+### Guardrails: trials, frozen scenarios, pre-registered hypotheses
+Trying fifty variants is an afternoon's work in the TUI, and the best of fifty looks good by luck. So every Compare row
+shows **Trials** (how many variants of its screen were tried, including earlier sessions when a run store is on) and
+**DSR**, the deflated Sharpe: roughly the chance the row's Sharpe is real after that many tries (1 is convincing, 0.5 is a
+coin flip; the dash means it cannot be computed). The header shows "trials this session: N". Press `f` to **freeze** a
+version when you have settled on a conclusion: it gets a lock, its fields become read-only, and anything derived from it
+(a new version, or a clone via `c`) is marked as an out-of-sample candidate and counted as an extra trial against the
+frozen row, so its DSR drops. Before the first real-data run, write your three or four claims in
+`screenlab/research/PREREGISTERED.md` (the file has the template and three EXAMPLES to replace). The **Hypotheses** tab
+(key `H`) lists them; press `l` to link the selected scenario to one, and the tab then shows whether that scenario's latest
+result meets the hypothesis' threshold. Trials of a linked scenario are counted against its hypothesis (`dogs@H1`).
 
 ### Charts in the browser
 Press `w` in the TUI: your browser opens interactive charts (hover for values, drag to zoom, click the legend to hide

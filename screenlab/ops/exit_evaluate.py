@@ -56,6 +56,7 @@ class ExitEvaluate(Operation):
             target = lab.benchmark_for(None, allow_price_benchmark, "this exit evaluation").curve(
                 lab.market, lab.config, lab.market.index[0])
         elif isinstance(target, str):
+            lab.check_target(target, allow_price_benchmark, "this exit evaluation")
             target = lab.market.series(target)
         macro = macro if macro is not None else (policy.macro if policy is not None else None)
         if policy is None:

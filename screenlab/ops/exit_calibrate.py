@@ -53,6 +53,8 @@ class ExitCalibrate(Operation):
         if target is None:
             target = lab.benchmark_for(None, allow_price_benchmark, "this exit calibration").curve(
                 lab.market, lab.config, lab.market.index[0])
+        else:
+            lab.check_target(target, allow_price_benchmark, "this exit calibration")
         n = (note_points(lab, "exit_calibrate", lab._tl.args, grid_points(grid))
              if getattr(lab._tl, "args", None) is not None else 0)
         res = calibrate_exit(exit_screen, lab.market, target, grid, objective, splits, constraints, macro,

@@ -45,18 +45,14 @@ from .data import Market, synthetic_market
 from .screens import DEFENSIVE, ENTERPRISING, GLOBE_PORTFOLIOS, REGISTRY, GrahamTests, Screen
 from .spec import ScreenBuilder, ScreenSpec, define_screen, load_screens
 from .construction import HoldRule, blend, union_screen
-from .macro import MacroSeries
-from .metrics_ext import decompose, extended_summary
 from .exit_signals import (Breadth, Dispersion, DrawdownFromPeak, ExitScreen, MomentumCrash,
                            RateShock, TrendBreak, ValuationStretch, VolRegime, evaluate as evaluate_exit, overlay)
-from .calibration import CalibrationResult, calibrate_exit
 from .exit_policy import ExitPolicy, Portfolio
+from .taxes import TaxConfig, PlaceholderCanadianTax, NoTax, register_tax_model
 from . import exit_inputs  # registers the additional exit signals into exit_signals.BUILTINS
 from .exit_inputs import (CorrelationSpike, CreditSpread, DeathCross, DistanceFromHigh, DownsideDeviation,
                           EarningsBreadth, NewLowsMinusHighs, PortfolioStop, PortfolioVsIndex,
                           VolTermStructure, YieldCurve, YieldSpreadCompression)
-from .sweep import Grid, random_search, run_sweep, walk_forward
-from .stats import bootstrap_excess, deflated_sharpe, t_stat_excess
 from .dataset import (BoCMacro, BundledSP500Builder, CSVBuilder, DataCard, Dataset, DatasetBuilder, SECBuilder,
                       SyntheticBuilder)
 from .universe import AllListed, Filtered, Membership, TopN, Universe
@@ -65,6 +61,29 @@ from .store import NullStore, SQLiteStore
 from .jobs import Job, JobManager
 from .progress import Cancelled
 
+# Heavy, rarely needed modules load on first use (PEP 562): `from screenlab import Grid` still works.
+_LAZY = {"macro": ("MacroSeries",),
+         "metrics_ext": ("decompose", "extended_summary"),
+         "calibration": ("CalibrationResult", "calibrate_exit"),
+         "sweep": ("Grid", "random_search", "run_sweep", "walk_forward"),
+         "stats": ("bootstrap_excess", "deflated_sharpe", "t_stat_excess")}
+_LAZY_NAMES = {n: mod for mod, names in _LAZY.items() for n in names}
+
+
+def __getattr__(name):
+    mod = _LAZY_NAMES.get(name)
+    if mod is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    from importlib import import_module
+    value = getattr(import_module(f".{mod}", __name__), name)
+    globals()[name] = value
+    return value
+
+
+def __dir__():
+    return sorted({*globals(), *_LAZY_NAMES})
+
+
 __all__ = ["__version__", "Lab", "BacktestReport", "Config", "cap_tiered", "simulate_paths", "PathWealth", "IndexBenchmark", "ScreenBenchmark",
            "equal_weight_top", "passive_index", "Market", "synthetic_market", "DEFENSIVE", "ENTERPRISING", "REGISTRY", "GLOBE_PORTFOLIOS",
            "GrahamTests", "Screen", "ScreenBuilder", "ScreenSpec", "define_screen", "load_screens",
@@ -72,6 +91,7 @@ __all__ = ["__version__", "Lab", "BacktestReport", "Config", "cap_tiered", "simu
            "ExitScreen", "TrendBreak", "Breadth", "VolRegime", "DrawdownFromPeak", "ValuationStretch",
            "MomentumCrash", "RateShock", "Dispersion", "evaluate_exit", "overlay",
            "CalibrationResult", "calibrate_exit", "ExitPolicy", "Portfolio",
+           "TaxConfig", "PlaceholderCanadianTax", "NoTax", "register_tax_model",
            "CorrelationSpike", "CreditSpread", "DeathCross", "DistanceFromHigh", "DownsideDeviation",
            "EarningsBreadth", "NewLowsMinusHighs", "PortfolioStop", "PortfolioVsIndex",
            "VolTermStructure", "YieldCurve", "YieldSpreadCompression",

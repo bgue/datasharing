@@ -11,6 +11,13 @@ readme = "screenlab/README.md"
 # `mcp` and `skfolio` extras need 3.10, so 3.10 is the lowest version where every extra installs.
 # Tested on Python 3.13 (the interpreter available when this file was written).
 requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
 dependencies = [
     "numpy>=1.26",
     "pandas>=2.2",     # freq="ME" month-end alias needs pandas 2.2
@@ -69,3 +76,4 @@ screenlab = [
 
 [tool.pytest.ini_options]
 testpaths = ["screenlab/tests"]
+markers = ["slow: long-running stress tests (they run by default; deselect with -m \"not slow\")"]

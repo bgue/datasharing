@@ -95,6 +95,19 @@ class Lab:
         self.check_kind(b.effective_kind(self.market), b.index, allow_price_benchmark, what)
         return b
 
+    def check_extras(self, extras, allow_price_benchmark=None, what: str = "this comparison") -> None:
+        """Apply the kind check to every IndexBenchmark among comparison benchmarks (`compare=` rows);
+        a ScreenBenchmark is a total-return portfolio and always passes."""
+        for x in extras:
+            if isinstance(x, IndexBenchmark):
+                self.check_kind(x.effective_kind(self.market), x.index, allow_price_benchmark, what)
+
+    def check_target(self, target, allow_price_benchmark=None, what: str = "this analysis") -> None:
+        """Apply the kind check to a named target (an index name or ticker); curves and None pass."""
+        if isinstance(target, str):
+            b = IndexBenchmark(target.strip())
+            self.check_kind(b.effective_kind(self.market), b.index, allow_price_benchmark, what)
+
     def check_kind(self, kind, index, allow_price_benchmark=None, what: str = "this comparison") -> None:
         allow = self.allow_price_benchmark if allow_price_benchmark is None else bool(allow_price_benchmark)
         if kind == "price" and not allow:
@@ -112,7 +125,7 @@ class Lab:
 
     def _extras(self, benchmark, compare) -> list:
         """Comparison benchmarks: lab.compare, a non-index lab.benchmark / `benchmark`, and `compare`."""
-        cmp = [compare] if isinstance(compare, (str, IndexBenchmark, ScreenBenchmark)) else list(compare or ())
+        cmp = [compare] if isinstance(compare, (str, dict, IndexBenchmark, ScreenBenchmark)) else list(compare or ())
         raw = [*self.compare, *cmp, *(x for x in (self.benchmark, benchmark) if not isinstance(x, IndexBenchmark))]
         out = {}
         for b in raw:
