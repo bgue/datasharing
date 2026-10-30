@@ -12,6 +12,10 @@ the amber of "lost" tax always the same amber. Percent axes take fractions (0.05
     harvest_timeline(result)         wealth line, loss sales, second-pick spans, blocked windows, denied losses
     sensitivity_lines(df, x, ys)     generic lines of columns of `df` against column `x`
     index_result(report)             the passive index of a BacktestReport as a Result, for `after_tax_curves`
+
+R1: every chart takes `legend=True` (False removes it). `after_tax_curves` and `harvest_timeline` take `baseline=` (an
+`index_result(...)`: buy and hold the passive index, taxed the same way, grey dashed, named "Buy and hold the index (after tax)").
+`tax_paid_stack` draws the `refund` column as negative bars.
 """
 from __future__ import annotations
 
@@ -26,6 +30,7 @@ INDEX_COL = "#6B6B6B"
 AMBER = "#E69F00"
 # fixed order, never cycled (Okabe-Ito)
 PALETTE = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#56B4E9", "#F0E442", "#000000"]
+REFUND_COL = "#CC79A7"              # R1: refunds are negative bars in tax_paid_stack
 STACK = {"tax_dividends": ("Dividends", "#0072B2"), "tax_interest": ("Interest", "#56B4E9"),
          "tax_capital_gains": ("Capital gains", "#009E73"), "tax_foreign_dividends": ("Foreign dividends", AMBER),
          "tax_rrsp_withdrawal": ("RRSP withdrawal", "#D55E00")}
@@ -62,6 +67,20 @@ def _pct(x, _=None):
     return f"{100 * x:g}%"
 
 
+# R1: the legend switch shared by every chart (`legend=False` removes the legend), and the label of the common base case
+BASELINE_LABEL = "Buy and hold the index (after tax)"
+
+
+def _legend(ax, legend=True, **kw):
+    if not legend:
+        if ax.get_legend() is not None:
+            ax.get_legend().remove()
+        return None
+    if "handles" not in kw and not ax.get_legend_handles_labels()[0]:
+        return None
+    return ax.legend(**kw)
+
+
 def _is_index(label, value) -> bool:
     return isinstance(value, _IndexResult) or str(label).lower().startswith(("index", "passive", "syn_", "sp500", "s&p"))
 
@@ -86,12 +105,14 @@ def index_result(report, label=None):
 
 
 # ---------------------------------------------------------------------------------------------- 1
-def after_tax_curves(results: dict, ax=None, title=None):
+def after_tax_curves(results: dict, ax=None, title=None, baseline=None, legend=True, baseline_label=BASELINE_LABEL):
     """Pre-tax (thin, light) and after-tax (thick) wealth per label on a log scale; growth of 1 at the start.
     Values are `Result`s; the passive index (`index_result(...)`, or a label starting with "index" / "passive") is grey, dashed."""
     from matplotlib.lines import Line2D
     ax = _ax(ax)
     n = 0
+    if baseline is not None:                                         # R1: buy and hold the index (an `index_result`), drawn grey and dashed
+        results = {**results, baseline_label: baseline}
     for label, r in results.items():
         idx = _is_index(label, r)
         col = INDEX_COL if idx else PALETTE[n % len(PALETTE)]
@@ -112,16 +133,17 @@ def after_tax_curves(results: dict, ax=None, title=None):
     ax.yaxis.set_major_formatter(lambda v, _: f"{v:g}x")
     ax.margins(x=0.04)
     h, _l = ax.get_legend_handles_labels()
-    h += [Line2D([], [], color=INK2, lw=2.4, label="after tax"), Line2D([], [], color=INK2, lw=1.0, alpha=0.45, label="before tax")]
-    ax.legend(handles=h, loc="upper left", fontsize=9)
+    h += [Line2D([], [], color=INK2, lw=2.4, label="after tax (thick line)"), Line2D([], [], color=INK2, lw=1.0, alpha=0.45, label="before tax (thin line)")]
+    _legend(ax, legend, handles=h, loc="upper left", fontsize=9)
     _title(ax, "Growth of 1 before and after tax", title)
     return ax
 
 
 # ---------------------------------------------------------------------------------------------- 2
-def tax_drag_bars(table: pd.DataFrame, ax=None, title=None):
+def tax_drag_bars(table: pd.DataFrame, ax=None, title=None, baseline=None, baseline_label="Buy and hold the index (after tax)", legend=True):
     """Grouped bars, one group per row: `CAGR` (light) beside `AfterTaxCAGR` (dark), the drag in points written above.
-    Group labels come from a `label` column if there is one, else from the index. Columns hold fractions."""
+    Group labels come from a `label` column if there is one, else from the index. Columns hold fractions.
+    # R2: `baseline` (one after-tax CAGR per row, a fraction) draws a grey dashed bar-wide mark in each group, legend `baseline_label`."""
     ax = _ax(ax)
     labels = [str(x) for x in (table["label"] if "label" in table else table.index)]
     pre, post = table["CAGR"].to_numpy(float), table["AfterTaxCAGR"].to_numpy(float)
@@ -129,25 +151,31 @@ def tax_drag_bars(table: pd.DataFrame, ax=None, title=None):
     w = 0.38
     ax.bar(x - w / 2, pre, w * 0.94, color="#9CC3DE", label="before tax")
     ax.bar(x + w / 2, post, w * 0.94, color="#0072B2", label="after tax")
-    top = np.nanmax(np.r_[pre, post, 0.0])
+    base = None if baseline is None else np.asarray(baseline, float)
+    top = np.nanmax(np.r_[pre, post, 0.0] if base is None else np.r_[pre, post, base, 0.0])
+    if base is not None:                                                                                    # R2
+        for i in range(len(x)):
+            ax.plot([x[i] - w, x[i] + w], [base[i], base[i]], color=INDEX_COL, ls="--", lw=2.4, zorder=4,
+                    label=baseline_label if i == 0 else None)
     for i in range(len(x)):
         ax.text(x[i] - w / 2, pre[i], f"{100 * pre[i]:.1f}%", ha="center", va="bottom", fontsize=8.5, color=INK2)
         ax.text(x[i] + w / 2, post[i], f"{100 * post[i]:.1f}%", ha="center", va="bottom", fontsize=8.5, color=INK2)
-        ax.text(x[i], max(pre[i], post[i]) + top * 0.1, f"drag {100 * (pre[i] - post[i]):.1f} pts", ha="center",
+        ax.text(x[i], max(pre[i], post[i], base[i] if base is not None else -1) + top * 0.1, f"drag {100 * (pre[i] - post[i]):.1f} pts", ha="center",
                 va="bottom", fontsize=9, color=INK, fontweight="bold")
     ax.set_xticks(x, labels, rotation=0 if len(labels) <= 6 else 30, ha="center" if len(labels) <= 6 else "right")
     ax.yaxis.set_major_formatter(_pct)
-    ax.set_ylim(min(0, np.nanmin(np.r_[pre, post]) * 1.2), top * 1.45)
+    ax.set_ylim(min(0, np.nanmin(np.r_[pre, post] if base is None else np.r_[pre, post, base]) * 1.2), top * 1.45)
     ax.set_ylabel("growth per year (CAGR)")
-    ax.legend(loc="upper left", fontsize=9, ncol=2)
+    _legend(ax, legend, loc="upper left", fontsize=9, ncol=2 if base is None else 1)      # R1
     _title(ax, "Growth per year before and after tax", title)
     return ax
 
 
 # ---------------------------------------------------------------------------------------------- 3
-def tax_paid_stack(result, ax=None, title=None):
+def tax_paid_stack(result, ax=None, title=None, baseline=None, baseline_label="Buy and hold the index (tax paid)", legend=True):
     """Tax paid each year as stacked bars by kind (dividends, interest, capital gains, foreign dividends, RRSP withdrawal),
-    in dollars, from `Result.tax`. A negative stack is a refund (a loss carried back)."""
+    in dollars, from `Result.tax`. A negative stack is a refund (a loss carried back).
+    # R2: `baseline` (a Result, e.g. `index_result(report)`) draws its total tax per year as a grey dashed line with markers."""
     ax = _ax(ax)
     t = result.tax
     if t is None or not len(t):
@@ -165,14 +193,24 @@ def tax_paid_stack(result, ax=None, title=None):
         ax.bar(x, v, 0.78, bottom=base, color=color, label=name, edgecolor=SURFACE, linewidth=1.2)
         pos += np.where(v >= 0, v, 0)
         neg += np.where(v < 0, v, 0)
+    if "refund" in t and np.any(np.abs(t["refund"].to_numpy(float)) > 1e-9):      # R1: a carried-back loss refunds tax: negative bars
+        v = -np.abs(t["refund"].to_numpy(float))
+        ax.bar(x, v, 0.78, bottom=neg, color=REFUND_COL, label="Refund (loss carried back)", edgecolor=SURFACE, linewidth=1.2)
+        neg += v
     ax.axhline(0, color=INK2, lw=0.8)
+    bt = None if baseline is None else baseline.tax                                                         # R2
+    if bt is not None and len(bt):
+        tot = sum(bt[c].to_numpy(float) for c in STACK if c in bt)
+        xb = [years.index(str(y)) for y in bt.index if str(y) in years]
+        ax.plot(xb, [tot[k] for k, y in enumerate(bt.index) if str(y) in years], color=INDEX_COL, ls="--", lw=2.2, marker="D", ms=4.5,
+                zorder=5, label=baseline_label)
     if not pos.any() and not neg.any():
         ax.text(0.5, 0.5, "no tax paid", transform=ax.transAxes, ha="center", va="center", color=INK2)
     ax.set_xticks(x, years, rotation=0 if len(x) <= 8 else 60, fontsize=9)
     ax.yaxis.set_major_formatter(lambda v, _: f"${v:,.0f}")
-    ax.set_ylabel("tax paid in the year")
-    if pos.any() or neg.any():
-        ax.legend(loc="upper left", fontsize=9, ncol=2)
+    ax.set_ylabel("tax paid in the year ($)")
+    if pos.any() or neg.any() or bt is not None:
+        _legend(ax, legend, loc="upper left", fontsize=9, ncol=1 if bt is not None else 2)      # R1
     _title(ax, "Tax paid each year, by kind", title)
     return ax
 
@@ -184,10 +222,13 @@ def _marginals(province: str, year: int, incomes: tuple) -> pd.DataFrame:
     return pd.DataFrame([marginal_rates(province, year, float(i)) for i in incomes], index=list(incomes))
 
 
-def marginal_rate_curves(provinces=("AB", "BC"), year=2025, incomes=range(20_000, 300_001, 5_000), ax=None, title=None):
+def marginal_rate_curves(provinces=("AB", "BC"), year=2025, incomes=range(20_000, 300_001, 5_000), ax=None, title=None,
+                         baseline=None, baseline_label="Buy and hold the index (its income)", legend=True):
     """Marginal rate on the next dollar of ordinary income, eligible dividends, non-eligible dividends and capital gains,
     against other income. Colour = kind of income, line style = province. The eligible-dividend rate can be negative
-    at low income (the credit exceeds the tax), so the zero line is drawn."""
+    at low income (the credit exceeds the tax), so the zero line is drawn.
+    # R2: `baseline` = the key of the kind of income a buy-and-hold index mostly produces (e.g. "eligible_dividend"); its curves are
+    drawn again as a wide grey dashed line under the coloured ones, legend `baseline_label`."""
     ax = _ax(ax, (9, 4.8))
     styles = ["-", "--", ":", "-."]
     inc = tuple(int(i) for i in incomes)
@@ -196,6 +237,11 @@ def marginal_rate_curves(provinces=("AB", "BC"), year=2025, incomes=range(20_000
         for kind in KIND_COL:
             ax.plot(m.index, m[kind].to_numpy(), color=KIND_COL[kind], ls=styles[k % 4], lw=2.0,
                     label=f"{KIND_NAME[kind]}, {prov}")
+    if baseline in KIND_COL:                                                                                # R2
+        for k, prov in enumerate(provinces):
+            m = _marginals(prov, year, inc)
+            ax.plot(m.index, m[baseline].to_numpy(), color=INDEX_COL, ls="--", lw=4.2, alpha=0.55, zorder=1,
+                    label=f"{baseline_label}, {prov}")
     allv = pd.concat([_marginals(p_, year, inc) for p_ in provinces])
     ok = allv[allv.index >= 30_000].to_numpy(float)
     ax.set_ylim(min(-0.02, ok.min()) - 0.04, ok.max() + 0.05)       # the lowest incomes (little tax owed) give meaningless extremes
@@ -205,7 +251,7 @@ def marginal_rate_curves(provinces=("AB", "BC"), year=2025, incomes=range(20_000
     ax.yaxis.set_major_formatter(_pct)
     ax.set_xlabel("other income (a year)")
     ax.set_ylabel("tax on the next $1")
-    ax.legend(fontsize=8, ncol=len(provinces), loc="upper left", bbox_to_anchor=(0, -0.16))
+    _legend(ax, legend, fontsize=8, ncol=len(provinces), loc="upper left", bbox_to_anchor=(0, -0.16))      # R1
     _title(ax, f"Marginal tax rates by kind of income, {year}", title)
     return ax
 
@@ -264,7 +310,7 @@ def withholding_matrix(foreign_table: pd.DataFrame, ax=None, title=None):
 
 
 # ---------------------------------------------------------------------------------------------- 6
-def harvest_timeline(result, ax=None, title=None):
+def harvest_timeline(result, ax=None, title=None, baseline=None, legend=True, after_tax=False):
     """The wealth line with the loss sales of `Result.harvest` on it: a marker per sale (by `source`), a green span for
     each second pick held while the name is blocked (`date` to `window_end`), amber shading for the blocked window
     (`date` to `blocked_until`), and a red cross where part of the loss was denied (`denied` > 0)."""
@@ -272,9 +318,16 @@ def harvest_timeline(result, ax=None, title=None):
     from matplotlib.patches import Patch
     ax = _ax(ax, (9, 4.4))
     c = result.curve
+    basis = "before tax"
+    if after_tax and result.after_tax_curve is not None:             # R1: draw the after-tax curve (and the baseline's) instead of the pre-tax one
+        c, basis = result.after_tax_curve, "after tax"
     ax.plot(c.index, c.to_numpy(), color="#0072B2", lw=1.8)
     h = result.harvest
-    handles = [Line2D([], [], color="#0072B2", lw=1.8, label="portfolio value before tax")]
+    handles = [Line2D([], [], color="#0072B2", lw=1.8, label=f"portfolio value {basis}")]
+    if baseline is not None:                                         # R1: buy and hold the index on the same basis
+        b = baseline.after_tax_curve if basis == "after tax" and baseline.after_tax_curve is not None else baseline.curve
+        ax.plot(b.index, b.to_numpy(), color=INDEX_COL, ls="--", lw=1.8, zorder=3)
+        handles.append(Line2D([], [], color=INDEX_COL, ls="--", lw=1.8, label=f"Buy and hold the index ({basis})"))
     if h is not None and len(h):
         def y_at(d):
             return float(c.iloc[min(c.index.searchsorted(pd.Timestamp(d), side="right") - 1, len(c) - 1) if c.index.searchsorted(pd.Timestamp(d), side="right") > 0 else 0])
@@ -300,16 +353,17 @@ def harvest_timeline(result, ax=None, title=None):
         handles.append(Patch(color=AMBER, alpha=0.18, label="blocked window (cannot buy back)"))
         if h.get("replacement_name") is not None and h["replacement_name"].notna().any():
             handles.append(Patch(color="#009E73", label="second pick held instead"))
-    ax.set_ylabel("growth of 1")
-    ax.legend(handles=handles, loc="upper left", fontsize=8.5)
+    ax.set_ylabel("growth of $1")
+    _legend(ax, legend, handles=handles, loc="upper left", fontsize=8.5)
     _title(ax, "Loss sales, blocked windows and second picks", title)
     return ax
 
 
 # ---------------------------------------------------------------------------------------------- 7
-def sensitivity_lines(df: pd.DataFrame, x: str, ys, ax=None, title=None, xlabel=None, ylabel=None):
+def sensitivity_lines(df: pd.DataFrame, x: str, ys, ax=None, title=None, xlabel=None, ylabel=None, baseline=(), legend=True):
     """Lines of the columns `ys` (a list, or a dict column -> legend label) of `df` against column `x`.
-    Percent-looking y values (fractions below 1.5 in size) are shown as percent. Use `ax=` of a subplots grid for small multiples."""
+    Percent-looking y values (fractions below 1.5 in size) are shown as percent. Use `ax=` of a subplots grid for small multiples.
+    # R2: `baseline` lists the columns that are the buy-and-hold base case; they are drawn grey and dashed whatever their label says."""
     ax = _ax(ax)
     names = dict(ys) if isinstance(ys, dict) else {y: y for y in ys}
     d = df.sort_values(x)
@@ -317,7 +371,7 @@ def sensitivity_lines(df: pd.DataFrame, x: str, ys, ax=None, title=None, xlabel=
     pct = np.nanmax(np.abs(vals)) < 1.5
     k = m = 0                                   # index lines are grey and dashed (a different dash for each), others take the palette in order
     for col, lab in names.items():
-        if str(lab).lower().startswith(("index", "passive")):
+        if col in tuple(baseline) or str(lab).lower().startswith(("index", "passive")):
             style, color, mk = ("--", ":", "-.")[m % 3], INDEX_COL, ("s", "D", "^")[m % 3]
             m += 1
         else:
@@ -332,5 +386,5 @@ def sensitivity_lines(df: pd.DataFrame, x: str, ys, ax=None, title=None, xlabel=
     if title:
         _title(ax, title)
     if len(names) > 1:
-        ax.legend(fontsize=9)
+        _legend(ax, legend, fontsize=9)      # R1
     return ax

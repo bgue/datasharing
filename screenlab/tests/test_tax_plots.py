@@ -94,3 +94,30 @@ def test_sensitivity_lines():
     ax = tp.sensitivity_lines(df, "rate", {"rrsp": "RRSP", "idx": "index"}, title="t")
     assert len(ax.lines) == 2
     plt.close("all")
+
+
+# R1: legend=, baseline= and refund bars -----------------------------------------------------------------------------
+def test_legend_switch_and_baseline(rep, hand):
+    r = rep.reports["taxable"]
+    idx = tp.index_result(r)
+    ax = tp.after_tax_curves({"picks": r.results["stable_dividend"]}, baseline=idx)
+    labels = [t.get_text() for t in ax.get_legend().get_texts()]
+    assert tp.BASELINE_LABEL in labels and any(ln.get_linestyle() == "--" and ln.get_color() == tp.INDEX_COL for ln in ax.lines)
+    ax = tp.after_tax_curves({"picks": r.results["stable_dividend"]}, baseline=idx, legend=False)
+    assert ax.get_legend() is None
+    ax = tp.tax_paid_stack(hand, legend=False)
+    assert ax.get_legend() is None
+    ax = tp.harvest_timeline(hand, baseline=tp.index_result(r), legend=False, after_tax=True)
+    assert ax.get_legend() is None and any(ln.get_linestyle() == "--" for ln in ax.lines)
+    ax = tp.harvest_timeline(hand, baseline=tp.index_result(r))
+    assert "Buy and hold the index (before tax)" in [t.get_text() for t in ax.get_legend().get_texts()]
+    plt.close("all")
+
+
+def test_tax_paid_stack_refund_bars_are_negative(hand):
+    t = hand.tax.copy()
+    t["refund"] = [0.0, 0.0, 400.0, 0.0]
+    ax = tp.tax_paid_stack(Result(name="r", curve=hand.curve, tax=t))
+    assert min(p.get_height() for p in ax.patches) == -400.0
+    assert "Refund (loss carried back)" in [t_.get_text() for t_ in ax.get_legend().get_texts()]
+    plt.close("all")
