@@ -139,6 +139,8 @@ column nothing changes. Foreign withholding applies to the income part only (app
 ## Foreign holdings (P3)
 Per-security metadata, withholding by country and wrapper, and gains on a CAD basis.
 
+See it worked through with charts: `notebooks/tax_foreign_holdings.ipynb` (matrix by account and wrapper, US-listed vs Canadian-listed ETF, the CAD cost base).
+
 **Security metadata.** `Dataset.security_meta` (optional) is a table indexed by ticker: `domicile` (ISO country of the
 issuer), `listing` (country / exchange), `currency`, `wrapper` in `stock` / `etf_ca` / `etf_us`, `underlying_domicile`
 (for an ETF: where the stocks it holds are domiciled), `eligible_dividend` (Canadian corporations). Load it from an optional
@@ -207,6 +209,7 @@ and the home currency has no series and warns the same way. Monte Carlo is still
   marginal rate and ignores `year`.
 
 ## Loss harvesting
+Worked through with charts: `notebooks/tax_loss_harvesting.ipynb` (one loss and its 30-day window, with vs without, carry-back, exits).
 `Config.tax.harvest = TaxLossHarvest(threshold_pct=0.10, min_loss=0.0, when="year_end", superficial_days=30, replacement="cash")`
 (`screenlab/harvesting.py`) adds a stage to `simulate` after Weighting. Default `None`: nothing changes (run keys, golden
 tests, the tax table's old columns). It is **explicitly enabled**: nothing builds a `TaxLossHarvest` on its own, and
@@ -348,3 +351,5 @@ what is not modelled.
 in (the reason an RRSP can beat a TFSA for someone whose bracket now is above the bracket at withdrawal), AMT and benefit
 clawbacks, and which assets to place where beyond comparing one portfolio per account. A ranking here is for the same pre-tax
 dollars, not a plan. Not tax advice.
+
+Notebooks: `notebooks/tax_where_to_hold.ipynb` shows the account, the RRSP convention and the bracket in charts (plotting functions in `research/tax_plots.py`).

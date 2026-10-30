@@ -165,6 +165,8 @@ columns `replacement_name`, `blocked_until`.
 after-tax CAGR, tax drag, after-tax excess over the equally taxed index, withholding lost / credited / exempt, tax by kind,
 RRSP deferral, rank, foreign treatment matrix; REST, MCP, jobs, TUI Accounts tab, `notebooks/accounts_and_foreign.ipynb`;
 docs/TAXES.md "Comparing accounts"; tests/test_account_compare.py).
+*Done (Q4):* [x] tax visuals: `research/tax_plots.py` and `notebooks/tax_where_to_hold.ipynb` (accounts, RRSP convention, bracket; tests/test_tax_plots.py, tests/test_tax_notebooks.py). [x] `notebooks/tax_loss_harvesting.ipynb`: second pick, superficial-loss window, carry-back, with vs without, exits (tests/test_tax_notebooks.py).
+[x] `notebooks/tax_foreign_holdings.ipynb`: withholding matrix by account and wrapper, wrapper choice, CAD cost base (tests/test_tax_notebooks.py).
 
 *Remains:* more provinces and tax years (years without a table reuse the nearest one with a warning), pension income and
 RRSP contribution room, AMT, a refund of negative net tax, wiring the model choice into REST / TUI. *Open
