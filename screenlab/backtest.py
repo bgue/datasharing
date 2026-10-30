@@ -259,24 +259,28 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
     # P2: tax-loss harvesting (harvesting.py): extra steps at year ends / swap-back dates, and a hook after Weighting
     steps, hv, last_reb = list(rebal), None, rebal[0]
     if taxer is not None and cfg.tax.harvest is not None:
-        if ov is not None:
-            raise NotImplementedError("TaxLossHarvest with an exit policy is not supported")
         hv = cfg.tax.harvest.start(mkt, taxer, screen, weighting, cfg.min_holdings)
-        steps = sorted(set(steps) | set(hv.extra_dates(mkt.index, rebal[0], end)))
+        steps = sorted(set(steps) | set(hv.extra_dates(mkt.index, rebal[0], end, held if ov is not None else None)))
+        if ov is not None:                                                             # Q3: exit-switch losses and re-entry steps
+            taxer.on_switch = hv.exit_sale
+            held_prev = held.shift(1).fillna(1.0)
     rebal_set = set(rebal)
 
     for j, d in enumerate(steps):
         progress.report(j / len(steps), f"{screen.name}: rebalance {j + 1}/{len(steps)}")
         snap = mkt.view(d)
+        e_now = float(held.get(d, 1.0)) if ov is not None else 1.0                     # Q3: equity share held at d
+        e_prev = float(held_prev.get(d, 1.0)) if hv is not None and ov is not None else e_now
+        vv = value * e_now if hv is not None else value                                # Q3: the equity money the stage sees
         if hv is None or d in rebal_set:
             picks = raw = selection.picks(mkt, screen, d)                              # Selection
             picks = weighting.retain(picks, screen, snap, prev, cfg.min_holdings)      # Weighting
             target = weighting.target(snap, picks, prev, cfg.min_holdings)
             if hv is not None:                                                         # P2: harvest after Weighting
-                picks, target = hv.on_rebalance(d, snap, raw, picks, prev, value, target)
+                picks, target = hv.on_rebalance(d, snap, raw, picks, prev, vv, target)
                 last_reb = d
         else:                                                                          # P2: year end / swap back: no screen run
-            target = hv.on_substep(d, snap, prev, value)
+            target = hv.on_substep(d, snap, prev, vv, reentry=e_now > e_prev + 1e-12)       # Q3: exit re-entry
             picks = list(target.index)
         if hv is not None:                                                             # P2: new dates (swap back after a window)
             for nd in hv.take_new_dates():
@@ -297,7 +301,7 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
                 hv.pre_trade()                                                         # P2
             taxer.trade(d, value, ev_, prev, target, tcost)
             if hv is not None:
-                hv.post_trade(d, value, prev, target)                                  # P2: superficial-loss bookkeeping
+                hv.post_trade(d, vv, prev, target, min(e_prev / e_now, 1.0) if e_now > 0 else 1.0)   # P2: superficial-loss bookkeeping (Q3: exit re-entry)
         value *= 1 - trade_cost
         if hv is None or d in rebal_set:
             holdings[d], turn[d], costs[d] = picks, dw.sum() / 2, trade_cost

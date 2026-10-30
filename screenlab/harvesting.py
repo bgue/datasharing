@@ -13,10 +13,19 @@
         "cash"      proceeds wait in cash; the screen may buy the name back (inside the window the loss is then denied)
         "stay_out"  proceeds wait in cash and the name is kept out of the picks until the window has passed
         "similar"   as stay_out, but the screen's next-ranked name not held (`Screen.ranked`) is held for the window,
-                    then swapped back for the original name (the first bar after the window)
+                    then swapped back for the original name (the first bar after the window); "second_pick" is the
+                    preferred spelling (stored as "similar")
+    * Q3 -- the blocklist: a harvested name (and a name whose loss an exit-policy switch realized) is blocked until
+      sale + `superficial_days` (`HarvestRun.blocked_until`, `HarvestRun.blocked(date)`). Every re-entry consults it: the
+      rebalance hook, the second-pick swap and the exit policy's re-entry. `on_repick` "avoid" (default): a blocked name
+      the screen picks, or the exit re-entry would buy back, is replaced by the screen's next-ranked name not held and
+      not blocked (the "second pick"; "stay_out" leaves the weight in cash); "allow_denial": the name is bought back and
+      the loss denied (the old behaviour of replacement "cash").
+    * Q3 -- exit policies: the losses an exit switch realizes (sleeve sold into the parked asset) are recorded with
+      `source` "exit" and block the name; the re-entry skips it (second pick) while the window is open.
 
 The records are `Result.harvest` (one row per loss sale; `source` "harvest" = the stage chose it, "screen" = the screen
-sold it anyway) and the report columns `Harvested/yr`, `TaxDeferred/yr` (`harvest_columns`).
+sold it anyway, "exit" = an exit-policy switch realized it) and the report columns `Harvested/yr`, `TaxDeferred/yr` (`harvest_columns`).
 Amounts are pre-tax wealth units (start wealth = 1.0), like the ledger.
 """
 from __future__ import annotations
@@ -29,9 +38,10 @@ import pandas as pd
 from .serial import serializable
 
 WHEN = ("year_end", "rebalance", "both")
-REPLACEMENT = ("cash", "stay_out", "similar")
+ON_REPICK = ("avoid", "allow_denial")                                                             # Q3
+REPLACEMENT = ("cash", "stay_out", "similar", "second_pick")   # Q1: "second_pick" is the preferred alias of "similar"
 HARVEST_COLS = ["date", "name", "source", "unrealized_pct", "loss", "denied", "net_loss", "acb_added", "days_out",
-                "replacement", "rebought", "window_end"]
+                "replacement", "rebought", "window_end", "replacement_name", "blocked_until"]   # Q3: last two
 HARVESTED_YR = "Harvested/yr"
 TAXDEFERRED_YR = "TaxDeferred/yr"
 _EPS = 1e-12
@@ -46,7 +56,8 @@ class TaxLossHarvest:
     min_loss         ... and the loss is at least this many dollars (pre-tax wealth x `TaxConfig.capital`)
     when             "year_end" (last bar of each calendar year) | "rebalance" | "both"
     superficial_days calendar days before and after a sale in which a repurchase makes the loss superficial (30)
-    replacement      "cash" | "stay_out" | "similar" (module docstring)
+    replacement      "cash" | "stay_out" | "similar" / "second_pick" (module docstring)
+    on_repick        Q3: "avoid" (default) | "allow_denial": what a re-pick of a name inside its window does (module docstring)
     report_deferral  the report also runs the same portfolio without harvesting once, for `TaxDeferred/yr`
     """
     threshold_pct: float = 0.10
@@ -55,16 +66,27 @@ class TaxLossHarvest:
     superficial_days: int = 30
     replacement: str = "cash"
     report_deferral: bool = True
+    on_repick: str = "avoid"                                                                     # Q3
 
     def __post_init__(self):
+        if self.replacement == "second_pick":                       # Q1: preferred alias, stored as "similar"
+            object.__setattr__(self, "replacement", "similar")
         if self.when not in WHEN:
             raise ValueError(f"when must be one of {WHEN}, got {self.when!r}")
         if self.replacement not in REPLACEMENT:
             raise ValueError(f"replacement must be one of {REPLACEMENT}, got {self.replacement!r}")
+        if self.on_repick not in ON_REPICK:                                                           # Q3
+            raise ValueError(f"on_repick must be one of {ON_REPICK}, got {self.on_repick!r}")
         if not 0.0 <= self.threshold_pct < 1.0:
             raise ValueError("threshold_pct must be in [0, 1)")
         if self.min_loss < 0 or self.superficial_days < 0:
             raise ValueError("min_loss and superficial_days must be >= 0")
+
+    def describe(self) -> str:
+        """Q3: one line for the report and the data card, e.g. "on (threshold 10%, second pick, 30-day window)"."""
+        mode = {"cash": "cash", "stay_out": "stay out", "similar": "second pick", "second_pick": "second pick"}[self.replacement]
+        extra = ", repurchase allowed (loss denied)" if self.on_repick == "allow_denial" else ""
+        return f"on (threshold {self.threshold_pct * 100:g}%, {mode}, {self.superficial_days}-day window{extra})"
 
     def start(self, mkt, taxer, screen, weighting, min_holdings: int) -> "HarvestRun":
         return HarvestRun(self, mkt, taxer, screen, weighting, min_holdings)
@@ -82,20 +104,26 @@ class HarvestRun:
         self.sales: list = []                 # loss sales still open to the superficial-loss rule
         self._rows: list = []                 # every record, in order (the rows of Result.harvest)
         self.buys: dict = {}                  # name -> [(date, shares)]
-        self.blocked: dict = {}               # name -> (sale date, last blocked day) for stay_out / similar
+        self.blocked_until: dict = {}         # Q3: name -> last blocked day (sale + superficial_days); one list for all re-entries
+        self._swapped: set = set()            # Q3: names swapped for a second pick at this step (no sale to record)
         self.pending: list = []               # (return date, original name, replacement name)
         self.new_dates: list = []
         self._initiated: dict = {}            # names sold by the stage in this step -> replacement label
         self._basis = None
 
     # ---- schedule
-    def extra_dates(self, index: pd.DatetimeIndex, first, end) -> list:
-        """The last bar of each calendar year strictly between the first rebalance and the end."""
-        if self.cfg.when == "rebalance":
-            return []
-        s = pd.Series(index, index=index)
-        last = s.groupby(index.year).last()
-        return [d for d in last if first < d < end]
+    def extra_dates(self, index: pd.DatetimeIndex, first, end, exposure: pd.Series | None = None) -> list:
+        """The last bar of each calendar year strictly between the first rebalance and the end. Q3: with an exit
+        policy (`exposure` = its path) also every bar the exposure rises: the re-entry buys there, so the blocklist
+        can swap a blocked name for a second pick."""
+        out = []
+        if self.cfg.when != "rebalance":
+            s = pd.Series(index, index=index)
+            out += [d for d in s.groupby(index.year).last() if first < d < end]
+        if exposure is not None:
+            up = (exposure.reindex(index).diff() > 1e-12).to_numpy()
+            out += [d for d in index[up] if first < d < end]
+        return sorted(set(out))
 
     def take_new_dates(self) -> list:
         out, self.new_dates = self.new_dates, []
@@ -109,10 +137,42 @@ class HarvestRun:
         return self.taxer.harvest_candidates(held, self._value, self.cfg.threshold_pct, self._units(self.cfg.min_loss),
                                              d, snap)
 
-    def _active_block(self, d) -> set:
-        for n in [n for n, (_, until) in self.blocked.items() if d > until]:
-            del self.blocked[n]
-        return set(self.blocked)
+    # ---- Q3: the blocklist
+    @property
+    def _enforce(self) -> bool:
+        """Is the blocklist kept? ("stay_out" always; otherwise unless the owner allows the denial.)"""
+        return self.cfg.replacement == "stay_out" or self.cfg.on_repick == "avoid"
+
+    @property
+    def _subst(self) -> bool:
+        """Does a blocked name get a second pick (else its weight waits in cash)?"""
+        return self.cfg.replacement == "similar" or (self.cfg.replacement == "cash" and self.cfg.on_repick == "avoid")
+
+    def blocked(self, d) -> set:
+        """Names that cannot be bought on `d` without making a harvested loss superficial."""
+        d = pd.Timestamp(d)
+        return {n for n, until in self.blocked_until.items() if d <= until}
+
+    def _block(self, n, d) -> pd.Timestamp | None:
+        if not self._enforce:
+            return None
+        until = d + pd.Timedelta(days=self.cfg.superficial_days)
+        self.blocked_until[n] = max(until, self.blocked_until.get(n, until))
+        return self.blocked_until[n]
+
+    def _note_second_pick(self, n, r) -> None:
+        """The open record of `n` remembers the name that was bought instead."""
+        for rec in reversed(self._rows):
+            if rec["name"] == n and rec.get("blocked_until") is not None:
+                if rec["replacement_name"] is None:
+                    rec["replacement_name"] = r
+                return
+
+    def _swap_back(self, n, r) -> None:
+        """Replacement "similar": hold `r` until the window of `n` is over, then swap `n` back."""
+        rd = self.mkt.trading_day(self.blocked_until[n] + pd.Timedelta(days=1))
+        self.pending.append((rd, n, r))
+        self.new_dates.append(rd)
 
     def _replacement(self, snap, taken: set):
         for t in self.screen.ranked(snap):
@@ -120,33 +180,26 @@ class HarvestRun:
                 return t
         return None
 
-    def _return_date(self, d):
-        return self.mkt.trading_day(d + pd.Timedelta(days=self.cfg.superficial_days + 1))
-
     def _window(self, d, name, repl):
-        """Start the window for `name` sold at `d`; with a replacement, schedule the swap back."""
-        until = d + pd.Timedelta(days=self.cfg.superficial_days)
-        if self.cfg.replacement != "cash":
-            self.blocked[name] = (d, until)
-        if repl is not None:
-            rd = self._return_date(d)
-            self.pending.append((rd, name, repl))
-            self.new_dates.append(rd)
+        """Start the window for `name` sold at `d`; with a replacement (mode "similar"), schedule the swap back."""
+        self._block(name, d)
+        if repl is not None and self.cfg.replacement == "similar":
+            self._swap_back(name, repl)
 
     def on_rebalance(self, d, snap, raw, picks, prev, value, target):
         """After Weighting at a rebalance: returns (picks, target) with the harvested names out."""
         cfg = self.cfg
         self._value, self.pending = value, []
-        blocked = self._active_block(d)
+        blocked = self.blocked(d)
         picks = list(picks)
         cand = self._candidates(prev, d, snap) if cfg.when in ("rebalance", "both") and len(prev) else \
             pd.DataFrame(columns=["loss", "pct"])
         drop, wash = [], []
+        wash_mode = cfg.replacement == "cash" and not self._enforce       # Q3: "allow_denial" = the old "cash" arithmetic
         for n in picks:
             if n in cand.index:
-                (wash if cfg.replacement == "cash" and n in raw else drop).append(n)
-        if cfg.replacement != "cash":
-            drop += [n for n in picks if n in blocked and n not in drop]
+                (wash if wash_mode and n in raw else drop).append(n)
+        drop += [n for n in picks if n in blocked and n not in drop]       # Q3: the blocklist (empty unless enforced)
         for n in wash:                                # sold and rebought at once: the whole loss is denied
             self._record(d, n, "harvest", float(cand.loc[n, "pct"]), float(cand.loc[n, "loss"]), "none",
                          denied=float(cand.loc[n, "loss"]), days_out=0, rebought=d)
@@ -160,7 +213,7 @@ class HarvestRun:
             if n not in raw:                              # only the hold rule kept it: the screen's own pick takes its place
                 if extra:
                     keep.append(extra.pop(0))
-            elif cfg.replacement == "similar":
+            elif self._subst:                             # Q3: the second pick (replacement "similar", or "cash" + "avoid")
                 r = self._replacement(snap, taken)
                 if r is not None:
                     taken.add(r)
@@ -168,15 +221,16 @@ class HarvestRun:
             if n in cand.index:                           # a new harvest: its window starts today
                 self._initiated[n] = r or "cash"
                 self._window(d, n, r)
-            elif r is not None:                           # kept out by an earlier window: hold r until it ends
-                rd = self._return_date(self.blocked[n][0])
-                self.pending.append((rd, n, r))
-                self.new_dates.append(rd)
+            elif r is not None:                           # kept out by an earlier window: hold r (until it ends, "similar")
+                self._note_second_pick(n, r)
+                if cfg.replacement == "similar":
+                    self._swap_back(n, r)
         target = self.weighting.target(snap, keep, prev, self.min_holdings)
         return keep, target
 
-    def on_substep(self, d, snap, prev, value):
-        """A year-end bar or a swap-back bar (no screen run): returns the target weights."""
+    def on_substep(self, d, snap, prev, value, reentry: bool = False):
+        """A year-end bar, a swap-back bar or an exit re-entry bar (no screen run): returns the target weights.
+        `value` = the equity money (wealth x exposure); `reentry`: the exit policy's exposure rose on this bar."""
         cfg = self.cfg
         self._value = value
         target = prev.copy()
@@ -184,8 +238,21 @@ class HarvestRun:
             self.pending.remove((rd, o, r))
             if r in target.index and o not in target.index and o in snap.index:
                 target[o] = target.pop(r)
+        if reentry and self._enforce:                                    # Q3: the re-entry skips names inside their window
+            blocked = self.blocked(d)
+            taken = set(target.index) | blocked
+            for n in [n for n in target.index if n in blocked]:
+                w = target.pop(n)
+                self._swapped.add(n)
+                r = self._replacement(snap, taken) if self._subst else None
+                if r is not None:
+                    taken.add(r)
+                    target[r] = w
+                    self._note_second_pick(n, r)
+                    if cfg.replacement == "similar":
+                        self._swap_back(n, r)
         if cfg.when in ("year_end", "both") and len(target):
-            blocked = self._active_block(d)
+            blocked = self.blocked(d)
             cand = self._candidates(target, d, snap)
             taken = set(target.index) | set(cand.index) | blocked
             for n in cand.index:
@@ -213,8 +280,22 @@ class HarvestRun:
             orig(date, gains)
         self.taxer._gains = spy
 
-    def post_trade(self, d, value, prev, target):
-        """After `TaxStage.trade`: record loss sales, apply the superficial-loss rule to sales and purchases."""
+    def exit_sale(self, d, names, gains, cost, sold, kept) -> None:
+        """Q3: the exit policy sold a share of the sleeve into the parked asset (`TaxStage.segment` calls this):
+        per name the gain, the cost sold, the proceeds and the value still held. Losses are realized anyway: recorded
+        with source "exit" and the name is blocked for the window."""
+        px = self.px.loc[d]
+        for n, g, c, sv, kv in zip(names, np.asarray(gains, float), np.asarray(cost, float), np.asarray(sold, float),
+                                   np.asarray(kept, float)):
+            price = float(px.get(n, np.nan))
+            if g < -1e-15 and np.isfinite(price) and price > 0 and sv > 0:
+                rec = self._sale(d, n, -g, -g / c if c > 0 else np.nan, sv / price, kv / price, source="exit")
+                rec["blocked_until"] = self._block(n, d)
+
+    def post_trade(self, d, value, prev, target, ratio: float = 1.0):
+        """After `TaxStage.trade`: record loss sales, apply the superficial-loss rule to sales and purchases.
+        Q3: `value` = the equity money; `ratio` = exposure before / after the bar (< 1 when the exit policy re-entered
+        on it: that part of the holding was bought by the switch, which the trade does not show)."""
         self.taxer.__dict__.pop("_gains", None)
         names = prev.index.union(target.index)
         p, t = prev.reindex(names, fill_value=0.0), target.reindex(names, fill_value=0.0)
@@ -225,23 +306,23 @@ class HarvestRun:
             price = float(px.get(n, np.nan))
             if not np.isfinite(price) or price <= 0:
                 continue
-            sell_w, buy_w = max(p[n] - t[n], 0.0), max(t[n] - p[n], 0.0)
-            if sell_w > _EPS and p[n] > 0:
+            sell_w, buy_w = max(p[n] - t[n], 0.0), max(t[n] - p[n] * ratio, 0.0)
+            if sell_w > _EPS and p[n] > 0 and n not in self._swapped:
                 frac, sell_val = sell_w / p[n], sell_w * value
                 loss = -gain.get(n, 0.0)
                 if loss > 1e-15:
                     cost = float(self._basis.get(n, 0.0)) * frac
                     self._sale(d, n, loss, loss / cost if cost > 0 else np.nan, sell_val / price,
                                (p[n] - sell_w) * value / price)
-            if buy_w > _EPS:
+            if buy_w > _EPS and buy_w * value > 1e-15:
                 self._buy(d, n, buy_w * value / price)
-        self._initiated = {}
+        self._initiated, self._swapped = {}, set()
 
     def _record(self, d, n, source, pct, loss, repl, denied=0.0, days_out=None, rebought=None, shares=0.0, held_after=0.0):
         rec = dict(date=d, name=n, source=source, unrealized_pct=pct, loss=loss, denied=0.0, acb_added=0.0,
                    days_out=days_out, replacement=repl, rebought=rebought,
                    window_end=d + pd.Timedelta(days=self.cfg.superficial_days), _shares=shares, _matched=0.0,
-                   _held_after=held_after)
+                   _held_after=held_after, replacement_name=None, blocked_until=None)
         if denied > 0:                    # a wash (sold and rebought at once): never in the ledger, the ACB stays as it is
             rec["denied"] = rec["acb_added"] = denied
         else:
@@ -257,14 +338,19 @@ class HarvestRun:
         rec["acb_added"] += amount
         self.taxer.deny_loss(rec["name"], rec["date"], amount)
 
-    def _sale(self, d, n, loss, pct, shares, held_after):
+    def _sale(self, d, n, loss, pct, shares, held_after, source=None):
         days = self.cfg.superficial_days
-        src = "harvest" if n in self._initiated else "screen"
-        rec = self._record(d, n, src, pct, loss, self._initiated.get(n, ""), shares=shares, held_after=held_after)
+        src = source or ("harvest" if n in self._initiated else "screen")
+        repl = self._initiated.get(n, "cash" if source == "exit" else "")
+        rec = self._record(d, n, src, pct, loss, repl, shares=shares, held_after=held_after)
+        if src == "harvest":                                              # Q3: the second pick and the blocklist entry
+            rec["replacement_name"] = repl if repl not in ("", "cash") else None
+            rec["blocked_until"] = self.blocked_until.get(n)
         before = sum(sh for bd, sh in self.buys.get(n, []) if 0 < (d - bd).days <= days)
         if held_after > _EPS and before > 0:                      # bought inside the 30 days before a partial sale
             self._deny(rec, loss * min(shares, before, held_after) / shares)
             rec["days_out"] = 0
+        return rec
 
     def _buy(self, d, n, shares):
         days = self.cfg.superficial_days

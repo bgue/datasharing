@@ -217,6 +217,7 @@ class TaxStage:
         self._last_mv = pd.Series(dtype=float)
         self._last_park = 0.0
         self._mkt, self._fx, self._fx0, self._warn = None, None, None, []      # P3
+        self.on_switch = None                        # Q3: callback(date, names, gains, cost sold, proceeds, value kept) at an exit switch
 
     # ---- P3: security metadata, foreign dividends and the CAD basis
     def bind(self, mkt) -> None:
@@ -391,7 +392,10 @@ class TaxStage:
             if e1 < e0 and e0 > 0:                                      # equity sold into the parked asset
                 s = (e0 - e1) / e0
                 mvpre = Vi * e0 * w[i]
-                self._gains(seg_index[i], s * (mvpre * Fm[i] - b))             # P3: proceeds in CAD
+                sw_gain = s * (mvpre * Fm[i] - b)                              # P3: proceeds in CAD
+                self._gains(seg_index[i], sw_gain)
+                if self.on_switch is not None:                                 # Q3: per-name losses of the switch (harvesting)
+                    self.on_switch(seg_index[i], names, sw_gain, s * b, s * mvpre, (1 - s) * mvpre)
                 b = b * (1 - s)
                 self.pb += s * float(mvpre.sum())
             elif e1 > e0 and e0 < 1:                                    # parked asset sold, equity bought

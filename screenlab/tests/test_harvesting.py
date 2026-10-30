@@ -112,7 +112,7 @@ def test_threshold_and_min_loss_gate_the_harvest():
 # --------------------------------------------------------------------------- the superficial-loss rule
 def test_repurchase_inside_30_days_denies_the_loss_and_raises_the_acb():
     mk = m1(dict(A=3, B=2, C=1), dict(A=0.5, B=2, C=1))      # the screen wants A back on 2021-01-01, drops it 2022-01-03
-    res = go(mk, 1, TaxLossHarvest())
+    res = go(mk, 1, TaxLossHarvest(on_repick="allow_denial"))              # Q3: the old arithmetic (default now avoids)
     r = res.harvest.iloc[0]
     # sold 1.0 share-equivalent (0.8 of wealth at price 0.8) on 2020-12-31, bought back 1 day later: all of it
     assert r["rebought"] == pd.Timestamp("2021-01-01") and r["days_out"] == 1
@@ -136,7 +136,7 @@ def test_repurchase_inside_30_days_denies_the_loss_and_raises_the_acb():
 def test_partial_repurchase_denies_in_proportion():
     caps = {"2020-01-01": dict(A=2, B=2, C=1), "2021-01-01": dict(A=1, B=0.5, C=3), "2022-01-03": dict(A=1, B=0.5, C=3)}
     mk = market(dict(A=A_DROP, B=FLAT, C=FLAT), caps)
-    res = go(mk, 2, TaxLossHarvest(), weighting="cap")
+    res = go(mk, 2, TaxLossHarvest(on_repick="allow_denial"), weighting="cap")
     # 2020-12-31: A = 0.4 of wealth 0.9 (basis 0.5): loss 0.1, 0.5 shares sold at 0.8. 2021-01-01 cap weights A 1/4:
     # 0.9 x 1/4 / 0.8 = 0.28125 shares bought back -> 0.28125 / 0.5 of the loss is denied
     r = res.harvest.iloc[0]
@@ -168,7 +168,7 @@ def test_a_loss_sale_by_the_screen_is_checked_too():
 def test_stay_out_keeps_the_name_out_until_the_window_has_passed():
     caps = {"2020-01-01": dict(A=3, B=2, C=1), "2021-01-01": dict(A=3, C=2, B=0.5), "2022-01-03": dict(A=3, C=2, B=0.5)}
     mk = market(dict(A=A_DROP, B=FLAT, C=FLAT), caps)
-    cash = go(mk, 2, TaxLossHarvest(replacement="cash"))
+    cash = go(mk, 2, TaxLossHarvest(replacement="cash", on_repick="allow_denial"))
     out = go(mk, 2, TaxLossHarvest(replacement="stay_out"))
     # equal weights: 0.4 of 0.9 wealth sold at 0.8 -> 0.5 shares; "cash" lets the screen buy 0.45 / 0.8 = 0.5625 back on
     # 2021-01-01: the whole loss (0.1) is denied
@@ -219,7 +219,7 @@ def test_harvesting_overrides_a_hold_rule_keep():
     assert out.harvest.iloc[0]["source"] == "harvest"
     # "cash" with the screen wanting A anyway: sold and bought back the same day = a wash, the whole loss denied
     caps["2021-01-01"] = dict(A=3, B=2, C=1)
-    wash = go(market(dict(A=A_DROP, B=FLAT, C=FLAT), caps), 1, TaxLossHarvest(when="rebalance"))
+    wash = go(market(dict(A=A_DROP, B=FLAT, C=FLAT), caps), 1, TaxLossHarvest(when="rebalance", on_repick="allow_denial"))
     r = wash.harvest.iloc[0]
     assert r["loss"] == pytest.approx(0.2) and r["denied"] == pytest.approx(0.2) and r["net_loss"] == pytest.approx(0, abs=1e-15)
     assert wash.tax.loc[2021, "realized_losses"] == 0
@@ -338,10 +338,155 @@ def test_synthetic_market_runs_in_every_mode(when, repl):
     assert base.results["dogs"].harvest is None
 
 
-def test_harvest_with_an_exit_policy_is_refused():
-    from screenlab import ExitPolicy, ExitScreen, TrendBreak
-    mk = m1(dict(A=0.5, B=2, C=1))
-    pol = ExitPolicy(ExitScreen([TrendBreak("A", window_months=4)], threshold=0.5, check="ME", lag=1))
-    mk.indices["A"] = mk.prices["A"]
-    with pytest.raises(NotImplementedError, match="exit policy"):
-        run(screen(1), mk, Config(cost_bps=0, min_holdings=1, exit=pol, tax=tax(TaxLossHarvest())), start="2020-01-01")
+# --------------------------------------------------------------------------- Q3: second pick, avoidance, exits
+# Q3: describe(), the alias and on_repick
+def test_q3_describe_alias_and_on_repick_validation():
+    assert TaxLossHarvest(replacement="second_pick").describe() == "on (threshold 10%, second pick, 30-day window)"
+    assert TaxLossHarvest(replacement="similar").describe() == "on (threshold 10%, second pick, 30-day window)"
+    assert TaxLossHarvest(threshold_pct=0.125, replacement="stay_out", superficial_days=45).describe() == \
+        "on (threshold 12.5%, stay out, 45-day window)"
+    assert "repurchase allowed" in TaxLossHarvest(on_repick="allow_denial").describe()
+    assert TaxLossHarvest().on_repick == "avoid" and TaxConfig().harvest is None       # explicit enable only
+    with pytest.raises(ValueError):
+        TaxLossHarvest(on_repick="ignore")
+    h = TaxLossHarvest(on_repick="allow_denial")
+    assert from_dict(to_dict(h)) == h
+
+
+# Q3: a re-pick inside the window is swapped for the next-ranked unblocked name; outside it the original comes back
+def test_q3_rebalance_repick_inside_the_window_takes_the_second_pick():
+    caps = {d: dict(A=3, B=2, C=1) for d in ("2020-01-01", "2021-01-01", "2022-01-03")}
+    mk = market(dict(A=A_DROP, B=FLAT, C=step(("2021-02-01", 1.5))), caps)
+    res = go(mk, 2, TaxLossHarvest(), weighting="cap")
+    # 2020: A 0.6 (basis 0.6), B 0.4. 2020-12-31: A = 0.6 x 0.8 = 0.48, loss 0.12 (20%); wealth 0.88, A's 0.48 waits in cash
+    r = res.harvest.iloc[0]
+    assert (r["source"], r["name"], r["date"]) == ("harvest", "A", pd.Timestamp("2020-12-31"))
+    assert r["loss"] == pytest.approx(0.12, rel=1e-12) and r["unrealized_pct"] == pytest.approx(0.2, rel=1e-12)
+    assert r["blocked_until"] == pd.Timestamp("2021-01-30")                      # sale + 30 days
+    # 2021-01-01: the screen wants A, B (cap weights 3:2) -- A is inside its window: C, the next ranked, takes its place;
+    # cap weights of B and C are 2/3 and 1/3 of the 0.88: B 0.586667, C 0.293333
+    assert res.holdings[pd.Timestamp("2021-01-01")] == ["B", "C"]
+    assert r["replacement_name"] == "C" and r["denied"] == 0
+    assert res.tax.loc[2020, "realized_losses"] == pytest.approx(-0.12 * CAP, rel=1e-12)       # the loss stands
+    # C rises 50% on 2021-02-01: 0.88 x (2/3 + 1/3 x 1.5) = 0.88 x 7/6 -- the weights above, to the cent
+    assert res.curve.loc["2021-02-01"] == pytest.approx(0.88 * 7 / 6, rel=1e-12)
+    assert res.curve.loc["2021-01-29"] == pytest.approx(0.88, rel=1e-12)
+    # 2022-01-03 is 368 days after the sale: A is bought back, the loss is not denied
+    assert res.holdings[pd.Timestamp("2022-01-03")] == ["A", "B"]
+    r = res.harvest.iloc[0]
+    assert r["rebought"] == pd.Timestamp("2022-01-03") and r["days_out"] == 368 and r["denied"] == 0
+
+
+def test_q3_blocked_dates_and_the_blocklist_object():
+    from screenlab.backtest import simulate
+    from screenlab.pipeline import TaxStage
+    caps = {"2020-01-01": dict(A=3, B=2, C=1), "2021-01-01": dict(A=3, B=2, C=1)}
+    mk = market(dict(A=A_DROP, B=FLAT, C=FLAT), caps)
+    cfg = Config(cost_bps=0, min_holdings=1, tax=tax(TaxLossHarvest()))
+    hv = cfg.tax.harvest.start(mk, TaxStage(cfg.tax, CAP), screen(1), cfg.construction, 1)
+    hv.blocked_until["A"] = pd.Timestamp("2021-01-30")
+    assert hv.blocked(pd.Timestamp("2021-01-30")) == {"A"} and hv.blocked(pd.Timestamp("2021-01-31")) == set()
+    assert hv.blocked("2020-12-31") == {"A"}
+    res = simulate(screen(1), mk, cfg, [pd.Timestamp("2020-01-01"), pd.Timestamp("2021-01-01")])
+    assert res.harvest.iloc[0]["blocked_until"] == pd.Timestamp("2021-01-30")
+
+
+# Q3: "allow_denial" is the old arithmetic: bought back at once, the loss denied and added to the ACB
+def test_q3_allow_denial_reproduces_the_denial_arithmetic():
+    caps = {d: dict(A=3, B=2, C=1) for d in ("2020-01-01", "2021-01-01", "2022-01-03")}
+    mk = market(dict(A=A_DROP, B=FLAT, C=FLAT), caps)
+    avoid = go(mk, 1, TaxLossHarvest())
+    allow = go(mk, 1, TaxLossHarvest(on_repick="allow_denial"))
+    assert avoid.holdings[pd.Timestamp("2021-01-01")] == ["B"] and allow.holdings[pd.Timestamp("2021-01-01")] == ["A"]
+    r = allow.harvest.iloc[0]
+    assert r["denied"] == pytest.approx(0.2, rel=1e-12) and r["acb_added"] == pytest.approx(0.2, rel=1e-12)
+    assert r["rebought"] == pd.Timestamp("2021-01-01") and pd.isna(r["blocked_until"]) and r["replacement_name"] is None
+    assert allow.tax.loc[2020, "realized_losses"] == pytest.approx(0, abs=1e-6)
+    assert avoid.tax.loc[2020, "realized_losses"] == pytest.approx(-0.2 * CAP, rel=1e-12)
+
+
+# --- exits: an exit policy that parks in cash while the flag is on
+class _Flag:
+    """Risk flag hand-set: on for the calendar days in [start, end]."""
+    name = "flag"
+
+    def __init__(self, start, end):
+        self.start, self.end = pd.Timestamp(start), pd.Timestamp(end)
+
+    def compute(self, mkt, macro=None):
+        return pd.Series(((mkt.index >= self.start) & (mkt.index <= self.end)).astype(float), index=mkt.index)
+
+
+def exit_policy(on_from, on_to):
+    from screenlab import ExitPolicy, ExitScreen
+    return ExitPolicy(ExitScreen([_Flag(on_from, on_to)], threshold=0.5, lag=0), switch_cost_bps=0.0)
+
+
+def exit_market():
+    # A falls 20% on 2020-07-01, is back at 1.0 on 2020-09-20 and 1.1 on 2020-10-05; B and C are flat
+    a = step(("2020-07-01", 0.8), ("2020-09-20", 1.0), ("2020-10-05", 1.1))
+    caps = {d: dict(A=3, B=2, C=1) for d in ("2020-01-01", "2021-01-01", "2022-01-03")}
+    return market(dict(A=a, B=FLAT, C=FLAT), caps)
+
+
+def go_exit(clear, harvest, **kw):
+    """Flag on from 2020-09-01 (S) to the day before `clear`: out on S, back on `clear`."""
+    pol = exit_policy("2020-09-01", pd.Timestamp(clear) - pd.Timedelta(days=1))
+    c = Config(rebalance_months=12, cost_bps=0, min_holdings=1, exit=pol, tax=tax(harvest), **kw)
+    return run(screen(1), exit_market(), c, start="2020-01-01")
+
+
+def test_q3_harvest_with_an_exit_policy_no_longer_raises():
+    res = go_exit("2020-09-11", TaxLossHarvest())
+    assert res.harvest is not None and res.exposure.loc["2020-09-02"] == 0.0 and res.exposure.loc["2020-09-11"] == 1.0
+
+
+def test_q3_exit_loss_is_a_harvest_and_the_reentry_inside_the_window_takes_the_second_pick():
+    S = pd.Timestamp("2020-09-01")
+    res = go_exit("2020-09-11", TaxLossHarvest())                   # back in on S + 10
+    h = res.harvest
+    assert list(h.columns) == HARVEST_COLS and len(h) == 1
+    r = h.iloc[0]
+    # A: bought at 1.0 (basis 1.0), worth 0.8 when the flag sells it into cash on S: a 0.2 loss realized by the switch
+    assert (r["source"], r["name"], r["date"]) == ("exit", "A", S)
+    assert r["loss"] == pytest.approx(0.2, rel=1e-12) and r["unrealized_pct"] == pytest.approx(0.2, rel=1e-12)
+    assert r["blocked_until"] == S + pd.Timedelta(days=30) == pd.Timestamp("2020-10-01")
+    # S + 10: A would be bought back with the cash; it is blocked, B (next ranked, not held) takes the 0.8 instead
+    assert r["replacement_name"] == "B" and r["denied"] == 0 and r["net_loss"] == pytest.approx(0.2, rel=1e-12)
+    assert res.tax.loc[2020, "realized_losses"] == pytest.approx(-0.2 * CAP, rel=1e-12)
+    c = res.curve
+    assert c.loc["2020-09-10"] == pytest.approx(0.8) and c.loc["2020-09-21"] == pytest.approx(0.8)   # A's rebound is missed
+    assert c.loc["2020-10-06"] == pytest.approx(0.8)
+    assert r["rebought"] == pd.Timestamp("2021-01-01")                   # the screen's own rebalance, 487 days after S
+    assert res.holdings[pd.Timestamp("2021-01-01")] == ["A"]
+    # the same run with the denial allowed: A is bought back on S + 10 at 0.8 and the loss is denied
+    den = go_exit("2020-09-11", TaxLossHarvest(on_repick="allow_denial"))
+    d = den.harvest.iloc[0]
+    assert d["source"] == "exit" and d["denied"] == pytest.approx(0.2, rel=1e-12) and d["rebought"] == pd.Timestamp("2020-09-11")
+    assert d["days_out"] == 10 and den.tax.loc[2020, "realized_losses"] == pytest.approx(0, abs=1e-6)
+    assert den.curve.loc["2020-09-21"] == pytest.approx(1.0) and den.curve.loc["2020-10-06"] == pytest.approx(1.1)
+
+
+@pytest.mark.parametrize("clear, takes_a", [("2020-09-11", False), ("2020-10-01", False), ("2020-10-02", True)])
+def test_q3_exit_reentry_window_edge(clear, takes_a):
+    # S = 2020-09-01: S + 30 = 10-01 is still inside the window, S + 31 = 10-02 is outside
+    res = go_exit(clear, TaxLossHarvest())
+    r = res.harvest.iloc[0]
+    assert r["blocked_until"] == pd.Timestamp("2020-10-01")
+    if takes_a:                           # A bought on S + 31 at 1.0 with the 0.8; 1.1 on 10-05
+        assert res.curve.loc["2020-10-02"] == pytest.approx(0.8) and res.curve.loc["2020-10-05"] == pytest.approx(0.88)
+        assert r["denied"] == 0 and r["rebought"] == pd.Timestamp("2020-10-02") and pd.isna(r["replacement_name"])
+        assert r["days_out"] == 31
+    else:
+        assert res.curve.loc["2020-10-05"] == pytest.approx(0.8) and r["replacement_name"] == "B"
+    assert res.tax.loc[2020, "realized_losses"] == pytest.approx(-0.2 * CAP, rel=1e-12)
+
+
+def test_q3_second_pick_mode_swaps_the_original_back_after_the_window():
+    res = go_exit("2020-09-11", TaxLossHarvest(replacement="second_pick"))
+    r = res.harvest.iloc[0]
+    # B holds the 0.8 from S + 10; on S + 31 (10-02) it is swapped for A at 1.0: 0.8 of A, 1.1 on 10-05
+    assert r["replacement_name"] == "B" and r["rebought"] == pd.Timestamp("2020-10-02") and r["denied"] == 0
+    assert res.curve.loc["2020-10-02"] == pytest.approx(0.8) and res.curve.loc["2020-10-05"] == pytest.approx(0.88)
+    stay = go_exit("2020-09-11", TaxLossHarvest(replacement="stay_out"))       # no second pick: the 0.8 waits in cash
+    assert stay.curve.loc["2020-10-06"] == pytest.approx(0.8) and stay.harvest.iloc[0]["denied"] == 0
