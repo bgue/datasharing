@@ -191,9 +191,18 @@ class ScreenlabApp(App):
                                  value="none")
                     yield Label("Tax: province (blank = placeholder rates)")
                     yield Select([(n, n) for n in TAX_PROVINCES], id="f-tax-province", allow_blank=True)
-                    yield Label("Tax: employment income ($/yr)")
-                    yield Input(id="f-tax-income", placeholder="0")
-                    yield Label("Tax: year")
+                    # Q1: Tax section, account-centric: where the portfolio sits, plus the bracket and harvesting
+                    yield Label("Tax: other income that sets your bracket ($/yr; the portfolio's income stacks on top)")
+                    yield Input(id="f-tax-income", placeholder="90000")
+                    yield Label("Tax: RRSP withdrawal rate (rrsp only; blank = untaxed, with a warning)")
+                    yield Input(id="f-tax-rrsp", placeholder="e.g. 0.30")
+                    yield Checkbox("Tax: harvest losses (taxable account; off unless ticked)", False, id="f-tax-harvest")
+                    yield Label("Tax: harvest threshold (% loss on cost)")
+                    yield Input(id="f-tax-threshold", placeholder="10")
+                    yield Label("Tax: harvest replacement (second pick / cash / stay out)")
+                    yield Select([("second pick", "second_pick"), ("cash", "cash"), ("stay out", "stay_out")],
+                                 id="f-tax-replacement", allow_blank=False, value="second_pick")
+                    yield Label("Tax: year of the rate tables")
                     yield Input(id="f-tax-year", placeholder="2025")
                     yield Label("Trend exit (TrendBreak on the passive index)")
                     yield Switch(id="f-exit", value=False)
@@ -252,6 +261,7 @@ class ScreenlabApp(App):
                         yield Static("", id="d-status")
                         yield DataTable(id="t-manifest", cursor_type="row")
                         yield Static("", id="d-errors")
+                yield __import__(__package__ + ".accounts", fromlist=["pane"]).pane(self)  # Q2: Accounts tab (tui/accounts.py)
         yield Static("", id="chartsbar")
         yield Footer()
 
@@ -453,8 +463,18 @@ class ScreenlabApp(App):
                 self.query_one("#f-tax-province", Select).clear()
         finally:
             self._syncing = False
-        inc = tax.get("employment_income")
-        self.query_one("#f-tax-income", Input).value = "" if not inc else f"{inc:g}"
+        inc = tax.get("other_income", tax.get("employment_income"))        # Q1
+        self.query_one("#f-tax-income", Input).value = "" if inc is None else f"{inc:g}"
+        rw = tax.get("rrsp_withdrawal_rate")
+        self.query_one("#f-tax-rrsp", Input).value = "" if rw is None else f"{rw:g}"
+        thr = tax.get("harvest_threshold_pct")
+        self.query_one("#f-tax-threshold", Input).value = "" if thr is None else f"{100 * thr:g}"
+        self._syncing = True
+        try:
+            self.query_one("#f-tax-harvest", Checkbox).value = bool(tax.get("harvest"))
+            self.query_one("#f-tax-replacement", Select).value = tax.get("harvest_replacement", "second_pick")
+        finally:
+            self._syncing = False
         self.query_one("#f-tax-year", Input).value = str(tax["year"]) if tax.get("year") else ""
         note = sc.diff_line or ""
         if sc.frozen:
@@ -462,7 +482,7 @@ class ScreenlabApp(App):
         elif sc.candidate_of:
             note = f"{CAND} candidate of frozen {sc.candidate_of}: each look counts as an extra trial against it.\n{note}"
         self.query_one("#diff", Static).update(note)
-        for w in self.query("#editor Input, #editor Select, #editor Switch, #editor Button"):
+        for w in self.query("#editor Input, #editor Select, #editor Switch, #editor Checkbox, #editor Button"):
             w.disabled = bool(sc.frozen)
 
     def _refresh_tab(self, tab: str) -> None:
@@ -800,13 +820,17 @@ class ScreenlabApp(App):
         if _blank(acct) or acct == "none":
             return None
         prov = self.query_one("#f-tax-province", Select).value
-        managed = ("model", "account", "province", "employment_income", "year")
+        managed = ("model", "account", "province", "other_income", "employment_income", "marginal_rate", "year",
+                   "rrsp_withdrawal_rate", "harvest", "harvest_threshold_pct", "harvest_replacement")     # Q1
         out = {k: v for k, v in (old or {}).items() if k not in managed}          # fields set elsewhere stay
         out.update({"model": "placeholder" if _blank(prov) else "canadian", "account": acct})
         if not _blank(prov):
             out["province"] = prov
-        for key, field, conv, word in (("#f-tax-income", "employment_income", float, "a number"),
-                                       ("#f-tax-year", "year", int, "an integer")):
+        if (old or {}).get("marginal_rate") is not None and self.query_one("#f-tax-income", Input).value.strip() == "":
+            out["marginal_rate"] = old["marginal_rate"]                            # a direct bracket knob set elsewhere stays
+        for key, field, conv, word, scale in (("#f-tax-income", "other_income", float, "a number", 1.0),
+                                              ("#f-tax-rrsp", "rrsp_withdrawal_rate", float, "a rate such as 0.30", 1.0),
+                                              ("#f-tax-year", "year", int, "an integer", 1.0)):
             raw = self.query_one(key, Input).value.strip()
             if raw == "":
                 continue
@@ -814,6 +838,17 @@ class ScreenlabApp(App):
                 out[field] = conv(raw)
             except ValueError:
                 raise SessionError(400, f"tax {field.replace('_', ' ')} must be {word}, got {raw!r}") from None
+        if self.query_one("#f-tax-harvest", Checkbox).value:                        # Q1: harvesting only when ticked
+            out["harvest"] = True
+            raw = self.query_one("#f-tax-threshold", Input).value.strip()
+            if raw != "":
+                try:
+                    out["harvest_threshold_pct"] = float(raw) / 100.0
+                except ValueError:
+                    raise SessionError(400, f"tax harvest threshold must be a percent such as 10, got {raw!r}") from None
+            rep = self.query_one("#f-tax-replacement", Select).value
+            if not _blank(rep):
+                out["harvest_replacement"] = rep
         if "year" in out and _blank(prov):
             del out["year"]                          # the placeholder model has no year
         return out

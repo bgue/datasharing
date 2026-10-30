@@ -240,6 +240,14 @@ Compare (blank for versions without tax). The passive index row shows its taxed 
 comparison stays fair. A TFSA shows no drag on gains; a taxable account does. With a province blank the illustrative
 placeholder rates are used, which are not for decisions. The same fields exist as the `tax` param over the control endpoint.
 
+### Which account: taxable, TFSA or RRSP?
+The **Accounts** tab (key `A`) runs the selected scenario's portfolio, and the passive index, in a taxable account, a TFSA and an
+RRSP, with the same pre-tax money, and shows after-tax growth, tax drag, the foreign withholding each account loses, credits or
+waives (US dividends are exempt in an RRSP, lost in a TFSA, credited in a taxable account) and which account is best (green).
+It uses the Tax section of the editor for the bracket and the RRSP withdrawal rate. It ignores contribution room, the RRSP
+deduction refund and AMT. From code: `lab.account_compare(["dogs"], tax=...)`; a worked example is
+`notebooks/accounts_and_foreign.ipynb`; the rules are in `docs/TAXES.md` "Comparing accounts".
+
 ### Guardrails: trials, frozen scenarios, pre-registered hypotheses
 Trying fifty variants is an afternoon's work in the TUI, and the best of fifty looks good by luck. So every Compare row
 shows **Trials** (how many variants of its screen were tried, including earlier sessions when a run store is on) and

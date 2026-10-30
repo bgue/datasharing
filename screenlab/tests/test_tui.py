@@ -1166,7 +1166,7 @@ def test_tax_editor_apply_new_version_with_after_tax_columns(reg):
             await settle(pilot, app)
             v2 = s.scenarios[1]
             assert v2.label == "dogs v2" and v2.params["tax"]["account"] == "taxable"
-            assert v2.params["tax"]["employment_income"] == 90000.0 and "tax taxable" in v2.diff_line
+            assert v2.params["tax"]["other_income"] == 90000.0 and "tax taxable" in v2.diff_line
             await until(lambda: "AfterTaxCAGR" in [str(c.label) for c in t.columns.values()], pilot=pilot,
                         what="after-tax columns")
             vals = {r["label"]: r["values"] for r in s.command("compare")["rows"]}
@@ -1230,3 +1230,31 @@ def test_tax_editor_province_select_makes_canadian_version(reg):
             v = s.command("compare")["rows"][-1]["values"]
             assert v["AfterTaxCAGR"] <= v["CAGR"] and "AfterTaxExcess/yr" in v
     arun(go())
+
+
+# Q1: the Tax section fields map to config.tax
+def test_q1_tax_section_fields_map_to_config_tax(reg):
+    async def go():
+        s = Session(reg)
+        app = ScreenlabApp(s, control_port=None)
+        async with app.run_test(size=(200, 60)) as pilot:
+            await settle(pilot, app)
+            s.command("add_scenario", {"screen": "dogs", "run": True, "wait": True})
+            await settle(pilot, app)
+            ids = [w.id for w in app.query("#editor *") if w.id and w.id.startswith("f-tax")]
+            assert ids == ["f-tax-account", "f-tax-province", "f-tax-income", "f-tax-rrsp", "f-tax-harvest",
+                           "f-tax-threshold", "f-tax-replacement", "f-tax-year"]
+            app.query_one("#f-tax-account").value = "taxable"
+            app.query_one("#f-tax-province").value = "AB"
+            app.query_one("#f-tax-income").value = "120000"
+            app.query_one("#f-tax-rrsp").value = "0.3"
+            app.query_one("#f-tax-harvest").value = True
+            app.query_one("#f-tax-threshold").value = "15"
+            app.query_one("#f-tax-replacement").value = "cash"
+            tax = app._form_tax(None)
+            assert tax == {"model": "canadian", "account": "taxable", "province": "AB", "other_income": 120000.0,
+                           "rrsp_withdrawal_rate": 0.3, "harvest": True, "harvest_threshold_pct": 0.15,
+                           "harvest_replacement": "cash"}
+            app.query_one("#f-tax-harvest").value = False
+            assert "harvest" not in app._form_tax(None)                  # harvesting is off unless ticked
+    asyncio.run(go())

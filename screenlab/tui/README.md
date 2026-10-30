@@ -37,6 +37,16 @@ allow-list hostnames the downloads need (for a sandbox or cloud environment that
 operation `fetch_data` is not registered the tab says "downloader not installed" and the button is disabled. The same from a
 script: commands `datasets` and `fetch_data` ([PROTOCOL.md](PROTOCOL.md)).
 
+## Accounts tab (key `A`)
+Which account suits the selected scenario: the same pre-tax portfolio, and the passive index, in a taxable account, a TFSA and
+an RRSP, after tax (the operation `account_compare`, [../docs/TAXES.md](../docs/TAXES.md) "Comparing accounts"). Opening the
+tab runs it once per scenario version (the button runs it again); it uses the scenario's Tax section as the shared settings
+(bracket, RRSP withdrawal rate, harvesting) and ignores the account chosen there. The table marks the best account by after-tax
+CAGR in green and foreign withholding that is lost in amber; below it the foreign treatment matrix (share of positions by
+domicile and wrapper, and what each account does with the withholding) and the notes (RRSP convention, CAD-basis warning, what
+is not modelled). In the browser chart panel the Accounts tab draws after-tax CAGR by account, portfolio against index.
+Command `accounts` ([PROTOCOL.md](PROTOCOL.md)).
+
 ## Refining a scenario
 Select a scenario, edit a field, press **F2** (or the Apply button, or Enter in a field). Apply never edits:
 it creates `dogs v2` from `dogs` with the changed fields, shows a line such as
@@ -47,7 +57,7 @@ passive index together. Versions are kept until you delete them (`d`).
 `a` add, `c` clone, `r` run selected, `R` run all not yet run, `d` delete, `x` toggle trend exit (then F2),
 `F2` Apply, `m` Monte Carlo (selected scenario; price-rank screens only), `t` timing study, `p` picks,
 `s` save the screen as ScreenSpec JSON, `e` export Compare as markdown + CSV, `w` charts in the browser,
-`D` Data tab, `T` light/dark, `1`-`9` tabs,
+`D` Data tab, `A` Accounts tab, `T` light/dark, `1`-`9` tabs,
 `?` help, `q` quit. The mouse works too. In a field, `F2` or Enter applies.
 
 ## Guardrails (trials, frozen scenarios, hypotheses)

@@ -66,7 +66,7 @@ only when the seq moved. `screenlab-tui --remote URL` also joins a TUI running i
 | `cash_rate` | number | annual return on cash |
 | `exit` | object or null | an exit policy request, same shape as `exit` of the `backtest` operation: `{"signals": [{"type": "TrendBreak", "index": "SYN_CAPWT"}], "threshold": 0.8, "park": "cash", ...}` |
 | `start`, `end` | ISO date | backtest window |
-| `tax` | object or null | tax the run, same shape as `config.tax` of the `backtest` operation: `{"model": "placeholder"\|"canadian"\|"none", "account": "taxable"\|"tfsa"\|"rrsp", "province": "AB"\|"BC", "year": 2025, "employment_income": 0, ...}`. Bad values are 400 (`config.tax.province must be one of ['AB', 'BC'], got 'ON'`). The editor's Tax section sets it (province blank = `placeholder`, else `canadian`) |
+| `tax` | object or null | tax the run, same shape as `config.tax` of the `backtest` operation: `{"model": "placeholder"\|"canadian"\|"none", "account": "taxable"\|"tfsa"\|"rrsp", "province": "AB"\|"BC", "year": 2025, "other_income": 90000, "rrsp_withdrawal_rate": 0.3, "harvest": false, "harvest_threshold_pct": 0.10, "harvest_replacement": "second_pick", ...}` (`marginal_rate` replaces `other_income`; `employment_income` is a deprecated alias). Bad values are 400 (`config.tax.province must be one of ['AB', 'BC'], got 'ON'`). The editor's Tax section (account, province, other income, RRSP withdrawal rate, harvest checkbox, threshold %, replacement, year) sets it (province blank = `placeholder`, else `canadian`) |
 
 * **Job info** (`job`): `{"job_id", "kind", "status": "queued|running|done|failed|cancelled", "progress": 0..1,
   "message", "error", "cache_hit"}`.
@@ -149,8 +149,18 @@ Args: `{"scenario": "dogs", "asof": null, "columns": null, "wait": true}`. Names
 selects (latest date by default). Result with `wait` (default): `{"scenario", "asof", "columns": [...], "rows": [[...]]}`
 (first column `ticker`); shown on the Picks tab.
 
+### `accounts`
+Args: `{"scenario": "dogs", "accounts": ["taxable", "tfsa", "rrsp"], "force": false, "wait": false}` (all optional; `accounts`
+default all three). Submits an `account_compare` job for the scenario's screen, window, config and exit, with the scenario's
+`tax` param (if any) as the shared tax settings (its `account` is ignored: the operation runs each account; no `tax` = the
+canadian model, Alberta, other income 90000). Result `{"jobs": [...]}`; the finished comparison is
+`snapshot.analyses.accounts[<scenario label>]` = `{"benchmark", "accounts", "table": {"columns", "rows"}, "foreign": {...},
+"best": {name: {"account", "AfterTaxCAGR", "next", "gap"}}, "notes": [...], "tax": {...}}` (the `account_compare` result,
+see docs/TAXES.md "Comparing accounts") and the Accounts tab (key `A`; opening the tab starts the job once per scenario
+version). Browser chart: `/charts/data?tab=accounts` (grouped bars of after-tax CAGR by account).
+
 ### `show`
-Args: `{"tab": "compare"}`, one of `compare curves timing picks exit montecarlo runs log data`. Switches the
+Args: `{"tab": "compare"}`, one of `compare curves timing picks exit montecarlo runs log data hypotheses accounts`. Switches the
 visible tab. Result `{"tab": "compare"}`.
 
 ### `select`

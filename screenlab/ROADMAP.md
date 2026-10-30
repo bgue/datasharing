@@ -155,6 +155,16 @@ the shares bought back, denied loss added to the ACB; `replacement` "cash" / "st
 [x] `Result.harvest`, report columns `Harvested/yr` and `TaxDeferred/yr`; [x] 3-year loss carry-back in `taxes.assess`
 (most recent year first, refund as a credit at the loss year's end, forward carry kept); tests/test_harvesting.py;
 docs/TAXES.md "Loss harvesting".
+*Done (Q3):* [x] harvesting is explicit (`TaxLossHarvest.describe()`); [x] second pick (`replacement="second_pick"`/"similar"; at a
+rebalance a re-picked name inside its window is replaced by the next-ranked unblocked name, `on_repick` "avoid" default /
+"allow_denial"); [x] one blocklist (`HarvestRun.blocked_until`, `blocked(date)`) honoured by the rebalance, the second pick and
+the exit policy's re-entry; [x] harvesting with an exit policy (exit-switch losses recorded with `source` "exit"); `Result.harvest`
+columns `replacement_name`, `blocked_until`.
+
+*Done (Q2):* [x] account comparison (`account_compare`: the same portfolio and the passive index in taxable / TFSA / RRSP,
+after-tax CAGR, tax drag, after-tax excess over the equally taxed index, withholding lost / credited / exempt, tax by kind,
+RRSP deferral, rank, foreign treatment matrix; REST, MCP, jobs, TUI Accounts tab, `notebooks/accounts_and_foreign.ipynb`;
+docs/TAXES.md "Comparing accounts"; tests/test_account_compare.py).
 
 *Remains:* more provinces and tax years (years without a table reuse the nearest one with a warning), pension income and
 RRSP contribution room, AMT, a refund of negative net tax, wiring the model choice into REST / TUI. *Open

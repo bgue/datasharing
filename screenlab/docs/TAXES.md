@@ -2,6 +2,25 @@
 
 `Config.tax` turns the backtest into an after-tax one. The default is `None`: no tax, every number exactly as before.
 
+**What you are evaluating is where the portfolio sits.** The same holdings are taxed very differently in a taxable
+account, a TFSA and an RRSP, and the tax also depends on the investor's marginal bracket. Salary is not modelled as a
+topic of its own: `other_income` is only a bracket knob ("other taxable income that sets your bracket; the portfolio's
+income stacks on top"), and `marginal_rate` is the direct alternative. The request/TUI default is `other_income = 90000`,
+the owner's own sanity-check income. Loss harvesting is never on by itself: it must be explicitly enabled (`harvest`).
+
+* `other_income` (was `employment_income`, kept as a deprecated alias that warns and gives the same numbers).
+* `marginal_rate` (0..1): instead of an income, give your ordinary marginal rate; `tax_ca` finds the $100-grid income
+  whose ordinary marginal rate is nearest, and interest/foreign income, eligible dividends and gains all take that
+  bracket's rates (the eligible-dividend and gain rates come from `tax_ca` at that income).
+* `deductions` stays in the library and the request, and is hidden from the TUI.
+* Request/TUI fields: `account`, `province`, `other_income` (or `marginal_rate`), `rrsp_withdrawal_rate` (assumed marginal
+  rate at RRSP withdrawal; none = untaxed, with a warning), `harvest` (false), `harvest_threshold_pct` (0.10),
+  `harvest_when` (`year_end`), `harvest_replacement` (`second_pick`, `cash` or `stay_out`; `second_pick` is the
+  preferred spelling of the harvesting module's `similar`).
+* The report states what was assumed: the RRSP convention line, `Tax: taxable, AB, bracket at $90,000 (marginal ordinary
+  X%, eligible dividend Y%, capital gains Z%)` and `Harvesting: off` or `Harvesting: on (threshold 10%, second pick,
+  30-day superficial-loss window)`.
+
 ```python
 from screenlab import Lab
 from screenlab.taxes import TaxConfig
@@ -15,7 +34,7 @@ rep.results["dogs"].after_tax_curve
 ## CanadianTax (the real model)
 ```python
 from screenlab.taxes import CanadianTax, TaxConfig, TAX_MODELS     # TAX_MODELS: "none" | "placeholder" | "canadian"
-tax = TaxConfig(model=CanadianTax(province="AB", year=2025, employment_income=90_000, deductions=0.0,
+tax = TaxConfig(model=CanadianTax(province="AB", year=2025, other_income=90_000, deductions=0.0,
                                   eligible_share=1.0), account="taxable", capital=250_000)
 ```
 * **Provinces:** `"AB"`, `"BC"` (federal + provincial tables in `screenlab/tax_ca`, built on the owner's
@@ -23,7 +42,7 @@ tax = TaxConfig(model=CanadianTax(province="AB", year=2025, employment_income=90
   nearest table year and records a warning in `Result.tax.attrs["warnings"]` (the 2020 backtests of the synthetic data
   all warn); do not rely on those years' numbers.
 * **Joint yearly assessment.** `CanadianTax.assess_year` taxes a year at once. Stacking order: salary
-  (`employment_income - deductions`) -> Canadian dividends (grossed up; `eligible_share` eligible, the rest non-eligible)
+  (`other_income - deductions`) -> Canadian dividends (grossed up; `eligible_share` eligible, the rest non-eligible)
   -> foreign income -> net capital gains (after the inclusion rate). Each layer's tax is the increase in the total, so
   the tax charged to the portfolio is total(with investments) - total(salary only); the salary tax itself is never paid
   by the account. A negative layer (dividend credit above the bracket tax) is passed through inside the year; the
@@ -190,7 +209,8 @@ and the home currency has no series and warns the same way. Monte Carlo is still
 ## Loss harvesting
 `Config.tax.harvest = TaxLossHarvest(threshold_pct=0.10, min_loss=0.0, when="year_end", superficial_days=30, replacement="cash")`
 (`screenlab/harvesting.py`) adds a stage to `simulate` after Weighting. Default `None`: nothing changes (run keys, golden
-tests, the tax table's old columns).
+tests, the tax table's old columns). It is **explicitly enabled**: nothing builds a `TaxLossHarvest` on its own, and
+`TaxLossHarvest.describe()` gives the report line ("on (threshold 10%, second pick, 30-day window)"; "off" when `None`).
 * **What it does.** At the last bar of each calendar year (`when="year_end"`), at each rebalance (`"rebalance"`) or both, every
   held name whose unrealized loss is more than `threshold_pct` of its cost (and at least `min_loss` dollars, pre-tax wealth x
   `TaxConfig.capital`) is sold; the loss is realized in the ledger. Harvesting overrides a hold-rule `keep` for that name (the
@@ -202,14 +222,28 @@ tests, the tax table's old columns).
   A partial sale of a name bought within the 30 days before it (and still held afterwards) is denied the same way. The denied
   amount is taken out of the year the loss was realized and **added to the ACB of the shares bought**, exactly as CRA does.
   A name harvested at `when="rebalance"` that the screen picks again the same day is a wash: nothing trades, the whole loss is
-  recorded as denied.
-* **`replacement`** decides the money and the name for the window: `"cash"` proceeds wait in cash and the screen may buy the
-  name back (inside the window the loss is then denied); `"stay_out"` the name is dropped from the picks until the window has
-  passed; `"similar"` the screen's next-ranked name not held (`Screen.ranked`) is held instead and swapped back for the original
-  name on the first bar after the window (day 31 or the next trading day), unless a rebalance has superseded it.
-* **Records.** `Result.harvest`: one row per loss sale (`source` "harvest" = chosen by the stage, "screen" = sold by the screen),
-  columns `date, name, source, unrealized_pct, loss, denied, net_loss, acb_added, days_out, replacement, rebought,
-  window_end`, in pre-tax wealth units (start = 1.0). `days_out` = days until the name is held again (to the last date if
+  recorded as denied (only with `on_repick="allow_denial"`; by default the name is avoided, below).
+* **`replacement`** decides the money and the name for the window: `"cash"` proceeds wait in cash; `"stay_out"` the name is
+  dropped from the picks until the window has passed (its weight waits in cash); `"similar"` / `"second_pick"` (preferred
+  spelling) the screen's next-ranked name not held and not blocked (`Screen.ranked`, the **second pick**) is held instead and
+  swapped back for the original name on the first bar after the window (day 31 or the next trading day), unless a rebalance
+  has superseded it.
+* **Avoidance is the default (`on_repick="avoid"`).** A harvested name is blocked until sale + `superficial_days`
+  (`HarvestRun.blocked_until`, `HarvestRun.blocked(date)`); one list serves every re-entry. If the screen re-picks a blocked name
+  at a rebalance (also with `replacement="cash"`), the next-ranked name that is neither held nor blocked is bought instead
+  (`"stay_out"`: nothing is). The loss is then never denied. `on_repick="allow_denial"` is the old behaviour: with `"cash"` the
+  name is bought back and the loss denied (arithmetic above); with `"similar"` the screen's pick is not swapped. Losses of
+  screen-driven sales are not blocked (the screen may rebuy the name; the loss is then denied as above).
+* **Exit policies.** Harvesting works with `Config.exit`. Every share of the sleeve the exit switch sells into the parked asset
+  is a sale: the names sold at a loss are recorded with `source` "exit" (whatever the threshold, the loss is realized anyway)
+  and blocked for the window. Each bar the exposure rises is an extra step: the re-entry buy skips blocked names (second
+  pick, or cash for `"stay_out"`), also when `rescreen_on_reentry` runs the screen. Re-entry on day 30 after the exit sale
+  skips the name, on day 31 takes it. With `on_repick="allow_denial"` the name is bought and the loss denied in proportion.
+  While the exposure is below 1 only the equity money (wealth x exposure) is harvested and counted for the superficial rule.
+* **Records.** `Result.harvest`: one row per loss sale (`source` "harvest" = chosen by the stage, "screen" = sold by the screen,
+  "exit" = realized by an exit switch), columns `date, name, source, unrealized_pct, loss, denied, net_loss, acb_added,
+  days_out, replacement, rebought, window_end, replacement_name` (the second pick bought instead; empty if none),
+  `blocked_until` (last blocked day; empty if not blocked), in pre-tax wealth units (start = 1.0). `days_out` = days until the name is held again (to the last date if
   never). Report columns (`Lab.backtest`, taxed runs with `harvest` set; the passive index row has none): `Harvested/yr` =
   net losses the stage realized, each as a share of the wealth on the day, per year; `TaxDeferred/yr` = (tax paid without the
   stage - tax paid with it) / starting capital / years, from one extra run of the same portfolio without harvesting
@@ -225,9 +259,9 @@ tests, the tax table's old columns).
 * **What it ignores.** Spouse / affiliated persons / RRSP and TFSA purchases of the same name (CRA looks at them); identical
   property across ETFs (a different ETF on the same index counts as different; the stage only knows tickers); settlement dates
   (trade date = settlement); "still held at the end of the 30 days" (a rebuy that is sold again inside the window still
-  denies); the ledger's per-name basis, so a name bought again before the sale at another price is one pooled lot; the carry-back
-  on the passive index (it never sells); an exit policy (`NotImplementedError`: the parked sleeve and the harvest steps are not
-  combined); Monte Carlo (as for any tax config). Year-end steps use the snapshot of that day for dividend yields.
+  denies, except an exit re-entry bought and swapped for a second pick the same day); the ledger's per-name basis, so a name bought again before the sale at another price is one pooled lot; the carry-back
+  on the passive index (it never sells); a loss sale by the screen is not blocked (only stage and exit losses are); an exit
+  re-entry is one pro-rata buy of the paper sleeve (no lot tracking inside the parked period); Monte Carlo (as for any tax config). Year-end steps use the snapshot of that day for dividend yields.
 
 ## Writing another model
 Implement the `TaxModel` protocol (`screenlab/taxes.py`) and register it with a tag so it survives a RunSpec / run key:
@@ -270,3 +304,47 @@ in the process that reads a stored run. The owner's numbers are checked in `test
 ## Where it lives
 `taxes.py` (protocol, models, `TaxConfig`, `assess` yearly engine, index taxation), `pipeline.TaxStage` (the event
 ledger inside `backtest.simulate`), `Config.tax`, `Result.tax` / `Result.after_tax_curve`, `BacktestReport.tax`.
+
+## Comparing accounts
+`account_compare` (Q2) answers "where should this portfolio live?": it runs the same screens and the passive index once per
+account (default taxable, TFSA, RRSP) with everything else equal, and lines the results up. It adds no tax rule; it reads the
+`backtest` runs and their tax ledger. Python `lab.account_compare(["dogs"], tax=TaxConfig(...))`, REST
+`POST /labs/{lab}/account_compare`, MCP tool `account_compare`, job kind `account_compare`, TUI Accounts tab (key `A`),
+notebook `notebooks/accounts_and_foreign.ipynb`.
+
+```python
+from screenlab.taxes import CanadianTax, TaxConfig
+tax = TaxConfig(model=CanadianTax("AB", other_income=90_000), account="taxable", rrsp_withdrawal_rate=0.30)
+rep = lab.account_compare(["stable_dividend"], tax=tax, rebalance_months=12)    # `account` of `tax` is replaced in turn
+print(rep)            # rep.table, rep.foreign, rep.best, rep.notes, rep.reports["rrsp"] (the backtest report of one account)
+```
+Over REST / MCP the shared settings are `tax`: the fields of `config.tax` except `account` (province, other_income,
+marginal_rate, rrsp_withdrawal_rate, harvest..., model defaults to canadian, province AB; the request model is built from
+`TaxRequest`, so a field added there appears here), or `config.tax` when `tax` is absent; `accounts` picks a subset.
+
+**The table** has one row per (portfolio or passive index) x account, named `"<name> | <account>"`:
+
+| column | meaning |
+|---|---|
+| `CAGR`, `AfterTaxCAGR`, `TaxDrag/yr` | pre-tax growth (the same in every account), after-tax growth, the difference |
+| `AfterTaxExcess/yr` | portfolio minus the passive index taxed the same way in the same account (blank on the index row) |
+| `WHLost/yr`, `WHCredited/yr`, `WHExempt/yr` | foreign withholding as a share of average wealth per year (events divided by the integral of the pre-tax wealth over time), by what the account does with it: **lost** (TFSA: all direct withholding; every account: the inside-the-fund withholding of a Canadian ETF on foreign stocks; RRSP: non-US direct withholding), **credited** (taxable: direct withholding that the foreign tax credit gives back), **exempt** (RRSP: what the treaty saved on US direct dividends) |
+| `DivTax$`, `GainTax$`, `WithdrawalTax$`, `TaxPaid$` | tax paid over the whole run, in dollars of the starting capital: on dividends (including foreign withholding and the Canadian tax on foreign income), on realized gains, the RRSP withdrawal tax, and the total |
+| `TaxDeferred/yr` | taxable account only, when harvesting is on (`Config.tax.harvest`); a harvested loss has no tax value inside a TFSA or RRSP |
+| `Rank`, `GapToNext` | per portfolio, accounts ordered by `AfterTaxCAGR`; `GapToNext` is the lead over the account ranked just below (for rank 1 it is the lead of the best account). An RRSP without a withdrawal rate is **left out** of the ranking |
+
+`rep.best` is `{name: {"account", "AfterTaxCAGR", "next", "gap"}}`. `rep.foreign` has one row per (portfolio, class of holding):
+the share of its positions at the rebalance dates (equal weight), the treaty rate, and the treatment in each account, from
+`TaxConfig.foreign_info` and the matrix under "Foreign holdings" above. The index row uses the assumed foreign share.
+
+**Conventions to know.** (1) The RRSP is compared the way the stage models it: tax-free growth, then the whole balance taxed at
+`rrsp_withdrawal_rate` on the last day (see "RRSP is tax-deferred"). (2) The passive index is taxed with
+`index_foreign_share`; if that is left at 0 and the data card says some names are foreign, the operation uses the card's
+share (a note says so), so a US index shows US withholding. (3) `notes` always carries the data card's foreign line, the RRSP
+convention or the "RRSP withdrawals untaxed" warning, the CAD-basis warning when gains are taxed in the portfolio currency, and
+what is not modelled.
+
+**What it ignores.** Contribution room (each account is given all the money in turn), the **RRSP deduction refund** on the way
+in (the reason an RRSP can beat a TFSA for someone whose bracket now is above the bracket at withdrawal), AMT and benefit
+clawbacks, and which assets to place where beyond comparing one portfolio per account. A ranking here is for the same pre-tax
+dollars, not a plan. Not tax advice.

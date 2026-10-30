@@ -106,7 +106,8 @@ def build_tui_tools(client: TuiClient | None = None) -> dict:
     def tui_add_scenario(screen: str | dict, name: str | None = None, params: dict | None = None,
                          run: bool = False) -> dict:
         """Add a scenario to the TUI and optionally run it. screen: a screen name or an inline ScreenSpec
-        object; params: any of n, rebalance_months, cost_bps, commission, mer, cash_rate, exit, start, end, lab.
+        object; params: any of n, rebalance_months, cost_bps, commission, mer, cash_rate, exit, start, end, lab, tax (the config.tax object: account, province,
+        other_income, rrsp_withdrawal_rate, harvest, harvest_threshold_pct, harvest_replacement; null clears).
         Use this to put a portfolio in front of the user; to just compute numbers use the backtest tool."""
         return cl().command("add_scenario", {**(params or {}), **_drop_none(screen=screen, name=name), "run": run})
 

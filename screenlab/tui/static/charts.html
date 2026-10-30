@@ -66,7 +66,7 @@ td .key { display:inline-block; width:14px; height:0; border-top:3px solid; marg
 
 <script>
 "use strict";
-const TABS = [["curves","Curves"],["compare","Compare"],["timing","Timing"],["montecarlo","Monte Carlo"],["exit","Exit"]];
+const TABS = [["curves","Curves"],["compare","Compare"],["timing","Timing"],["montecarlo","Monte Carlo"],["exit","Exit"],["accounts","Accounts"]];   // Q2
 const params = new URLSearchParams(location.search);
 const TOKEN = params.get("token");
 const q = (path, extra) => {
@@ -100,8 +100,8 @@ function el(tag, attrs, ...kids) {
 const pct = (v, d = 1) => v == null ? "–" : (v * 100).toFixed(d) + "%";
 const num = (v, d = 2) => v == null ? "–" : Number(v).toFixed(d);
 const money = v => v == null ? "–" : Math.abs(v) >= 1e6 ? (v / 1e6).toFixed(2) + "M" : Math.abs(v) >= 1e3 ? (v / 1e3).toFixed(0) + "K" : Number(v).toFixed(0);
-const isPct = c => /CAGR|Vol|DD|Excess|Worst|CI5|CI95|P\(|Turnover|Costs|TimeOut|mean|median|hit_rate|worst/i.test(c) && !/Sharpe|Switches|AvgN|BeatBench/i.test(c);
-const cell = (c, v) => v == null ? "–" : typeof v === "number" ? (c === "Trials" ? String(Math.round(v)) : isPct(c) ? pct(v) : Math.abs(v) >= 1000 ? money(v) : num(v, 2)) : String(v);
+const isPct = c => /CAGR|Vol|DD|Excess|Worst|CI5|CI95|P\(|Turnover|Costs|TimeOut|mean|median|hit_rate|worst|WH|Drag|GapTo|Deferred|^share$|^rate$/i.test(c) && !/Sharpe|Switches|AvgN|BeatBench/i.test(c);
+const cell = (c, v) => v == null ? "–" : typeof v === "number" ? ((c === "Trials" || c === "Rank") ? String(Math.round(v)) : isPct(c) ? pct(v) : Math.abs(v) >= 1000 ? money(v) : num(v, 2)) : String(v);
 
 function table(columns, rows, keyColors) {
   const t = el("table");
@@ -318,6 +318,31 @@ const tabs = {
       sel.onchange = draw; draw();
     } else if (d.hist_note) root.append(flag(d.hist_note));
     root.append(details("Quantile table", table(d.table.columns, d.table.rows)));
+  },
+
+  accounts(d, root) {   // Q2: after-tax CAGR by account, portfolio vs the passive index
+    root.append(flag("The same pre-tax portfolio in a taxable account, a TFSA and an RRSP, after tax. Grey is the passive index taxed the same way. " +
+      "The RRSP bar includes the tax at withdrawal at the assumed rate (a bar with no rate set is not comparable: see the notes)."));
+    (d.notes || []).forEach(n => root.append(el("div", {class: "notes"}, n)));
+    const [c1, b1] = card("After-tax CAGR by account", "hover for the pre-tax CAGR and the withholding lost", "accounts-aftertax", "tall");
+    root.append(c1);
+    const names = {taxable: "Taxable", tfsa: "TFSA", rrsp: "RRSP"};
+    const x = d.accounts.map(a => names[a] || a);
+    const traces = d.series.map(s => ({type: "bar", name: s.label, x: x, y: s.after_tax, legendgroup: s.label, meta: {passive: s.passive},
+      marker: {color: s.color, opacity: s.passive ? 0.7 : 1}, text: s.after_tax.map(v => pct(v)), textposition: "outside", cliponaxis: false,
+      textfont: {color: theme.variables.foreground}, customdata: s.pre_tax.map((p, i) => [p, s.wh_lost[i]]),
+      hovertemplate: "<b>%{y:.2%}</b> after tax  %{fullData.name}<br>pre-tax %{customdata[0]:.2%}, withholding lost %{customdata[1]:.2%}/yr<extra></extra>"}));
+    plot(b1, traces, {barmode: "group", bargap: 0.25, hovermode: "closest", yaxis: {tickformat: ".1%", title: {text: "after-tax CAGR"}},
+      xaxis: {type: "category"}});
+    Object.entries(d.results || {}).forEach(([label, r]) => {
+      const cols = r.table.columns.filter(c => !["name", "kind", "account"].includes(c));
+      root.append(details("Table: " + label, table(["row", ...cols], r.table.rows.map(row => {
+        const rec = Object.fromEntries(r.table.columns.map((c, i) => [c, row[i]]));
+        return [rec.name + " | " + rec.account, ...cols.map(c => rec[c])];
+      }))));
+      if (r.foreign.rows.length) root.append(details("Foreign holdings and withholding: " + label, table(
+        r.foreign.columns.filter(c => c !== "kind"), r.foreign.rows.map(row => row.filter((v, i) => r.foreign.columns[i] !== "kind")))));
+    });
   },
 
   exit(d, root) {

@@ -26,9 +26,11 @@ from .. import metrics as _metrics
 from ..errors import ServerError
 from ..jsonout import jsonify
 from . import guardrails as G
+from . import accounts as _accounts      # Q2: Accounts tab (no Textual import at module level)
 
 PROTOCOL = 1
-TABS = ("compare", "curves", "timing", "picks", "exit", "montecarlo", "runs", "log", "data", "hypotheses")
+TABS = ("compare", "curves", "timing", "picks", "exit", "montecarlo", "runs", "log", "data", "hypotheses",
+        "accounts")   # Q2: Accounts tab (accounts.py)
 LOCK, CAND = "\U0001F512", "\u25C7"        # frozen / out-of-sample candidate markers
 # Okabe-Ito order, as the research charts use it (research/montecarlo_sp500.py COL); more hues after the eight
 PALETTE = ["#0072B2", "#56B4E9", "#D55E00", "#E69F00", "#009E73", "#CC79A7", "#F0E442", "#7B3294"]
@@ -47,7 +49,7 @@ FINAL = ("done", "failed", "cancelled")
 COMMANDS = ("add_scenario", "clone_scenario", "set_params", "remove_scenario", "run", "compare", "timing",
             "montecarlo", "exit_eval", "picks", "show", "select", "save_spec", "export", "history", "jobs",
             "cancel", "set_theme", "snapshot", "view", "curves", "screens", "datasets", "fetch_data", "freeze", "unfreeze",
-            "link", "hypotheses")
+            "link", "hypotheses", "accounts")      # Q2: accounts = the account_compare job for a scenario (accounts.py)
 # data downloader (operation `fetch_data`, implemented in ops/fetch_data.py); hosts are shown in the Data tab form
 FETCH_SOURCES = ("sec", "boc", "fred", "stooq", "statcan", "shiller", "tiingo")
 FETCH_HOSTS = {"sec": ["www.sec.gov", "data.sec.gov"], "boc": ["www.bankofcanada.ca"], "fred": ["fred.stlouisfed.org"],
@@ -115,8 +117,11 @@ def tax_label(tax) -> str:
     parts.append(tax.get("province") or tax.get("model", "?"))
     if tax.get("model") == "canadian":
         parts.append(str(tax.get("year", 2025)))
-    if tax.get("employment_income"):
-        parts.append(f"${tax['employment_income']:g}")
+    inc = tax.get("other_income", tax.get("employment_income"))       # Q1
+    if inc:
+        parts.append(f"${inc:g}")
+    if tax.get("harvest"):
+        parts.append("harvest")
     return " ".join(parts)
 
 
@@ -156,7 +161,7 @@ class Session:
         self.active_tab = "compare"
         self.theme = "textual-dark"
         self.mc = {"n_paths": 500, "horizon_years": [5, 10], "generator": None, "seed": 0}
-        self.analyses: dict = {"timing": {}, "montecarlo": None, "exit": {}, "picks": {}}
+        self.analyses: dict = {"timing": {}, "montecarlo": None, "exit": {}, "picks": {}, "accounts": {}}   # Q2: accounts
         self._tracked: dict = {}                       # job_id -> record
         self._next_id = 1
         self._next_color = 0
@@ -490,7 +495,7 @@ class Session:
         self.scenarios.remove(sc)
         if self.selected == sc.id:
             self.selected = self.scenarios[-1].id if self.scenarios else None
-        for d in (self.analyses["timing"], self.analyses["exit"], self.analyses["picks"]):
+        for d in (self.analyses["timing"], self.analyses["exit"], self.analyses["picks"], self.analyses["accounts"]):   # Q2
             d.pop(sc.label, None)
         self.log(f"removed {sc.label}")
         self._emit("scenarios")
@@ -627,6 +632,14 @@ class Session:
         self._emit("jobs")
         return {"jobs": [j]}
 
+    def cmd_accounts(self, scenario=None, accounts=None, force=False) -> dict:       # Q2: Accounts tab
+        """Compare the scenario's portfolio and the passive index in a taxable account, a TFSA and an RRSP (the
+        `account_compare` operation); the result is `analyses["accounts"][label]` and the Accounts tab."""
+        sc = self._find(scenario)
+        j = self._submit(_accounts.KIND, _accounts.args_for(self, sc, accounts), [sc], label=sc.label, force=bool(force))
+        self._emit("jobs")
+        return {"jobs": [j]}
+
     def cmd_picks(self, scenario=None, asof=None, columns=None, force=False) -> dict:
         sc = self._find(scenario)
         a = {"screen": self._screen_ref(sc.params)}
@@ -727,6 +740,8 @@ class Session:
             self.analyses["exit"][label] = res
         elif kind == "fetch_data":
             self._store_fetch(jid, res)
+        elif kind == "account_compare":                                                    # Q2: Accounts tab
+            _accounts.store(self.analyses, label, res)
         elif kind == "picks":
             self.analyses["picks"][label] = {"scenario": label, "asof": res.get("asof"),
                                              "columns": res["columns"], "rows": res["rows"]}
@@ -1267,6 +1282,9 @@ class Session:
                       for f in (man.get("files") or [])[:40]]
             lines += [f"  error: {e}" for e in (man.get("errors") or [])[:20]]
         return "\n".join(lines)
+
+    def _view_accounts(self) -> str:                                                       # Q2: Accounts tab
+        return _accounts.view_text(self.analyses, self._grid)
 
     def _view_hypotheses(self) -> str:
         info = self.cmd_hypotheses()
