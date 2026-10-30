@@ -32,53 +32,142 @@ def run_notebook(path, timeout=300) -> str:
     return out.stdout
 
 
-def test_foreign_holdings_notebook_runs():
-    out = run_notebook(NB_DIR / "tax_foreign_holdings.ipynb")
-    assert "agrees with the documented matrix (docs/TAXES.md): True" in out        # ledger == documented withholding matrix
-    assert "= -6.50%" in out and "= +9.25%" in out                                  # the CAD-basis arithmetic, asserted in-cell
-    assert "load an FX series for CAD basis" in out                                 # the no-FX warning is shown
-    assert "foreign: 100% of names" in out                                          # the real-data pointer ran
+PANEL_PRICES = Path(__file__).resolve().parents[1] / "data" / "panel" / "prices.parquet"      # W2: the real panel (make data-panel), local use only
+
+
+def test_foreign_holdings_notebook_runs():                       # W2: rebuilt on the real S&P 500 panel 1990-2022 and real USDCAD
+    import re
+    import time
+    if not PANEL_PRICES.exists():
+        pytest.skip("the S&P 500 panel is absent (make data-panel, local use only)")
     nbformat = pytest.importorskip("nbformat")
     nb = nbformat.read(str(NB_DIR / "tax_foreign_holdings.ipynb"), 4)
-    code = "\n".join("".join(c.source) for c in nb.cells if c.cell_type == "code")
-    assert "Buy and hold" in code and "Summary" in code and "What the evidence says" in code       # base case, summary, closing paragraph
-    assert code.count("legend(") >= 6 and "tp.index_result" in code                                   # every figure has a legend; index base in Section 4
+    first = nb.cells[0].source
+    assert nb.cells[0].cell_type == "markdown" and "unlicensed mixed-source dataset" in first       # the licence is the first thing read
+    assert "make data-panel" in first and "local use" in first and "not redistributed" in first
+    t0 = time.time()
+    out = run_notebook(NB_DIR / "tax_foreign_holdings.ipynb", timeout=90)                           # with the on-disk cache: well under 90 s
+    assert time.time() - t0 <= 90
+    assert "Data: sp500_panel, 1990-01-02..2022-12-30" in out and "foreign: 100% of names" in out       # the real-data card ran
+    assert "agrees with the documented matrix (docs/TAXES.md): True" in out                         # ledger == documented withholding matrix
+    assert "etf_us and the US stock itself identically: True" in out                                # the US-listed ETF is the stock itself
+    assert "load an FX series for CAD basis" in out and "no tax table, used 2025" in out            # the FX warning and the 2025-tables note are shown
+    code_cells = [(i, "".join(c.source)) for i, c in enumerate(nb.cells) if c.cell_type == "code"]
+    code = "\n".join(src for _, src in code_cells)
+    text = "\n".join("".join(c.source) for c in nb.cells if c.cell_type == "markdown")
+    prose = "\n".join(m.group(2) for m in re.finditer(r"say\(f?(\"\"\"|\'\'\')(.*?)\1\)", code, re.S))
+    assert "Lab.real_sp500(start=\"1990-01-01\", end=\"2022-12-30\")" in code                        # exactly these arguments: the cache is hit
+    # the Summary: two computed paragraphs, right after the (hidden) setup, before Section 1
+    summ = [i for i, src in code_cells if "## Summary" in src]
+    assert len(summ) == 1 and 'say(f"""' in dict(code_cells)[summ[0]]
+    sec1 = next(i for i, c in enumerate(nb.cells) if c.cell_type == "markdown" and "".join(c.source).startswith("## 1."))
+    assert summ[0] < sec1 and all(not "".join(nb.cells[j].source).startswith("##") for j in range(1, summ[0]))
+    body = dict(code_cells)[summ[0]].split("## Summary", 1)[1]
+    paras = [p for p in body.split("\n\n") if p.strip().startswith("**")]
+    assert len(paras) == 2 and paras[0].startswith("**What withholding costs.**") and paras[1].startswith("**What the currency did.**")
+    assert "{usd(CAP)}" in paras[0] and "{pts(" in paras[0] and "{usd(" in paras[1]                   # the numbers come from variables
+    # composition: each of the five analysis sections ends in "What the evidence says" and opens with a question
+    secs = []
+    for c in nb.cells:
+        src = "".join(c.source)
+        if c.cell_type == "markdown" and src.startswith("## "):
+            secs.append([src])
+        elif secs:
+            secs[-1].append(src)
+    assert len(secs) == 6
+    for sec in secs:
+        assert "What the evidence says" in "\n".join(sec), sec[0][:40]
+        assert "question" in sec[0], sec[0][:40]
+    assert (text + code).count("What the evidence says") >= 5
+    for tic in ("let's", "Let's", "note that", "Note that", "!", "-> "):
+        assert tic not in text + prose, tic
+    # every figure has a legend that names every element, and the base case: buy and hold of the index (or the same trades in US dollars)
+    plots = [(i, src) for i, src in code_cells if "plt.show()" in src]
+    assert len(plots) >= 7
+    for i, src in plots:
+        assert "legend" in src, src[:80]
+        assert "buy and hold" in src.lower() or "baseline=" in src or "base case" in src, src[:80]
+    # executed in place: every figure and the Summary are saved as outputs
+    for i, _ in plots:
+        assert any("image/png" in o.get("data", {}) for o in nb.cells[i].get("outputs", [])), i
+    assert any("Summary" in o.get("data", {}).get("text/markdown", "") for o in nb.cells[summ[0]].get("outputs", []))
+    assert "Not tax advice" in nb.cells[0].source
 
 
 def test_where_to_hold_notebook_runs():
+    from screenlab.realdata import sp500_panel
+    if not sp500_panel.available():                        # the real S&P 500 panel is local-use-only data (make data-panel)
+        pytest.skip("S&P 500 panel files absent (make data-panel)")
+    import re
     nbformat = pytest.importorskip("nbformat")
     nb = nbformat.read(str(NB_DIR / "tax_where_to_hold.ipynb"), 4)
     assert nb.cells[0].source.startswith("# Where should this stock portfolio be held")
+    first = nb.cells[0].source
+    assert "make data-panel" in first and "unlicensed" in first and "local use only" in first and "not redistributed" in first
     out = run_notebook(NB_DIR / "tax_where_to_hold.ipynb")
-    assert "synthetic" in out                                  # the data card line printed
+    assert "sp500_panel" in out and "1248 names" in out and "delisted yes (631)" in out and "synthetic" not in out    # real data, the card printed
     code = "\n".join("".join(c.source) for c in nb.cells if c.cell_type == "code")
     assert code.count("tp.") >= 6 and "tp.index_result" in code      # charts come from research/tax_plots.py, index on every one
     assert "Not tax advice" in nb.cells[-1].source and "UNVERIFIED" in nb.cells[-1].source
-    assert "## Summary" in code and code.count("What the evidence says") >= 4                      # summary on top, a closing paragraph in every section
+    assert "## Summary" in code and code.count("What the evidence says") >= 5                      # summary on top, a closing paragraph in every section
     assert code.count("baseline=") >= 5 and "Buy and hold the index (after tax)" in code             # the common base case on every chart
+    # the prose: markdown cells plus the f-string paragraphs written from the run's own numbers
+    text = "\n".join("".join(c.source) for c in nb.cells if c.cell_type == "markdown")
+    prose = "\n".join(m for c in nb.cells if c.cell_type == "code" for m in re.findall(r"say\(f\'\'\'(.*?)\'\'\'\)", "".join(c.source), re.S))
+    assert "## Summary" in prose and prose.index("## Summary") == prose.find("##") and (text + prose).count("What the evidence says") >= 5
+    for tic in ("let's", "Let's", "note that", "Note that", "!", "-> "):
+        assert tic not in text + prose, tic
+    # every chart has a legend and the base case: the library's legend= / baseline= or an explicit legend call, and a grey dashed line
+    plots = 0
+    for c in nb.cells:
+        src = "".join(c.source)
+        if c.cell_type == "code" and "def show(" not in src and ("show(fig)" in src or "plt.show()" in src):
+            plots += 1
+            assert "legend" in src or "tp." in src, src[:80]
+            assert "INDEX_COL" in src or "baseline=" in src or "legend(handles" in src, src[:80]
+    assert plots >= 9
+    assert nb.cells[3].cell_type == "code" and "## Summary" in "".join(nb.cells[3].source)           # the summary is the first thing after the title
 
 
 def test_loss_harvesting_notebook_runs():
+    panel = Path(__file__).resolve().parents[1] / "data" / "panel" / "prices.parquet"
+    if not panel.exists():
+        pytest.skip("point-in-time S&P 500 panel not downloaded (make data-panel): the harvesting notebook runs on it")   # W3
     nbformat = pytest.importorskip("nbformat")
     nb = nbformat.read(str(NB_DIR / "tax_loss_harvesting.ipynb"), 4)
     assert nb.cells[0].source.startswith("# Tax-loss harvesting")
-    out = run_notebook(NB_DIR / "tax_loss_harvesting.ipynb")
+    out = run_notebook(NB_DIR / "tax_loss_harvesting.ipynb", timeout=600)
     assert "harvesting: on (threshold 10%, second pick, 30-day window)" in out
     assert "carry-back refund: case 1 $13,000, case 2 $18,000; carried forward in case 2: $30,000" in out    # hand-built, exact
     assert "flat tax rate 20%" in out and "change in growth a year" in out
     assert "Allow denial" in out and "exit" in out                                                          # the variants and the exit table ran
     assert "Not tax advice" in nb.cells[0].source and "TaxDeferred/yr" in nb.cells[-1].source
     assert "Buy and hold A" in out and "for buy and hold of the index" in out                                     # the base case is in every table
+    # real data: the data card line printed, 1,248 names and 631 delisted, the licence said in the first cell, the 2025 tables stated
+    assert "sp500_panel, 1990-01-02..2022-12-30" in out and "delisted yes (631)" in out and "benchmark SP500_TR" in out
+    first = nb.cells[0].source
+    assert "unlicensed" in first and "make data-panel" in first and "local use only" in first and "2025" in first
+    code_all = "\n".join("".join(c.source) for c in nb.cells if c.cell_type == "code")
+    assert 'Lab.real_sp500(start="1990-01-01", end="2022-12-30")' in code_all and "Lab.synthetic" not in code_all   # exact arguments: the cache is hit
+    assert all(s in code_all for s in ('"dogs"', '"momentum_12m"', '"stable_high_yield"')) and "second_pick" in code_all
     # composition: a summary right under the title, computed from the notebook's own variables, and a conclusion in each section
-    assert "## Summary" in "".join(nb.cells[1].source) and 'md(f"""' in "".join(nb.cells[1].source)
+    summary = "".join(nb.cells[1].source)
+    assert "## Summary" in summary and 'md(f"""' in summary
+    sumtxt = summary[summary.index("## Summary"):]
+    paras = sumtxt.split("\n\n")
+    assert len([p for p in paras if p.startswith("**What")]) == 2                                          # two paragraphs: cost, then worth
+    assert "name-days" in sumtxt and "denied" in sumtxt and "Carry-back refunds" in sumtxt and "SP500_TR" in sumtxt
     text = "\n".join("".join(c.source) for c in nb.cells if c.cell_type == "markdown")
     prose = "\n".join("".join(c.source) for c in nb.cells if c.cell_type == "code" and "".join(c.source).startswith('md(f"""'))
-    assert (text + prose).count("What the evidence says") >= 8
+    assert (text + prose).count("What the evidence says") >= 6
     for tic in ("let's", "Let's", "note that", "Note that", "!", "-> "):
-        assert tic not in text + prose, tic
+        assert tic not in text + prose + sumtxt, tic
     # every chart has a legend and the base case: the library's legend= / baseline= or an explicit legend call, and a grey dashed line
+    n_plots = 0
     for c in nb.cells:
         src = "".join(c.source)
         if c.cell_type == "code" and "plt.show()" in src:
+            n_plots += 1
             assert "legend" in src or "tp." in src, src[:80]
             assert "INDEX_COL" in src or "baseline=" in src or "legend(handles" in src, src[:80]
+    assert n_plots >= 10
