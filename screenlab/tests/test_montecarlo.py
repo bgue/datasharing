@@ -341,3 +341,22 @@ def test_hold_rule_runs_per_path_in_auto_mode_and_is_recorded(syn):
     assert capped.selection_mode == {"bluechip_dividend_growth": "fixed"}
     with pytest.raises(NotImplementedError, match="max_weight"):
         syn.montecarlo(["bluechip_dividend_growth"], selection="per_path", max_weight=0.2, **kw)
+
+
+def test_results_do_not_depend_on_the_longest_horizon(lab):
+    """The draw for the first N steps is identical whatever the longest horizon asked for (same seed)."""
+    a = mc(lab, horizon_years=[2], screens=["low_vol"], rebalance_months=1)
+    b = mc(lab, horizon_years=[1, 2, 3], screens=["low_vol"], rebalance_months=1)
+    for name in ("low_vol", "SP500"):
+        ra, rb = a.table.loc[(name, 2.0)].dropna(), b.table.loc[(name, 2.0)].dropna()
+        pd.testing.assert_series_equal(ra, rb[ra.index])
+    pa = a.per_path[a.per_path.horizon_years == 2.0].reset_index(drop=True)
+    pb = b.per_path[b.per_path.horizon_years == 2.0].reset_index(drop=True)
+    pd.testing.assert_frame_equal(pa, pb)
+
+
+def test_cap_tiered_cost_runs_end_to_end_and_costs_more_than_flat_low(lab):
+    from screenlab import cap_tiered
+    base = mc(lab, horizon_years=[2], screens=["low_vol"], cost_bps=0)
+    tiered = mc(lab, horizon_years=[2], screens=["low_vol"], cost_bps=cap_tiered({0: 100, 1000: 50}))
+    assert tiered.table.loc[("low_vol", 2.0), "TermWealth_p50"] < base.table.loc[("low_vol", 2.0), "TermWealth_p50"]

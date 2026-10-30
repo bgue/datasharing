@@ -597,3 +597,37 @@ def test_many_paths_run_vectorized(world):
     out = simulate_paths(MOM, Config(rebalance_months=1), ps, base=base)
     assert out.portfolio.shape == (600, 180) and np.isfinite(out.portfolio).all()
     assert np.isfinite(out.index).all() and (out.turnover.sum(axis=1) > 0).all()
+
+
+# --------------------------------------------------------------------------- cap_tiered costs in simulate_paths
+def test_cap_tiered_cost_in_simulate_paths_equals_simulate_on_each_scenario():
+    from screenlab.backtest import cap_tiered
+    base, ps = make_world(consistent=True)
+    caps = [50, 300, 3_000, 30_000, 60, 2_500, 400, 20_000]            # a factor ~2.5 clear of the 1000 / 10000 edges (scenario caps drift with the path)
+    base.fundamentals["market_cap"] = caps * (len(base.fundamentals) // len(caps))
+    tiers = cap_tiered({0: 100, 1_000: 50, 10_000: 25})
+    for kw in (dict(rebalance_months=3), dict(rebalance_months=12)):
+        cfg = Config(cost_bps=tiers, **kw)
+        for screen, sel in ((Screen("roa3", roa_top, 3), "fixed"), (MOM, "per_path")):
+            out = simulate_paths(screen, cfg, ps, base=base, selection=sel)
+            assert_paths_match(out, base, ps, screen, cfg)
+        flat = simulate_paths(MOM, Config(cost_bps=25, **kw), ps, base=base)
+        assert not np.allclose(out.portfolio, flat.portfolio)           # the tiers really price names differently
+
+
+def test_cap_tiered_bps_vectorized_matches_the_snapshot_call():
+    from screenlab.backtest import cap_tiered
+    t = cap_tiered({0: 100, 1_000: 50, 10_000: 25})
+    cap = np.array([np.nan, 0, 999.9, 1_000, 9_999, 10_000, 1e6])
+    snap = pd.DataFrame({"market_cap": cap}, index=list("abcdefg"))
+    np.testing.assert_array_equal(t(snap).to_numpy(), t.bps_for_caps(cap))
+    assert t.bps_for_caps(cap).tolist() == [100, 100, 100, 50, 50, 25, 25]
+
+
+def test_cap_tiered_needs_base_and_other_callables_still_raise():
+    from screenlab.backtest import cap_tiered
+    base, ps = make_world()
+    with pytest.raises(ValueError, match="cap_tiered"):
+        simulate_paths(MOM, Config(cost_bps=cap_tiered({0: 10})), ps)
+    with pytest.raises(NotImplementedError, match="arbitrary"):
+        simulate_paths(MOM, Config(cost_bps=lambda s: s["market_cap"] * 0), ps, base=base)

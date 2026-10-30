@@ -38,8 +38,8 @@ def resolve(spec: PerSecurity, tickers, snap: pd.DataFrame | None = None) -> pd.
     tickers = pd.Index(tickers)
     if callable(spec) and not isinstance(spec, Mapping):
         if snap is None:
-            raise NotImplementedError("a per-security callable (e.g. cap_tiered) needs a snapshot, which "
-                                      "simulate_paths does not have per path; use a number or {ticker: value}")
+            raise NotImplementedError("an arbitrary per-security callable needs a snapshot, which simulate_paths "
+                                      "does not have per path; use a number, {ticker: value} or cap_tiered")
         return spec(snap.reindex(tickers)).reindex(tickers).fillna(0.0)
     if isinstance(spec, (Mapping, pd.Series)):
         spec = pd.Series(spec, dtype=float)
@@ -125,11 +125,16 @@ class StandardCosts:
     capital: float = 100_000
     mer: PerSecurity = 0.0
 
-    def trade_cost(self, dw, snap, value):
+    def trade_cost(self, dw, snap, value, caps=None):
+        """`caps` (many paths only): market cap [paths x tickers] at each path's source date, for a CapTiered
+        `cost_bps` (simulate_paths passes it; `snap` is None there)."""
         if isinstance(dw, pd.DataFrame):                                # many paths: rows = paths
-            bps = resolve(self.cost_bps, dw.columns, snap).to_numpy()
             x = dw.to_numpy()
-            tc = (x * bps[None, :]).sum(axis=1) / 1e4
+            if caps is not None and hasattr(self.cost_bps, "bps_for_caps"):
+                tc = (x * self.cost_bps.bps_for_caps(caps)).sum(axis=1) / 1e4
+            else:
+                bps = resolve(self.cost_bps, dw.columns, snap).to_numpy()
+                tc = (x * bps[None, :]).sum(axis=1) / 1e4
             return tc + self.commission * (x > 0).sum(axis=1) / (self.capital * np.asarray(value))
         tc = float((dw * resolve(self.cost_bps, dw.index, snap)).sum()) / 1e4
         return tc + self.commission * len(dw) / (self.capital * value)
@@ -488,6 +493,10 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
                   on that path's drifted weights, as `simulate` does (`PathWealth.hold_rule_applied`).
       "auto"      per_path when the screen is a price rank and the weighting is equal weight without caps, else fixed.
 
+    A `cap_tiered` trade cost is evaluated per name from the base market cap on each rebalance's source date
+    (`market.view`, marked to market on the base history: caps are carried from the base, not resampled with
+    the paths); other callables raise NotImplementedError.
+
     Stages: `cfg.costs` (trade cost, MER), `cfg.cash` (cash rate, delisting haircut), `cfg.exit` (exposure computed
     per path from that path's own index: TrendBreak and signals with `compute_paths`; other signals raise
     NotImplementedError) and `cfg.construction` all act as in `backtest.simulate`: for one path the result
@@ -520,6 +529,8 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
     # ---- stages and the screen's mode
     weighting, cost_model, accrual = cfg.construction, cfg.costs, cfg.cash
     ov = as_overlay(cfg.exit)
+    from .backtest import CapTiered
+    cap_cost = isinstance(cost_model, StandardCosts) and isinstance(cost_model.cost_bps, CapTiered)
     pr = price_rank_of(screen)
     rank = None if pr is None else (pr.column, pr.largest)
     if selection == "auto":
@@ -541,6 +552,16 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
     else:
         if market is None or source_idx is None:
             raise ValueError("selection='fixed' needs base= and the paths' source_idx (a PathSet)")
+
+    if cap_cost and (market is None or source_idx is None):
+        raise ValueError("a cap_tiered cost needs base= and the paths' source_idx (a PathSet) for the market caps")
+    cap_cache: dict = {}
+
+    def caps_at(u):
+        """Base market cap per name at base step `u` (the view of the base on that date): [S]."""
+        if u not in cap_cache:
+            cap_cache[u] = market.view(market.index[u])["market_cap"].reindex(list(names)).to_numpy(float)
+        return cap_cache[u]
 
     # ---- levels (the prices of the scenario dataset) and schedule
     lev = np.add(returns, 1.0, dtype=np.float64)
@@ -677,7 +698,13 @@ def simulate_paths(screen, cfg=None, paths=None, *, base=None, returns=None, ali
         # CostModel
         dw = np.abs(target - prev[:, :S])
         dw[dw <= 1e-12] = 0.0
-        tc = np.asarray(cost_model.trade_cost(pd.DataFrame(dw, columns=list(names)), None, value), dtype=float)
+        if cap_cost:
+            us_c, inv_c = np.unique(np.asarray(source_idx)[:, i_d], return_inverse=True)
+            caps = np.stack([caps_at(int(u)) for u in us_c])[inv_c]
+            tc = cost_model.trade_cost(pd.DataFrame(dw, columns=list(names)), None, value, caps=caps)
+        else:
+            tc = cost_model.trade_cost(pd.DataFrame(dw, columns=list(names)), None, value)
+        tc = np.asarray(tc, dtype=float)
         if ov is not None:
             tc = tc * held[:, i_d]
         value = value * (1 - tc)

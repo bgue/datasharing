@@ -174,14 +174,15 @@ class CapTiered:
     def __init__(self, tiers: Mapping[float, float]):
         self.tiers = tuple(sorted((float(k), float(v)) for k, v in dict(tiers).items()))
 
+    def bps_for_caps(self, cap) -> np.ndarray:
+        """bps for an array of market caps (any shape; NaN counts as 0, i.e. the lowest tier)."""
+        cap = np.nan_to_num(np.asarray(cap, dtype=float), nan=0.0)
+        lows = np.array([k for k, _ in self.tiers])
+        bps = np.array([v for _, v in self.tiers])
+        return bps[np.maximum(np.searchsorted(lows, cap, side="right") - 1, 0)]
+
     def __call__(self, snap: pd.DataFrame) -> pd.Series:
-        t = dict(self.tiers)
-        lo = sorted(t)
-        cap = snap["market_cap"].fillna(0)
-        out = pd.Series(t[lo[0]], index=snap.index, dtype=float)
-        for k in lo:
-            out[cap >= k] = t[k]
-        return out
+        return pd.Series(self.bps_for_caps(snap["market_cap"].to_numpy(float)), index=snap.index, dtype=float)
 
     def __eq__(self, other):
         return isinstance(other, CapTiered) and self.tiers == other.tiers

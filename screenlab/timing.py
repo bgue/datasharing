@@ -40,6 +40,25 @@ class TimingResult:
         return q.drop(columns="count")
 
 
+def phase_offsets(mkt: Market, start, rebalance_months: int, stride: int = 1) -> list[int]:
+    """Phase offsets (trading days after `start`) that cover one rebalance period and no more.
+
+    The period is the trading days in [start, start + rebalance_months) (calendar months, end exclusive), so
+    offset `period` is the same schedule as offset 0 and is never a variant. Offsets are 0, stride, 2*stride...
+    below the period; when the period is not a multiple of `stride` the last offset can land a few days short of
+    the next period's offset 0 (e.g. 252 of 253 days, or 252 of 261 on a weekday calendar), which is a thirteenth
+    near-copy of offset 0 rather than a new phase, so an offset closer than half a stride to the period's end is
+    dropped. Monthly data: stride 1 gives one offset per month."""
+    start = mkt.trading_day(start)
+    i0 = mkt.index.get_loc(start)
+    period = mkt.index.searchsorted(start + pd.DateOffset(months=rebalance_months)) - i0
+    stride = max(1, int(stride))
+    ks = list(range(0, period, stride))
+    if len(ks) > 1 and period - ks[-1] < stride / 2:
+        ks.pop()
+    return ks
+
+
 def study(screen: Screen, mkt: Market, cfg: backtest.Config, start=None, end=None,
           mode: str = "phase", stride: int = 1, offsets=None,
           benchmark=None, progress: bool = False) -> TimingResult:
@@ -49,8 +68,7 @@ def study(screen: Screen, mkt: Market, cfg: backtest.Config, start=None, end=Non
         raise ValueError(f"mode must be 'phase' or 'start', got {mode!r}")
     start = mkt.trading_day(start or mkt.index[0] + pd.DateOffset(months=13))
     i0 = mkt.index.get_loc(start)
-    period = mkt.index.searchsorted(start + pd.DateOffset(months=cfg.rebalance_months)) - i0
-    offsets = list(offsets) if offsets is not None else list(range(0, period, stride))
+    offsets = list(offsets) if offsets is not None else phase_offsets(mkt, start, cfg.rebalance_months, stride)
 
     rows, curves, bench_cache = [], {}, {}
     for n, k in enumerate(offsets):

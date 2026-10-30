@@ -220,3 +220,19 @@ def test_speed_1000_paths_25_years_daily_20_names():
     dt = time.perf_counter() - t
     assert ps.returns.shape == (1000, 6300, 20) and isinstance(ps, PathSet)
     assert dt < 15
+
+
+@pytest.mark.parametrize("gen_name", ["BlockBootstrap", "StationaryBootstrap", "IIDBootstrap", "RegimeBootstrap"])
+def test_paths_are_prefix_stable_in_the_horizon(gen_name):
+    """A longer horizon extends every path; it never redraws the first steps (and path i ignores n_paths)."""
+    import screenlab.montecarlo as mcm
+    from screenlab import SyntheticBuilder
+    base = SyntheticBuilder(n_stocks=12, years=10, freq="ME", seed=2).build()
+    g = getattr(mcm, gen_name)()
+    short = g.paths(base, 6, 3, seed=11)
+    long_ = g.paths(base, 6, 8, seed=11)
+    n = short.source_idx.shape[1]
+    np.testing.assert_array_equal(short.source_idx, long_.source_idx[:, :n])
+    np.testing.assert_array_equal(short.returns, long_.returns[:, :n])
+    fewer = g.paths(base, 3, 8, seed=11)
+    np.testing.assert_array_equal(fewer.source_idx, long_.source_idx[:3])

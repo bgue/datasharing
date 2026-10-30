@@ -14,8 +14,15 @@ RegimeBootstrap(signal_screen, ...)     blocks drawn from the current calm/stres
                                         regime switching as a Markov chain fitted on the base.
 IIDBootstrap()                          single-period resampling (no persistence; reference).
 
-Randomness: only uniform draws laid out path-major, so path `i` of a run does not depend on `n_paths`
-(`scenario_dataset(base, 3, seed=s)` equals `paths(base, 10, ..., seed=s)` path 3). Date 0 of every path
+Randomness: only uniform draws, one stream per path (`default_rng((seed, i))`) consumed step by step. Path `i`
+therefore depends on neither `n_paths` (`scenario_dataset(base, 3, seed=s)` equals `paths(base, 10, ..., seed=s)`
+path 3) nor on the horizon: the first N steps of a path are identical whatever the longest horizon asked for
+(`horizon_years=[10]` and `[5, 10, 20]` give the same 10-year paths).
+
+Changed in this version: the draws used to be one `default_rng(seed)` stream laid out path-major over
+(paths x blocks), so a longer horizon shifted every path after the first. The per-path streams fix that, and
+the paths for a given seed differ from earlier versions once (all results, studies and run keys made with
+an older version are not reproducible bit for bit; their distributions are statistically equivalent). Date 0 of every path
 is the start anchor: its return is 0 and prices start at 1. Steps copy base returns 1..T-1, so the first
 base date is never a source. A name's return on its first base date (or after a gap) is 0.
 """
@@ -145,11 +152,24 @@ def _floor(u: np.ndarray, n: int) -> np.ndarray:
     return np.minimum((u * n).astype(np.int64), n - 1)
 
 
+class _PathStreams:
+    """One independent random stream per path, so a path's draws depend on its index and the seed only (not on
+    the number of paths or on how many steps / blocks are asked for: `random((P, B, ...))` is a prefix of
+    `random((P, B', ...))` for B < B')."""
+
+    def __init__(self, seed: int, n_paths: int):
+        self.gens = [np.random.default_rng((int(seed), i)) for i in range(n_paths)]
+
+    def random(self, shape) -> np.ndarray:
+        P, *tail = shape
+        return np.stack([g.random(tuple(tail)) for g in self.gens]) if P else np.zeros(shape)
+
+
 # --------------------------------------------------------------------------- generators
 class Generator:
     """Base: subclasses implement `_offsets(ctx, P, N, rng) -> int[P, N]` (0-based offsets into 1..T-1)."""
 
-    def _offsets(self, ctx: _Ctx, P: int, N: int, rng: np.random.Generator) -> np.ndarray:
+    def _offsets(self, ctx: _Ctx, P: int, N: int, rng: _PathStreams) -> np.ndarray:
         raise NotImplementedError
 
     def spec(self) -> dict:
@@ -160,7 +180,7 @@ class Generator:
         """`n_paths` resampled paths of `horizon_years` (252 steps a year on a daily base, 12 on a monthly one)."""
         ctx = _Ctx(base)
         N = max(2, int(round(horizon_years * NOMINAL_PPY[ctx.daily])))
-        rng = np.random.default_rng(seed)
+        rng = _PathStreams(seed, int(n_paths))
         off = self._offsets(ctx, int(n_paths), N, rng)
         src = off + 1
         r = ctx.ret[src].astype(dtype, copy=False)
