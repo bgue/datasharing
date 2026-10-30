@@ -21,7 +21,10 @@ from screenlab.backtest import run
 from screenlab.data import add_ratios
 from screenlab.pipeline import simulate_paths
 from screenlab.serial import from_dict, to_dict
-from screenlab.taxes import (NoTax, PlaceholderCanadianTax, TaxConfig, TaxModel, assess, register_tax_model)
+from screenlab.tax_ca import compute
+from screenlab.tax_ca import owner_ab_2025 as owner
+from screenlab.taxes import (TAX_MODELS, CanadianTax, NoTax, PlaceholderCanadianTax, TaxConfig, TaxModel, YearTax, assess,
+                             register_tax_model)
 
 CAP = 100_000.0
 # marginal 0.40, eligible dividends: 1.38 x (0.40 - 0.15 - 0.10) = 0.207 of the cash amount; gains: 0.5 x 0.40 = 0.20
@@ -260,3 +263,123 @@ def test_exit_policy_switches_are_taxable_events(syn):
     assert r.switches > 0 and r.tax["realized_gains"].sum() + r.tax["realized_losses"].sum() != \
         plain.results["dogs"].tax["realized_gains"].sum() + plain.results["dogs"].tax["realized_losses"].sum()
     assert np.isfinite(r.after_tax_curve).all() and (r.tax["wealth_after_tax"] > 0).all()
+
+
+# --------------------------------------------------------------------------- CanadianTax (tax_ca) joint path
+SAL = 90_000.0
+
+
+def ca(prov="AB", **kw):
+    return CanadianTax(province=prov, year=2025, employment_income=SAL, **kw)
+
+
+def test_registry_and_validation():
+    assert TAX_MODELS == {"none": NoTax, "placeholder": PlaceholderCanadianTax, "canadian": CanadianTax}
+    assert isinstance(ca(), TaxModel) and hasattr(ca(), "assess_year")
+    with pytest.raises(ValueError):
+        CanadianTax(province="ON")
+    with pytest.raises(ValueError):
+        CanadianTax(eligible_share=1.5)
+    m = from_dict(to_dict(ca("BC", eligible_share=0.5)))
+    assert m == ca("BC", eligible_share=0.5) and m.describe()["province"] == "BC"
+
+
+def test_owner_numbers_dividend_only_ab():
+    """Dividend-only portfolio (A held all of 2020, eligible, no sale in 2020), taxable AB account, salary 90,000.
+    expected = owner_ab_2025.combined_tax(90000, D, "eligible")["tax_on_dividend_marginal"], D = the ledger's 2020 dividends"""
+    t = go(tx(model=ca())).tax
+    d = float(t.loc[2020, "dividends_ca"])
+    assert d == pytest.approx(CAP * DIV_A_2020, rel=1e-12)
+    expected = owner.combined_tax(SAL, d, "eligible")["tax_on_dividend_marginal"]
+    assert expected > 0
+    assert t.loc[2020, "tax_dividends"] == pytest.approx(expected, abs=1e-6)
+    assert t.loc[2020, "tax_paid"] == pytest.approx(expected, abs=1e-6)
+    assert t.loc[2020, "tax_capital_gains"] == 0 and t.loc[2020, "tax_foreign_dividends"] == 0
+
+
+def test_owner_numbers_dividends_plus_one_gain_ab():
+    """2021: dividends d (A one day, B the rest, eligible) plus the sale gain G of A, stacked salary -> dividends -> gains.
+    expected = combined_tax(90000, d)["tax_on_dividend_marginal"] + capital_gains_tax(G, 90000 + 1.38 d)"""
+    t = go(tx(model=ca())).tax
+    d, g = float(t.loc[2021, "dividends_ca"]), float(t.loc[2021, "realized_gains"])
+    assert g > 0
+    div = owner.combined_tax(SAL, d, "eligible")["tax_on_dividend_marginal"]
+    cg = owner.capital_gains_tax(g, SAL + 1.38 * d)
+    assert t.loc[2021, "tax_dividends"] == pytest.approx(div, abs=1e-6)
+    assert t.loc[2021, "tax_capital_gains"] == pytest.approx(cg, abs=1e-6)
+    assert t.loc[2021, "tax_paid"] == pytest.approx(div + cg, abs=1e-6)
+
+
+def test_bc_matches_compute_stacking():
+    t = go(tx(model=ca("BC"))).tax
+    d, g = float(t.loc[2021, "dividends_ca"]), float(t.loc[2021, "realized_gains"])
+    base = compute("BC", 2025, employment_income=SAL).total
+    with_div = compute("BC", 2025, employment_income=SAL, eligible_dividends=d).total
+    both = compute("BC", 2025, employment_income=SAL, eligible_dividends=d, capital_gains=g).total
+    assert t.loc[2021, "tax_dividends"] == pytest.approx(with_div - base, abs=1e-6)
+    assert t.loc[2021, "tax_capital_gains"] == pytest.approx(both - with_div, abs=1e-6)
+    d20 = float(t.loc[2020, "dividends_ca"])
+    assert t.loc[2020, "tax_dividends"] == pytest.approx(
+        compute("BC", 2025, employment_income=SAL, eligible_dividends=d20).total - base, abs=1e-6)
+
+
+def test_eligible_share_splits_dividends():
+    t = go(tx(model=ca(eligible_share=0.25))).tax
+    d = float(t.loc[2020, "dividends_ca"])
+    base = compute("AB", 2025, employment_income=SAL).total
+    want = compute("AB", 2025, employment_income=SAL, eligible_dividends=0.25 * d, non_eligible_dividends=0.75 * d).total - base
+    assert t.loc[2020, "tax_dividends"] == pytest.approx(want, abs=1e-6)
+
+
+def test_years_beyond_tables_warn_and_use_latest():
+    t = go(tx(model=ca())).tax                            # simulated 2020-2021, tables: 2025
+    w = t.attrs["warnings"]
+    assert any("2020" in x for x in w) and any("2021" in x for x in w)
+    y = ca().assess_year(2025, eligible_dividends=1000.0)
+    assert y.breakdown["warnings"] == [] and isinstance(y, YearTax)
+
+
+def test_foreign_ftc_and_accounts():
+    m = ca()
+    wh = 150.0
+    y = m.assess_year(2025, foreign_income=1000.0, foreign_withholding=wh, account="taxable")
+    r = compute("AB", 2025, employment_income=SAL, foreign_income=1000.0, foreign_tax_paid=wh)
+    base = compute("AB", 2025, employment_income=SAL).total
+    assert y.total == pytest.approx(r.total - base + wh, abs=1e-9)        # Canadian tax net of FTC + withholding
+    assert y.breakdown["foreign_tax_credit"] == pytest.approx(wh)         # marginal rate on 1000 well above 15%
+    assert m.assess_year(2025, foreign_income=1000.0, foreign_withholding=wh, account="tfsa").total == wh
+    assert m.assess_year(2025, foreign_income=1000.0, foreign_withholding=wh, account="rrsp").total == 0.0
+    assert m.assess_year(2025, eligible_dividends=5e3, capital_gains_net=5e3, account="tfsa").total == 0.0
+    # end to end: TFSA / RRSP through assess
+    inc20 = CAP * DIV_A_2020
+    assert go(tx("tfsa", model=m, foreign=("A",))).tax.loc[2020, "tax_foreign_dividends"] == pytest.approx(inc20 * 0.15, rel=1e-12)
+    assert go(tx("rrsp", model=m, foreign=("A",))).tax.loc[2020, "tax_foreign_dividends"] == 0
+    res = go(tx("tfsa", model=m))
+    assert (res.tax["tax_paid"] == 0).all()
+
+
+def test_loss_carry_forward_with_joint_path():
+    res = go(tx(model=ca()), a_after=0.6)
+    t = res.tax
+    assert t.loc[2021, "realized_losses"] < 0 and t.loc[2021, "tax_capital_gains"] == 0
+    assert t.loc[2021, "loss_carry_out"] == pytest.approx(-t.loc[2021, "realized_losses"], rel=1e-12)
+    # direct: year 1 loss, year 2 gain larger -> only the excess is taxed, through compute
+    idx = pd.bdate_range("2020-01-01", "2021-12-31")
+    curve = pd.Series(1.0, index=idx)
+    ev = pd.DataFrame(0.0, index=idx, columns=["div_ca", "div_fx", "gain", "loss"])
+    ev.loc["2020-06-01", "loss"] = -0.02
+    ev.loc["2021-06-01", "gain"] = 0.05
+    cfg = TaxConfig(model=ca(), capital=CAP, pay_from_portfolio=False)
+    tab, _ = assess(curve, ev, cfg, CAP)
+    excess = CAP * (0.05 - 0.02)
+    want = compute("AB", 2025, employment_income=SAL, capital_gains=excess).total - compute("AB", 2025, employment_income=SAL).total
+    assert tab.loc[2020, "loss_carry_out"] == pytest.approx(CAP * 0.02) and tab.loc[2021, "tax_capital_gains"] == pytest.approx(want, abs=1e-6)
+    assert tab.loc[2021, "loss_carry_out"] == 0
+
+
+def test_taxconfig_with_canadian_round_trips_and_columns_unchanged():
+    cfg = tx(model=ca("BC"))
+    assert from_dict(to_dict(cfg)) == cfg
+    t = go(cfg).tax
+    from screenlab.taxes import TAX_COLS
+    assert list(t.columns) == TAX_COLS

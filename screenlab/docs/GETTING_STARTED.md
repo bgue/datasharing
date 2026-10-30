@@ -233,6 +233,13 @@ colours). `?` lists the keys and `q` quits. To use it in a browser instead: `scr
 http://localhost:8000 (`--port` changes it). While it runs it also listens on 127.0.0.1:8765 so that Claude (the
 `tui_*` MCP tools) can drive the same screen; in a terminal `--control-port 0` turns that off. Details: `screenlab/tui/README.md`.
 
+### After-tax results
+The editor's Tax section (account none / taxable / tfsa / rrsp, province AB / BC, employment income, year) taxes a
+scenario: press Apply and the new version, run with that tax config, gets `AfterTaxCAGR` and `TaxDrag/yr` columns in
+Compare (blank for versions without tax). The passive index row shows its taxed value too, taxed the same way, so the
+comparison stays fair. A TFSA shows no drag on gains; a taxable account does. With a province blank the illustrative
+placeholder rates are used, which are not for decisions. The same fields exist as the `tax` param over the control endpoint.
+
 ### Guardrails: trials, frozen scenarios, pre-registered hypotheses
 Trying fifty variants is an afternoon's work in the TUI, and the best of fifty looks good by luck. So every Compare row
 shows **Trials** (how many variants of its screen were tried, including earlier sessions when a run store is on) and

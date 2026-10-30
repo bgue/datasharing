@@ -23,6 +23,27 @@ class HoldRuleRequest:
     band: float | None = arg(None, "leave a name untraded while its weight is within +-band (relative) of target (>= 0)")
 
 
+TAX_MODEL_NAMES = ("none", "placeholder", "canadian")      # the keys of taxes.TAX_MODELS
+TAX_ACCOUNTS = ("taxable", "tfsa", "rrsp")
+TAX_PROVINCES = ("AB", "BC")
+TAX_FIELDS = ("model", "account", "province", "year", "employment_income", "deductions", "eligible_share",
+              "us_withholding")
+
+
+@dataclass
+class TaxRequest:
+    """Tax the backtest (Config.tax): after-tax columns AfterTaxCAGR, TaxDrag/yr, AfterTaxExcess/yr appear in the report."""
+    model: Literal["none", "placeholder", "canadian"] = arg(doc="tax model: none (zero tax), placeholder (illustrative "
+                                                             "rates, NOT for decisions) or canadian (needs `province`)")
+    account: Literal["taxable", "tfsa", "rrsp"] = arg(doc="account the portfolio is held in")
+    province: Literal["AB", "BC"] | None = arg(None, "province of residence (model canadian)")
+    year: int = arg(2025, "tax year of the rate tables (model canadian)")
+    employment_income: float = arg(0.0, "other taxable income in $/yr that sets the marginal rate")
+    deductions: float = arg(0.0, "deductions in $/yr (model canadian)")
+    eligible_share: float = arg(1.0, "share of Canadian dividends that are eligible, 0..1 (model canadian)")
+    us_withholding: float = arg(0.15, "withholding rate on foreign dividends, 0..1")
+
+
 @dataclass
 class ConfigOverrides:
     """Config fields a request may override for one call."""
@@ -38,6 +59,7 @@ class ConfigOverrides:
     sector_cap: float | None = arg(None, "per-sector weight cap")
     weighting: Literal["equal", "cap", "inv_vol"] | None = arg(None, "weighting rule: equal, cap or inv_vol")
     hold_rule: HoldRuleRequest | None = arg(None, "turnover control: {keep_within, band}")
+    tax: TaxRequest | None = arg(None, "tax the results: {model, account, province, year, employment_income, ...}")
 
 
 @dataclass
@@ -191,7 +213,7 @@ CONFIG_INT = ("rebalance_months", "min_holdings")
 CONFIG_NUM = ("commission", "capital", "delist_return", "cash_rate")
 CONFIG_NUM_OR_MAP = ("cost_bps", "mer")
 CONFIG_OPT_NUM = ("max_weight", "sector_cap")
-CONFIG_FIELDS = CONFIG_INT + CONFIG_NUM + CONFIG_NUM_OR_MAP + CONFIG_OPT_NUM + ("weighting", "hold_rule")
+CONFIG_FIELDS = CONFIG_INT + CONFIG_NUM + CONFIG_NUM_OR_MAP + CONFIG_OPT_NUM + ("weighting", "hold_rule", "tax")
 POLICY_FIELDS = ("exposure_when_flagged", "park", "park_mer", "park_cost_bps", "switch_cost_bps", "reentry",
                  "reentry_delay_days", "reentry_steps", "rescreen_on_reentry")
 
@@ -222,6 +244,54 @@ def _hold_rule(v):
     return HoldRule(**kw)
 
 
+def _tax_config(v):
+    """A TaxConfig from a `config.tax` object (see TaxRequest), else a 400 that names the field."""
+    from .. import taxes
+    if v is None or isinstance(v, taxes.TaxConfig):
+        return v
+    if not isinstance(v, dict):
+        raise ServerError(400, f"config.tax must be an object {{model, account, ...}}, got {v!r}")
+    for k in v:
+        if k not in TAX_FIELDS:
+            raise ServerError(400, f"unknown config.tax field {k!r}; use {list(TAX_FIELDS)}")
+    for k in ("model", "account"):
+        if k not in v:
+            raise ServerError(400, f"config.tax.{k} is required")
+    num = lambda x: isinstance(x, (int, float)) and not isinstance(x, bool) and x == x
+    for k, allowed in (("model", TAX_MODEL_NAMES), ("account", TAX_ACCOUNTS), ("province", TAX_PROVINCES)):
+        if k == "province" and v.get(k) is None:
+            continue
+        if v.get(k) not in allowed:
+            raise ServerError(400, f"config.tax.{k} must be one of {list(allowed)}, got {v.get(k)!r}")
+    if not (isinstance(v.get("year", 2025), int) and not isinstance(v.get("year", 2025), bool)):
+        raise ServerError(400, f"config.tax.year must be an integer, got {v['year']!r}")
+    for k, lo, hi in (("employment_income", 0, None), ("deductions", 0, None), ("eligible_share", 0, 1),
+                      ("us_withholding", 0, 1)):
+        x = v.get(k)
+        if x is None:
+            continue
+        if not num(x) or x < lo or (hi is not None and x > hi):
+            word = f"a number >= {lo}" if hi is None else f"a number in [{lo}, {hi}]"
+            raise ServerError(400, f"config.tax.{k} must be {word}, got {x!r}")
+    model, prov = v["model"], v.get("province")
+    if model == "none":
+        m = taxes.NoTax()
+    elif model == "placeholder":
+        if prov is not None:
+            raise ServerError(400, "config.tax.province applies to model 'canadian' only (placeholder is Ontario-illustrative)")
+        m = taxes.PlaceholderCanadianTax(income=float(v.get("employment_income") or 0.0) or 100_000.0)
+    else:
+        if prov is None:
+            raise ServerError(400, f"config.tax.province must be one of {list(TAX_PROVINCES)} for model 'canadian', got None")
+        cls = taxes.TAX_MODELS["canadian"]
+        try:
+            m = cls(province=prov, year=v.get("year", 2025), employment_income=float(v.get("employment_income", 0.0)),
+                    deductions=float(v.get("deductions", 0.0)), eligible_share=float(v.get("eligible_share", 1.0)))
+        except (ValueError, TypeError) as e:
+            raise ServerError(400, f"config.tax: {e}") from None
+    return taxes.TaxConfig(model=m, account=v["account"], us_withholding=float(v.get("us_withholding", 0.15)))
+
+
 def config_overrides(config) -> dict:
     """Validated Config overrides from a request: unknown keys and wrongly typed values are a 400 that
     names the field. `exit` is not a config field here: pass the top-level `exit` object."""
@@ -250,6 +320,8 @@ def config_overrides(config) -> dict:
                 raise ServerError(400, f"config.weighting must be one of {sorted(WEIGHTINGS)}, got {v!r}")
         if k == "hold_rule":
             out[k] = _hold_rule(v)
+        if k == "tax":
+            out[k] = _tax_config(v)
     return out
 
 

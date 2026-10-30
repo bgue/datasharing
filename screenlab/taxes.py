@@ -1,7 +1,7 @@
 """Taxes: the `TaxModel` interface, a PLACEHOLDER Canadian model, and the yearly assessment (DESIGN.md J5, ROADMAP Phase 3).
 
     THE RATES IN `PlaceholderCanadianTax` ARE PLACEHOLDERS. THEY EXIST SO THE TAX STAGE CAN RUN END TO END AND
-    ARE TO BE REPLACED BY THE OWNER'S CANADIAN DIVIDEND / SALARY TAX MODULE (WRITE IT AS A `TaxModel`, SEE
+    FOR TESTS ONLY; USE `CanadianTax` (tax_ca tables) FOR REAL NUMBERS (A `TaxModel`, SEE
     docs/TAXES.md). EVERY RATE MUST BE CHECKED AGAINST THE CRA TABLES (AND THE PROVINCIAL TABLES) FOR THE TAX
     YEAR BEFORE ANY NUMBER IT PRODUCES IS RELIED ON. THIS IS NOT TAX ADVICE.
 
@@ -24,6 +24,19 @@ The interface (all amounts are dollars of the simulated account, taxes are non-n
                                                                     ALL tax on them: withholding at source plus Canadian
                                                                     tax net of any foreign tax credit
     describe() -> dict                                              parameters, for reports and run records
+
+Optional joint path (a model may provide it; `assess` then uses it instead of the three per-item calls, so dividends,
+foreign income and gains STACK correctly within one year):
+
+    assess_year(year, *, eligible_dividends, non_eligible_dividends, foreign_income, foreign_withholding,
+                capital_gains_net, account) -> YearTax(total, breakdown)
+                                                                    one calendar year at once, all dollars of the account
+                                                                    (cash dividends, foreign income gross of withholding,
+                                                                    `foreign_withholding` = dollars withheld at source,
+                                                                    `capital_gains_net` = net gain after loss carry-forward);
+                                                                    total = tax caused by the investments (salary tax is not
+                                                                    included); breakdown has dividends / foreign /
+                                                                    capital_gains (sum = total) and optional warnings
 
 `province` is an attribute of the model; `year` is passed to every call so a model can use the rates of that year.
 `account` is "taxable", "tfsa" or "rrsp". In "tfsa" / "rrsp" the stage does not call `tax_on_dividends` or
@@ -49,6 +62,13 @@ ON_ILLUSTRATIVE_BRACKETS = ((0.0, 0.2005), (51_446.0, 0.2415), (55_867.0, 0.2965
                             (173_205.0, 0.4829), (220_000.0, 0.4985), (246_752.0, 0.5353))
 
 
+@dataclass(frozen=True)
+class YearTax:
+    """Result of a joint `assess_year`: total tax in dollars (investment-caused, withholding included) and its split."""
+    total: float
+    breakdown: dict = field(default_factory=dict)
+
+
 @runtime_checkable
 class TaxModel(Protocol):
     """What a tax module implements (module docstring). Make it serializable with `@register_tax_model("Tag")`."""
@@ -60,15 +80,15 @@ class TaxModel(Protocol):
     def describe(self) -> dict: ...
 
 
-TAX_MODELS: dict = {}          # tag -> class, filled by register_tax_model
+TAX_MODEL_TAGS: dict = {}      # serialization tag -> class, filled by register_tax_model
 
 
 def register_tax_model(tag: str):
     """Class decorator for a `TaxModel` (a dataclass, or a class with its own `to_dict` / `from_dict`): registers the
-    serialization tag (so a RunSpec / run key can carry it) and records the class in `TAX_MODELS[tag]`."""
+    serialization tag (so a RunSpec / run key can carry it) and records the class in `TAX_MODEL_TAGS[tag]`."""
     def wrap(cls):
         cls = serializable(tag)(cls)
-        TAX_MODELS[tag] = cls
+        TAX_MODEL_TAGS[tag] = cls
         return cls
     return wrap
 
@@ -182,6 +202,94 @@ class PlaceholderCanadianTax:
                 "note": "placeholder rates: replace with the owner's module and check against CRA tables for the year"}
 
 
+@register_tax_model("canadian_tax")
+@dataclass(frozen=True)
+class CanadianTax:
+    """Canadian personal tax from the `tax_ca` tables (federal + AB / BC), a joint per-year model. NOT TAX ADVICE.
+
+    province        "AB" | "BC"
+    year            tax year of the tables (2025); calendar years outside the tables use the nearest table year and
+                    record a warning (`Result.tax.attrs["warnings"]`)
+    employment_income, deductions   the investor's other income and deductions, $ a year (constant over the simulation)
+    eligible_share  share of the Canadian cash dividends that are eligible (rest non-eligible)
+
+    Stacking within a year: salary -> dividends (grossed up) -> foreign income -> capital gains; each layer's tax is the
+    increase in the total, so the tax attributed to the investments is total(with) - total(salary only). A negative
+    marginal (the dividend tax credit can exceed the bracket tax) is passed through; `assess` never pays less than zero.
+    Foreign tax credit (approximation): min(withholding, Canadian tax on the foreign income stacked after salary and
+    dividends). The returned tax on foreign income is withholding + Canadian tax net of the credit.
+    Accounts: taxable taxes everything; tfsa: no tax, foreign withholding lost; rrsp: no tax, US-listed withholding exempt.
+    """
+    province: str = "AB"
+    year: int = 2025
+    employment_income: float = 0.0
+    deductions: float = 0.0
+    eligible_share: float = 1.0
+
+    def __post_init__(self):
+        from .tax_ca import JURISDICTIONS, TAX_YEARS
+        object.__setattr__(self, "province", str(self.province).upper())
+        if self.province not in JURISDICTIONS:
+            raise ValueError(f"province must be one of {sorted(JURISDICTIONS)}, got {self.province!r}")
+        if int(self.year) not in TAX_YEARS:
+            raise ValueError(f"year must be one of {list(TAX_YEARS)}, got {self.year!r}")
+        if not 0.0 <= self.eligible_share <= 1.0:
+            raise ValueError("eligible_share must be in [0, 1]")
+
+    def _table_year(self, year: int) -> tuple:
+        from .tax_ca import TAX_YEARS
+        ty = min(TAX_YEARS, key=lambda t: (abs(t - year), -t)) if year not in TAX_YEARS else year
+        warn = None if ty == year else f"year {year}: no tax table, used {ty}"
+        return ty, warn
+
+    def _compute(self, year, **kw):
+        from .tax_ca import compute
+        return compute(self.province, year, employment_income=self.employment_income, deductions=self.deductions, **kw)
+
+    def assess_year(self, year, *, eligible_dividends=0.0, non_eligible_dividends=0.0, foreign_income=0.0,
+                    foreign_withholding=0.0, capital_gains_net=0.0, account="taxable") -> YearTax:
+        ty, warn = self._table_year(int(year))
+        warnings = [warn] if warn else []
+        wh = max(0.0, foreign_withholding) if foreign_income > 0 else 0.0
+        if account == "rrsp":
+            return YearTax(0.0, {"dividends": 0.0, "foreign": 0.0, "capital_gains": 0.0, "warnings": warnings})
+        if account == "tfsa":
+            return YearTax(wh, {"dividends": 0.0, "foreign": wh, "capital_gains": 0.0, "warnings": warnings})
+        r = self._compute(ty, eligible_dividends=eligible_dividends, non_eligible_dividends=non_eligible_dividends,
+                          foreign_income=foreign_income, foreign_tax_paid=wh, capital_gains=max(0.0, capital_gains_net))
+        b = r.breakdown
+        div, fx, cg = b["tax_on_dividends_marginal"], b["tax_on_foreign_income_marginal"] + wh, b["tax_on_capital_gains_marginal"]
+        return YearTax(div + fx + cg, {"dividends": div, "foreign": fx, "capital_gains": cg,
+                                       "foreign_tax_credit": b.get("foreign_tax_credit", 0.0), "warnings": warnings})
+
+    # per-item calls (the protocol's fallback path; each is the joint path with one layer)
+    def tax_on_dividends(self, amount, eligible, year):
+        if amount <= 0:
+            return 0.0
+        e, n = (amount, 0.0) if eligible else (0.0, amount)
+        return max(0.0, self.assess_year(year, eligible_dividends=e, non_eligible_dividends=n).total)
+
+    def tax_on_capital_gain(self, gain, year):
+        return max(0.0, self.assess_year(year, capital_gains_net=gain).total) if gain > 0 else 0.0
+
+    def tax_on_foreign_dividends(self, amount, withholding_rate, year, account):
+        if amount <= 0:
+            return 0.0
+        return max(0.0, self.assess_year(year, foreign_income=amount, foreign_withholding=amount * withholding_rate,
+                                         account=account).total)
+
+    def describe(self) -> dict:
+        from .tax_ca import TAX_YEARS
+        return {"model": "CanadianTax", "province": self.province, "year": self.year, "tables": list(TAX_YEARS),
+                "employment_income": self.employment_income, "deductions": self.deductions,
+                "eligible_share": self.eligible_share,
+                "stacking": "salary -> dividends -> foreign -> capital gains", "ftc": "approximation",
+                "note": "tax_ca tables; not tax advice"}
+
+
+TAX_MODELS: dict = {"none": NoTax, "placeholder": PlaceholderCanadianTax, "canadian": CanadianTax}   # config by name
+
+
 @serializable("TaxConfig")
 @dataclass(frozen=True)
 class TaxConfig:
@@ -247,7 +355,12 @@ def assess(curve: pd.Series, events: pd.DataFrame, tax: TaxConfig, capital: floa
     Per year: dividends are taxed as received; realized gains net against realized losses and against losses
     carried forward from earlier years (carried within the simulation, nominal, no expiry); registered accounts
     (tfsa / rrsp) skip domestic dividend and capital gain tax and their losses are not carried. The tax is paid at
-    the year's last bar (the last bar of the data closes the final, possibly part, year)."""
+    the year's last bar (the last bar of the data closes the final, possibly part, year).
+
+    A model with `assess_year` is assessed jointly per year (dividends split by its `eligible_share`, foreign withholding
+    = `tax.us_withholding` x foreign income, gains net of carry-forward; registered accounts get the same call and the
+    model zeroes what the account shelters); else the three per-item calls are used. Model warnings (e.g. a year beyond
+    its tables) go to `table.attrs["warnings"]`. A negative year tax (credits above the tax) is floored at 0."""
     model, acct = tax.model, tax.account
     ev = events.reindex(columns=list(EVENT_COLS)).fillna(0.0) if len(events) else pd.DataFrame(columns=list(EVENT_COLS), dtype=float)
     by_year = ev.groupby(ev.index.year).sum() if len(ev) else ev
@@ -256,23 +369,34 @@ def assess(curve: pd.Series, events: pd.DataFrame, tax: TaxConfig, capital: floa
     factor = pd.Series(1.0, index=curve.index)             # share of pre-tax wealth left, bar by bar (portfolio-paid)
     paid_cum = pd.Series(0.0, index=curve.index)           # cumulative $ paid (outside-paid)
     f, carry, cum = 1.0, 0.0, 0.0
-    rows = {}
+    rows, warnings = {}, []
     for y in sorted(set(yrs)):
         e = by_year.loc[y] if y in by_year.index else pd.Series(0.0, index=list(EVENT_COLS))
         scale = capital * (f if tax.pay_from_portfolio else 1.0)
         dca, dfx, g, l = (float(e[c]) * scale for c in EVENT_COLS)
         t_div = t_fx = t_cg = 0.0
         carry_out = carry
+        taxable = 0.0
         if acct == "taxable":
-            t_div = model.tax_on_dividends(dca, True, int(y)) if dca > 0 else 0.0
             net = g + l - carry                             # l <= 0
             taxable = max(net, 0.0)
             carry_out = max(-net, 0.0)
-            t_cg = model.tax_on_capital_gain(taxable, int(y)) if taxable > 0 else 0.0
-        if dfx > 0:
-            t_fx = model.tax_on_foreign_dividends(dfx, tax.us_withholding, int(y), acct)
+        if hasattr(model, "assess_year"):                   # joint path: the layers stack within the year
+            sh = float(getattr(model, "eligible_share", 1.0))
+            yt = model.assess_year(int(y), eligible_dividends=dca * sh, non_eligible_dividends=dca * (1 - sh),
+                                   foreign_income=dfx, foreign_withholding=dfx * tax.us_withholding,
+                                   capital_gains_net=taxable, account=acct)
+            bd = yt.breakdown
+            t_div, t_fx, t_cg = (float(bd.get(k, 0.0)) for k in ("dividends", "foreign", "capital_gains"))
+            warnings.extend(w for w in bd.get("warnings", ()) if w not in warnings)
+        else:
+            if acct == "taxable":
+                t_div = model.tax_on_dividends(dca, True, int(y)) if dca > 0 else 0.0
+                t_cg = model.tax_on_capital_gain(taxable, int(y)) if taxable > 0 else 0.0
+            if dfx > 0:
+                t_fx = model.tax_on_foreign_dividends(dfx, tax.us_withholding, int(y), acct)
         carry = carry_out
-        total = float(t_div + t_fx + t_cg)
+        total = max(0.0, float(t_div + t_fx + t_cg))      # a net credit is not paid out
         end = last_bar[y]
         wealth = capital * float(curve.loc[end]) * (f if tax.pay_from_portfolio else 1.0)
         pay = min(total, wealth) if wealth > 0 else 0.0
@@ -291,6 +415,7 @@ def assess(curve: pd.Series, events: pd.DataFrame, tax: TaxConfig, capital: floa
                         1 - after / pre_w if pre_w > 0 else 0.0]
     table = pd.DataFrame.from_dict(rows, orient="index", columns=TAX_COLS)
     table.index.name = "year"
+    table.attrs["warnings"] = warnings
     after_curve = curve * factor if tax.pay_from_portfolio else curve - paid_cum / capital
     return table, after_curve.rename("after_tax")
 

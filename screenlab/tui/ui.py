@@ -59,6 +59,8 @@ PARAM_FIELDS = (("n", "Holdings"), ("rebalance_months", "Rebalance (months)"), (
                 ("start", "Start date"), ("end", "End date"))
 
 
+TAX_ACCOUNT_CHOICES = ("none", "taxable", "tfsa", "rrsp")
+TAX_PROVINCES = ("AB", "BC")
 _NULL = getattr(Select, "NULL", None)
 
 
@@ -184,6 +186,15 @@ class ScreenlabApp(App):
                     for key, title in PARAM_FIELDS:
                         yield Label(title)
                         yield Input(id=f"f-{key}", placeholder="lab default" if key != "n" else "screen default")
+                    yield Label("Tax: account (after-tax columns in Compare)")
+                    yield Select([(n, n) for n in TAX_ACCOUNT_CHOICES], id="f-tax-account", allow_blank=False,
+                                 value="none")
+                    yield Label("Tax: province (blank = placeholder rates)")
+                    yield Select([(n, n) for n in TAX_PROVINCES], id="f-tax-province", allow_blank=True)
+                    yield Label("Tax: employment income ($/yr)")
+                    yield Input(id="f-tax-income", placeholder="0")
+                    yield Label("Tax: year")
+                    yield Input(id="f-tax-year", placeholder="2025")
                     yield Label("Trend exit (TrendBreak on the passive index)")
                     yield Switch(id="f-exit", value=False)
                     yield Button("Apply: new version + run (F2)", id="apply", variant="primary")
@@ -432,6 +443,19 @@ class ScreenlabApp(App):
             v = sc.params.get(key)
             self.query_one(f"#f-{key}", Input).value = "" if v is None else str(v)
         self.query_one("#f-exit", Switch).value = bool(sc.params.get("exit"))
+        tax = sc.params.get("tax") or {}
+        self._syncing = True
+        try:
+            self.query_one("#f-tax-account", Select).value = tax.get("account", "none")
+            if tax.get("province"):
+                self.query_one("#f-tax-province", Select).value = tax["province"]
+            else:
+                self.query_one("#f-tax-province", Select).clear()
+        finally:
+            self._syncing = False
+        inc = tax.get("employment_income")
+        self.query_one("#f-tax-income", Input).value = "" if not inc else f"{inc:g}"
+        self.query_one("#f-tax-year", Input).value = str(tax["year"]) if tax.get("year") else ""
         note = sc.diff_line or ""
         if sc.frozen:
             note = f"{LOCK} frozen: read-only. Clone (c) to continue; the clone is an out-of-sample candidate."
@@ -475,6 +499,9 @@ class ScreenlabApp(App):
         note += c["diffs"]
         note.append(f"trials this session: {c['trials_total']}. Trials = variants of the row's family tried; DSR = chance the "
                     f"Sharpe survives that many tries (low = likely luck). {LOCK} frozen, {CAND} out-of-sample candidate.")
+        if "AfterTaxCAGR" in cols:
+            note.append("AfterTaxCAGR / TaxDrag/yr: the Tax section of the editor; the passive index is taxed the same way "
+                        "(same account and model). Placeholder rates are illustrative only.")
         note.append("CI5/CI95: bootstrap interval of Excess/yr (run with ci). Excess/yr is against the passive index.")
         self.query_one("#compare-note", Static).update("\n".join(note))
 
@@ -767,6 +794,30 @@ class ScreenlabApp(App):
                         title="rerun")
         return res
 
+    def _form_tax(self, old=None):
+        """The editor's Tax section as a `tax` param (None for account `none`): province -> model canadian, else placeholder."""
+        acct = self.query_one("#f-tax-account", Select).value
+        if _blank(acct) or acct == "none":
+            return None
+        prov = self.query_one("#f-tax-province", Select).value
+        managed = ("model", "account", "province", "employment_income", "year")
+        out = {k: v for k, v in (old or {}).items() if k not in managed}          # fields set elsewhere stay
+        out.update({"model": "placeholder" if _blank(prov) else "canadian", "account": acct})
+        if not _blank(prov):
+            out["province"] = prov
+        for key, field, conv, word in (("#f-tax-income", "employment_income", float, "a number"),
+                                       ("#f-tax-year", "year", int, "an integer")):
+            raw = self.query_one(key, Input).value.strip()
+            if raw == "":
+                continue
+            try:
+                out[field] = conv(raw)
+            except ValueError:
+                raise SessionError(400, f"tax {field.replace('_', ' ')} must be {word}, got {raw!r}") from None
+        if "year" in out and _blank(prov):
+            del out["year"]                          # the placeholder model has no year
+        return out
+
     def _form_params(self, sc) -> dict:
         """Parameters in the editor that differ from the scenario, as a set_params dict."""
         out = {}
@@ -795,6 +846,9 @@ class ScreenlabApp(App):
         scr = self.query_one("#f-screen", Select).value
         if not _blank(scr) and scr != "__spec__" and scr != sc.params.get("screen"):
             out["screen"] = scr
+        tax = self._form_tax(sc.params.get("tax"))
+        if tax != sc.params.get("tax"):
+            out["tax"] = tax
         want_exit = self.query_one("#f-exit", Switch).value
         if want_exit and not sc.params.get("exit"):
             out["exit"] = {**EXIT_PRESET, "signals": [{"type": "TrendBreak", "index": self.session.passive_label()}]}

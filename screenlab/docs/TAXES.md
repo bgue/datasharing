@@ -1,4 +1,4 @@
-# Taxes (placeholder model, owner's module drops in)
+# Taxes (`CanadianTax` from `tax_ca`; the placeholder is only for tests)
 
 `Config.tax` turns the backtest into an after-tax one. The default is `None`: no tax, every number exactly as before.
 
@@ -12,11 +12,37 @@ rep.tax["dogs"]            # per calendar year: dividends, gains, losses, loss c
 rep.results["dogs"].after_tax_curve
 ```
 
-## THE RATES ARE PLACEHOLDERS
-`PlaceholderCanadianTax` exists so the stage runs end to end. **Its rates are illustrative, from memory, and must be
-replaced by the owner's Canadian dividend / salary tax module and checked against the CRA (and provincial) tables for
-the tax year before any number is relied on.** Only Ontario has defaults; other provinces must be given every rate.
-It is not tax advice.
+## CanadianTax (the real model)
+```python
+from screenlab.taxes import CanadianTax, TaxConfig, TAX_MODELS     # TAX_MODELS: "none" | "placeholder" | "canadian"
+tax = TaxConfig(model=CanadianTax(province="AB", year=2025, employment_income=90_000, deductions=0.0,
+                                  eligible_share=1.0), account="taxable", capital=250_000)
+```
+* **Provinces:** `"AB"`, `"BC"` (federal + provincial tables in `screenlab/tax_ca`, built on the owner's
+  `owner_ab_2025.py`; AB reproduces it exactly). Table years: 2025 only. A simulated calendar year with no table uses the
+  nearest table year and records a warning in `Result.tax.attrs["warnings"]` (the 2020 backtests of the synthetic data
+  all warn); do not rely on those years' numbers.
+* **Joint yearly assessment.** `CanadianTax.assess_year` taxes a year at once. Stacking order: salary
+  (`employment_income - deductions`) -> Canadian dividends (grossed up; `eligible_share` eligible, the rest non-eligible)
+  -> foreign income -> net capital gains (after the inclusion rate). Each layer's tax is the increase in the total, so
+  the tax charged to the portfolio is total(with investments) - total(salary only); the salary tax itself is never paid
+  by the account. A negative layer (dividend credit above the bracket tax) is passed through inside the year; the
+  year's total is floored at 0 (no refund is modelled).
+* **Foreign tax credit (approximation):** credit = min(withholding, Canadian tax on the foreign income stacked after
+  salary and dividends), split federal / provincial pro rata. Reported foreign tax = withholding + Canadian tax net of
+  the credit. Withholding = `us_withholding` x foreign income (taxable and TFSA); RRSP: exempt (treaty, US-listed).
+* **Accounts:** taxable taxes everything; TFSA no tax, foreign withholding lost; RRSP no tax, withholding exempt.
+* **Loss carry-forward** is the stage's: gains net against losses of the year and carried losses, and only the net
+  taxable gain reaches `assess_year`.
+* **Protocol:** `assess` uses a model's optional `assess_year(year, *, eligible_dividends, non_eligible_dividends,
+  foreign_income, foreign_withholding, capital_gains_net, account) -> YearTax(total, breakdown)` when it has one, else
+  the per-item calls below. The per-item methods of `CanadianTax` are the joint call with one layer.
+* The AB rates are the owner's; BC and the federal tables should be checked against CRA / BC sources for the year. Not tax advice.
+
+## PlaceholderCanadianTax: only for tests
+`PlaceholderCanadianTax` has constant, illustrative rates (Ontario defaults from memory, unchecked against CRA tables)
+and a constant marginal rate. It exists so the stage and its exact-arithmetic tests run without tables. **Do not use it
+for numbers you rely on.**
 
 ## What is modelled
 | Event | How it is taxed |
@@ -52,10 +78,11 @@ table, `Result.after_tax_curve` the after-tax value (1.0 at the start); starting
   universe at the start date (an approximation; check it). `index_foreign_share` sets how much of it is foreign (default 0).
   The index never sells, so only its dividends are taxed.
 * **Monte Carlo** (`simulate_paths`) raises `NotImplementedError` with a tax config: the per-lot ledger is path by path.
-* Constant marginal rate: the simulated income does not push the investor into higher brackets. Province and year are
-  parameters; the placeholder ignores `year` (a real module may use it).
+* The simulated income is stacked on the investor's other income year by year (`CanadianTax`), but the investor's salary is
+  constant and not inflated; RRSP contribution room, pension income and AMT are not modelled. The placeholder has a constant
+  marginal rate and ignores `year`.
 
-## Plugging in the owner's module
+## Writing another model
 Implement the `TaxModel` protocol (`screenlab/taxes.py`) and register it with a tag so it survives a RunSpec / run key:
 
 ```python
@@ -90,9 +117,8 @@ lab.backtest(["dogs"], tax=TaxConfig(model=OwnerCanadianTax(), account="taxable"
 Rules for a model: amounts are dollars and the return is non-negative dollars; `tax_on_capital_gain` is only called with
 a net gain above zero (the stage nets and carries losses); in `tfsa` / `rrsp` the stage calls only
 `tax_on_foreign_dividends`; the model must be a dataclass (or define `to_dict` / `from_dict`) with the tag registered
-in the process that reads a stored run. To check the owner's numbers on a dividend-only portfolio, run a screen whose
-total return is flat price plus dividends (see `tests/test_taxes.py` for the hand-built market) and compare
-`rep.tax[...]` with the module's own output year by year.
+in the process that reads a stored run. The owner's numbers are checked in `tests/test_taxes.py` (dividend-only portfolio and one gain, AB salary 90,000, equal to
+`owner_ab_2025` to 1e-6); do the same for a new model on the hand-built market.
 
 ## Where it lives
 `taxes.py` (protocol, models, `TaxConfig`, `assess` yearly engine, index taxation), `pipeline.TaxStage` (the event

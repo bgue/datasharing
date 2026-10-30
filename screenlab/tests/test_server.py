@@ -19,6 +19,8 @@ from screenlab import Lab
 from screenlab.server import registry as R
 from screenlab.server.mcp_server import build_tools
 from screenlab.server.registry import LabRegistry
+from screenlab import runspec as RS
+from screenlab.runspec import RunSpec
 from screenlab.server.rest import create_app
 
 
@@ -130,6 +132,78 @@ def test_mcp_hold_rule(reg):
     b = t["backtest"](["dogs"], config={"rebalance_months": 1, "hold_rule": {"keep_within": 2.0}}, max_points=20)
     tv = lambda r: {x["index"]: x for x in rows(r["table"])}["dogs"]["Turnover"]
     assert tv(a) != tv(b)
+
+
+def _bt(client, tax=None, **cfg):
+    body = {"screens": ["dogs"], "config": {**cfg, **({"tax": tax} if tax else {})}, "max_points": 20}
+    return client.post("/labs/synthetic/backtest", json=body)
+
+
+def test_backtest_tax_columns_and_accounts(client):
+    plain = _bt(client)
+    assert plain.status_code == 200
+    assert "AfterTaxCAGR" not in plain.json()["table"]["columns"]
+    taxable = _bt(client, {"model": "placeholder", "account": "taxable"})
+    tfsa = _bt(client, {"model": "placeholder", "account": "tfsa"})
+    assert taxable.status_code == 200 and tfsa.status_code == 200, taxable.text
+    for r in (taxable, tfsa):
+        assert {"AfterTaxCAGR", "TaxDrag/yr"} <= set(r.json()["table"]["columns"])
+    rt, rf = ({x["index"]: x for x in rows(r.json()["table"])} for r in (taxable, tfsa))
+    assert rt["dogs"]["AfterTaxCAGR"] != rf["dogs"]["AfterTaxCAGR"]
+    assert rt["dogs"]["AfterTaxCAGR"] <= rt["dogs"]["CAGR"] + 1e-12
+    bench = [k for k in rt if k not in ("dogs",) and not k.endswith("(compare)")][0]
+    assert rt[bench]["AfterTaxCAGR"] is not None                       # the passive index is taxed too
+
+
+@pytest.mark.parametrize("prov", ["AB", "BC"])
+def test_backtest_canadian_tax_provinces(client, prov):
+    def get(account):
+        r = _bt(client, {"model": "canadian", "account": account, "province": prov, "employment_income": 90000})
+        assert r.status_code == 200, r.text
+        return {x["index"]: x for x in rows(r.json()["table"])}["dogs"]
+    t, f = get("taxable"), get("tfsa")
+    assert t["AfterTaxCAGR"] <= t["CAGR"] + 1e-12 and t["AfterTaxCAGR"] != f["AfterTaxCAGR"]
+    assert f["AfterTaxCAGR"] == pytest.approx(f["CAGR"], abs=1e-9)
+
+
+@pytest.mark.parametrize("tax,needle", [
+    ({"model": "canadian", "account": "taxable", "province": "ON"}, "config.tax.province must be one of ['AB', 'BC'], got 'ON'"),
+    ({"model": "canadian", "account": "bogus", "province": "AB"}, "config.tax.account must be one of"),
+    ({"model": "nope", "account": "tfsa"}, "config.tax.model must be one of"),
+    ({"model": "none", "account": "tfsa", "us_withholding": 2}, "config.tax.us_withholding"),
+    ({"model": "none", "account": "tfsa", "bogus": 1}, "bogus"),
+    ({"model": "none"}, "config.tax.account is required"),
+])
+def test_backtest_bad_tax_is_a_400_naming_the_field(client, tax, needle):
+    r = _bt(client, tax)
+    assert r.status_code in (400, 422) and needle in json.dumps(r.json()), r.text
+
+
+def test_mcp_tax_and_bad_province(reg):
+    from screenlab.errors import ServerError
+    t = build_tools(reg)
+    b = t["backtest"](["dogs"], config={"tax": {"model": "placeholder", "account": "taxable"}}, max_points=20)
+    assert "AfterTaxCAGR" in b["table"]["columns"]
+    with pytest.raises(ServerError) as e:
+        t["backtest"](["dogs"], config={"tax": {"model": "canadian", "account": "taxable", "province": "ON"}})
+    assert e.value.status == 400 and "config.tax.province" in e.value.message
+
+
+def test_tax_config_changes_the_run_key(reg):
+    keys = set()
+    for tax in (None, {"model": "placeholder", "account": "taxable"}, {"model": "placeholder", "account": "tfsa"}):
+        args = {"screens": ["dogs"], "config": {"tax": tax} if tax else {}}
+        L = reg.get("synthetic")
+        spec = RunSpec("backtest", "synthetic", reg._kw("backtest", L, args))
+        keys.add(RS.run_key_for(spec, RS.dataset_id(L.market), RS.lab_context(L), "t"))
+    assert len(keys) == 3
+
+
+def test_openapi_shows_tax_sub_model(client):
+    schemas = client.get("/openapi.json").json()["components"]["schemas"]
+    assert "TaxRequest" in schemas
+    assert {"model", "account", "province", "year", "employment_income", "deductions", "eligible_share",
+            "us_withholding"} <= set(schemas["TaxRequest"]["properties"])
 
 
 def test_timing(client):

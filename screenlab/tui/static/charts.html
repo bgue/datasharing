@@ -232,6 +232,9 @@ const tabs = {
     }), {hovermode: "closest", yaxis: {autorange: "reversed", type: "category", categoryorder: "array", categoryarray: ex.map(r => r.label)},
       xaxis: {tickformat: ".1%", zeroline: true, zerolinecolor: d.passive.color, zerolinewidth: 2}});
     root.append(details("Table", table(["Scenario", ...cols], rows.map(r => [r.label + (r.mark ? " " + r.mark : ""), ...cols.map(c => r.values[c])]), rows.map(r => r.color))));
+    const taxed = Object.entries(d.tax || {});
+    if (taxed.length) root.append(flag("After-tax columns (AfterTaxCAGR, TaxDrag/yr; the passive index is taxed the same way): " +
+      taxed.map(([k, t]) => k + " = " + t.account + (t.province ? " " + t.province : " " + t.model)).join("; ")));
     root.append(flag("Trials this session: " + d.trials_total + ". Trials = variants of the row's family tried; DSR = chance its Sharpe survives that many tries (low = likely luck)."));
   },
 

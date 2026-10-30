@@ -133,18 +133,18 @@ portfolio at each year end), `Result.tax` / `after_tax_curve`, report columns
 same way, taxable / TFSA / RRSP with US withholding by account. No tax by default
 (golden tests unchanged). Monte Carlo with a tax config raises NotImplementedError.
 
-*Needs the owner's module:* the real dividend / salary tax (the shipped
-`PlaceholderCanadianTax` rates are illustrative and unchecked against CRA tables),
-provincial rates for provinces other than ON, rates by year, progressive brackets
-driven by simulated income. *Open approximations:* dividend dates and amounts
-(yield held between rebalances), interest on cash and parked money untaxed,
-index yield when the series is total return without one, no tax on the final
-unrealized gain unless `liquidate_at_end`.
+*Done:* `CanadianTax` (taxes.py, over `screenlab/tax_ca`): AB and BC, 2025 tables, joint yearly assessment (salary ->
+dividends -> foreign -> gains), eligible / non-eligible split, approximate foreign tax credit, taxable / TFSA / RRSP,
+loss carry-forward, `TAX_MODELS` by name; the owner's AB numbers are reproduced for a dividend-only portfolio and for
+dividends plus a gain (tests/test_taxes.py). `PlaceholderCanadianTax` stays for tests only.
 
-*Done when:* a backtest can be run as taxable / TFSA / RRSP and the
-after-tax excess return over the equally-taxed index is reported, with
-the owner's module's numbers reproduced for a dividend-only portfolio.
-(Mechanics done; waiting on the owner's module for the reproduction check.)
+*Remains:* more provinces and tax years (years without a table reuse the nearest one with a warning), pension income and
+RRSP contribution room, AMT, a refund of negative net tax, wiring the model choice into REST / TUI. *Open
+approximations:* dividend dates and amounts (yield held between rebalances), interest on cash and parked money untaxed,
+index yield when the series is total return without one, no tax on the final unrealized gain unless `liquidate_at_end`.
+
+*Done when:* a backtest can be run as taxable / TFSA / RRSP and the after-tax excess return over the equally-taxed index is
+reported, with the owner's module's numbers reproduced for a dividend-only portfolio. (Met for AB 2025.)
 
 ## Phase 4: Service and UI hardening (only if the tool is shared)
 Decide first whether screenlab stays a personal workbench or becomes

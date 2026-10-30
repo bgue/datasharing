@@ -1135,3 +1135,98 @@ def test_chart_compare_data_carries_trials_and_dsr(charts):
     assert dogs["values"]["Trials"] >= 1 and 0 < dogs["values"]["DSR"] < 1 and "frozen" in dogs
     assert "Trials" not in c["rows"][0]["values"]
     assert web.data_compare(s)["trials_total"] == c["trials_total"]
+
+
+# ------------------------------------------------------------------ tax (editor, Compare columns, web, remote)
+def _cmp_row(t, label):
+    return next(i for i in range(t.row_count) if label in str(t.get_row_at(i)[0]))
+
+
+def _cell(t, ci, name):
+    cols = [str(c.label) for c in t.columns.values()]
+    return str(t.get_row_at(ci)[cols.index(name)])
+
+
+def test_tax_editor_apply_new_version_with_after_tax_columns(reg):
+    async def go():
+        s = Session(reg)
+        app = ScreenlabApp(s, control_port=None)
+        async with app.run_test(size=(200, 60)) as pilot:
+            await settle(pilot, app)
+            s.command("add_scenario", {"screen": "dogs", "run": True, "wait": True})
+            await settle(pilot, app)
+            t = app.query_one("#t-compare")
+            assert "AfterTaxCAGR" not in [str(c.label) for c in t.columns.values()]
+            assert app.query_one("#f-tax-account").value == "none"
+            app.query_one("#f-tax-account").value = "taxable"
+            app.query_one("#f-tax-income").value = "90000"
+            await pilot.press("f2")
+            await until(lambda: len(s.scenarios) == 2 and all(x.status == "done" for x in s.scenarios), pilot=pilot,
+                        what="tax version done")
+            await settle(pilot, app)
+            v2 = s.scenarios[1]
+            assert v2.label == "dogs v2" and v2.params["tax"]["account"] == "taxable"
+            assert v2.params["tax"]["employment_income"] == 90000.0 and "tax taxable" in v2.diff_line
+            await until(lambda: "AfterTaxCAGR" in [str(c.label) for c in t.columns.values()], pilot=pilot,
+                        what="after-tax columns")
+            vals = {r["label"]: r["values"] for r in s.command("compare")["rows"]}
+            assert vals["dogs v2"]["AfterTaxCAGR"] <= vals["dogs v2"]["CAGR"]
+            assert vals["SYN_CAPWT"]["AfterTaxCAGR"] is not None                 # the passive index shows its taxed value
+            assert "dogs" in vals and "AfterTaxCAGR" not in vals["dogs"]          # untaxed version: blank
+            assert _cell(t, _cmp_row(t, "dogs v2"), "AfterTaxCAGR").strip() != ""
+            assert _cell(t, _cmp_row(t, "● dogs"), "AfterTaxCAGR").strip() == ""
+            # TFSA: no tax on this portfolio's gains, so after-tax equals pre-tax
+            app.query_one("#f-tax-account").value = "tfsa"
+            await pilot.press("f2")
+            await until(lambda: len(s.scenarios) == 3 and all(x.status == "done" for x in s.scenarios), pilot=pilot,
+                        what="tfsa version done")
+            v3 = s.command("compare")["rows"][-1]["values"]
+            assert v3["AfterTaxCAGR"] == pytest.approx(v3["CAGR"], abs=1e-9)
+            assert "Tax: dogs v2 taxable" in s.view("compare") and "dogs v3 tfsa" in s.view("compare")
+            snap = s.command("snapshot")
+            assert snap["scenarios"][2]["params"]["tax"]["account"] == "tfsa"
+    arun(go())
+
+
+def test_tax_in_web_compare_and_exports(sess, tmp_path):
+    from screenlab.tui import web
+    run_scenario(sess, tax={"model": "placeholder", "account": "taxable"})
+    d = web.data_compare(sess)
+    assert {"AfterTaxCAGR", "TaxDrag/yr"} <= set(d["columns"])
+    assert d["rows"][0]["values"]["AfterTaxCAGR"] is not None and d["tax"] == {"dogs": sess.scenarios[0].params["tax"]}
+    sess.command("export", {"path": str(tmp_path / "x"), "format": "both"})
+    assert "AfterTaxCAGR" in (tmp_path / "x.csv").read_text().splitlines()[0]
+    assert "taxable" in (tmp_path / "x.md").read_text()
+    assert "Tax: dogs taxable" in sess.view("compare")
+    with pytest.raises(SessionError) as e:
+        sess.command("set_params", {"scenario": "dogs", "params": {"tax": {"model": "nope", "account": "tfsa"}}})
+    assert e.value.status == 400 and "config.tax.model" in e.value.message
+
+
+def test_remote_session_sees_tax_params(parent):
+    r = parent.connect()
+    r.command("add_scenario", {"screen": "dogs", "run": True, "wait": True,
+                               "tax": {"model": "placeholder", "account": "tfsa"}})
+    assert r.scenarios[0].params["tax"]["account"] == "tfsa"
+    assert "AfterTaxCAGR" in r.command("compare")["columns"]
+    assert "Tax: dogs tfsa" in r.view("compare")
+
+
+def test_tax_editor_province_select_makes_canadian_version(reg):
+    async def go():
+        s = Session(reg)
+        app = ScreenlabApp(s, control_port=None)
+        async with app.run_test(size=(200, 60)) as pilot:
+            await settle(pilot, app)
+            s.command("add_scenario", {"screen": "dogs", "run": True, "wait": True})
+            await settle(pilot, app)
+            app.query_one("#f-tax-account").value = "taxable"
+            app.query_one("#f-tax-province").value = "AB"
+            await pilot.press("f2")
+            await until(lambda: len(s.scenarios) == 2 and all(x.status == "done" for x in s.scenarios), pilot=pilot,
+                        what="canadian version done")
+            tax = s.scenarios[1].params["tax"]
+            assert tax["model"] == "canadian" and tax["province"] == "AB" and tax["account"] == "taxable"
+            v = s.command("compare")["rows"][-1]["values"]
+            assert v["AfterTaxCAGR"] <= v["CAGR"] and "AfterTaxExcess/yr" in v
+    arun(go())

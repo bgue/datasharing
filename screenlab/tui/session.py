@@ -34,9 +34,9 @@ LOCK, CAND = "\U0001F512", "\u25C7"        # frozen / out-of-sample candidate ma
 PALETTE = ["#0072B2", "#56B4E9", "#D55E00", "#E69F00", "#009E73", "#CC79A7", "#F0E442", "#7B3294"]
 PASSIVE_COLOR = "#6B6B6B"
 PARAM_KEYS = ("screen", "lab", "n", "rebalance_months", "cost_bps", "commission", "mer", "cash_rate", "exit",
-              "start", "end")
+              "start", "end", "tax")
 CONFIG_KEYS = ("rebalance_months", "cost_bps", "commission", "mer", "cash_rate")
-COMPARE_COLS = ("CAGR", "Vol", "Sharpe", "MaxDD", "Worst12m", "Excess/yr", "CI5", "CI95", "P(>0)", "BeatBenchYrs",
+COMPARE_COLS = ("CAGR", "Vol", "Sharpe", "MaxDD", "Worst12m", "Excess/yr", "AfterTaxCAGR", "TaxDrag/yr", "AfterTaxExcess/yr", "CI5", "CI95", "P(>0)", "BeatBenchYrs",
                 "AvgN", "Turnover", "Costs/yr", "TimeOut", "Switches/yr", "Trials", "DSR")
 GUARD_COLS = ("Trials", "DSR")
 EXIT_ARGS = ("signals", "weights", "threshold", "min_votes", "hysteresis", "screen_params", "macro",
@@ -105,6 +105,19 @@ def _color(i: int) -> str:
     h = ((i - len(PALETTE)) * 0.381966) % 1.0                   # golden-angle hues, never equal to a palette entry
     r, g, b = colorsys.hls_to_rgb(h, 0.55, 0.6)
     return f"#{int(r * 255):02X}{int(g * 255):02X}{int(b * 255):02X}"
+
+
+def tax_label(tax) -> str:
+    """A tax param as short text: `none`, or `taxable AB 2025 $90000` (model placeholder shows its name)."""
+    if not tax:
+        return "none"
+    parts = [tax.get("account", "?")]
+    parts.append(tax.get("province") or tax.get("model", "?"))
+    if tax.get("model") == "canadian":
+        parts.append(str(tax.get("year", 2025)))
+    if tax.get("employment_income"):
+        parts.append(f"${tax['employment_income']:g}")
+    return " ".join(parts)
 
 
 def _num(x):
@@ -257,6 +270,12 @@ class Session:
                     out[k] = float(out[k])
                 except (TypeError, ValueError):
                     raise SessionError(400, f"{k} must be a number, got {out[k]!r}") from None
+        if "tax" in out:
+            from ..ops._request import _tax_config
+            try:
+                _tax_config(out["tax"])
+            except ServerError as e:
+                raise SessionError(e.status, e.message) from None
         if "exit" in out and not isinstance(out["exit"], dict):
             raise SessionError(400, "`exit` must be an object (an exit policy request) or null")
         if "screen" in out:
@@ -314,6 +333,8 @@ class Session:
             if p.get(k):
                 a[k] = p[k]
         cfg = {k: p[k] for k in CONFIG_KEYS if p.get(k) is not None}
+        if p.get("tax"):
+            cfg["tax"] = p["tax"]
         if cfg:
             a["config"] = cfg
         if p.get("exit"):
@@ -328,6 +349,8 @@ class Session:
 
     @staticmethod
     def _short(v):
+        if isinstance(v, dict) and "account" in v:
+            return "tax " + tax_label(v)
         if isinstance(v, dict):
             return v.get("name") or ("{" + ",".join(sorted(v)[:3]) + "}")
         return v
@@ -864,6 +887,11 @@ class Session:
         plabel = first.result["benchmark"] if first else self.passive_label()
         rows = [{"id": "passive", "label": plabel, "color": PASSIVE_COLOR, "passive": True, "version": None,
                  "values": dict(first.result["bench_metrics"]) if first else {}}]
+        taxed = next((s for s in self.scenarios if s.result and "AfterTaxCAGR" in s.result["bench_metrics"]), None)
+        if taxed is not None:                    # the passive index is taxed like the first taxed scenario (same account / model)
+            rows[0]["values"].update({k: v for k, v in taxed.result["bench_metrics"].items()
+                                      if k in ("AfterTaxCAGR", "TaxDrag/yr")})   # passive has no excess
+            rows[0]["tax"] = taxed.params.get("tax")
         for s in scs:
             if s.result:
                 g = self._guard(s)
@@ -950,7 +978,9 @@ class Session:
             for r in c["rows"]:
                 lines.append(f"| {r['label']}{' ' + r['mark'] if r.get('mark') else ''} | "
                              + " | ".join(fmt_cell(x, r["values"].get(x)) for x in c["columns"]) + " |")
-            lines += ["", f"trials this session: {c['trials_total']}", *c["diffs"]]
+            taxes_ = [f"{x.label}: {tax_label(x.params.get('tax'))}" for x in self.scenarios if x.params.get("tax")]
+            lines += ["", f"trials this session: {c['trials_total']}", *c["diffs"],
+                      *(["tax (AfterTaxCAGR, TaxDrag/yr): " + "; ".join(taxes_)] if taxes_ else [])]
             with open(base + ".md", "w") as f:
                 f.write("\n".join(lines) + "\n")
             files.append(base + ".md")
@@ -1153,6 +1183,8 @@ class Session:
                 f"{'>' if s.id == self.selected else ''}{s.label}{' ' + self.mark(s) if self.mark(s) else ''} [{s.color}] {s.status}"
                 for s in self.scenarios) or "none"),
                     f"Trials this session: {self.trials_total()}",
+                    *(["Tax: " + "; ".join(f"{s.label} {tax_label(s.params.get('tax'))}" for s in self.scenarios
+                                           if s.params.get("tax"))] if any(s.params.get("tax") for s in self.scenarios) else []),
                     "Jobs: " + ("; ".join(f"{j['kind']} {j['progress']:.0%}" for j in self.cmd_jobs()["jobs"]
                                           if j["status"] not in FINAL) or "idle"), f"== {tab} =="]
             body = getattr(self, f"_view_{tab}")()

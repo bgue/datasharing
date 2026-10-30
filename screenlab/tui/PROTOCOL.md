@@ -66,6 +66,7 @@ only when the seq moved. `screenlab-tui --remote URL` also joins a TUI running i
 | `cash_rate` | number | annual return on cash |
 | `exit` | object or null | an exit policy request, same shape as `exit` of the `backtest` operation: `{"signals": [{"type": "TrendBreak", "index": "SYN_CAPWT"}], "threshold": 0.8, "park": "cash", ...}` |
 | `start`, `end` | ISO date | backtest window |
+| `tax` | object or null | tax the run, same shape as `config.tax` of the `backtest` operation: `{"model": "placeholder"\|"canadian"\|"none", "account": "taxable"\|"tfsa"\|"rrsp", "province": "AB"\|"BC", "year": 2025, "employment_income": 0, ...}`. Bad values are 400 (`config.tax.province must be one of ['AB', 'BC'], got 'ON'`). The editor's Tax section sets it (province blank = `placeholder`, else `canadian`) |
 
 * **Job info** (`job`): `{"job_id", "kind", "status": "queued|running|done|failed|cancelled", "progress": 0..1,
   "message", "error", "cache_hit"}`.
@@ -233,6 +234,12 @@ is missing or the result covers less than the stated horizon. `link` args `{"sce
 `candidate_of`, `hypothesis`, `family` and `mark`; the result has `trials_total` (variants run this session). The passive row
 has neither. Snapshot: `trials: {"total", "families": {family: count}}`, `hypotheses` (as above), and per scenario `frozen`,
 `candidate`, `candidate_of`, `hypothesis`, `family`, `trials`, `dsr`.
+
+### Compare columns `AfterTaxCAGR` and `TaxDrag/yr`
+When a scenario has a `tax` param, `compare` adds `values.AfterTaxCAGR` and `values.TaxDrag/yr` to its row and to the passive
+row (taxed the same way as the first taxed scenario; the passive row also carries `tax`). Untaxed rows lack them. The web
+Compare data (`/data/compare`) has the same `columns`/`rows` plus `tax: {label: params}`. `snapshot` scenario `params.tax`,
+the exports (CSV column, Markdown `tax` line) and `view` (`Tax: dogs v2 taxable AB ...`) carry the tax params.
 
 ### `snapshot` / `view`
 `snapshot` (also `GET /state`) -> the whole state:
