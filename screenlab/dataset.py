@@ -65,6 +65,16 @@ def survivorship_score(prices: pd.DataFrame, benchmark: pd.Series | None, names=
     return _cagr(ew) - _cagr(b)
 
 
+def _meta_card(meta: pd.DataFrame | None, home: str = "CA") -> dict:
+    """P3: DataCard fields describing `security_meta` (share of names domiciled outside `home`, by country; currencies)."""
+    if meta is None or not len(meta):
+        return {}
+    dom = meta["domicile"].astype(str)
+    share = {c: float((dom == c).mean()) for c in sorted(set(dom[dom != home]))}
+    return dict(foreign_share=float((dom != home).mean()), foreign_countries=share,
+                currencies=tuple(sorted(set(meta["currency"].astype(str)))))
+
+
 @dataclass(frozen=True)
 class DataCard:
     name: str
@@ -84,6 +94,19 @@ class DataCard:
     index_kinds: dict = field(default_factory=dict, compare=False)   # index name -> kind
     dividend_yield: float | None = None   # assumed constant yield added to a price benchmark (approx. TR)
     assumed_kinds: tuple = field(default=(), compare=False)   # index names whose kind was assumed, not stated
+    foreign_share: float | None = field(default=None, compare=False)   # P3: share of names domiciled outside Canada (None: no metadata)
+    foreign_countries: dict = field(default_factory=dict, compare=False)   # P3: non-home domicile -> share of names
+    currencies: tuple = field(default=(), compare=False)      # P3: currencies of the names (from security_meta)
+
+    def foreign_line(self) -> str:
+        """P3: "foreign: 100% of names (US 100%), currencies USD; withholding: taxable creditable (FTC), tfsa lost, rrsp
+        exempt (US-listed); etf_ca on foreign stocks: lost in every account" ("" without metadata)."""
+        if self.foreign_share is None:
+            return ""
+        ctry = ", ".join(f"{c} {v:.0%}" for c, v in sorted(self.foreign_countries.items(), key=lambda kv: -kv[1]))
+        return (f"foreign: {self.foreign_share:.0%} of names" + (f" ({ctry})" if ctry else "")
+                + f", currencies {'/'.join(self.currencies) or 'n/a'}; withholding: taxable creditable (FTC), "
+                  f"tfsa lost, rrsp exempt (US-listed); Canadian ETF on foreign stocks: lost in every account")
 
     @property
     def span(self) -> str:
@@ -107,8 +130,11 @@ class DataCard:
             bm = f"{self.benchmark} ({self.benchmark_kind}: price index + assumed {self.dividend_yield:.1%}/yr dividends)"
         else:
             bm = f"{self.benchmark} ({self.benchmark_kind})"
-        return (f"Data: {self.name}, {self.span}, {self.n_names} names, benchmark {bm}, PIT {pit}, "
-                f"delisted {dl}, survivorship {sc}")
+        out = (f"Data: {self.name}, {self.span}, {self.n_names} names, benchmark {bm}, PIT {pit}, "
+               f"delisted {dl}, survivorship {sc}")
+        if self.foreign_share:                                       # P3: only when some name is foreign
+            out += "\n" + self.foreign_line()
+        return out
 
     def warnings(self) -> list[str]:
         out = []
@@ -140,6 +166,9 @@ class DataCard:
         if d["survivorship_score"] != d["survivorship_score"]:
             d["survivorship_score"] = None
         d["dividend_yield"] = self.dividend_yield
+        d["foreign_share"] = self.foreign_share
+        d["foreign_countries"] = dict(self.foreign_countries)
+        d["currencies"] = list(self.currencies)
         d["warnings"] = self.warnings()
         return d
 
@@ -151,6 +180,7 @@ class Dataset:
     indices: pd.DataFrame                 # benchmark series by name (may have no columns)
     universe: Universe                    # bound to this dataset's data on construction
     manifest: DataCard
+    security_meta: pd.DataFrame | None = None   # P3: ticker -> domicile / listing / currency / wrapper / ... (data.SECURITY_META_COLS)
 
     def __post_init__(self):
         object.__setattr__(self, "universe", self.universe.bind(self.fundamentals, self.prices))
@@ -163,10 +193,11 @@ class Dataset:
     def from_frames(cls, fundamentals, prices, indices=None, universe: Universe | None = None, *,
                     name="custom", source="in-memory frames", index_kinds: dict | None = None,
                     pit: bool | None = True, currency="n/a", licence="",
-                    assumed_kinds: tuple = ()) -> "Dataset":
+                    assumed_kinds: tuple = (), security_meta: pd.DataFrame | None = None) -> "Dataset":
         """Build a Dataset and compute its card. `index_kinds` maps index name -> "price"|"total_return"
         (unlisted indices count as total_return); `assumed_kinds` names the indices whose kind was not stated
-        by the source (the card warns about them)."""
+        by the source (the card warns about them). `security_meta` (optional, see `data.security_meta`): per-ticker
+        domicile / currency / wrapper for the tax stage; the card then reports the share of foreign names."""
         if not prices.index.is_monotonic_increasing:
             prices = prices.sort_index()
         idx = indices if indices is not None else pd.DataFrame(index=prices.index)
@@ -181,13 +212,13 @@ class Dataset:
                         n_names=int(prices.shape[1]), benchmark=None, benchmark_kind=None, pit=pit,
                         delisted_included=n_del > 0, n_delisted=n_del, survivorship_score=float("nan"),
                         currency=currency, licence=licence, universe=uni.fingerprint(), index_kinds=kinds,
-                        assumed_kinds=tuple(assumed_kinds))
-        ds = cls(prices, fundamentals, idx, uni, card)
+                        assumed_kinds=tuple(assumed_kinds), **_meta_card(security_meta))
+        ds = cls(prices, fundamentals, idx, uni, card, security_meta)
         first = idx.columns[0] if len(idx.columns) else None
         return ds._with_card(ds.card_for(first)) if first else ds
 
     def _with_card(self, card: DataCard) -> "Dataset":
-        return Dataset(self.prices, self.fundamentals, self.indices, self.universe, card)
+        return Dataset(self.prices, self.fundamentals, self.indices, self.universe, card, self.security_meta)
 
     def _series(self, name: str) -> pd.Series | None:
         if name in self.indices:
@@ -225,12 +256,12 @@ class Dataset:
         idx = self.indices.copy()
         idx[name] = series
         card = replace(self.manifest, index_kinds={**self.manifest.index_kinds, name: kind})
-        ds = Dataset(self.prices, self.fundamentals, idx, self.universe, card)
+        ds = Dataset(self.prices, self.fundamentals, idx, self.universe, card, self.security_meta)
         return ds._with_card(ds.card_for(card.benchmark or name))
 
     def with_universe(self, universe: Universe) -> "Dataset":
         card = replace(self.manifest, universe=universe.fingerprint())
-        ds = Dataset(self.prices, self.fundamentals, self.indices, universe, card)
+        ds = Dataset(self.prices, self.fundamentals, self.indices, universe, card, self.security_meta)
         return ds._with_card(ds.card_for(card.benchmark, card.dividend_yield))
 
 
@@ -250,14 +281,15 @@ class SyntheticBuilder:
 
     def build(self, **opts) -> Dataset:
         o = replace(self, **opts)
-        from .data import synthetic_market
+        from .data import security_meta, synthetic_market
         fund, prices, indices = synthetic_market(n_stocks=o.n_stocks, start=o.start, years=o.years,
                                                  freq=o.freq, seed=o.seed)
         return Dataset.from_frames(
             fund, prices, indices, name="synthetic",
             source=f"data.synthetic_market(n_stocks={o.n_stocks}, years={o.years}, freq={o.freq!r}, seed={o.seed})",
             index_kinds={"SYN_CAPWT": "total_return"}, pit=True, currency="n/a",
-            licence="synthetic, no restrictions")
+            licence="synthetic, no restrictions",
+            security_meta=security_meta(prices.columns, domicile="CA", currency="CAD", eligible_dividend=True))
 
 
 @dataclass(frozen=True)
@@ -267,6 +299,7 @@ class BundledSP500Builder:
 
     def build(self, **opts) -> Dataset:
         o = replace(self, **opts)
+        from .data import security_meta
         from .realdata import bundled
         prices = bundled.sp500_prices(o.path_prices)
         idx = bundled.sp500_index(o.path_index)
@@ -274,7 +307,8 @@ class BundledSP500Builder:
         return Dataset.from_frames(
             fund, prices, idx, name="sp500_bundled", source="skfolio sp500_dataset.csv.gz + sp500_index.csv.gz",
             index_kinds={c: "price" for c in idx.columns}, pit=None, currency="USD",
-            licence="sample data shipped with skfolio; check its licence before redistributing")
+            licence="sample data shipped with skfolio; check its licence before redistributing",
+            security_meta=security_meta(prices.columns, domicile="US", currency="USD", eligible_dividend=False))
 
 
 @dataclass(frozen=True)
@@ -288,11 +322,12 @@ class CSVBuilder:
     pit: bool | None = True               # you promise the fundamentals already carry their reporting lag
     currency: str = "n/a"
     licence: str = ""
+    securities: str | None = None         # P3: optional securities.csv (ticker, domicile, listing, currency, wrapper,
+                                          # underlying_domicile, eligible_dividend); None: no security_meta
 
     def build(self, **opts) -> Dataset:
         o = replace(self, **opts)
-        from .data import load_csv
-        from .data import load_index_kinds
+        from .data import load_csv, load_index_kinds, load_securities
         fund, prices, idx = load_csv(o.fundamentals, o.prices, o.indices)
         cols = list(idx.columns) if idx is not None else []
         stated = load_index_kinds(o.indices) if o.indices else {}
@@ -301,7 +336,8 @@ class CSVBuilder:
         return Dataset.from_frames(
             fund, prices, idx, name=o.name, source=f"csv: {o.fundamentals}, {o.prices}"
             + (f", {o.indices}" if o.indices else ""),
-            index_kinds=kinds, assumed_kinds=assumed, pit=o.pit, currency=o.currency, licence=o.licence)
+            index_kinds=kinds, assumed_kinds=assumed, pit=o.pit, currency=o.currency, licence=o.licence,
+            security_meta=load_securities(o.securities, prices.columns) if o.securities else None)
 
 
 @dataclass(frozen=True)

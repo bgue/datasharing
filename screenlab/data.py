@@ -83,6 +83,49 @@ def load_csv(fundamentals_path: str, prices_path: str, indices_path: str | None 
     return add_ratios(f), p.pivot(index="date", columns="ticker", values="tri").sort_index(), idx
 
 
+# P3: security metadata (per-ticker domicile / listing / currency / wrapper), see docs/TAXES.md "Foreign holdings"
+WRAPPERS = ("stock", "etf_ca", "etf_us")
+SECURITY_META_COLS = ("domicile", "listing", "currency", "wrapper", "underlying_domicile", "eligible_dividend")
+COUNTRY_CURRENCY = {"CA": "CAD", "US": "USD", "GB": "GBP", "DE": "EUR", "FR": "EUR", "JP": "JPY", "CH": "CHF"}
+
+
+def security_meta(tickers, rows: pd.DataFrame | None = None, *, domicile="CA", currency=None, wrapper="stock",
+                  eligible_dividend=True) -> pd.DataFrame:
+    """Per-ticker metadata table (index `ticker`, columns `SECURITY_META_COLS`). `rows` (optional, indexed by ticker or
+    with a `ticker` column) overrides the defaults per name; a ticker or a cell it leaves blank gets the default:
+    domicile `domicile`, listing = domicile, currency `currency` (else the domicile's usual one), wrapper "stock",
+    underlying_domicile blank, eligible_dividend `eligible_dividend` (only meaningful for a Canadian domicile)."""
+    t = pd.Index(list(tickers), name="ticker")
+    r = pd.DataFrame(index=t, columns=list(SECURITY_META_COLS), dtype=object)
+    if rows is not None and len(rows):
+        rows = rows.set_index("ticker") if "ticker" in rows.columns else rows
+        rows = rows[~rows.index.duplicated(keep="last")]
+        for c in SECURITY_META_COLS:
+            if c in rows.columns:
+                r[c] = rows[c].reindex(t).astype(object)
+    for c in ("domicile", "listing", "underlying_domicile"):
+        r[c] = r[c].map(lambda v: v.strip().upper() if isinstance(v, str) and v.strip() else np.nan)
+    r["domicile"] = r["domicile"].fillna(domicile)
+    r["listing"] = r["listing"].fillna(r["domicile"])
+    r["currency"] = r["currency"].map(lambda v: v.strip().upper() if isinstance(v, str) and v.strip() else np.nan)
+    dflt = r["domicile"].map(lambda d: currency or COUNTRY_CURRENCY.get(d, currency or "USD"))
+    r["currency"] = r["currency"].fillna(dflt)
+    r["wrapper"] = r["wrapper"].map(lambda v: v.strip().lower() if isinstance(v, str) and v.strip() else wrapper)
+    bad = sorted(set(r["wrapper"]) - set(WRAPPERS))
+    if bad:
+        raise ValueError(f"wrapper must be one of {WRAPPERS}, got {bad}")
+    r["eligible_dividend"] = r["eligible_dividend"].map(
+        lambda v: bool(eligible_dividend) if v is None or (isinstance(v, float) and v != v) else
+        (str(v).strip().lower() in ("1", "true", "t", "yes", "y") if isinstance(v, str) else bool(v)))
+    return r
+
+
+def load_securities(path, tickers) -> pd.DataFrame:
+    """`securities.csv` (columns ticker, domicile, listing, currency, wrapper, underlying_domicile, eligible_dividend; all
+    but ticker optional) -> `security_meta` for `tickers`."""
+    return security_meta(tickers, pd.read_csv(path, dtype=str, keep_default_na=False).replace("", np.nan))
+
+
 def load_index_kinds(indices_path: str) -> dict:
     """{index name: kind} from the optional `kind` column ("price" or "total_return") of an indices csv;
     an index with no (or a blank) kind is left out."""
@@ -252,6 +295,10 @@ class Market:
         s["market_cap"] += d_mcap
         s["enterprise_value"] += d_mcap
         s = add_ratios(s).join(self.trailing_stats(asof))
+        meta = getattr(self.dataset, "security_meta", None)                          # P3: domicile / currency / wrapper
+        if meta is not None:
+            new = [c for c in meta.columns if c not in s.columns]
+            s = s.join(meta[new].reindex(s.index)) if new else s
         return self._views.put(asof, self.universe.restrict(s, asof))
 
     def picks(self, screen, asof) -> list[str]:

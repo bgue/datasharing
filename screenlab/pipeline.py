@@ -193,11 +193,21 @@ class TaxStage:
                  to the name's cost basis (the price gain on a later sale excludes them).
       switches   an exit-policy exposure change sells the matching share of the equity sleeve (gain realized) into
                  the parked asset, or sells the parked asset (gain realized) to buy equity. The parked asset's
-                 gain is taxed as a capital gain when sold; interest on cash is not taxed. Between switches the mix
-                 is treated as rebalanced for free.
+                 gain is taxed as a capital gain when sold. Between switches the mix is treated as rebalanced for free.
       delisting  a name written off at the end of its segment realizes its loss (value at the haircut - cost).
-    Trading costs are not added to the cost basis nor deducted from proceeds. Tax payments are taken pro rata from
-    all holdings without realizing the gain on the part sold."""
+    P1 additions:
+      interest   cash interest is income per bar, taxed as ordinary income (event column `interest`): the sleeve's
+                 unallocated cash (Accrual cash return), a fully-in-cash segment, and the exit policy's parked cash
+                 (park "cash" or a rate; `park_income_kind` decides interest / eligible dividend / foreign dividend).
+                 The income is reinvested in the parked asset: it adds to the parked cost basis, so the later "gain"
+                 on the park excludes it. A parked index / ticker series is capital: no income events.
+      costs      trading costs of a rebalance (`trade(cost=)`): buy-side costs are added to the name's cost basis,
+                 sell-side costs are deducted from its proceeds (CRA). Exit-switch costs and the costs of the final
+                 liquidation are not (they are inside the path).
+      roc        snapshot column `roc` (fraction of a distribution that is return of capital): that part of the
+                 per-bar distribution is not income; it reduces the name's ACB (the reinvestment still adds the whole
+                 distribution), and what would take the ACB below zero is a capital gain on that bar.
+    Tax payments are taken pro rata from all holdings without realizing the gain on the part sold."""
 
     def __init__(self, tax, capital: float):
         self.tax, self.capital = tax, float(capital)
@@ -206,15 +216,77 @@ class TaxStage:
         self._ev: list = []
         self._last_mv = pd.Series(dtype=float)
         self._last_park = 0.0
+        self._mkt, self._fx, self._fx0, self._warn = None, None, None, []      # P3
+
+    # ---- P3: security metadata, foreign dividends and the CAD basis
+    def bind(self, mkt) -> None:
+        """P3: give the stage the market (security_meta, trading calendar) and the FX series of `tax.macro`, if any."""
+        self._mkt = mkt
+        m = self.tax.macro
+        fx = m.get("fx") if m is not None and hasattr(m, "get") else None
+        if fx is not None:
+            from .macro import pad_align
+            s = pad_align(fx, mkt.index).bfill()
+            self._fx = None if s.isna().all() else s
+
+    def _info(self, names, snap: pd.DataFrame) -> pd.DataFrame:
+        """P3: `TaxConfig.foreign_info` for `names`, security_meta filling what the snapshot lacks; records the
+        missing-FX warnings."""
+        base = snap.reindex(names) if len(snap) else pd.DataFrame(index=pd.Index(names))
+        meta = getattr(getattr(self._mkt, "dataset", None), "security_meta", None)
+        if meta is not None:
+            for c in meta.columns:
+                m = meta[c].reindex(base.index)
+                base[c] = base[c].where(base[c].notna(), m) if c in base else m
+        from .taxes import FX_WARNING
+        info = self.tax.foreign_info(names, base)
+        cur = info["currency"]
+        away = cur[cur != self.tax.home_currency]
+        if len(away):
+            if self._fx is None:
+                msg = FX_WARNING
+            else:
+                other = sorted(set(away) - {self.tax.fx_currency})
+                msg = f"no FX series for {other}: gains of those names taxed in portfolio currency" if other else None
+            if msg and msg not in self._warn:
+                self._warn.append(msg)
+        return info
+
+    def _fxf(self, index, info: pd.DataFrame) -> np.ndarray:
+        """P3: CAD value of one portfolio-currency unit on each date of `index` (n dates x n names), relative to the
+        first trade date (start wealth = `capital` CAD): fx(t) / fx(t0) for names in `tax.fx_currency`, else 1."""
+        F = np.ones((len(index), len(info)))
+        if self._fx is None:
+            return F
+        m = (info["currency"] == self.tax.fx_currency).to_numpy()
+        if m.any():
+            r = self._fx.reindex(index).to_numpy(float)
+            if self._fx0 is None:
+                self._fx0 = float(r[0])
+            F[:, m] = (r / self._fx0)[:, None]
+        return F
+
+    def _dividend_events(self, idx, Di: np.ndarray, info: pd.DataFrame) -> pd.DataFrame:
+        """P3: the per-bar dividend income (CAD wealth units) split by where it comes from (see taxes.assess)."""
+        k, rate = info["kind"].to_numpy(), info["rate"].to_numpy(float)
+        dom, dr, fd = k == "domestic", k == "direct", k == "fund"
+        ne = dom & info["non_eligible"].to_numpy(bool)
+        sm = lambda m, M=Di: M[:, m].sum(axis=1)                      # noqa: E731
+        W = Di * rate[None, :]
+        rrsp = self.tax.account == "rrsp"
+        lost = dr & ~info["exempt"].to_numpy(bool)
+        return pd.DataFrame({"div_ca": sm(dom), "div_fx": sm(dr), "div_ne": sm(ne), "div_fund": sm(fd),
+                             "wh_fund": sm(fd, W), "wh_fx": 0.0 * sm(dr) if rrsp else sm(dr, W),
+                             "wh_lost": sm(lost, W) if rrsp else 0.0 * sm(dr)}, index=idx)
 
     # ---- events
     def _gains(self, date, gains) -> None:
         g = np.asarray(gains, float)
         self._ev.append(pd.DataFrame({"gain": [g[g > 0].sum()], "loss": [g[g < 0].sum()]}, index=[date]))
 
-    def trade(self, d, value: float, e: float, prev: pd.Series, target: pd.Series) -> None:
+    def trade(self, d, value: float, e: float, prev: pd.Series, target: pd.Series, cost: pd.Series | None = None) -> None:
         """Rebalance at `d`: `value` wealth before the trade cost, `e` equity share, `prev` / `target` drifted and new
-        sleeve weights."""
+        sleeve weights. P1: `cost` = trading cost per name in wealth units (a name's cost goes to its sell or its buy leg)."""
         if self.pb is None:
             self.pb = value * (1 - e)
         M = value * e
@@ -224,15 +296,45 @@ class TaxStage:
         sell, buy = np.maximum(p - t, 0.0) * M, np.maximum(t - p, 0.0) * M
         den = p * M
         frac = np.divide(sell, den, out=np.zeros_like(sell), where=den > 0)
-        gains = sell - b * frac
+        c = cost.reindex(names, fill_value=0.0).to_numpy(float) if cost is not None else np.zeros(len(names))   # P1
+        F = self._fxf([d], self._info(names, self._mkt.view(d) if self._mkt is not None else pd.DataFrame()))[0]   # P3
+        gains = (sell - np.where(p > t, c, 0.0)) * F - b * frac            # P1: sell-side cost out of the proceeds; P3: CAD at the sell date
         self._gains(d, gains[sell > 1e-15])
-        b = b * (1 - frac) + buy
+        b = b * (1 - frac) + (buy + np.where(t > p, c, 0.0)) * F           # P1: buy-side cost into the cost base; P3: CAD at the buy date
         self.basis = pd.Series(b, index=names)[lambda s: (s != 0) | s.index.isin(target.index)]
 
+    @staticmethod
+    def roc_step(b, d, r):
+        """P1: ACB `b` after a distribution `d` of which `r` is return of capital, the whole `d` reinvested: the ROC lowers
+        the ACB first (what would take it below zero is a capital gain, ACB floored at 0), then `d` is added.
+        Returns (new ACB, excess gain), elementwise."""
+        low = np.asarray(b, float) - r
+        ex = np.maximum(-low, 0.0)
+        out = np.maximum(low, 0.0) + d
+        return (out, ex) if np.ndim(out) else (float(out), float(ex))
+
+    def cash_segment(self, seg_index, value0: float, cash_factor) -> None:
+        """P1: one holding period with nothing held (the whole value is in cash): interest on `value0`."""
+        cf = np.asarray(cash_factor, float)
+        inc = np.zeros(len(cf))
+        inc[1:] = value0 * np.diff(cf)
+        self._interest(seg_index, inc, "interest")
+        self._last_mv = pd.Series(dtype=float)
+        self._last_park = 0.0
+
+    def _interest(self, seg_index, inc: np.ndarray, kind: str) -> None:
+        """P1: income per bar of cash-like money, as `kind` (interest / dividend_eligible / dividend_foreign)."""
+        col = {"interest": "interest", "dividend_eligible": "div_ca", "dividend_foreign": "div_fx"}[kind]
+        if np.any(inc):
+            self._ev.append(pd.DataFrame({col: inc}, index=seg_index))
+
     def segment(self, seg_index, yrs, value0: float, g: pd.DataFrame, target: pd.Series, S: np.ndarray, P: np.ndarray,
-                e: np.ndarray | None, dead: pd.DataFrame, snap: pd.DataFrame) -> None:
+                e: np.ndarray | None, dead: pd.DataFrame, snap: pd.DataFrame, cash_factor=None, policy=None,
+                park_r=None) -> None:
         """One holding period. `value0` wealth after the trade cost, `g` growth of each name (after delisting and
-        MER), `S` / `P` sleeve / total growth path (equal without an overlay), `e` exposure per bar."""
+        MER), `S` / `P` sleeve / total growth path (equal without an overlay), `e` exposure per bar. P1: `cash_factor`
+        (the Accrual's cash growth along `yrs`), `policy` (the ExitPolicy) and `park_r` (parked money's return per bar)
+        give the interest events."""
         names, tax = target.index, self.tax
         n_b = len(seg_index)
         e = np.ones(n_b) if e is None else np.asarray(e, float)
@@ -242,23 +344,54 @@ class TaxStage:
         mv = (V * e)[:, None] * w                                      # market value of each name per bar
         yld = snap["div_yield"].reindex(names).fillna(0.0).clip(lower=0.0).to_numpy() if "div_yield" in snap \
             else np.zeros(len(names))
-        fx = tax.foreign_mask(names, snap)
+        info = self._info(names, snap)                                 # P3
+        Fm = self._fxf(seg_index, info)                                # P3: CAD per unit, bar by bar
         alive = ~dead.to_numpy()
         D = np.zeros_like(mv)
         D[1:] = mv[:-1] * yld[None, :] * np.diff(yrs)[:, None] * alive[:-1]
-        self._ev.append(pd.DataFrame({"div_ca": D[:, ~fx].sum(axis=1), "div_fx": D[:, fx].sum(axis=1)}, index=seg_index))
+        D = D * Fm                                                     # P3: dividends in CAD at the payment-date FX
+        # P1: return of capital -- that part of a distribution is not income (and reduces the ACB, see `adv`)
+        roc = snap["roc"].reindex(names).fillna(0.0).clip(0.0, 1.0).to_numpy() if "roc" in snap else np.zeros(len(names))
+        R = D * roc[None, :]
+        Di = D - R
+        self._ev.append(self._dividend_events(seg_index, Di, info))    # P3
+        # P1: interest on the sleeve's unallocated cash, and on parked cash
+        if cash_factor is not None and n_b > 1:
+            cf, ts = np.asarray(cash_factor, float), float(target.sum())
+            if ts < 1 - 1e-9:
+                inc = np.zeros(n_b)
+                inc[1:] = (V * e)[:-1] * (1 - ts) * np.diff(cf) / np.asarray(S)[:-1]
+                self._interest(seg_index, inc, "interest")
+        pinc = np.zeros(n_b)
+        if policy is not None and park_r is not None and n_b > 1 and (policy.park == "cash" or not isinstance(policy.park, str)):
+            pk = policy.park_income_kind if policy.park_income_kind != "interest" else tax.park_income_kind
+            pinc[1:] = (V * (1 - e))[:-1] * np.maximum(np.asarray(park_r, float)[1:], 0.0)
+            self._interest(seg_index, pinc, pk)
+        pcd = np.cumsum(pinc)
         cd = np.cumsum(D, axis=0)
+        has_roc = bool(R.any())
+
+        def adv(b, a, z):                                              # basis after bars a+1 .. z
+            if not has_roc:
+                return b + cd[z] - cd[a]
+            for j in range(a + 1, z + 1):                              # reinvest D after the ROC part lowers the ACB
+                b, ex = self.roc_step(b, D[j], R[j])
+                if np.any(ex > 1e-15):
+                    self._gains(seg_index[j], ex[ex > 1e-15])          # ROC beyond the ACB is a capital gain
+            return b
         b = self.basis.reindex(names, fill_value=0.0).to_numpy()
         last, tiny = 0, 1e-12
         sw = np.flatnonzero(np.abs(np.diff(e)) > tiny) + 1
         for i in sw:
-            b = b + cd[i] - cd[last]
+            b = adv(b, last, i)
+            if self.pb is not None:
+                self.pb += pcd[i] - pcd[last]                          # P1: parked income is reinvested
             last = i
             e0, e1, Vi = e[i - 1], e[i], V[i]
             if e1 < e0 and e0 > 0:                                      # equity sold into the parked asset
                 s = (e0 - e1) / e0
                 mvpre = Vi * e0 * w[i]
-                self._gains(seg_index[i], s * (mvpre - b))
+                self._gains(seg_index[i], s * (mvpre * Fm[i] - b))             # P3: proceeds in CAD
                 b = b * (1 - s)
                 self.pb += s * float(mvpre.sum())
             elif e1 > e0 and e0 < 1:                                    # parked asset sold, equity bought
@@ -268,14 +401,16 @@ class TaxStage:
                 self.pb *= 1 - s
                 tot = G[i].sum()
                 if tot > 0:
-                    b = b + Vi * (e1 - e0) * G[i] / tot
-        b = b + cd[-1] - cd[last]
+                    b = b + Vi * (e1 - e0) * G[i] / tot * Fm[i]                # P3: CAD at the buy date
+        b = adv(b, last, n_b - 1)
+        if self.pb is not None:
+            self.pb += pcd[-1] - pcd[last]
         dd = dead.iloc[-1].to_numpy()
         if dd.any():                                                    # written-off names realize their loss
-            self._gains(seg_index[-1], mv[-1][dd] - b[dd])
+            self._gains(seg_index[-1], mv[-1][dd] * Fm[-1][dd] - b[dd])    # P3
             b[dd] = 0.0
         self.basis = pd.Series(b, index=names)
-        self._last_mv = pd.Series(np.where(dd, 0.0, mv[-1]), index=names)
+        self._last_mv = pd.Series(np.where(dd, 0.0, mv[-1] * Fm[-1]), index=names)   # P3: CAD at the last date
         self._last_park = float(V[-1] * (1 - e[-1]))
 
     def finish(self, curve: pd.Series, mkt=None) -> tuple:
@@ -288,7 +423,31 @@ class TaxStage:
             self._gains(curve.index[-1], gains)
         ev = pd.concat(self._ev) if self._ev else pd.DataFrame()
         ev = ev.groupby(level=0).sum() if len(ev) else ev
-        return assess(curve, ev, self.tax, self.capital)
+        return assess(curve, ev, self.tax, self.capital, warnings=self._warn)          # P3
+
+
+    # P2: loss harvesting (harvesting.py) reads and amends the ledger only through these two methods
+    def harvest_candidates(self, held: pd.Series, value: float, threshold: float, min_loss: float = 0.0,
+                           d=None, snap: pd.DataFrame | None = None) -> pd.DataFrame:
+        """Held names whose unrealized loss is beyond `threshold` (share of cost) and above `min_loss` (wealth units).
+        `held` = weights of the live holdings, `value` = wealth at `d`; the value is put in the basis' currency (CAD at
+        `d` when the stage has an FX series). Columns `loss` (wealth units, > 0) and `pct`."""
+        b = self.basis.reindex(held.index).fillna(0.0)
+        mv = held * value
+        if d is not None and self._fx is not None:
+            mv = mv * self._fxf([d], self._info(held.index, snap if snap is not None else pd.DataFrame()))[0]
+        loss = b - mv
+        pct = loss / b.where(b > 0)
+        ok = (pct > threshold) & (loss > min_loss) & (loss > 1e-15)
+        return pd.DataFrame({"loss": loss[ok], "pct": pct[ok]})
+
+    def deny_loss(self, name: str, date, amount: float) -> None:
+        """A loss realized at `date` is (partly) superficial: take `amount` out of that date's losses and add it to the
+        cost basis of `name` (the shares bought)."""
+        self._ev.append(pd.DataFrame({"gain": [0.0], "loss": [float(amount)]}, index=[date]))
+        self.basis = self.basis.copy()
+        self.basis[name] = float(self.basis.get(name, 0.0)) + float(amount)
+    # P2: end
 
 
 # --------------------------------------------------------------------------- many paths at once

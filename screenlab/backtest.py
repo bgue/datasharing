@@ -161,6 +161,7 @@ class Result:
     exit: ExitPolicy | None = None    # the policy that produced this result
     tax: pd.DataFrame | None = None   # tax per calendar year (taxes.TAX_COLS); None without Config.tax
     after_tax_curve: pd.Series | None = None   # the portfolio value after the tax paid so far (None without Config.tax)
+    harvest: pd.DataFrame | None = None        # P2: loss-harvest records (harvesting.HARVEST_COLS); None without Config.tax.harvest
 
     @property
     def returns(self) -> pd.Series:
@@ -248,19 +249,40 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
     weighting, cost_model, accrual = cfg.construction, cfg.costs, cfg.cash
     taxer = TaxStage(cfg.tax, cfg.tax.capital if cfg.tax.capital is not None else getattr(cfg, "capital", 100_000)) \
         if cfg.tax is not None else None
+    if taxer is not None:
+        taxer.bind(mkt)                                                                # P3: security_meta + FX series
     ov = as_overlay(cfg.exit)
     if ov is not None:
         held = exposure if exposure is not None else ov.exposure(mkt, rebal)
         dheld = held.diff().abs().fillna(0.0)
         park_pieces = []
+    # P2: tax-loss harvesting (harvesting.py): extra steps at year ends / swap-back dates, and a hook after Weighting
+    steps, hv, last_reb = list(rebal), None, rebal[0]
+    if taxer is not None and cfg.tax.harvest is not None:
+        if ov is not None:
+            raise NotImplementedError("TaxLossHarvest with an exit policy is not supported")
+        hv = cfg.tax.harvest.start(mkt, taxer, screen, weighting, cfg.min_holdings)
+        steps = sorted(set(steps) | set(hv.extra_dates(mkt.index, rebal[0], end)))
+    rebal_set = set(rebal)
 
-    for j, d in enumerate(rebal):
-        progress.report(j / len(rebal), f"{screen.name}: rebalance {j + 1}/{len(rebal)}")
-        nxt = rebal[j + 1] if j + 1 < len(rebal) else end
+    for j, d in enumerate(steps):
+        progress.report(j / len(steps), f"{screen.name}: rebalance {j + 1}/{len(steps)}")
         snap = mkt.view(d)
-        picks = selection.picks(mkt, screen, d)                                        # Selection
-        picks = weighting.retain(picks, screen, snap, prev, cfg.min_holdings)          # Weighting
-        target = weighting.target(snap, picks, prev, cfg.min_holdings)
+        if hv is None or d in rebal_set:
+            picks = raw = selection.picks(mkt, screen, d)                              # Selection
+            picks = weighting.retain(picks, screen, snap, prev, cfg.min_holdings)      # Weighting
+            target = weighting.target(snap, picks, prev, cfg.min_holdings)
+            if hv is not None:                                                         # P2: harvest after Weighting
+                picks, target = hv.on_rebalance(d, snap, raw, picks, prev, value, target)
+                last_reb = d
+        else:                                                                          # P2: year end / swap back: no screen run
+            target = hv.on_substep(d, snap, prev, value)
+            picks = list(target.index)
+        if hv is not None:                                                             # P2: new dates (swap back after a window)
+            for nd in hv.take_new_dates():
+                if d < nd < end and nd not in steps:
+                    steps.insert(int(np.searchsorted(steps, nd)), nd)
+        nxt = steps[j + 1] if j + 1 < len(steps) else end
 
         dw = target.sub(prev, fill_value=0).abs()
         dw = dw[dw > 1e-12]
@@ -268,9 +290,20 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
         if ov is not None:
             trade_cost *= float(held.get(d, 1.0))    # only the invested share of the sleeve is traded
         if taxer is not None:                                                          # TaxStage: gains realized by the trade
-            taxer.trade(d, value, float(held.get(d, 1.0)) if ov is not None else 1.0, prev, target)
+            ev_ = float(held.get(d, 1.0)) if ov is not None else 1.0
+            # P1: each name's own trading cost (cost models are linear in the names), for the cost base / proceeds
+            tcost = pd.Series({n: float(cost_model.trade_cost(dw[[n]], snap, value)) * ev_ * value for n in dw.index}, dtype=float)
+            if hv is not None:
+                hv.pre_trade()                                                         # P2
+            taxer.trade(d, value, ev_, prev, target, tcost)
+            if hv is not None:
+                hv.post_trade(d, value, prev, target)                                  # P2: superficial-loss bookkeeping
         value *= 1 - trade_cost
-        holdings[d], turn[d], costs[d] = picks, dw.sum() / 2, trade_cost
+        if hv is None or d in rebal_set:
+            holdings[d], turn[d], costs[d] = picks, dw.sum() / 2, trade_cost
+        else:                                                                          # P2: a sub-step adds to its rebalance period
+            turn[last_reb] += dw.sum() / 2
+            costs[last_reb] += trade_cost
 
         seg = tri.loc[d:nxt]
         yrs = ((seg.index - d).days / 365.25).to_numpy()
@@ -297,7 +330,10 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
                 path = pd.Series(ov.apply(path.to_numpy(), e, de, park_r), index=seg.index)
         if taxer is not None and not target.empty:                                     # TaxStage: income, switches, write-offs
             taxer.segment(seg.index, yrs, value, g, target, sleeve, path.to_numpy(), e if ov is not None else None,
-                          dead, snap)
+                          dead, snap, cash_factor=accrual.cash_factor(yrs),                          # P1: interest events
+                          policy=getattr(ov, "policy", None), park_r=park_r if ov is not None else None)
+        elif taxer is not None:                                                        # P1: all cash: interest only
+            taxer.cash_segment(seg.index, value, accrual.cash_factor(yrs))
         pieces.append(value * path.iloc[1:])
         value *= path.iloc[-1]
 
@@ -316,7 +352,8 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
     if taxer is not None:
         tax_table, after_curve = taxer.finish(curve)
     return Result(screen.name, curve, holdings, pd.Series(turn), pd.Series(costs), expo, switches,
-                  time_out, park_curve, ov.policy if ov is not None else None, tax_table, after_curve)
+                  time_out, park_curve, ov.policy if ov is not None else None, tax_table, after_curve,
+                  harvest=hv.finish(curve) if hv is not None else None)         # P2: harvest records
 
 
 def run(screen: Screen, mkt: Market, cfg: Config = Config(), start=None, end=None,

@@ -289,7 +289,8 @@ def _tax_config(v):
                     deductions=float(v.get("deductions", 0.0)), eligible_share=float(v.get("eligible_share", 1.0)))
         except (ValueError, TypeError) as e:
             raise ServerError(400, f"config.tax: {e}") from None
-    return taxes.TaxConfig(model=m, account=v["account"], us_withholding=float(v.get("us_withholding", 0.15)))
+    return taxes.TaxConfig(model=m, account=v["account"],
+                            withholding={"US": float(v.get("us_withholding", 0.15))})          # P3: us_withholding is deprecated
 
 
 def config_overrides(config) -> dict:

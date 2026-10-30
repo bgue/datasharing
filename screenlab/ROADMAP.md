@@ -138,9 +138,27 @@ dividends -> foreign -> gains), eligible / non-eligible split, approximate forei
 loss carry-forward, `TAX_MODELS` by name; the owner's AB numbers are reproduced for a dividend-only portfolio and for
 dividends plus a gain (tests/test_taxes.py). `PlaceholderCanadianTax` stays for tests only.
 
+*Done (P1):* [x] RRSP is tax-deferred (`TaxConfig.rrsp_withdrawal_rate` / `rrsp_withdrawal_income`: the balance is
+taxed as ordinary income on the last bar; after-tax curve, `AfterTaxCAGR` and the equally-taxed index follow; the report
+states the convention, or warns "RRSP withdrawals untaxed in this run"); [x] cash and parked-cash interest taxed as ordinary
+income in taxable accounts (`park_income_kind`); [x] rebalance trading costs in the ACB (buy side) and out of the proceeds
+(sell side); [x] return of capital (`roc` fundamentals column) reduces the ACB, excess over the ACB is a gain.
+
+*Done (P3):* [x] per-security metadata (`Dataset.security_meta`, `securities.csv`, data card line); [x] withholding by
+country and wrapper (`TaxConfig.withholding`, Canadian ETFs on US stocks lose it in every account, RRSP exempt for US only,
+`us_withholding` deprecated); [x] gains, ACB and dividends on a CAD basis from a `MacroSeries` FX series, with a warning
+without one (docs/TAXES.md "Foreign holdings").
+
+*Done (P2):* [x] tax-loss harvesting (`harvesting.TaxLossHarvest`, `Config.tax.harvest`: year-end and/or rebalance, threshold and
+min loss, overrides a hold-rule keep) with the CRA superficial-loss rule (30 days before and after, denial in proportion to
+the shares bought back, denied loss added to the ACB; `replacement` "cash" / "stay_out" / "similar" via `Screen.ranked`);
+[x] `Result.harvest`, report columns `Harvested/yr` and `TaxDeferred/yr`; [x] 3-year loss carry-back in `taxes.assess`
+(most recent year first, refund as a credit at the loss year's end, forward carry kept); tests/test_harvesting.py;
+docs/TAXES.md "Loss harvesting".
+
 *Remains:* more provinces and tax years (years without a table reuse the nearest one with a warning), pension income and
 RRSP contribution room, AMT, a refund of negative net tax, wiring the model choice into REST / TUI. *Open
-approximations:* dividend dates and amounts (yield held between rebalances), interest on cash and parked money untaxed,
+approximations:* dividend dates and amounts (yield held between rebalances), RRSP withdrawal at one flat marginal rate (no contribution refund),
 index yield when the series is total return without one, no tax on the final unrealized gain unless `liquidate_at_end`.
 
 *Done when:* a backtest can be run as taxable / TFSA / RRSP and the after-tax excess return over the equally-taxed index is

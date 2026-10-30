@@ -205,3 +205,61 @@ def test_screens_use_topn_and_registry_intact():
     import screenlab.screens as sc
     assert not hasattr(sc, "_largest") and "TopN" in inspect.getsource(sc)
     assert "dogs" in REGISTRY
+
+
+# ----------------------------------------------------------------------------- P3: security metadata
+def test_security_meta_defaults_and_card():  # P3
+    from screenlab.data import security_meta
+    syn = SyntheticBuilder(n_stocks=8, years=3).build()
+    m = syn.security_meta
+    assert list(m.index) == list(syn.prices.columns)
+    assert set(m["domicile"]) == {"CA"} and set(m["currency"]) == {"CAD"} and set(m["wrapper"]) == {"stock"}
+    assert m["eligible_dividend"].all() and (m["listing"] == "CA").all()
+    assert syn.card.foreign_share == 0.0 and syn.card.currencies == ("CAD",) and "foreign:" not in syn.card.line()
+    assert syn.card.to_dict()["foreign_share"] == 0.0
+    # no metadata at all: the card says nothing about foreign names
+    plain = tiny()
+    assert plain.security_meta is None and plain.card.foreign_share is None and plain.card.foreign_line() == ""
+    # a mixed dataset: 2 of 3 names foreign, shares and currencies on the card
+    meta = security_meta(["A", "B", "C"], pd.DataFrame([dict(ticker="A", domicile="US"), dict(ticker="B", domicile="GB")]),
+                         domicile="CA")
+    ds = Dataset.from_frames(plain.fundamentals, plain.prices, plain.indices, security_meta=meta, index_kinds={"BM": "total_return"})
+    c = ds.card
+    assert c.foreign_share == pytest.approx(2 / 3) and c.currencies == ("CAD", "GBP", "USD")
+    assert c.foreign_countries == {"GB": pytest.approx(1 / 3), "US": pytest.approx(1 / 3)}
+    assert "foreign: 67% of names (GB 33%, US 33%)" in c.line() and "rrsp exempt" in c.line()
+    assert ds.with_index("X", ds.prices["A"]).security_meta is meta                 # survives the copies
+    assert ds.with_universe(AllListed()).card.foreign_share == c.foreign_share
+
+
+def test_security_meta_validation_and_view_join():  # P3
+    from screenlab.data import security_meta
+    with pytest.raises(ValueError, match="wrapper"):
+        security_meta(["A"], pd.DataFrame([dict(ticker="A", wrapper="swap")]))
+    m = security_meta(["A", "B"], pd.DataFrame([dict(ticker="A", wrapper="etf_ca", underlying_domicile="us", eligible_dividend="false")]))
+    assert m.loc["A", "underlying_domicile"] == "US" and not m.loc["A", "eligible_dividend"]
+    assert m.loc["B", "wrapper"] == "stock" and m.loc["B", "currency"] == "CAD" and m.loc["B", "eligible_dividend"]
+    ds = tiny()
+    ds = Dataset.from_frames(ds.fundamentals, ds.prices, ds.indices, security_meta=security_meta(["A", "B", "C"], domicile="US"))
+    snap = Market(ds).view(D[1])
+    assert set(snap["domicile"]) == {"US"} and set(snap["currency"]) == {"USD"} and "wrapper" in snap
+
+
+def test_securities_csv_and_bundled_defaults(tmp_path):  # P3
+    ds = tiny()
+    ds.fundamentals.to_csv(tmp_path / "f.csv", index=False)
+    ds.prices.reset_index().melt("date", var_name="ticker", value_name="tri").dropna().to_csv(tmp_path / "p.csv", index=False)
+    (tmp_path / "s.csv").write_text("ticker,domicile,currency,wrapper,underlying_domicile,eligible_dividend\n"
+                                    "A,US,USD,stock,,\nC,CA,CAD,etf_ca,US,false\n")
+    got = CSVBuilder(str(tmp_path / "f.csv"), str(tmp_path / "p.csv"), securities=str(tmp_path / "s.csv")).build()
+    m = got.security_meta
+    assert m.loc["A", "domicile"] == "US" and m.loc["A", "currency"] == "USD"
+    assert m.loc["C", "wrapper"] == "etf_ca" and m.loc["C", "underlying_domicile"] == "US" and not m.loc["C", "eligible_dividend"]
+    assert m.loc["B", "domicile"] == "CA" and m.loc["B", "currency"] == "CAD"        # unlisted ticker: the defaults
+    assert got.card.foreign_share == pytest.approx(1 / 3)
+    assert CSVBuilder(str(tmp_path / "f.csv"), str(tmp_path / "p.csv")).build().security_meta is None
+    pytest.importorskip("skfolio")
+    sp = BundledSP500Builder().build()
+    assert set(sp.security_meta["domicile"]) == {"US"} and set(sp.security_meta["currency"]) == {"USD"}
+    assert (sp.security_meta["wrapper"] == "stock").all()
+    assert sp.card.foreign_share == 1.0 and "foreign: 100% of names (US 100%)" in sp.card.line()

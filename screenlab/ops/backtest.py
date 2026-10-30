@@ -80,6 +80,8 @@ class BacktestReport:
         card = ""
         if self.data_card is not None:
             card = "\n".join([self.data_card.line(), *self.data_card.warnings()]) + "\n"
+        conv = list(dict.fromkeys(c for t in self.tax.values() if (c := t.attrs.get("convention"))))   # P1: RRSP convention
+        card += "".join(f"{c}\n" for c in conv)
         return head + card + "\n" + format_table(self.table.sort_values(M.CAGR, ascending=False))
 
 
@@ -182,6 +184,10 @@ class Backtest(Operation):
         tax_tables = _tax_columns(rows, results, bench, bcurve, cfg, lab.market, start,
                                   cfg.tax or next((c.tax for _, _, c, _ in screens if c.tax is not None), None))
         # --- end tax columns
+        # --- P2: loss-harvest columns (harvesting.py): Harvested/yr, TaxDeferred/yr; the passive index has none
+        from ..harvesting import harvest_columns as _harvest_columns
+        _harvest_columns(rows, results, screens, lab.market, start, end, _bt.run)
+        # --- end P2
         rep = BacktestReport(pd.DataFrame(rows).T, results, bcurve, bench.label, cfg, ccurves,
                              lab.data_card(benchmark))
         rep.tax = tax_tables

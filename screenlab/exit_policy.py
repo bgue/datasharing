@@ -49,6 +49,8 @@ class ExitPolicy:
                                          # string -> a series in the Market (index or ticker, total return)
     park_mer: float = 0.0                # annual fund fee on the parked money (any park type)
     park_cost_bps: float = 0.0           # charged on |d(1 - e)|, like buying/selling the park fund
+    park_income_kind: str = "interest"   # P1, tax only: how parked CASH income is taxed: "interest" (ordinary income) |
+                                         # "dividend_eligible" | "dividend_foreign"; a parked index / ticker is capital
     switch_cost_bps: float = 5.0         # charged on |de| of the equity sleeve
     reentry: str = "signal"
     reentry_delay_days: int = 0          # the flag must stay clear this many calendar days
@@ -65,6 +67,8 @@ class ExitPolicy:
             raise ValueError("reentry_delay_days must be >= 0")
         if not 0.0 <= self.exposure_when_flagged <= 1.0:
             raise ValueError("exposure_when_flagged must be in [0, 1]")
+        if self.park_income_kind not in ("interest", "dividend_eligible", "dividend_foreign"):     # P1
+            raise ValueError(f"park_income_kind must be interest, dividend_eligible or dividend_foreign, got {self.park_income_kind!r}")
         self._cache: dict = {}            # (id(mkt), id(signal)) -> (mkt, signal, series); curve-free signals only
         self._reentry: list = []
 

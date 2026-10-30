@@ -118,7 +118,7 @@ def test_us_withholding_by_account():
     assert tfsa.loc[2020, "tax_foreign_dividends"] == pytest.approx(inc20 * 0.15, rel=1e-12)       # not recoverable
     rrsp = go(tx("rrsp", foreign=("A",))).tax
     assert rrsp.loc[2020, "tax_foreign_dividends"] == 0                                              # treaty exempt
-    wh20 = go(tx("tfsa", foreign=("A",), us_withholding=0.30)).tax
+    wh20 = go(tx("tfsa", foreign=("A",), withholding={"US": 0.30})).tax
     assert wh20.loc[2020, "tax_foreign_dividends"] == pytest.approx(inc20 * 0.30, rel=1e-12)
 
 
@@ -209,7 +209,7 @@ class FlatTax:
 
 
 def test_serialization_round_trip_and_custom_model():
-    t = TaxConfig(model=MODEL, account="tfsa", foreign=("A", "B"), us_withholding=0.1, capital=5_000.0)
+    t = TaxConfig(model=MODEL, account="tfsa", foreign=("A", "B"), withholding={"US": 0.1}, capital=5_000.0)
     assert from_dict(to_dict(t)) == t
     cfg = Config(cost_bps=10, tax=t)
     back = from_dict(cfg.to_dict())
@@ -383,3 +383,348 @@ def test_taxconfig_with_canadian_round_trips_and_columns_unchanged():
     t = go(cfg).tax
     from screenlab.taxes import TAX_COLS
     assert list(t.columns) == TAX_COLS
+
+
+# ----------------------------------------------------------------------------- P3: foreign holdings
+from screenlab.data import security_meta                                        # noqa: E402
+from screenlab.dataset import Dataset                                           # noqa: E402
+from screenlab.macro import MacroSeries                                         # noqa: E402
+
+
+def meta_market(names, a_after=1.0, fund_rows=None, ccy="USD"):
+    """3 names picked together on 2020-01-01 (equal weight, prices flat), yield 4% each, one year (2020)."""
+    dates = pd.bdate_range("2020-01-01", "2020-12-31")
+    prices = pd.DataFrame({t: 1.0 for t in names}, index=dates)
+    fund = pd.DataFrame([dict(date=pd.Timestamp("2020-01-01"), ticker=t, sector="in", price=10.0, market_cap=1000.0,
+                              dividend=0.4) for t in names])
+    meta = security_meta(names, pd.DataFrame(fund_rows).set_index("ticker"))
+    return Market(Dataset.from_frames(add_ratios(fund), prices, security_meta=meta))
+
+
+def go3(account, rows, withholding=None, names=("S", "U", "E")):
+    cfg = Config(rebalance_months=12, cost_bps=0, min_holdings=1,
+                 tax=tx(account, **({"withholding": withholding} if withholding else {})))
+    screen = ScreenBuilder("all3", n=3).where("sector == 'in'").build()
+    return run(screen, meta_market(names, fund_rows=rows), cfg, start="2020-01-01").tax.loc[2020]
+
+
+ROWS = [dict(ticker="S", domicile="US", wrapper="stock"),                       # US stock
+        dict(ticker="U", domicile="US", wrapper="etf_us"),                      # US-listed ETF
+        dict(ticker="E", domicile="CA", wrapper="etf_ca", underlying_domicile="US", currency="CAD")]   # Canadian ETF on US stocks
+
+
+def test_withholding_matrix_by_account_and_wrapper():  # P3
+    inc = CAP / 3 * 0.04 * 365 / D                                              # each name's gross income, $
+    t = go3("taxable", ROWS)
+    assert t["dividends_foreign"] == pytest.approx(3 * inc, rel=1e-12)
+    # direct: max(15% withholding, 40% marginal) = 0.40 (withholding creditable); fund: 15% lost + 40% of the other 85%
+    assert t["tax_foreign_dividends"] == pytest.approx(inc * (0.40 + 0.40 + (0.15 + 0.85 * 0.40)), rel=1e-12)
+    t = go3("tfsa", ROWS)
+    assert t["tax_foreign_dividends"] == pytest.approx(inc * 0.45, rel=1e-12)   # all three lost, 15% each
+    t = go3("rrsp", ROWS)
+    assert t["tax_foreign_dividends"] == pytest.approx(inc * 0.15, rel=1e-12)   # US stock and US ETF exempt; Canadian ETF loses
+    assert t["tax_capital_gains"] == 0
+
+
+def test_withholding_table_by_country_and_rrsp_exemption_is_us_only():  # P3
+    rows = [dict(ticker="S", domicile="US"), dict(ticker="G", domicile="GB", currency="GBP"), dict(ticker="E", domicile="CA")]
+    inc = CAP / 3 * 0.04 * 365 / D
+    wh = {"GB": 0.10, "default": 0.25}
+    assert go3("tfsa", rows, wh, names=("S", "G", "E"))["tax_foreign_dividends"] == pytest.approx(inc * (0.15 + 0.10), rel=1e-12)
+    # RRSP: the treaty exemption is US only, GB withholding is lost; a country not in the table uses `default`
+    assert go3("rrsp", rows, wh, names=("S", "G", "E"))["tax_foreign_dividends"] == pytest.approx(inc * 0.10, rel=1e-12)
+    assert TaxConfig(withholding={"GB": 0.1}).rate_for("FR") == 0.15 and TaxConfig(withholding={"GB": 0.1}).rate_for("GB") == 0.1
+
+
+def test_us_withholding_alias_warns_and_maps():  # P3
+    with pytest.warns(DeprecationWarning, match="us_withholding"):
+        cfg = TaxConfig(us_withholding=0.30)
+    assert cfg.withholding == {"US": 0.30, "default": 0.15} and cfg.us_withholding is None
+    assert TaxConfig().withholding == {"US": 0.15, "default": 0.15}
+    assert from_dict(to_dict(cfg)).withholding == cfg.withholding
+    with pytest.raises(ValueError):
+        TaxConfig(withholding={"US": 1.0})
+
+
+def fx_market(a_after, fx_after):
+    """The two-name market of the module, A and B are USD names (domicile US), dividends 4% / 2%."""
+    m = market(a_after)
+    meta = security_meta(["A", "B"], domicile="US", currency="USD")
+    ds = Dataset.from_frames(m.dataset.fundamentals, m.dataset.prices, security_meta=meta)
+    dates = ds.prices.index
+    fx = pd.DataFrame({"fx": np.where(dates < "2021-01-01", 1.40, 1.40 * fx_after)}, index=dates)
+    return Market(ds), MacroSeries.from_frame(fx)
+
+
+def test_gain_on_cad_basis_usd_gain_cad_loss():  # P3
+    m, macro = fx_market(1.10, 0.85)
+    cfg = Config(rebalance_months=12, cost_bps=0, min_holdings=1, tax=tx(macro=macro, pay_from_portfolio=False))
+    t = run(SCREEN, m, cfg, start="2020-01-01").tax
+    # A: bought 2020-01-01 at fx 1.40 (factor 1), sold 2021-01-01 at 1.19 (factor 0.85); local basis includes the
+    # reinvested dividends (taxed on a CAD basis at the payment date, factor 1 through 2020 and 0.85 on 2021-01-01)
+    basis = 1 + 0.04 * 365 / D + 0.04 * 1 / D * 0.85
+    proceeds = 1.10 * 0.85
+    assert t.loc[2021, "realized_losses"] == pytest.approx(CAP * (proceeds - basis), rel=1e-9)
+    assert t.loc[2021, "realized_losses"] < 0 and t.loc[2021, "realized_gains"] == 0
+    # dividends of 2021 are converted at the payment-date FX
+    div21 = 0.04 * 1 / D + 0.02 * 1.10 * 364 / D
+    assert t.loc[2021, "dividends_foreign"] == pytest.approx(CAP * div21 * 0.85, rel=1e-9)
+    assert FX_WARN not in t.attrs["warnings"]
+    # the USD gain without an FX series: taxed in the portfolio currency, with the warning
+    t0 = run(SCREEN, m, Config(rebalance_months=12, cost_bps=0, min_holdings=1, tax=tx(pay_from_portfolio=False)), start="2020-01-01").tax
+    assert t0.loc[2021, "realized_gains"] == pytest.approx(CAP * (1.10 - (1 + 0.04 * 366 / D)), rel=1e-9)
+    assert FX_WARN in t0.attrs["warnings"]
+
+
+def test_gain_on_cad_basis_usd_loss_cad_gain():  # P3
+    m, macro = fx_market(0.95, 1.15)
+    t = run(SCREEN, m, Config(rebalance_months=12, cost_bps=0, min_holdings=1, tax=tx(macro=macro, pay_from_portfolio=False)), start="2020-01-01").tax
+    basis = 1 + 0.04 * 365 / D + 0.04 * 1 / D * 1.15
+    assert t.loc[2021, "realized_gains"] == pytest.approx(CAP * (0.95 * 1.15 - basis), rel=1e-9)
+
+
+FX_WARN = "foreign gains taxed in portfolio currency; load an FX series for CAD basis"
+
+
+def test_pure_gain_cad_loss_exact():  # P3
+    """No dividends: a USD name +10% while USDCAD falls 15% is a CAD loss of exactly 1.10 x 0.85 - 1 = -6.5% of capital."""
+    m, macro = fx_market(1.10, 0.85)
+    fund = m.dataset.fundamentals.assign(dividend=0.0)
+    ds = Dataset.from_frames(add_ratios(fund.drop(columns=[c for c in fund.columns if c in ("div_yield",)])),
+                             m.dataset.prices, security_meta=m.dataset.security_meta)
+    t = run(SCREEN, Market(ds), Config(rebalance_months=12, cost_bps=0, min_holdings=1, tax=tx(macro=macro, pay_from_portfolio=False)),
+            start="2020-01-01").tax
+    assert t.loc[2021, "realized_losses"] == pytest.approx(-0.065 * CAP, rel=1e-12)
+    assert t.loc[2021, "realized_gains"] == 0 and t.loc[2021, "tax_capital_gains"] == 0
+
+
+# =========================================================================== P1: RRSP deferral, taxed interest, ACB, ROC
+# Exact arithmetic on the hand-built two-name market above (MODEL: marginal 0.40, eligible dividends 0.207, gains 0.20).
+# Pre-tax end wealth C = res.curve.iloc[-1]; with a tfsa/rrsp account nothing is paid before the end, so f = 1.
+RATE = 0.30
+
+
+def test_rrsp_deferred_is_taxed_at_withdrawal_on_the_last_bar():
+    res = go(tx("rrsp", rrsp_withdrawal_rate=RATE))
+    C = float(res.curve.iloc[-1])
+    assert C == pytest.approx(1.5)
+    a, t = res.after_tax_curve, res.tax
+    pd.testing.assert_series_equal(a.iloc[:-1], res.curve.iloc[:-1], check_names=False)       # untouched until the end
+    assert a.iloc[-1] == pytest.approx(C * (1 - RATE), rel=1e-12)                              # 1.5 x 0.7 = 1.05
+    assert t.loc[2020, "tax_rrsp_withdrawal"] == 0 and t.loc[2020, "tax_paid"] == 0
+    assert t.loc[2021, "tax_rrsp_withdrawal"] == pytest.approx(CAP * C * RATE, rel=1e-12)      # 45,000
+    assert t.loc[2021, "tax_paid"] == pytest.approx(CAP * C * RATE, rel=1e-12)
+    assert t.loc[2021, "wealth_after_tax"] == pytest.approx(CAP * C * (1 - RATE), rel=1e-12)
+    assert t.loc[2021, "cum_drag"] == pytest.approx(RATE, rel=1e-12)
+    assert t.attrs["convention"] == "RRSP: deferred, taxed at withdrawal at 30.0% (assumed)" and not t.attrs["warnings"]
+
+
+def test_rrsp_withdrawal_outside_paid_and_tfsa_unchanged():
+    res = go(tx("rrsp", rrsp_withdrawal_rate=RATE, pay_from_portfolio=False))
+    C = float(res.curve.iloc[-1])
+    assert res.after_tax_curve.iloc[-1] == pytest.approx(C - RATE * C, rel=1e-12)
+    tf = go(tx("tfsa", rrsp_withdrawal_rate=RATE))                                             # the rate is ignored off-RRSP
+    pd.testing.assert_series_equal(tf.after_tax_curve, tf.curve, check_names=False)
+    assert tf.tax.attrs["convention"] is None and (tf.tax["tax_rrsp_withdrawal"] == 0).all()
+
+
+def test_rrsp_without_a_rate_keeps_untaxed_behaviour_with_a_warning():
+    res = go(tx("rrsp"))
+    pd.testing.assert_series_equal(res.after_tax_curve, res.curve, check_names=False)
+    assert "RRSP withdrawals untaxed in this run" in res.tax.attrs["warnings"]
+    assert res.tax.attrs["convention"] == "RRSP withdrawals untaxed in this run"
+
+
+def test_rrsp_rate_from_retirement_income_and_validation():
+    from screenlab.tax_ca import marginal_rates
+    t = tx("rrsp", model=ca("AB"), rrsp_withdrawal_income=60_000.0)
+    want = marginal_rates("AB", 2025, 60_000.0)["ordinary"]
+    assert t.rrsp_rate() == pytest.approx(want, rel=1e-12) and 0.2 < want < 0.4
+    assert "retirement income 60,000" in t.rrsp_convention()
+    C = float(go(t).curve.iloc[-1])
+    assert go(t).after_tax_curve.iloc[-1] == pytest.approx(C * (1 - want), rel=1e-9)
+    with pytest.raises(ValueError, match="not both"):
+        tx("rrsp", rrsp_withdrawal_rate=0.3, rrsp_withdrawal_income=50_000.0)
+    with pytest.raises(ValueError, match="rrsp_withdrawal_income needs"):
+        tx("rrsp", rrsp_withdrawal_income=50_000.0)                                           # placeholder model: Ontario
+    with pytest.raises(ValueError, match="rrsp_withdrawal_rate"):
+        tx("rrsp", rrsp_withdrawal_rate=1.2)
+    cfg = tx("rrsp", model=ca("BC"), rrsp_withdrawal_income=60_000.0)
+    assert from_dict(to_dict(cfg)) == cfg
+
+
+def test_rrsp_passive_index_is_deferred_too(syn=None):
+    from screenlab.taxes import tax_buy_and_hold
+    idx = pd.bdate_range("2020-01-01", "2021-12-31")
+    curve = pd.Series(np.linspace(1.0, 2.0, len(idx)), index=idx)
+    tab, a = tax_buy_and_hold(curve, 0.0, tx("rrsp", rrsp_withdrawal_rate=RATE), CAP)
+    assert a.iloc[-1] == pytest.approx(2.0 * (1 - RATE), rel=1e-12) and a.iloc[-2] == pytest.approx(curve.iloc[-2])
+    assert tab.attrs["convention"].startswith("RRSP: deferred")
+
+
+def test_rrsp_report_shows_convention_and_after_tax_cagr_drops():
+    lab = Lab.synthetic(freq="ME", n_stocks=60, years=8)
+    plain = lab.backtest(["dogs"], tax=TaxConfig(account="rrsp"))
+    deferred = lab.backtest(["dogs"], tax=TaxConfig(account="rrsp", rrsp_withdrawal_rate=0.3))
+    assert "RRSP withdrawals untaxed in this run" in str(plain)
+    assert "RRSP: deferred, taxed at withdrawal at 30.0% (assumed)" in str(deferred)
+    for lbl in ("dogs", deferred.benchmark_label):
+        p, d = plain.table.loc[lbl], deferred.table.loc[lbl]
+        assert p["AfterTaxCAGR"] == pytest.approx(p["CAGR"], abs=1e-12)
+        assert d["AfterTaxCAGR"] < d["CAGR"] and d["TaxDrag/yr"] > 0.0
+
+
+# ---- interest: ordinary income in a taxable account. All-cash screen: nothing is picked, value sits in cash.
+CASH_R = 0.04
+NOTHING = ScreenBuilder("nothing", n=1).where("sector == 'zzz'").build()
+
+
+def go_cash(tax, **cfg):
+    c = Config(rebalance_months=12, cost_bps=0, min_holdings=1, cash_rate=CASH_R, tax=tax, **cfg)
+    return run(NOTHING, market(), c, start="2020-01-01")
+
+
+def test_cash_interest_is_taxed_as_ordinary_income():
+    g = 1 + CASH_R
+    res = go_cash(tx())
+    t = res.tax
+    i20 = CAP * (g ** (365 / D) - 1)                              # 2020-01-01 -> 2020-12-31, 365 days
+    assert t.loc[2020, "interest_income"] == pytest.approx(i20, rel=1e-12)
+    assert t.loc[2020, "tax_interest"] == pytest.approx(0.40 * i20, rel=1e-12)                # marginal 40%
+    f1 = 1 - 0.40 * i20 / (CAP * g ** (365 / D))                                               # paid from the portfolio
+    i21 = CAP * f1 * (g ** (730 / D) - g ** (365 / D))
+    assert t.loc[2021, "interest_income"] == pytest.approx(i21, rel=1e-12)
+    assert t.loc[2021, "tax_interest"] == pytest.approx(0.40 * i21, rel=1e-12)
+    assert t.loc[2021, "tax_paid"] == pytest.approx(0.40 * i21, rel=1e-12)
+    assert (t["dividends_ca"] == 0).all() and (t["realized_gains"] == 0).all()
+    assert res.after_tax_curve.iloc[-1] < res.curve.iloc[-1]
+    for acct in ("tfsa", "rrsp"):                                                              # sheltered: income recorded, not taxed
+        s = go_cash(tx(acct)).tax
+        assert s.loc[2020, "interest_income"] == pytest.approx(i20, rel=1e-12) and (s["tax_paid"] == 0).all()
+
+
+def test_canadian_tax_stacks_interest_on_the_salary():
+    t = go_cash(tx(model=ca("AB"))).tax                        # ca(): AB 2025, salary SAL
+    i20 = float(t.loc[2020, "interest_income"])
+    want = compute("AB", 2025, employment_income=SAL + i20).total - compute("AB", 2025, employment_income=SAL).total
+    assert t.loc[2020, "tax_interest"] == pytest.approx(want, rel=1e-9) and want > 0.2 * i20
+
+
+def test_unallocated_sleeve_cash_earns_taxed_interest():
+    # one pick capped at weight 0.5: half in A (flat), half in cash. Cash interest of 2020 = 0.5 x CAP x ((1+r)^(365/D) - 1).
+    c = Config(rebalance_months=12, cost_bps=0, min_holdings=1, max_weight=0.5, cash_rate=CASH_R, tax=tx("tfsa"))
+    res = run(SCREEN, market(), c, start="2020-01-01")
+    assert res.tax.loc[2020, "interest_income"] == pytest.approx(0.5 * CAP * ((1 + CASH_R) ** (365 / D) - 1), rel=1e-12)
+
+
+def test_custom_model_without_interest_support_warns():
+    t = go_cash(tx(model=FlatTax())).tax if hasattr(FlatTax, "tax_on_interest") is False else None
+    if t is not None:
+        assert any("interest untaxed" in w for w in t.attrs["warnings"]) and (t["tax_interest"] == 0).all()
+
+
+# ---- parked cash of an exit policy
+def market_with_index(drop="2020-05-01"):
+    m = market()
+    dates = m.prices.index
+    idx = pd.DataFrame({"IDX": np.where(dates < drop, 100.0, 60.0)}, index=dates)
+    return Market(m.fundamentals if hasattr(m, "fundamentals") else add_ratios(pd.DataFrame()), m.prices, idx) if False else \
+        Market(add_ratios(_FUND), m.prices, idx)
+
+
+_FUND = pd.DataFrame([dict(date=pd.Timestamp(d), ticker=t, sector=s, price=10.0, market_cap=1000.0, dividend=v)
+                      for d, t, s, v in (("2020-01-01", "A", "in", 0.4), ("2020-01-01", "B", "out", 0.2),
+                                         ("2021-01-01", "A", "out", 0.4), ("2021-01-01", "B", "in", 0.2))])
+
+
+def go_park(tax, kind="interest", park=0.04):
+    pol = ExitPolicy(ExitScreen([TrendBreak("IDX", window_months=2)], threshold=0.5, check="ME", lag=1), park=park,
+                     park_income_kind=kind)
+    cfg = Config(rebalance_months=12, cost_bps=0, min_holdings=1, tax=tax, exit=pol)
+    return run(SCREEN, market_with_index(), cfg, start="2020-01-01")
+
+
+def test_parked_cash_interest_is_ordinary_income_and_joins_the_park_basis():
+    res = go_park(tx("tfsa"))
+    e, V, pr = res.exposure, res.curve, res.park_curve.pct_change().fillna(0.0)
+    assert res.switches > 0 and (e < 1).any()
+    want = float((V.shift(1) * (1 - e.shift(1)) * pr).iloc[1:].sum())
+    t = res.tax
+    assert want > 0 and t["interest_income"].sum() == pytest.approx(CAP * want, rel=1e-9)
+    # interest is reinvested in the park: the gain on selling the park back excludes it (no phantom gain on plain interest)
+    flat = go_park(tx("tfsa"), park=0.0)
+    assert flat.tax["interest_income"].sum() == 0
+    assert t["realized_gains"].sum() + t["realized_losses"].sum() == pytest.approx(
+        flat.tax["realized_gains"].sum() + flat.tax["realized_losses"].sum() + 0.0, abs=CAP * 0.05)
+
+
+@pytest.mark.parametrize("kind,col,rate", [("interest", "tax_interest", 0.40), ("dividend_eligible", "tax_dividends", DIV_RATE)])
+def test_park_income_kind_selects_the_tax_treatment(kind, col, rate):
+    base = go_park(tx("tfsa"), kind="interest").tax              # sheltered: the dollar amounts do not depend on tax paid
+    other = go_park(tx("tfsa"), kind=kind).tax
+    inc = float(base["interest_income"].sum())
+    assert inc > 0
+    if kind == "interest":
+        assert go_park(tx(), kind="interest").tax["tax_interest"].sum() > 0.39 * inc * 0.9
+    else:
+        assert other["interest_income"].sum() == 0
+        assert other["dividends_ca"].sum() - base["dividends_ca"].sum() == pytest.approx(inc, rel=1e-12)
+        taxed = go_park(tx(), kind=kind).tax
+        assert taxed["tax_interest"].sum() == 0 and taxed["tax_dividends"].sum() > go_park(tx(), kind="interest").tax["tax_dividends"].sum()
+    with pytest.raises(ValueError, match="park_income_kind"):
+        ExitPolicy(ExitScreen([TrendBreak("IDX")]), park_income_kind="bogus")
+    with pytest.raises(ValueError, match="park_income_kind"):
+        tx(park_income_kind="bogus")
+
+
+# ---- trading costs in the adjusted cost base
+def test_trading_costs_are_in_the_cost_base_and_out_of_the_proceeds():
+    bps = 100.0
+    c = Config(rebalance_months=12, cost_bps=bps, min_holdings=1, tax=tx("tfsa"))
+    res = run(SCREEN, market(), c, start="2020-01-01")
+    free = go(tx("tfsa"))
+    k = bps / 1e4
+    v0 = 1 - k                                           # wealth after the first buy (1.0 bought, cost 1%)
+    basis = (1 + k) + v0 * 0.04 * 366 / D                # buy cost into the ACB; dividends reinvested on v0
+    value21 = v0 * 1.5                                   # wealth when A is sold (A's TRI 1.5)
+    gain = value21 - k * value21 - basis                 # sell cost (1% of the value) out of the proceeds
+    assert res.tax.loc[2021, "realized_gains"] == pytest.approx(CAP * gain, rel=1e-12)
+    no_cost_gain = value21 - (1 + v0 * 0.04 * 366 / D)
+    assert gain < no_cost_gain                            # the costs shrink the realized gain ...
+    assert no_cost_gain - gain == pytest.approx(k * 1.0 + k * value21, rel=1e-12)    # ... by buy cost + sell cost
+    assert free.tax.loc[2021, "realized_gains"] == pytest.approx(CAP * (1.5 - BASIS_A), rel=1e-12)   # free run unchanged
+
+
+def test_trading_costs_lower_the_taxable_gain_exactly():
+    c = Config(rebalance_months=12, cost_bps=100.0, min_holdings=1, tax=tx())
+    t = run(SCREEN, market(), c, start="2020-01-01").tax
+    assert t.loc[2021, "tax_capital_gains"] == pytest.approx(CG_RATE * t.loc[2021, "realized_gains"], rel=1e-12)
+
+
+# ---- return of capital
+def market_roc(roc):
+    f = _FUND.copy()
+    f["roc"] = [roc, 0.0, roc, 0.0]
+    return Market(add_ratios(f), market().prices)
+
+
+def test_return_of_capital_reduces_acb_and_is_not_income():
+    q = 0.5
+    c = Config(rebalance_months=12, cost_bps=0, min_holdings=1, tax=tx("tfsa"))
+    res = run(SCREEN, market_roc(q), c, start="2020-01-01")
+    t, base = res.tax, go(tx("tfsa")).tax
+    assert t.loc[2020, "dividends_ca"] == pytest.approx(CAP * DIV_A_2020 * (1 - q), rel=1e-12)      # only the income part
+    acb = 1 + 0.04 * 366 / D * (1 - q)                    # the whole distribution is reinvested, the ROC part lowered the ACB
+    assert t.loc[2021, "realized_gains"] == pytest.approx(CAP * (1.5 - acb), rel=1e-12)
+    assert t.loc[2021, "realized_gains"] - base.loc[2021, "realized_gains"] == pytest.approx(CAP * 0.04 * 366 / D * q, abs=1e-6)
+    # taxable: less dividend tax now, more gains tax later
+    tt = run(SCREEN, market_roc(q), Config(rebalance_months=12, cost_bps=0, min_holdings=1, tax=tx(pay_from_portfolio=False)), start="2020-01-01").tax
+    assert tt.loc[2020, "tax_dividends"] == pytest.approx(DIV_RATE * CAP * DIV_A_2020 * (1 - q), rel=1e-12)
+
+
+def test_roc_beyond_the_acb_is_a_capital_gain():
+    from screenlab.pipeline import TaxStage
+    b, gain = TaxStage.roc_step(0.01, 0.04, 0.03)         # ACB 0.01, distribution 0.04 of which 0.03 is ROC
+    assert gain == pytest.approx(0.02) and b == pytest.approx(0.04)
+    b, gain = TaxStage.roc_step(1.0, 0.04, 0.04)          # plenty of ACB: no gain, ACB grows by the income part (0)
+    assert gain == 0.0 and b == pytest.approx(1.0)

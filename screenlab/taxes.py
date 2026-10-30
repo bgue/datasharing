@@ -45,15 +45,24 @@ withholding (TFSA: withheld and not recoverable; RRSP: exempt on US-listed secur
 """
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
+
+import warnings as _warnings
 
 import numpy as np
 import pandas as pd
 
 from .serial import serializable
+from .harvesting import TaxLossHarvest  # noqa: F401  P2: registers the tag; `TaxConfig.harvest`
 
 ACCOUNTS = ("taxable", "tfsa", "rrsp")
+# P3: treaty withholding by the country a dividend is paid from; "default" covers any country not listed
+DEFAULT_WITHHOLDING = {"US": 0.15, "default": 0.15}
+FX_WARNING = "foreign gains taxed in portfolio currency; load an FX series for CAD basis"
+PARK_INCOME_KINDS = ("interest", "dividend_eligible", "dividend_foreign")        # P1
+RRSP_UNTAXED_WARNING = "RRSP withdrawals untaxed in this run"                  # P1
 
 # illustrative Ontario combined (federal + provincial, surtax included) marginal rates on ordinary income by
 # taxable-income threshold. PLACEHOLDER: from memory of a recent year's published table; verify with the CRA / Ontario.
@@ -106,6 +115,9 @@ class NoTax:
         return 0.0
 
     def tax_on_foreign_dividends(self, amount, withholding_rate, year, account):
+        return 0.0
+
+    def tax_on_interest(self, amount, year):                    # P1: optional protocol method
         return 0.0
 
     def describe(self) -> dict:
@@ -190,6 +202,9 @@ class PlaceholderCanadianTax:
             return amount * withholding_rate
         return amount * max(withholding_rate, self.marginal)
 
+    def tax_on_interest(self, amount, year):                    # P1: interest is ordinary income
+        return max(0.0, amount) * self.marginal
+
     def describe(self) -> dict:
         return {"model": "PlaceholderCanadianTax", "PLACEHOLDER": True, "province": self.province,
                 "income": self.income, "marginal_rate": self.marginal,
@@ -218,7 +233,11 @@ class CanadianTax:
     marginal (the dividend tax credit can exceed the bracket tax) is passed through; `assess` never pays less than zero.
     Foreign tax credit (approximation): min(withholding, Canadian tax on the foreign income stacked after salary and
     dividends). The returned tax on foreign income is withholding + Canadian tax net of the credit.
-    Accounts: taxable taxes everything; tfsa: no tax, foreign withholding lost; rrsp: no tax, US-listed withholding exempt.
+    Interest (P1) is ordinary income stacked on the salary, before the dividends: its tax is total(salary + interest) -
+    total(salary); the later layers stack on top of it.
+    Accounts: taxable taxes everything; tfsa: no tax, foreign withholding lost; rrsp: no tax while it grows, US-listed
+    withholding exempt (the RRSP is DEFERRED, not free: `assess` taxes the balance at withdrawal when the TaxConfig gives
+    `rrsp_withdrawal_rate` / `rrsp_withdrawal_income`).
     """
     province: str = "AB"
     year: int = 2025
@@ -242,25 +261,34 @@ class CanadianTax:
         warn = None if ty == year else f"year {year}: no tax table, used {ty}"
         return ty, warn
 
-    def _compute(self, year, **kw):
+    def _compute(self, year, *, extra_ordinary=0.0, **kw):
         from .tax_ca import compute
-        return compute(self.province, year, employment_income=self.employment_income, deductions=self.deductions, **kw)
+        return compute(self.province, year, employment_income=self.employment_income + extra_ordinary,
+                       deductions=self.deductions, **kw)
 
     def assess_year(self, year, *, eligible_dividends=0.0, non_eligible_dividends=0.0, foreign_income=0.0,
-                    foreign_withholding=0.0, capital_gains_net=0.0, account="taxable") -> YearTax:
+                    foreign_withholding=0.0, capital_gains_net=0.0, account="taxable",
+                    interest_income=0.0) -> YearTax:
         ty, warn = self._table_year(int(year))
         warnings = [warn] if warn else []
         wh = max(0.0, foreign_withholding) if foreign_income > 0 else 0.0
         if account == "rrsp":
-            return YearTax(0.0, {"dividends": 0.0, "foreign": 0.0, "capital_gains": 0.0, "warnings": warnings})
+            return YearTax(0.0, {"dividends": 0.0, "foreign": 0.0, "capital_gains": 0.0, "interest": 0.0,
+                                 "warnings": warnings})
         if account == "tfsa":
-            return YearTax(wh, {"dividends": 0.0, "foreign": wh, "capital_gains": 0.0, "warnings": warnings})
-        r = self._compute(ty, eligible_dividends=eligible_dividends, non_eligible_dividends=non_eligible_dividends,
-                          foreign_income=foreign_income, foreign_tax_paid=wh, capital_gains=max(0.0, capital_gains_net))
+            return YearTax(wh, {"dividends": 0.0, "foreign": wh, "capital_gains": 0.0, "interest": 0.0,
+                                "warnings": warnings})
+        # P1: interest is ordinary income stacked on the salary; the other layers stack on salary + interest
+        it = max(0.0, interest_income)
+        r = self._compute(ty, extra_ordinary=it, eligible_dividends=eligible_dividends,
+                          non_eligible_dividends=non_eligible_dividends, foreign_income=foreign_income,
+                          foreign_tax_paid=wh, capital_gains=max(0.0, capital_gains_net))
         b = r.breakdown
+        tint = b["tax_on_salary"] - self._compute(ty).breakdown["tax_on_salary"] if it > 0 else 0.0
         div, fx, cg = b["tax_on_dividends_marginal"], b["tax_on_foreign_income_marginal"] + wh, b["tax_on_capital_gains_marginal"]
-        return YearTax(div + fx + cg, {"dividends": div, "foreign": fx, "capital_gains": cg,
-                                       "foreign_tax_credit": b.get("foreign_tax_credit", 0.0), "warnings": warnings})
+        return YearTax(tint + div + fx + cg, {"dividends": div, "foreign": fx, "capital_gains": cg, "interest": tint,
+                                              "foreign_tax_credit": b.get("foreign_tax_credit", 0.0),
+                                              "warnings": warnings})
 
     # per-item calls (the protocol's fallback path; each is the joint path with one layer)
     def tax_on_dividends(self, amount, eligible, year):
@@ -271,6 +299,9 @@ class CanadianTax:
 
     def tax_on_capital_gain(self, gain, year):
         return max(0.0, self.assess_year(year, capital_gains_net=gain).total) if gain > 0 else 0.0
+
+    def tax_on_interest(self, amount, year):                    # P1
+        return max(0.0, self.assess_year(year, interest_income=amount).total) if amount > 0 else 0.0
 
     def tax_on_foreign_dividends(self, amount, withholding_rate, year, account):
         if amount <= 0:
@@ -297,7 +328,12 @@ class TaxConfig:
 
     model             a `TaxModel` (default `PlaceholderCanadianTax()`)
     account           "taxable" | "tfsa" | "rrsp"
-    us_withholding    withholding rate on foreign dividends (0.15 under the treaty)
+    withholding       P3: treaty withholding rate by the country a dividend is paid from, {"US": 0.15, "default": 0.15}
+                      (a dict you give is merged over these); how it bites per account and wrapper is in docs/TAXES.md
+    us_withholding    P3: DEPRECATED alias (warns): fills `withholding["US"]`; reads back as None
+    macro             P3: a `MacroSeries` whose `fx` (CAD per unit of `fx_currency`) puts gains and dividends of
+                      foreign-currency names on a CAD basis; None: gains taxed in the portfolio currency (warning)
+    home_currency, fx_currency   P3: the currency taxes are computed in ("CAD") and the one `macro.fx` quotes ("USD")
     pay_from_portfolio  True: the year's tax is paid from the portfolio at the year's last bar (wealth shrinks, the
                       after-tax curve compounds on what is left); False: paid from outside, the after-tax curve is
                       the pre-tax curve less the cumulative tax paid (no growth on the money paid out)
@@ -308,10 +344,18 @@ class TaxConfig:
     index_dividend_yield  yield assumed for a passive index that has none of its own (None = cap-weighted dividend
                       yield of the universe at the start date; see docs/TAXES.md)
     index_foreign_share   share of the passive index's dividends that are foreign
+    rrsp_withdrawal_rate  (P1) account "rrsp" is tax-DEFERRED: the whole balance at the end of the simulation is taxed as
+                      ordinary income at this marginal rate (an assumption). None and no income: untaxed, with a warning
+    rrsp_withdrawal_income  (P1) alternative: the retirement income ($ a year) whose marginal ordinary rate, from the
+                      model's province and year in `tax_ca`, is the withdrawal rate. Not both
+    park_income_kind  (P1) how the exit policy's parked CASH (park "cash" or a rate) is taxed in a taxable account:
+                      "interest" (ordinary income) | "dividend_eligible" | "dividend_foreign". An ExitPolicy's own
+                      non-default `park_income_kind` wins. A parked index / ticker series is capital (unchanged)
     """
     model: object = field(default_factory=PlaceholderCanadianTax)
     account: str = "taxable"
-    us_withholding: float = 0.15
+    withholding: dict = field(default_factory=lambda: dict(DEFAULT_WITHHOLDING))   # P3
+    us_withholding: float | None = None                                              # P3: deprecated alias
     pay_from_portfolio: bool = True
     capital: float | None = None
     foreign: tuple = ()
@@ -320,13 +364,102 @@ class TaxConfig:
     liquidate_at_end: bool = False
     index_dividend_yield: float | None = None
     index_foreign_share: float = 0.0
+    # P1: RRSP deferral and the parked-cash income kind
+    rrsp_withdrawal_rate: float | None = None
+    rrsp_withdrawal_income: float | None = None
+    park_income_kind: str = "interest"
+    macro: object = None                                                             # P3
+    home_currency: str = "CAD"                                                       # P3
+    fx_currency: str = "USD"                                                         # P3
+    harvest: TaxLossHarvest | None = None                                            # P2: tax-loss harvesting (harvesting.py)
 
     def __post_init__(self):
         if self.account not in ACCOUNTS:
             raise ValueError(f"account must be one of {ACCOUNTS}, got {self.account!r}")
-        if not 0.0 <= self.us_withholding < 1.0:
-            raise ValueError("us_withholding must be a rate in [0, 1)")
+        wh = {**DEFAULT_WITHHOLDING, **{str(k): float(v) for k, v in dict(self.withholding).items()}}   # P3
+        if self.us_withholding is not None:
+            _warnings.warn("TaxConfig.us_withholding is deprecated: use withholding={'US': rate}",
+                           DeprecationWarning, stacklevel=3)
+            wh["US"] = float(self.us_withholding)
+            object.__setattr__(self, "us_withholding", None)
+        if not all(0.0 <= v < 1.0 for v in wh.values()):
+            raise ValueError("withholding rates must be in [0, 1)")
+        object.__setattr__(self, "withholding", wh)
         object.__setattr__(self, "foreign", tuple(self.foreign))
+        if self.park_income_kind not in PARK_INCOME_KINDS:                       # P1
+            raise ValueError(f"park_income_kind must be one of {PARK_INCOME_KINDS}, got {self.park_income_kind!r}")
+        if self.rrsp_withdrawal_rate is not None and self.rrsp_withdrawal_income is not None:
+            raise ValueError("give rrsp_withdrawal_rate or rrsp_withdrawal_income, not both")
+        if self.rrsp_withdrawal_rate is not None and not 0.0 <= self.rrsp_withdrawal_rate < 1.0:
+            raise ValueError("rrsp_withdrawal_rate must be a rate in [0, 1)")
+        if self.rrsp_withdrawal_income is not None:
+            if self.rrsp_withdrawal_income < 0:
+                raise ValueError("rrsp_withdrawal_income must be >= 0")
+            self.rrsp_rate()                                                      # fail early on an unusable model
+
+    def rrsp_rate(self) -> float | None:
+        """P1: the marginal rate the RRSP balance is taxed at on withdrawal, or None (untaxed). From
+        `rrsp_withdrawal_income`: the marginal ordinary rate of `tax_ca` at that income, in the model's province and
+        year (the model must have them in the tables: CanadianTax)."""
+        if self.rrsp_withdrawal_rate is not None:
+            return float(self.rrsp_withdrawal_rate)
+        if self.rrsp_withdrawal_income is None:
+            return None
+        from .tax_ca import JURISDICTIONS, TAX_YEARS, marginal_rates
+        prov, yr = str(getattr(self.model, "province", "")).upper(), int(getattr(self.model, "year", 2025))
+        if prov not in JURISDICTIONS or yr not in TAX_YEARS:
+            raise ValueError(f"rrsp_withdrawal_income needs a model with a tax_ca province {sorted(JURISDICTIONS)} and "
+                             f"year {list(TAX_YEARS)} (CanadianTax); got province {prov!r}, year {yr}: give "
+                             f"rrsp_withdrawal_rate instead")
+        return float(marginal_rates(prov, yr, float(self.rrsp_withdrawal_income))["ordinary"])
+
+    def rrsp_convention(self) -> str | None:
+        """P1: the report line for the RRSP convention in force (None for other accounts)."""
+        if self.account != "rrsp":
+            return None
+        r = self.rrsp_rate()
+        if r is None:
+            return RRSP_UNTAXED_WARNING
+        src = (f" from retirement income {self.rrsp_withdrawal_income:,.0f}" if self.rrsp_withdrawal_income is not None else "")
+        return f"RRSP: deferred, taxed at withdrawal at {100 * r:.1f}% (assumed{src})"
+
+    def rate_for(self, country) -> float:
+        """P3: treaty withholding rate on dividends paid from `country`."""
+        return float(self.withholding.get(country, self.withholding["default"]))
+
+    def foreign_info(self, tickers, snap: pd.DataFrame) -> pd.DataFrame:
+        """P3: per ticker `kind` ("domestic" | "direct": foreign dividends paid to the investor, withheld at source |
+        "fund": a Canadian-listed ETF on foreign stocks, withheld inside the fund in every account), `country` the
+        dividends come from, `rate` the treaty rate, `exempt` (direct US dividends are exempt in an RRSP),
+        `non_eligible` (a Canadian name marked eligible_dividend False), `currency`. Reads `domicile`, `wrapper`,
+        `underlying_domicile`, `currency`, `eligible_dividend` and `foreign_col` from the snapshot (Market.view joins
+        the dataset's security_meta); a name in `foreign` with no known country counts as US."""
+        t = pd.Index(tickers)
+
+        def col(name):
+            return snap[name].reindex(t) if name in snap else pd.Series(np.nan, index=t, dtype=object)
+        dom, wrap, und, cur, elig = (col(c) for c in ("domicile", "wrapper", "underlying_domicile", "currency",
+                                                      "eligible_dividend"))
+        fcol = col(self.foreign_col) if self.foreign_col else pd.Series(np.nan, index=t, dtype=object)
+        listed = t.isin(list(self.foreign))
+        rows = []
+        for i in range(len(t)):
+            d = dom.iloc[i] if isinstance(dom.iloc[i], str) else (fcol.iloc[i] if isinstance(fcol.iloc[i], str) else None)
+            w = wrap.iloc[i] if isinstance(wrap.iloc[i], str) else "stock"
+            u = und.iloc[i] if isinstance(und.iloc[i], str) else None
+            if w == "etf_ca" and u and u != self.home:
+                kind, country = "fund", u
+            else:
+                country = "US" if w == "etf_us" else (u if (w == "etf_ca" and u) else d)
+                if country is None or (country == self.home and listed[i]):
+                    country = "US" if listed[i] else self.home
+                kind = "direct" if country != self.home else "domestic"
+            c = cur.iloc[i] if isinstance(cur.iloc[i], str) else (self.fx_currency if kind == "direct" else self.home_currency)
+            e = elig.iloc[i]
+            ne = kind == "domestic" and e is not None and e == e and not bool(e)
+            rows.append((kind, country, self.rate_for(country) if kind != "domestic" else 0.0,
+                         kind == "direct" and country == "US", bool(ne), c))
+        return pd.DataFrame(rows, index=t, columns=["kind", "country", "rate", "exempt", "non_eligible", "currency"])
 
     def foreign_mask(self, tickers, snap: pd.DataFrame) -> np.ndarray:
         """bool per ticker: dividends are foreign."""
@@ -338,13 +471,38 @@ class TaxConfig:
 
 
 # --------------------------------------------------------------------------- the yearly engine
-EVENT_COLS = ("div_ca", "div_fx", "gain", "loss")        # pre-tax wealth units (start wealth = 1); loss <= 0
-TAX_COLS = ["dividends_ca", "dividends_foreign", "realized_gains", "realized_losses", "loss_carry_out",
-            "tax_dividends", "tax_foreign_dividends", "tax_capital_gains", "tax_paid", "cum_tax_paid",
-            "wealth_pre_tax", "wealth_after_tax", "cum_drag"]
+P3_EVENT_COLS = ("div_ne", "wh_fx", "div_fund", "wh_fund", "wh_lost")   # P3: see `assess`
+EVENT_COLS = ("div_ca", "div_fx", "gain", "loss", "interest") + P3_EVENT_COLS   # pre-tax wealth units (start wealth = 1); loss <= 0
+TAX_COLS = ["dividends_ca", "dividends_foreign", "realized_gains", "realized_losses", "interest_income",
+            "loss_carry_out", "tax_dividends", "tax_foreign_dividends", "tax_capital_gains", "tax_interest",
+            "tax_rrsp_withdrawal", "tax_paid", "cum_tax_paid", "wealth_pre_tax", "wealth_after_tax", "cum_drag"]
 
 
-def assess(curve: pd.Series, events: pd.DataFrame, tax: TaxConfig, capital: float) -> tuple:
+TAX_COLS += ["carried_back", "refund"]                       # P2: net capital loss carried back, tax refunded (see assess)
+CARRY_BACK_YEARS = 3                                          # P2: CRA: net capital losses go back up to 3 years
+
+
+def _carry_back(hist: dict, year: int, loss: float) -> tuple:
+    """P2: apply a year's net capital `loss` to the taxable gains of the previous `CARRY_BACK_YEARS` simulation years,
+    the most recent first. `hist[year] = [taxable gain left, capital gains tax left]` (dollars). The refund of a year is
+    its remaining capital gains tax x the share of its remaining gain that the loss takes (exact for a flat rate, an
+    underestimate for a stacked progressive model). Returns (loss used, refund, {year: refund})."""
+    used, refund, by_year = 0.0, 0.0, {}
+    for py in range(year - 1, year - 1 - CARRY_BACK_YEARS, -1):
+        h = hist.get(py)
+        if h is None or h[0] <= 0 or loss - used <= 0:
+            continue
+        a = min(loss - used, h[0])
+        r = h[1] * a / h[0]
+        h[0] -= a
+        h[1] -= r
+        used += a
+        refund += r
+        by_year[py] = r
+    return used, refund, by_year
+
+
+def assess(curve: pd.Series, events: pd.DataFrame, tax: TaxConfig, capital: float, warnings=()) -> tuple:
     """Tax per calendar year and the after-tax curve.
 
     `curve` pre-tax wealth (1.0 at the start); `events` indexed by date with columns `EVENT_COLS`, in the same
@@ -354,13 +512,25 @@ def assess(curve: pd.Series, events: pd.DataFrame, tax: TaxConfig, capital: floa
 
     Per year: dividends are taxed as received; realized gains net against realized losses and against losses
     carried forward from earlier years (carried within the simulation, nominal, no expiry); registered accounts
-    (tfsa / rrsp) skip domestic dividend and capital gain tax and their losses are not carried. The tax is paid at
-    the year's last bar (the last bar of the data closes the final, possibly part, year).
+    (tfsa / rrsp) skip domestic dividend, interest and capital gain tax and their losses are not carried. The tax is
+    paid at the year's last bar (the last bar of the data closes the final, possibly part, year).
+    P1: interest (the `interest` event column) is ordinary income in a taxable account (`assess_year(interest_income=)`,
+    else `model.tax_on_interest`, else untaxed with a warning). An "rrsp" account is DEFERRED: with a withdrawal rate
+    (`TaxConfig.rrsp_rate()`) the whole balance left at the final bar (after that year's ordinary tax) is taxed as ordinary
+    income at that rate, the after-tax curve drops on the last bar by that share; without one the run keeps the old
+    untaxed behaviour and `table.attrs["warnings"]` carries `RRSP_UNTAXED_WARNING`. `table.attrs["convention"]` is the
+    report line (`TaxConfig.rrsp_convention()`).
 
     A model with `assess_year` is assessed jointly per year (dividends split by its `eligible_share`, foreign withholding
-    = `tax.us_withholding` x foreign income, gains net of carry-forward; registered accounts get the same call and the
+    = the stage's `wh_fx` events (P3), gains net of carry-forward; registered accounts get the same call and the
     model zeroes what the account shelters); else the three per-item calls are used. Model warnings (e.g. a year beyond
-    its tables) go to `table.attrs["warnings"]`. A negative year tax (credits above the tax) is floored at 0."""
+    its tables) go to `table.attrs["warnings"]`. A negative year tax (credits above the tax) is floored at 0.
+    P3: foreign layer. Event columns (wealth units): `div_fx` direct foreign dividends, gross; `wh_fx` their withholding
+    where the account makes it a tax (taxable: creditable through the model's FTC; TFSA: lost; RRSP: not here); `div_fund` /
+    `wh_fund` gross distribution and withholding INSIDE a Canadian-listed ETF on foreign stocks (every account, never
+    creditable: the net distribution is taxed as foreign income, the withholding is a plain cost); `wh_lost` an RRSP's
+    withholding on non-US direct dividends (the treaty exemption is US only); `div_ne` non-eligible Canadian dividends
+    (a subset of `div_ca`). `warnings` (e.g. the stage's missing-FX warning) are added to `table.attrs["warnings"]`."""
     model, acct = tax.model, tax.account
     ev = events.reindex(columns=list(EVENT_COLS)).fillna(0.0) if len(events) else pd.DataFrame(columns=list(EVENT_COLS), dtype=float)
     by_year = ev.groupby(ev.index.year).sum() if len(ev) else ev
@@ -369,37 +539,69 @@ def assess(curve: pd.Series, events: pd.DataFrame, tax: TaxConfig, capital: floa
     factor = pd.Series(1.0, index=curve.index)             # share of pre-tax wealth left, bar by bar (portfolio-paid)
     paid_cum = pd.Series(0.0, index=curve.index)           # cumulative $ paid (outside-paid)
     f, carry, cum = 1.0, 0.0, 0.0
-    rows, warnings = {}, []
+    hist, back, year_tax = {}, {}, {}                      # P2: carry-back state; per year (carried back, refund)
+    rows, warnings = {}, list(warnings)
+    rrsp_rate = tax.rrsp_rate() if acct == "rrsp" else None                             # P1
+    if acct == "rrsp" and rrsp_rate is None:
+        warnings.append(RRSP_UNTAXED_WARNING)
+    joint_interest = hasattr(model, "assess_year") and _takes(model.assess_year, "interest_income")   # P1
+    last_year = max(set(yrs))
     for y in sorted(set(yrs)):
         e = by_year.loc[y] if y in by_year.index else pd.Series(0.0, index=list(EVENT_COLS))
         scale = capital * (f if tax.pay_from_portfolio else 1.0)
-        dca, dfx, g, l = (float(e[c]) * scale for c in EVENT_COLS)
-        t_div = t_fx = t_cg = 0.0
+        dca, dfx, g, l, intr = (float(e[c]) * scale for c in EVENT_COLS[:5])
+        dne, whfx, dfund, whfund, whlost = (float(e[c]) * scale for c in P3_EVENT_COLS)   # P3
+        fin = dfx + dfund - whfund                          # P3: foreign income stacked: direct gross + fund net
+        t_div = t_fx = t_cg = t_int = 0.0
+        cb = refund = 0.0                                   # P2
+        cb_years = {}
         carry_out = carry
         taxable = 0.0
         if acct == "taxable":
             net = g + l - carry                             # l <= 0
             taxable = max(net, 0.0)
             carry_out = max(-net, 0.0)
+            if g + l < 0:                                   # P2: this year's net loss goes back first, the rest forward
+                cb, refund, cb_years = _carry_back(hist, int(y), -(g + l))
+                carry_out -= cb
         if hasattr(model, "assess_year"):                   # joint path: the layers stack within the year
             sh = float(getattr(model, "eligible_share", 1.0))
-            yt = model.assess_year(int(y), eligible_dividends=dca * sh, non_eligible_dividends=dca * (1 - sh),
-                                   foreign_income=dfx, foreign_withholding=dfx * tax.us_withholding,
-                                   capital_gains_net=taxable, account=acct)
+            kw = {"interest_income": intr} if joint_interest else {}                   # P1
+            yt = model.assess_year(int(y), eligible_dividends=(dca - dne) * sh,
+                                   non_eligible_dividends=(dca - dne) * (1 - sh) + dne,
+                                   foreign_income=fin, foreign_withholding=whfx,                    # P3
+                                   capital_gains_net=taxable, account=acct, **kw)
             bd = yt.breakdown
-            t_div, t_fx, t_cg = (float(bd.get(k, 0.0)) for k in ("dividends", "foreign", "capital_gains"))
+            t_div, t_fx, t_cg, t_int = (float(bd.get(k, 0.0)) for k in ("dividends", "foreign", "capital_gains", "interest"))
+            if intr > 0 and not joint_interest and acct == "taxable":                   # P1: model without the joint kwarg
+                t_int = _interest_fallback(model, intr, int(y), warnings)
             warnings.extend(w for w in bd.get("warnings", ()) if w not in warnings)
         else:
             if acct == "taxable":
-                t_div = model.tax_on_dividends(dca, True, int(y)) if dca > 0 else 0.0
+                t_div = (model.tax_on_dividends(dca - dne, True, int(y)) if dca - dne > 0 else 0.0) \
+                    + (model.tax_on_dividends(dne, False, int(y)) if dne > 0 else 0.0)              # P3
                 t_cg = model.tax_on_capital_gain(taxable, int(y)) if taxable > 0 else 0.0
-            if dfx > 0:
-                t_fx = model.tax_on_foreign_dividends(dfx, tax.us_withholding, int(y), acct)
+            if dfx > 0:                                     # P3: direct foreign dividends at their blended rate
+                t_fx = model.tax_on_foreign_dividends(dfx, min(whfx / dfx, 0.999999), int(y), acct)
+            if dfund - whfund > 0:                          # P3: fund distributions net of the fund's withholding
+                t_fx += model.tax_on_foreign_dividends(dfund - whfund, 0.0, int(y), acct)
+            if intr > 0 and acct == "taxable":                                          # P1
+                t_int = _interest_fallback(model, intr, int(y), warnings)
+        t_fx += whfund + whlost                             # P3: withholding no credit can recover (fund level; RRSP non-US)
         carry = carry_out
-        total = max(0.0, float(t_div + t_fx + t_cg))      # a net credit is not paid out
+        total = max(0.0, float(t_div + t_fx + t_cg + t_int))   # a net credit is not paid out
         end = last_bar[y]
         wealth = capital * float(curve.loc[end]) * (f if tax.pay_from_portfolio else 1.0)
         pay = min(total, wealth) if wealth > 0 else 0.0
+        pay -= refund                                       # P2: the carry-back refund is a credit at this year end
+        hist[int(y)] = [taxable, t_cg]                      # P2
+        back[int(y)] = (cb, refund)
+        year_tax[int(y)] = YearTax(pay, {"dividends": t_div, "foreign": t_fx, "capital_gains": t_cg, "interest": t_int,
+                                         "carried_back": cb, "refund": refund, "refund_by_year": cb_years})
+        wd = 0.0                                                                        # P1: RRSP withdrawal tax, last bar
+        if rrsp_rate is not None and y == last_year and wealth > 0:
+            wd = rrsp_rate * (wealth - pay if tax.pay_from_portfolio else wealth)
+            pay += wd
         mask = curve.index >= end
         if tax.pay_from_portfolio:
             f_new = f * (1 - pay / wealth) if wealth > 0 else 0.0
@@ -411,13 +613,36 @@ def assess(curve: pd.Series, events: pd.DataFrame, tax: TaxConfig, capital: floa
             after = wealth - (cum + pay)
         cum += pay
         pre_w = capital * float(curve.loc[end])
-        rows[int(y)] = [dca, dfx, g, l, carry_out, t_div, t_fx, t_cg, pay, cum, pre_w, after,
+        rows[int(y)] = [dca, dfx + dfund, g, l, intr, carry_out, t_div, t_fx, t_cg, t_int, wd, pay, cum, pre_w, after,
                         1 - after / pre_w if pre_w > 0 else 0.0]
-    table = pd.DataFrame.from_dict(rows, orient="index", columns=TAX_COLS)
+    table = pd.DataFrame.from_dict(rows, orient="index", columns=TAX_COLS[:-2])   # P2: the last two are added below
     table.index.name = "year"
+    table["carried_back"] = pd.Series({y: v[0] for y, v in back.items()})        # P2
+    table["refund"] = pd.Series({y: v[1] for y, v in back.items()})              # P2
+    table.attrs["year_tax"] = year_tax                                           # P2: YearTax per year, breakdown has carried_back / refund
     table.attrs["warnings"] = warnings
+    table.attrs["convention"] = tax.rrsp_convention()                                  # P1
     after_curve = curve * factor if tax.pay_from_portfolio else curve - paid_cum / capital
     return table, after_curve.rename("after_tax")
+
+
+def _takes(fn, name: str) -> bool:
+    """P1: does the callable accept keyword `name` (or **kwargs)?"""
+    try:
+        ps = inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return False
+    return name in ps or any(p.kind is p.VAR_KEYWORD for p in ps.values())
+
+
+def _interest_fallback(model, amount: float, year: int, warnings: list) -> float:
+    """P1: tax on interest from a model without joint `interest_income`: its `tax_on_interest`, else untaxed + warning."""
+    if hasattr(model, "tax_on_interest"):
+        return float(model.tax_on_interest(amount, year))
+    w = "model has no interest tax (tax_on_interest / assess_year interest_income): interest untaxed"
+    if w not in warnings:
+        warnings.append(w)
+    return 0.0
 
 
 # --------------------------------------------------------------------------- the passive index, taxed the same way
@@ -443,7 +668,9 @@ def tax_buy_and_hold(curve: pd.Series, yield_: float, tax: TaxConfig, capital: f
     dt = np.diff(((c.index - c.index[0]).days / 365.25).to_numpy())
     div = c.to_numpy()[:-1] * yield_ * dt
     fs = tax.index_foreign_share
-    ev = pd.DataFrame({"div_ca": np.r_[0.0, div * (1 - fs)], "div_fx": np.r_[0.0, div * fs], "gain": 0.0, "loss": 0.0},
+    ev = pd.DataFrame({"div_ca": np.r_[0.0, div * (1 - fs)], "div_fx": np.r_[0.0, div * fs], "gain": 0.0, "loss": 0.0,
+                       "interest": 0.0,
+                       "wh_fx": np.r_[0.0, div * fs * (0.0 if tax.account == "rrsp" else tax.rate_for("US"))]},   # P3
                       index=c.index)
     if tax.liquidate_at_end:
         g = float(c.iloc[-1]) - (1.0 + float(div.sum()))
