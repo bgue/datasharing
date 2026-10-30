@@ -276,10 +276,12 @@ def _treatment_kind(text: str) -> str:
     return "taxed"
 
 
-def withholding_matrix(foreign_table: pd.DataFrame, ax=None, title=None):
+def withholding_matrix(foreign_table: pd.DataFrame, ax=None, title=None, legend=False, frame=None, frame_label=None):  # W2: legend, frame, frame_label
     """Table of kind of holding (rows) by account (columns): what happens to the foreign withholding. Amber = lost,
     blue = credited back, green = exempt, grey = no foreign tax at stake. The word is written in every cell.
-    `foreign_table` is `AccountReport.foreign` (class, taxable, tfsa, rrsp)."""
+    `foreign_table` is `AccountReport.foreign` (class, taxable, tfsa, rrsp).
+    # W2: `legend=True` adds a colour key below the matrix; `frame="taxable"` draws a grey dashed frame round that account's
+    column (the base case), named `frame_label` in the key."""
     from matplotlib.patches import Rectangle
     ft = foreign_table.drop_duplicates(subset=["class"]) if "class" in foreign_table else foreign_table
     accts = [a for a in ("taxable", "tfsa", "rrsp") if a in ft]
@@ -306,6 +308,19 @@ def withholding_matrix(foreign_table: pd.DataFrame, ax=None, title=None):
     ax.tick_params(length=0)
     ax.set_title(title or "What happens to foreign withholding tax, by account", loc="left", pad=28, fontsize=12,
                  fontweight="bold", color=INK)
+    handles = []                                                                                        # W2: the base-case frame and the key
+    if frame in accts:
+        j = accts.index(frame)
+        ax.add_patch(Rectangle((j + 0.02, 0.02), 0.96, n - 0.04, fill=False, edgecolor=INDEX_COL, ls="--", lw=3.0, zorder=5))
+    if legend:
+        from matplotlib.patches import Patch
+        used = {_treatment_kind(str(r[a])) for _, r in ft.iterrows() for a in accts}
+        names = {"lost": "withholding lost", "credited": "withheld, credited back", "exempt": "exempt (treaty)",
+                 "sheltered": "no foreign tax", "taxed": "taxed with the dividend tax credit"}
+        handles = [Patch(color=TREATMENT_COL[k][0], label=names[k]) for k in ("lost", "credited", "exempt", "sheltered", "taxed") if k in used]
+        if frame in accts:
+            handles.append(Patch(fill=False, edgecolor=INDEX_COL, ls="--", lw=2.0, label=frame_label or "base case column"))
+        ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, -0.04), ncol=2, fontsize=9, frameon=False)
     return ax
 
 
