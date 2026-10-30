@@ -26,7 +26,14 @@
 
 The records are `Result.harvest` (one row per loss sale; `source` "harvest" = the stage chose it, "screen" = the screen
 sold it anyway, "exit" = an exit-policy switch realized it) and the report columns `Harvested/yr`, `TaxDeferred/yr` (`harvest_columns`).
-Amounts are pre-tax wealth units (start wealth = 1.0), like the ledger.
+Units. `loss`, `denied`, `net_loss` and `acb_added` are in the SAME units as the tax ledger (`Result.tax`): wealth units
+of the account (start = 1.0) after tax was paid out of it, so with `pay_from_portfolio` each record is the pre-tax amount
+times the after-tax factor the ledger uses for the year of the sale (the factor at the end of the previous year; 1.0 in
+the first year). Per year, sum(loss - denied) x `TaxConfig.capital` of the harvest-source sales is the part of
+`tax["realized_losses"]` (negated) that the stage made. The pre-tax amounts are kept in `loss_pre_tax` / `denied_pre_tax`
+(`acct_factor` = the factor applied); they are what `Harvested/yr` uses (a share of the pre-tax wealth on the day).
+`days_out` is NaN while the name was never bought back (`rebought` is NaN too); `days_out_open` then holds the days to the
+end of the data. `HarvestRun.name_days_out(result)` sums them separately.
 """
 from __future__ import annotations
 
@@ -41,7 +48,8 @@ WHEN = ("year_end", "rebalance", "both")
 ON_REPICK = ("avoid", "allow_denial")                                                             # Q3
 REPLACEMENT = ("cash", "stay_out", "similar", "second_pick")   # Q1: "second_pick" is the preferred alias of "similar"
 HARVEST_COLS = ["date", "name", "source", "unrealized_pct", "loss", "denied", "net_loss", "acb_added", "days_out",
-                "replacement", "rebought", "window_end", "replacement_name", "blocked_until"]   # Q3: last two
+                "replacement", "rebought", "window_end", "replacement_name", "blocked_until",   # Q3: last two
+                "loss_pre_tax", "denied_pre_tax", "acct_factor", "days_out_open"]              # ledger units; pre-tax amounts; open window
 HARVESTED_YR = "Harvested/yr"
 TAXDEFERRED_YR = "TaxDeferred/yr"
 _EPS = 1e-12
@@ -368,20 +376,60 @@ class HarvestRun:
                     self._deny(rec, rec["loss"] * use / rec["_shares"])
         self.buys.setdefault(n, []).append((d, shares))
 
-    def finish(self, curve: pd.Series) -> pd.DataFrame:
-        """`Result.harvest`: the records as a DataFrame (HARVEST_COLS), days_out filled in."""
+    def _year_factors(self, curve: pd.Series, after_curve: pd.Series | None) -> dict:
+        """year -> the factor `taxes.assess` scales that year's events with (share of pre-tax wealth left at the end of
+        the previous year when tax is paid from the portfolio; else 1.0)."""
+        out, f = {}, 1.0
+        paid = after_curve is not None and getattr(self.taxer.tax, "pay_from_portfolio", False)
+        ratio = (after_curve / curve) if paid else None
+        for y, s in curve.groupby(curve.index.year):
+            out[int(y)] = f
+            if paid:
+                v = float(ratio.loc[s.index[-1]])
+                f = v if np.isfinite(v) else f
+        return out
+
+    def finish(self, curve: pd.Series, after_curve: pd.Series | None = None) -> pd.DataFrame:
+        """`Result.harvest`: the records as a DataFrame (HARVEST_COLS), days_out filled in. `after_curve` (the after-tax
+        curve of the run) puts the amounts in the ledger's units (module docstring); without it they stay pre-tax."""
         end = curve.index[-1]
+        fy = self._year_factors(curve, after_curve)
+        first = min(fy) if fy else None
         rows = []
         for r in self._rows:
             r = dict(r)
             if r["days_out"] is None:
-                r["days_out"] = 0 if r["_held_after"] > _EPS else \
-                    ((r["rebought"] if r["rebought"] is not None else end) - r["date"]).days
+                if r["_held_after"] > _EPS:
+                    r["days_out"] = 0
+                elif r["rebought"] is not None:
+                    r["days_out"] = (r["rebought"] - r["date"]).days
+                else:
+                    r["days_out"] = np.nan                       # never bought back: no closed window
+            r["days_out_open"] = (end - r["date"]).days if pd.isna(r["days_out"]) else np.nan
+            y = r["date"].year
+            f = fy.get(y, fy[max((k for k in fy if k < y), default=first)] if fy else 1.0)
+            r["acct_factor"] = f
+            r["loss_pre_tax"], r["denied_pre_tax"] = r["loss"], r["denied"]
+            r["loss"], r["denied"], r["acb_added"] = r["loss"] * f, r["denied"] * f, r["acb_added"] * f
             r["net_loss"] = r["loss"] - r["denied"]
             rows.append({k: r[k] for k in HARVEST_COLS})
         out = pd.DataFrame(rows, columns=HARVEST_COLS)
         out.attrs["wealth"] = curve
         return out
+
+    @staticmethod
+    def name_days_out(result, source: str | None = "harvest") -> dict:
+        """Name-days the stage kept names out, from `Result.harvest`, split in two: `closed` = days until the name was held
+        again (sales whose `days_out` is known), `open` = days from the sale to the end of the data for names never bought
+        back (`days_out_open`; a delisted or dropped name). `source` limits the records ("harvest" default, None = all).
+        Returns {"closed", "open", "n_closed", "n_open"}."""
+        h = result.harvest
+        if h is None or h.empty:
+            return {"closed": 0, "open": 0, "n_closed": 0, "n_open": 0}
+        if source is not None:
+            h = h[h["source"] == source]
+        c, o = h["days_out"].dropna(), h["days_out_open"].dropna()
+        return {"closed": int(c.sum()), "open": int(o.sum()), "n_closed": int(len(c)), "n_open": int(len(o))}
 
 
 def harvested_per_year(res) -> float:
@@ -394,7 +442,8 @@ def harvested_per_year(res) -> float:
     if h.empty or yrs <= 0:
         return 0.0
     w = res.curve.reindex(pd.DatetimeIndex(h["date"]), method="pad").to_numpy()
-    return float((h["net_loss"].to_numpy() / w).sum() / yrs)
+    net = (h["loss_pre_tax"] - h["denied_pre_tax"]) if "loss_pre_tax" in h and h["loss_pre_tax"].notna().all() else h["net_loss"]
+    return float((net.to_numpy() / w).sum() / yrs)               # pre-tax amounts over pre-tax wealth
 
 
 def harvest_columns(rows: dict, results: dict, items, market, start, end, run) -> None:

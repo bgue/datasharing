@@ -10,6 +10,8 @@ capital gains tax = 0.20 of the net gain. Wealth is 1.0 = $100,000.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -18,7 +20,7 @@ from screenlab import Config, Lab, Market, ScreenBuilder
 from screenlab.backtest import run
 from screenlab.construction import HoldRule
 from screenlab.data import add_ratios
-from screenlab.harvesting import HARVEST_COLS, TaxLossHarvest
+from screenlab.harvesting import HARVEST_COLS, HarvestRun, TaxLossHarvest, harvested_per_year
 from screenlab.metrics import summarize
 from screenlab.serial import from_dict, to_dict
 from screenlab.taxes import PlaceholderCanadianTax, TaxConfig, YearTax, assess
@@ -99,7 +101,10 @@ def test_year_end_harvest_realizes_the_loss():
     assert (r["date"], r["name"], r["source"]) == (pd.Timestamp("2020-12-31"), "A", "harvest")
     assert r["loss"] == pytest.approx(0.2, rel=1e-12) and r["unrealized_pct"] == pytest.approx(0.2, rel=1e-12)
     assert r["denied"] == 0 and r["net_loss"] == pytest.approx(0.2, rel=1e-12) and r["replacement"] == "cash"
-    assert r["days_out"] == (END - pd.Timestamp("2020-12-31")).days and pd.isna(r["rebought"])   # never bought back
+    # never bought back: no closed window (days_out NaN), the open one runs to the end of the data (days_out_open)
+    assert pd.isna(r["days_out"]) and pd.isna(r["rebought"]) and r["days_out_open"] == (END - pd.Timestamp("2020-12-31")).days
+    assert HarvestRun.name_days_out(res) == {"closed": 0, "open": 729, "n_closed": 0, "n_open": 1}
+    assert r["loss_pre_tax"] == r["loss"] and r["acct_factor"] == 1.0              # first year, tax not paid yet: same scale
 
 
 def test_threshold_and_min_loss_gate_the_harvest():
@@ -115,7 +120,9 @@ def test_repurchase_inside_30_days_denies_the_loss_and_raises_the_acb():
     res = go(mk, 1, TaxLossHarvest(on_repick="allow_denial"))              # Q3: the old arithmetic (default now avoids)
     r = res.harvest.iloc[0]
     # sold 1.0 share-equivalent (0.8 of wealth at price 0.8) on 2020-12-31, bought back 1 day later: all of it
-    assert r["rebought"] == pd.Timestamp("2021-01-01") and r["days_out"] == 1
+    assert r["rebought"] == pd.Timestamp("2021-01-01") and r["days_out"] == 1 and pd.isna(r["days_out_open"])
+    nd = HarvestRun.name_days_out(res)                       # the 2021 re-harvest is never bought back: open, not counted as closed
+    assert nd["closed"] == 1 and nd["n_closed"] == 1 and nd["n_open"] == 1
     assert r["loss"] == pytest.approx(0.2) and r["denied"] == pytest.approx(0.2, rel=1e-12)
     assert r["acb_added"] == pytest.approx(0.2, rel=1e-12) and r["net_loss"] == pytest.approx(0, abs=1e-15)
     t = res.tax
@@ -490,3 +497,95 @@ def test_q3_second_pick_mode_swaps_the_original_back_after_the_window():
     assert res.curve.loc["2020-10-02"] == pytest.approx(0.8) and res.curve.loc["2020-10-05"] == pytest.approx(0.88)
     stay = go_exit("2020-09-11", TaxLossHarvest(replacement="stay_out"))       # no second pick: the 0.8 waits in cash
     assert stay.curve.loc["2020-10-06"] == pytest.approx(0.8) and stay.harvest.iloc[0]["denied"] == 0
+
+
+# --------------------------------------------------------------------------- units: the records are in the ledger's units
+def paid_market():
+    """A doubles by June 2020 (the 2020-07-01 rebalance sells it for B: a gain of 1.0 = $100,000, tax $20,000 paid from the
+    portfolio at the 2020 year end, factor 0.9); B falls to 0.8 of its cost in September 2021 and is harvested at the 2021
+    year end: a pre-tax loss of 0.4 which the ledger books as 0.4 x 0.9 x capital."""
+    caps = {d: dict(A=3, B=2, C=1) if d == "2020-01-01" else dict(A=1, B=3, C=1)
+            for d in ("2020-01-01", "2020-07-01", "2021-01-01", "2021-07-01", "2022-01-03", "2022-07-01")}
+    return market(dict(A=step(("2020-06-01", 2.0)), B=step(("2021-09-01", 0.8)), C=FLAT), caps)
+
+
+def go_paid(harvest):
+    c = Config(rebalance_months=6, cost_bps=0, min_holdings=1, tax=TaxConfig(model=MODEL, capital=CAP, pay_from_portfolio=True,
+                                                                           harvest=harvest))
+    return run(screen(1), paid_market(), c, start="2020-01-01")
+
+
+def test_harvest_records_are_in_ledger_units_when_tax_is_paid_from_the_account():
+    res = go_paid(TaxLossHarvest())
+    assert res.tax.loc[2020, "tax_paid"] == pytest.approx(0.20 * CAP, rel=1e-12)
+    assert res.after_tax_curve.loc["2020-12-31"] / res.curve.loc["2020-12-31"] == pytest.approx(0.9, rel=1e-12)
+    h = res.harvest
+    r = h[h["source"] == "harvest"].iloc[0]
+    assert (r["name"], r["date"]) == ("B", pd.Timestamp("2021-12-31"))
+    assert r["loss_pre_tax"] == pytest.approx(0.4, rel=1e-12) and r["acct_factor"] == pytest.approx(0.9, rel=1e-12)
+    assert r["loss"] == pytest.approx(0.36, rel=1e-12) and r["denied"] == 0 and r["net_loss"] == pytest.approx(0.36, rel=1e-12)
+    ledger = -res.tax.loc[2021, "realized_losses"]
+    assert ledger == pytest.approx(0.36 * CAP, rel=1e-12)
+    assert ledger / ((h["loss"] - h["denied"])[h["date"].dt.year == 2021].sum() * CAP) == pytest.approx(1.0, abs=1e-12)   # exact
+    # the report column is still a share of the pre-tax wealth on the day: unchanged by the units
+    w = res.curve.loc["2021-12-31"]
+    assert harvested_per_year(res) * ((res.curve.index[-1] - res.curve.index[0]).days / 365.25) == pytest.approx(0.4 / w, rel=1e-12)
+    # first-year and outside-paid runs: nothing to rescale
+    outside = run(screen(1), paid_market(), Config(rebalance_months=6, cost_bps=0, min_holdings=1, tax=TaxConfig(
+        model=MODEL, capital=CAP, pay_from_portfolio=False, harvest=TaxLossHarvest())), start="2020-01-01").harvest
+    assert (outside["acct_factor"] == 1.0).all() and (outside["loss"] == outside["loss_pre_tax"]).all()
+
+
+def test_denied_amount_is_in_ledger_units_too():
+    res = go_paid(TaxLossHarvest(on_repick="allow_denial"))      # B is picked again on 2022-01-03: the whole loss is denied
+    r = res.harvest[res.harvest["source"] == "harvest"].iloc[0]
+    assert r["rebought"] == pd.Timestamp("2022-01-03")
+    assert r["denied"] == pytest.approx(0.36, rel=1e-12) and r["denied_pre_tax"] == pytest.approx(0.4, rel=1e-12)
+    assert r["acb_added"] == pytest.approx(0.36, rel=1e-12) and r["net_loss"] == pytest.approx(0, abs=1e-15)
+    assert res.tax.loc[2021, "realized_losses"] == pytest.approx(0, abs=1e-6)
+
+
+# --------------------------------------------------------------------------- the real panel (local use only)
+PANEL = Path(__file__).resolve().parents[1] / "data" / "panel" / "prices.parquet"
+
+
+@pytest.mark.skipif(not PANEL.exists(), reason="the S&P 500 panel is absent (make data-panel, local use only)")
+def test_real_panel_harvest_records_reconcile_with_the_ledger(monkeypatch):
+    """Dogs, taxable Alberta account, harvesting on, 1990-2022. The ledger cannot tell sources apart and also books the
+    write-offs of delisted names (and the final liquidation), which are not sales of the stage: so per year
+    ledger = capital x factor x (sum of ALL records' net loss, pre-tax + other losses the ledger booked), to 1e-6. The
+    brief's ratio of the harvest-source records alone is not 1 for that reason (screen-source sales and delistings)."""
+    import sys
+    from screenlab.pipeline import TaxStage
+    from screenlab.taxes import CanadianTax
+    other = {}                                                    # year -> losses booked outside the trades (pre-tax units)
+    orig = TaxStage._gains
+
+    def spy(self, date, gains):
+        g = np.asarray(gains, float)
+        if sys._getframe(1).f_code.co_name != "spy" and g[g < 0].sum() < 0:      # trade losses arrive through the harvest spy
+            other[pd.Timestamp(date).year] = other.get(pd.Timestamp(date).year, 0.0) + g[g < 0].sum()
+        orig(self, date, gains)
+    monkeypatch.setattr(TaxStage, "_gains", spy)
+    lab = Lab.real_sp500(start="1990-01-01", end="2022-12-30")
+    tx = TaxConfig(harvest=TaxLossHarvest(replacement="second_pick", report_deferral=False),
+                   model=CanadianTax("AB", other_income=90000),
+                   capital=100000, account="taxable")
+    r = lab.backtest(["dogs"], rebalance_months=12, tax=tx).results["dogs"]
+    h = r.harvest
+    assert (h["denied"] > 0).any() and (h["source"] == "screen").any()
+    ratio = r.after_tax_curve / r.curve
+    last = r.curve.groupby(r.curve.index.year).apply(lambda s: s.index[-1])
+    fac = {y: (1.0 if y - 1 not in last.index else float(ratio.loc[last[y - 1]])) for y in last.index}
+    assert fac[2021] < 0.5                                         # the old pre-tax scale was off by this much
+    yr = h["date"].dt.year
+    net_pre = (h["loss_pre_tax"] - h["denied_pre_tax"]).groupby(yr).sum()
+    for y in r.tax.index:
+        want = 100000 * fac[y] * (net_pre.get(y, 0.0) - other.get(y, 0.0))
+        assert -r.tax.loc[y, "realized_losses"] == pytest.approx(want, rel=1e-6, abs=1e-6), y
+    ok = ((h["loss"] - h["denied"]).groupby(yr).sum() * 100000 - 100000 * pd.Series(fac) * net_pre).abs().max()
+    assert ok < 1e-6                                               # records in ledger units = pre-tax x the year's factor
+    assert h.loc[h["days_out"].isna(), "rebought"].isna().all()                          # no closed window = never bought back
+    assert (h["days_out"].isna() == h["days_out_open"].notna()).all() and (h["days_out"].dropna() >= 0).all()
+    nd = HarvestRun.name_days_out(r)
+    assert nd["n_closed"] + nd["n_open"] == (h["source"] == "harvest").sum() and nd["open"] > nd["closed"]

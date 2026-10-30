@@ -246,8 +246,16 @@ tests, the tax table's old columns). It is **explicitly enabled**: nothing build
 * **Records.** `Result.harvest`: one row per loss sale (`source` "harvest" = chosen by the stage, "screen" = sold by the screen,
   "exit" = realized by an exit switch), columns `date, name, source, unrealized_pct, loss, denied, net_loss, acb_added,
   days_out, replacement, rebought, window_end, replacement_name` (the second pick bought instead; empty if none),
-  `blocked_until` (last blocked day; empty if not blocked), in pre-tax wealth units (start = 1.0). `days_out` = days until the name is held again (to the last date if
-  never). Report columns (`Lab.backtest`, taxed runs with `harvest` set; the passive index row has none): `Harvested/yr` =
+  `blocked_until` (last blocked day; empty if not blocked), `loss_pre_tax`, `denied_pre_tax`, `acct_factor`, `days_out_open`.
+  **Units:** `loss`, `denied`, `net_loss` and `acb_added` are in the units of the tax ledger (`Result.tax`): wealth units of the
+  account (start = 1.0) after tax was paid out of it. With `pay_from_portfolio` that is the pre-tax amount x `acct_factor`, the
+  after-tax share of wealth left at the end of the previous year (what `taxes.assess` scales that year's events with; 1.0 in
+  the first year and when tax is paid from outside), so sum(`loss` - `denied`) x `TaxConfig.capital` over a year's records
+  is the part of that year's `realized_losses` the sales made. The ledger also books the write-offs of delisted names and the
+  final liquidation, which are not records, and cannot tell the sources apart. The pre-tax amounts are in `loss_pre_tax` /
+  `denied_pre_tax` (`Harvested/yr` uses them). `days_out` = days until the name is held again; NaN while it was never bought back
+  (then `rebought` is NaN and `days_out_open` is the days from the sale to the end of the data). `HarvestRun.name_days_out(result)`
+  sums the closed windows and the open ones separately (`{"closed", "open", "n_closed", "n_open"}`). Report columns (`Lab.backtest`, taxed runs with `harvest` set; the passive index row has none): `Harvested/yr` =
   net losses the stage realized, each as a share of the wealth on the day, per year; `TaxDeferred/yr` = (tax paid without the
   stage - tax paid with it) / starting capital / years, from one extra run of the same portfolio without harvesting
   (`report_deferral=False` skips it and the column).
@@ -259,6 +267,17 @@ tests, the tax table's old columns). It is **explicitly enabled**: nothing build
   `carried_back`, `refund`, `refund_by_year`. A carried-forward balance is never carried back. The refund of a year is its
   remaining capital gains tax x the share of its remaining gain the loss takes: exact for a flat rate (placeholder), an
   underestimate for a progressive stacked model (`CanadianTax`).
+* **Why a screen sale is denied shortly after the swap-back (audit, dogs 1990-2022, default `on_repick="avoid"`).** 44 of the 248
+  loss sales were denied, all `source` "screen". 41 are one mechanism: the stage harvests at the year end (Dec 31), holds the
+  second pick for the window, and the swap-back on the first bar after the window (Jan 31 to Feb 2) sells the second pick,
+  often at a small loss; the screen's annual rebalance (first week of February, 3 to 6 days later) then picks that same name
+  because it is the next-ranked name and ranks high again. The second pick is not blocked (its sale is a screen-source sale),
+  so it is bought back inside 30 days and the loss is superficial by the rule. Behaviour kept, not a defect: the rule applies to
+  any loss sale; blocking screen-source sales would stop the screen holding a name it wants, which the owner did not ask for;
+  the denied amount is added to the ACB of the shares bought, so the loss is deferred, not lost (3.0 of 55.4 pre-tax wealth
+  units of loss sold in that run). What it costs is a round trip of the second pick (two trades) and a swap-back into a name
+  the rebalance may drop days later. A refinement for later, not done: skip the swap-back when a rebalance falls within a few
+  days and let it do the switch. The other 3 denials are sales at the rebalance with a repurchase 24 to 27 days later.
 * **What it ignores.** Spouse / affiliated persons / RRSP and TFSA purchases of the same name (CRA looks at them); identical
   property across ETFs (a different ETF on the same index counts as different; the stage only knows tickers); settlement dates
   (trade date = settlement); "still held at the end of the 30 days" (a rebuy that is sold again inside the window still

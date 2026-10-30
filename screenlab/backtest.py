@@ -357,7 +357,7 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
         tax_table, after_curve = taxer.finish(curve)
     return Result(screen.name, curve, holdings, pd.Series(turn), pd.Series(costs), expo, switches,
                   time_out, park_curve, ov.policy if ov is not None else None, tax_table, after_curve,
-                  harvest=hv.finish(curve) if hv is not None else None)         # P2: harvest records
+                  harvest=hv.finish(curve, after_curve) if hv is not None else None)         # P2: harvest records
 
 
 def run(screen: Screen, mkt: Market, cfg: Config = Config(), start=None, end=None,
