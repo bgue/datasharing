@@ -14,3 +14,5 @@ trailing the passive index); `montecarlo/MONTECARLO_SP500.md` is its write-up wi
 `montecarlo/*.csv` are not tracked. Regenerate (under a minute):
 
     python -m screenlab.research.montecarlo_sp500
+
+`diagnostics.py` runs the Phase 1.5 checks (cap-tiered costs on the all-portfolio Monte Carlo, rebalance-timing luck on the Globe screens, the Basic Buyback turnover check); write-up `diagnostics/DIAGNOSTICS.md`, about 14 minutes: `python -m screenlab.research.diagnostics`.
