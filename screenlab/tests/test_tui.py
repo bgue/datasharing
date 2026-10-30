@@ -22,13 +22,22 @@ from screenlab.store import SQLiteStore
 from screenlab.tui.session import PALETTE, PASSIVE_COLOR, Session, SessionError
 
 
+def wait_for(cond, timeout=10.0, step=0.05):
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        if cond():
+            return True
+        time.sleep(step)
+    return False
+
+
 def make_registry(store=None) -> LabRegistry:
     return LabRegistry({"synthetic": lambda: Lab.synthetic(freq="ME", n_stocks=150, years=10, seed=3)},
                        default="synthetic", mode="thread", store=store)
 
 
-@pytest.fixture(scope="module")
-def reg():
+@pytest.fixture
+def reg():                       # per test: labs, job cache and cached results are never shared between tests
     r = make_registry()
     yield r
     if r._jm is not None:
@@ -169,6 +178,28 @@ textual = pytest.importorskip("textual")
 from screenlab.tui.app import ScreenlabApp                                    # noqa: E402
 
 
+async def until(pred, timeout=15.0, pilot=None, what="condition"):
+    """Poll `pred()` every 50 ms until it is truthy (replaces fixed sleeps); fail with a clear message on timeout."""
+    loop = asyncio.get_running_loop()
+    end = loop.time() + timeout
+    while True:
+        if pred():
+            return
+        if loop.time() > end:
+            raise AssertionError(f"timed out after {timeout}s waiting for {what}")
+        if pilot is not None:
+            await pilot.pause(0.05)
+        else:
+            await asyncio.sleep(0.05)
+
+
+async def settle(pilot, app, timeout=15.0):
+    """Wait until the app has built its lab and drawn every session change so far, then let Textual flush."""
+    await until(lambda: app.ready, timeout, pilot, "app.ready")
+    await pilot.pause(0.05)
+    await pilot.pause()
+
+
 def arun(coro):
     return asyncio.run(asyncio.wait_for(coro, 60))
 
@@ -178,31 +209,28 @@ def test_app_launch_apply_versions_and_tabs(reg):
         s = Session(reg)
         app = ScreenlabApp(s, control_port=None)
         async with app.run_test(size=(170, 50)) as pilot:
-            await pilot.pause(0.6)
+            await settle(pilot, app)
             assert "SYN_CAPWT" in str(app.query_one("#head").render())
             s.command("add_scenario", {"screen": "dogs", "run": True, "wait": True, "cost_bps": 10})
-            await pilot.pause(0.6)
+            await settle(pilot, app)
             t = app.query_one("#t-compare")
             assert [str(t.get_row_at(i)[0]) for i in range(t.row_count)] == ["● SYN_CAPWT (passive)", "● dogs"]
             app.query_one("#f-cost_bps").value = "40"                    # edit a field, then Apply (F2)
             await pilot.press("f2")
-            for _ in range(40):
-                await pilot.pause(0.25)
-                if t.row_count == 3 and all(x.status == "done" for x in s.scenarios):
-                    break
-            await pilot.pause(0.4)
+            await until(lambda: t.row_count == 3 and all(x.status == "done" for x in s.scenarios), pilot=pilot, what='t.row_count == 3 and all(x.status == "done" for x ')
+            await settle(pilot, app)
             assert [x.label for x in s.scenarios] == ["dogs", "dogs v2"]
             assert [str(t.get_row_at(i)[0]) for i in range(t.row_count)] == [
                 "● SYN_CAPWT (passive)", "● dogs", "● dogs v2"]
             assert "cost_bps 10.0 -> 40.0" in str(app.query_one("#diff").render())
             await pilot.press("2")
-            await pilot.pause(0.4)
+            await settle(pilot, app)
             assert s.active_tab == "curves" and app.query_one("#main").active == "curves"
             await pilot.press("8")
-            await pilot.pause(0.3)
+            await settle(pilot, app)
             assert s.active_tab == "log"
             await pilot.press("question_mark")
-            await pilot.pause(0.2)
+            await settle(pilot, app)
             assert app.screen.__class__.__name__ == "HelpScreen"
             await pilot.press("escape")
         s.close()
@@ -214,14 +242,14 @@ def test_app_toggle_exit_switch_and_theme(reg):
         s = Session(reg)
         app = ScreenlabApp(s, control_port=None, theme="textual-light")
         async with app.run_test(size=(170, 50)) as pilot:
-            await pilot.pause(0.5)
+            await settle(pilot, app)
             assert app.theme == "textual-light"
             s.command("add_scenario", {"screen": "dogs"})
-            await pilot.pause(0.5)
+            await settle(pilot, app)
             await pilot.press("x")
             assert app.query_one("#f-exit").value is True
             await pilot.press("T")
-            await pilot.pause(0.5)
+            await settle(pilot, app)
             assert app.theme == "textual-dark" and s.theme == "textual-dark"
         s.close()
     arun(go())
@@ -246,7 +274,7 @@ def test_control_endpoint_round_trip(reg, monkeypatch):
         s = Session(reg)
         app = ScreenlabApp(s, control_port=0)
         async with app.run_test(size=(170, 50)) as pilot:
-            await pilot.pause(0.5)
+            await settle(pilot, app)
             port = app._control.port
             call = lambda *a, **k: asyncio.to_thread(http, port, *a, **k)
             code, h = await call("GET", "/health")                       # no token needed
@@ -264,7 +292,7 @@ def test_control_endpoint_round_trip(reg, monkeypatch):
             code, c = await call("POST", "/command", {"cmd": "compare"}, token="sekret")
             assert [x["label"] for x in c["rows"]] == ["SYN_CAPWT", "dogs", "dogs v2"]
             await call("POST", "/command", {"cmd": "show", "args": {"tab": "curves"}}, token="sekret")
-            await pilot.pause(0.5)
+            await settle(pilot, app)
             assert app.query_one("#main").active == "curves"             # the UI follows the command
             code, v = await call("GET", "/view", token="sekret")
             assert v["tab"] == "curves" and "dogs v2" in v["view"]
@@ -291,13 +319,16 @@ def test_serve_smoke():
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         body = None
-        for _ in range(60):
+
+        def probe():
+            nonlocal body
             try:
                 with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=2) as r:
                     body = r.read().decode()
-                break
+                return True
             except OSError:
-                time.sleep(0.5)
+                return False
+        wait_for(probe, timeout=30)
         assert body is not None and "<html" in body.lower()
     finally:
         p.terminate()
@@ -337,7 +368,7 @@ def raw(port, path, token=None, timeout=30):
         return e.code, e.headers.get("Content-Type", ""), e.read()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def charts(reg):
     s = Session(reg)
     s.command("add_scenario", {"screen": "dogs", "run": True, "wait": True, "cost_bps": 10})
@@ -534,11 +565,11 @@ def test_app_key_w_opens_charts_in_browser(reg, monkeypatch):
         s = Session(reg)
         app = ScreenlabApp(s, control_port=0)
         async with app.run_test(size=(170, 50)) as pilot:
-            await pilot.pause(0.5)
+            await settle(pilot, app)
             port = app._control.port
             assert any("charts in the browser" in line for line in s._log)
             await pilot.press("w")
-            await pilot.pause(0.3)
+            await settle(pilot, app)
             assert opened == [f"http://127.0.0.1:{port}/charts"]
             code, ctype, body = await asyncio.to_thread(raw, port, "/theme")             # real Textual theme colours
             t = json.loads(body)
@@ -557,11 +588,11 @@ def test_app_serve_mode_shows_split_url(reg, monkeypatch):
         s = Session(reg)
         app = ScreenlabApp(s, control_port=0)
         async with app.run_test(size=(170, 50)) as pilot:
-            await pilot.pause(0.5)
+            await settle(pilot, app)
             port = app._control.port
             assert app.query_one("#chartsbar").display
             await pilot.press("w")
-            await pilot.pause(0.2)
+            await settle(pilot, app)
             assert any(f"charts: http://127.0.0.1:{port}/" in line for line in s._log)
             code, ctype, body = await asyncio.to_thread(raw, port, "/")
             assert code == 200 and b"http://localhost:8000" in body
@@ -589,15 +620,6 @@ def parent(reg):
     for c in clients:
         c.close()
     srv.stop()
-
-
-def wait_for(cond, timeout=10.0, step=0.05):
-    t0 = time.time()
-    while time.time() - t0 < timeout:
-        if cond():
-            return True
-        time.sleep(step)
-    return False
 
 
 def test_remote_session_round_trip(parent):
@@ -690,38 +712,34 @@ def test_app_runs_with_remote_session(parent):
         r = parent.connect()
         app = ScreenlabApp(r, control_port=None)
         async with app.run_test(size=(170, 50)) as pilot:
-            await pilot.pause(0.8)
+            await settle(pilot, app)
             assert "SYN_CAPWT" in str(app.query_one("#head").render())
             assert app._control is None and app._remote
             # the other tab (here: the parent's session directly) adds a scenario: this app shows it
             parent.session.command("add_scenario", {"screen": "dogs", "run": True, "wait": True, "cost_bps": 10})
-            await pilot.pause(1.0)
+            await settle(pilot, app)
             t = app.query_one("#t-compare")
             assert [str(t.get_row_at(i)[0]) for i in range(t.row_count)] == ["● SYN_CAPWT (passive)", "● dogs"]
             app.query_one("#f-cost_bps").value = "40"                    # Apply in the app -> new version in the parent
             await pilot.press("f2")
-            for _ in range(60):
-                await pilot.pause(0.25)
-                if t.row_count == 3 and all(x.status == "done" for x in parent.session.scenarios):
-                    break
-            await pilot.pause(0.5)
+            await until(lambda: t.row_count == 3 and all(x.status == "done" for x in parent.session.scenarios), pilot=pilot, what='t.row_count == 3 and all(x.status == "done" for x ')
+            await settle(pilot, app)
             assert [x.label for x in parent.session.scenarios] == ["dogs", "dogs v2"]
             assert "cost_bps 10.0 -> 40.0" in str(app.query_one("#diff").render())
             other = parent.connect()                                     # a second browser tab sees the same scenarios
             assert [x.label for x in other.scenarios] == ["dogs", "dogs v2"]
             await pilot.press("2")                                       # the tab is shared state too
-            await pilot.pause(0.6)
+            await settle(pilot, app)
             assert parent.session.active_tab == "curves" and app.query_one("#main").active == "curves"
             parent.session.command("show", {"tab": "log"})
-            await pilot.pause(0.8)
-            assert app.query_one("#main").active == "log"
+            await until(lambda: app.query_one("#main").active == "log", pilot=pilot, what="#main follows the parent's tab")
             await pilot.press("T")
-            await pilot.pause(0.6)
+            await until(lambda: parent.session.theme == "textual-light" and app.theme == "textual-light",
+                        pilot=pilot, what="theme change round trip")
             assert parent.session.theme == "textual-light" and app.theme == "textual-light"
             await pilot.press("w")                                       # no browser: shows the shared page URL
-            await pilot.pause(0.2)
-            assert any(f":{parent.server.port}/" in line for line in r.log_lines())
-            assert app.query_one("#chartsbar").display
+            await until(lambda: any(f":{parent.server.port}/" in line for line in r.log_lines())
+                        and app.query_one("#chartsbar").display, pilot=pilot, what="shared page URL logged")
     arun(go())
 
 
@@ -738,12 +756,15 @@ def test_serve_mode_shares_one_session():
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         h = None
-        for _ in range(60):
+
+        def probe():
+            nonlocal h
             try:
                 h = http(ctl_port, "GET", "/health")[1]
-                break
+                return True
             except OSError:
-                time.sleep(0.5)
+                return False
+        wait_for(probe, timeout=30)
         assert h and h["headless"] is True and h["serve"] is True and h["control_port"] == ctl_port
         code, r = http(ctl_port, "POST", "/command", {"cmd": "add_scenario", "args": {"screen": "dogs"}})
         assert code == 200
@@ -830,10 +851,10 @@ def test_app_data_tab_cards_and_download(stub_fetch):
         s = Session(make_registry(), own=True)
         app = ScreenlabApp(s, control_port=None)
         async with app.run_test(size=(180, 60)) as pilot:
-            await pilot.pause(0.6)
+            await settle(pilot, app)
             s.command("add_scenario", {"screen": "dogs"})
             await pilot.press("D")                                           # key D opens the Data tab
-            await pilot.pause(1.0)
+            await settle(pilot, app)
             assert s.active_tab == "data" and app.query_one("#main").active == "data"
             t = app.query_one("#t-datasets")
             assert t.row_count == 1 and "synthetic" in str(t.get_row_at(0)[0])
@@ -842,16 +863,13 @@ def test_app_data_tab_cards_and_download(stub_fetch):
             assert not app.query_one("#d-go").disabled
             app.query_one("#d-sec").value = ""                                 # SEC ticked, no contact: refused
             await pilot.click("#d-go")
-            await pilot.pause(0.6)
+            await settle(pilot, app)
             assert s.data_fetch is None
             app.query_one("#d-sec").value = "Ann Lee ann@example.com"
             app.query_one("#d-src-fred").value = False
             await pilot.click("#d-go")
-            for _ in range(60):
-                await pilot.pause(0.25)
-                if s.data_fetch and app.query_one("#t-manifest").row_count:
-                    break
-            await pilot.pause(0.8)
+            await until(lambda: s.data_fetch and app.query_one("#t-manifest").row_count, pilot=pilot, what='s.data_fetch and app.query_one("#t-manifest").row_')
+            await settle(pilot, app)
             man = app.query_one("#t-manifest")
             from screenlab.tui.session import FETCH_SOURCES
             expected = [x for x in FETCH_SOURCES if x != "fred"]
@@ -873,9 +891,9 @@ def test_app_data_tab_without_downloader(monkeypatch):
         s = Session(make_registry(), own=True)
         app = ScreenlabApp(s, control_port=None)
         async with app.run_test(size=(180, 60)) as pilot:
-            await pilot.pause(0.5)
+            await settle(pilot, app)
             await pilot.press("D")
-            await pilot.pause(0.8)
+            await settle(pilot, app)
             assert "downloader not installed" in str(app.query_one("#d-status").render())
             assert app.query_one("#d-go").disabled and app.query_one("#t-datasets").row_count == 1
         s.close()
@@ -887,17 +905,14 @@ def test_data_tab_over_remote_session(parent, stub_fetch):
         r = parent.connect()
         app = ScreenlabApp(r, control_port=None)
         async with app.run_test(size=(180, 60)) as pilot:
-            await pilot.pause(0.8)
+            await settle(pilot, app)
             await pilot.press("D")
-            await pilot.pause(1.0)
+            await settle(pilot, app)
             assert app.query_one("#t-datasets").row_count == 1
             app.query_one("#d-sec").value = "Ann Lee ann@example.com"
             await pilot.click("#d-go")
-            for _ in range(60):
-                await pilot.pause(0.25)
-                if parent.session.data_fetch and app.query_one("#t-manifest").row_count:
-                    break
-            await pilot.pause(0.8)
+            await until(lambda: parent.session.data_fetch and app.query_one("#t-manifest").row_count, pilot=pilot, what='parent.session.data_fetch and app.query_one("#t-ma')
+            await settle(pilot, app)
             from screenlab.tui.session import FETCH_SOURCES
             assert app.query_one("#t-manifest").row_count == len(FETCH_SOURCES)   # every source ticked
             assert parent.session.lab_names() == ["synthetic", "real_ca"]
@@ -1026,28 +1041,28 @@ def test_app_frozen_scenario_is_read_only_and_header_shows_trials(reg):
         s = Session(reg)
         app = ScreenlabApp(s, control_port=None)
         async with app.run_test(size=(170, 50)) as pilot:
-            await pilot.pause(0.6)
+            await settle(pilot, app)
             s.command("add_scenario", {"screen": "dogs", "run": True, "wait": True, "cost_bps": 10})
-            await pilot.pause(0.6)
+            await settle(pilot, app)
             assert "trials this session: 1" in str(app.query_one("#head").render())
             t = app.query_one("#t-compare")
             assert "Trials" in [str(c.label) for c in t.columns.values()] and "DSR" in [str(c.label) for c in t.columns.values()]
             assert app.query_one("#f-cost_bps").disabled is False
             await pilot.press("f")
-            await pilot.pause(0.5)
+            await settle(pilot, app)
             assert s.scenarios[0].frozen
             assert app.query_one("#f-cost_bps").disabled and app.query_one("#apply").disabled
             assert "read-only" in str(app.query_one("#diff").render())
             assert LOCK in str(t.get_row_at(1)[0])
             await pilot.press("f2")
-            await pilot.pause(0.4)
+            await settle(pilot, app)
             assert len(s.scenarios) == 1                                       # Apply did nothing
             await pilot.press("c")                                             # clone to continue
-            await pilot.pause(0.5)
+            await settle(pilot, app)
             assert len(s.scenarios) == 2 and s.scenarios[1].candidate_of == "dogs"
             assert app.query_one("#f-cost_bps").disabled is False
             await pilot.press("H")
-            await pilot.pause(0.5)
+            await settle(pilot, app)
             assert s.active_tab == "hypotheses" and app.query_one("#main").active == "hypotheses"
             assert app.query_one("#t-hyp").row_count == len(s.command("hypotheses")["hypotheses"]) >= 3
         s.close()

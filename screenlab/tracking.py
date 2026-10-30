@@ -26,6 +26,12 @@ _log = logging.getLogger(__name__)
 PROCESS_TRIALS = NullStore()
 
 
+def reset_process_trials() -> None:
+    """Forget every trial counted in this process (tests: each starts from a clean count)."""
+    with PROCESS_TRIALS._lock:
+        PROCESS_TRIALS._trials.clear()
+
+
 def trial_store(lab):
     s = getattr(lab, "store", None)
     return s if s is not None and getattr(s, "persistent", False) else PROCESS_TRIALS

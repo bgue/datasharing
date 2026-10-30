@@ -24,6 +24,7 @@ from rich.text import Text
 from textual import on
 from textual.app import App, ComposeResult
 from textual.binding import Binding
+from textual.css.query import NoMatches
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import (Button, Checkbox, DataTable, Footer, Input, Label, OptionList, ProgressBar, RichLog,
@@ -308,15 +309,28 @@ class ScreenlabApp(App):
         bar.display = True
 
     # ------------------------------------------------------------------ refresh
+    @property
+    def ready(self) -> bool:
+        """True once the lab is built and the first header refresh has been drawn (tests wait on this)."""
+        return self._loaded and self._seen == self.session.seq
+
     def _tick(self) -> None:
         s = self.session
         s.poll()
         if not self._loaded:
             return
+        if len(self.screen_stack) > 1:       # a modal is on top: query_one would search it, not the main screen
+            return
         if s.seq != self._seen:
             self._seen = s.seq
-            self.refresh_all()
-        self._progress()
+            try:
+                self.refresh_all()
+            except NoMatches:                # the timer raced app teardown: the main screen is already gone
+                return
+        try:
+            self._progress()
+        except NoMatches:
+            return
 
     def _progress(self) -> None:
         jobs = self.session.active_jobs()
@@ -965,20 +979,8 @@ def serve_main(args: argparse.Namespace) -> None:
         session.close()
 
 
-def main(argv: list[str] | None = None) -> None:
-    ap = argparse.ArgumentParser(prog="screenlab-tui", description="Interactive terminal UI for screenlab.")
-    ap.add_argument("--lab", help="dataset name (default: sp500 when skfolio is installed, else synthetic)")
-    ap.add_argument("--store", help="run store SQLite path, or 'none' (default: SCREENLAB_STORE or ~/.screenlab/runs.sqlite)")
-    ap.add_argument("--control-port", type=int, default=8765, help="control endpoint port on 127.0.0.1; 0 = off "
-                    "(with --serve the endpoint is the shared session and always on: 0 picks a free port)")
-    ap.add_argument("--serve", action="store_true", help="serve the app in a browser (textual-serve) instead of the terminal")
-    ap.add_argument("--remote", metavar="URL", help="be a client of a running screenlab-tui control endpoint "
-                    "(its session) instead of building one; token from SCREENLAB_TUI_TOKEN. Used by --serve for "
-                    "each browser tab; also joins a terminal TUI from a second terminal")
-    ap.add_argument("--host", default="localhost", help="with --serve: host (default localhost)")
-    ap.add_argument("--port", type=int, default=8000, help="with --serve: port (default 8000)")
-    ap.add_argument("--theme", help="Textual theme name, e.g. textual-dark, textual-light, nord, gruvbox")
-    args = ap.parse_args(argv)
+def run(args: argparse.Namespace, ap: argparse.ArgumentParser) -> None:
+    """Start the app (or `--serve` / `--remote`) from parsed arguments."""
     if args.serve and args.remote:
         ap.error("--serve and --remote are exclusive")
     if args.serve:
@@ -998,6 +1000,3 @@ def main(argv: list[str] | None = None) -> None:
     port = args.control_port if args.control_port != 0 else None
     ScreenlabApp(session, control_port=port, theme=args.theme).run()
 
-
-if __name__ == "__main__":
-    main()
