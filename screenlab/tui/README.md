@@ -50,6 +50,18 @@ passive index together. Versions are kept until you delete them (`d`).
 `D` Data tab, `T` light/dark, `1`-`9` tabs,
 `?` help, `q` quit. The mouse works too. In a field, `F2` or Enter applies.
 
+## Guardrails (trials, frozen scenarios, hypotheses)
+* **Trials / DSR** columns in Compare (and in the browser chart panel's Compare table): Trials = parameter sets run in the
+  row's family (dataset + screen, plus `@H1` when linked), or the run store's `trials_in_family` when larger; DSR = deflated
+  Sharpe of the row against the Sharpe the luckiest of that many skill-less variants would show (`stats.expected_max_sharpe`,
+  `probabilistic_sharpe`; variance across the family's Sharpes, floored at 1/(obs-1)). The header and `view` show
+  "trials this session: N". Removing a version never lowers a count.
+* **`f` / `freeze`**: lock the version; editor read-only (Apply refuses, `c` clones). Versions or clones derived from it are
+  candidates (marked `candidate`), each adds one trial to the frozen row. `unfreeze` exists, logs a line, and leaves the
+  candidates flagged.
+* **Hypotheses tab (`H`)**: parses `research/PREREGISTERED.md` (override with env `SCREENLAB_PREREG`). `l` / `link`
+  attaches the selected scenario (all its versions) to a hypothesis id; the tab shows met / not met for its latest result.
+
 ## Control endpoint (for agents and scripts)
 While running, the app serves `http://127.0.0.1:8765` (`GET /health /state /view`, `POST /command`). Set
 `SCREENLAB_TUI_TOKEN` before starting to require a token. The contract is [PROTOCOL.md](PROTOCOL.md); the MCP tools

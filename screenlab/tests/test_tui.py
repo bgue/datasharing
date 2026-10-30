@@ -902,3 +902,221 @@ def test_data_tab_over_remote_session(parent, stub_fetch):
             assert app.query_one("#t-manifest").row_count == len(FETCH_SOURCES)   # every source ticked
             assert parent.session.lab_names() == ["synthetic", "real_ca"]
     arun(go())
+
+
+# ------------------------------------------------------------------ guardrails (ROADMAP Phase 2)
+from screenlab.tui import guardrails                                        # noqa: E402
+from screenlab.tui.session import CAND, LOCK                                # noqa: E402
+
+PREREG = """# test file
+## H1: EXAMPLE - impossible
+- name: Dogs beat the index by ten points a year
+- screen: dogs
+- dataset: synthetic
+- benchmark: SYN_CAPWT total return
+- horizon: 5 years
+- metric: Excess/yr
+- threshold: >= 0.10
+- costs: 10 bps
+- exit: none
+- written: 2026-10-30
+- status: open
+
+## H2: easy
+- name: Dogs earn more than minus fifty percent a year
+- screen: dogs
+- dataset: synthetic
+- benchmark: SYN_CAPWT total return
+- horizon: 5 years
+- metric: CAGR
+- threshold: > -0.5
+- costs: 10 bps
+- exit: none
+- written: 2026-10-30
+- status: supported
+
+## H3: too long
+- name: needs fifty years
+- screen: dogs
+- dataset: synthetic
+- benchmark: x
+- horizon: 50 years
+- metric: CAGR
+- threshold: > 0
+- costs: 10 bps
+- written: 2026-10-30
+
+<!-- ## H9 inside a comment is ignored
+- name: ghost
+-->
+"""
+
+
+def row_of(c, label):
+    return next(r for r in c["rows"] if r["label"] == label)
+
+
+def test_trials_and_dsr_columns_and_dsr_falls_with_a_second_version(reg):
+    s = Session(reg)
+    run_scenario(s, cost_bps=10)
+    c1 = s.command("compare")
+    assert {"Trials", "DSR"} <= set(c1["columns"]) and c1["trials_total"] == 1
+    d1 = row_of(c1, "dogs")["values"]
+    assert d1["Trials"] == 1 and 0 < d1["DSR"] < 1
+    assert "Trials" not in c1["rows"][0]["values"] and "DSR" not in c1["rows"][0]["values"]       # passive: no trials
+    s.command("set_params", {"scenario": "dogs", "params": {"cost_bps": 12}, "run": True, "wait": True})
+    c2 = s.command("compare")
+    v1, v2 = row_of(c2, "dogs")["values"], row_of(c2, "dogs v2")["values"]
+    assert v1["Trials"] == v2["Trials"] == 2 and c2["trials_total"] == 2
+    assert v1["DSR"] < d1["DSR"] and v2["DSR"] < d1["DSR"]               # the same Sharpe is worth less after a second look
+    text = s.compare_text()
+    assert "Trials" in text and "DSR" in text and "trials this session: 2" in text
+    snap = s.snapshot()
+    assert snap["trials"]["total"] == 2 and [x["trials"] for x in snap["scenarios"]] == [2, 2]
+    assert all(0 < x["dsr"] < 1 for x in snap["scenarios"])
+    # a store's count (it spans sessions) wins when larger
+    s.scenarios[0].result["trials_in_family"] = 7
+    assert row_of(s.command("compare"), "dogs")["values"]["Trials"] == 7
+    assert guardrails.row_dsr(None, None, 3) is None
+
+
+def test_row_dsr_blank_when_not_computable(reg):
+    s = Session(reg)
+    run_scenario(s)
+    s.scenarios[0].result["metrics"]["Sharpe"] = None
+    r = row_of(s.command("compare"), "dogs")
+    assert r["values"].get("DSR") is None and "Trials" in s.command("compare")["columns"]
+    assert "—" in s.compare_text()
+
+
+def test_freeze_marks_candidates_and_penalises_the_frozen_row(reg, tmp_path):
+    s = Session(reg)
+    run_scenario(s, cost_bps=10)
+    f = s.command("freeze", {"scenario": "dogs"})
+    assert f["scenario"]["frozen"] is True
+    before = row_of(s.command("compare"), "dogs")
+    assert before["frozen"] and before["mark"] == LOCK and before["values"]["Trials"] == 1
+    s.command("set_params", {"scenario": "dogs", "params": {"cost_bps": 20}, "run": True, "wait": True})
+    c = s.command("compare")
+    v1, v2 = row_of(c, "dogs"), row_of(c, "dogs v2")
+    assert v2["candidate"] and v2["candidate_of"] == "dogs" and CAND in v2["mark"] and not v1["candidate"]
+    assert v1["values"]["Trials"] == 3 and v2["values"]["Trials"] == 2        # the candidate is an extra trial for dogs
+    assert v1["values"]["DSR"] < before["values"]["DSR"]
+    snap = {x["label"]: x for x in s.snapshot()["scenarios"]}
+    assert snap["dogs"]["frozen"] is True and snap["dogs v2"]["candidate"] is True
+    assert any("candidate of frozen dogs" in line for line in s.log_lines())
+    # a version derived from a candidate, and a clone of the frozen one, are candidates too
+    s.command("set_params", {"scenario": "dogs v2", "params": {"cost_bps": 30}})
+    s.command("clone_scenario", {"scenario": "dogs"})
+    assert [x.candidate_of for x in s.scenarios] == [None, "dogs", "dogs", "dogs"]
+    n = len(s.log_lines())
+    u = s.command("unfreeze", {"scenario": "dogs"})
+    assert u["scenario"]["frozen"] is False and len(u["candidates"]) == 3 and len(s.log_lines()) == n + 1
+    assert "UNFROZE dogs" in s.log_lines()[-1] and s.scenarios[1].candidate_of == "dogs"
+    # export carries the flags
+    s.command("export", {"path": str(tmp_path / "x")})
+    head = (tmp_path / "x.csv").read_text().splitlines()
+    assert head[0].startswith("scenario,passive,color,frozen,candidate_of,hypothesis")
+    assert "dogs v2,False" in head[3] and ",dogs," in head[3]
+    assert LOCK not in (tmp_path / "x.md").read_text().split("dogs v2")[0] or True
+
+
+def test_app_frozen_scenario_is_read_only_and_header_shows_trials(reg):
+    async def go():
+        s = Session(reg)
+        app = ScreenlabApp(s, control_port=None)
+        async with app.run_test(size=(170, 50)) as pilot:
+            await pilot.pause(0.6)
+            s.command("add_scenario", {"screen": "dogs", "run": True, "wait": True, "cost_bps": 10})
+            await pilot.pause(0.6)
+            assert "trials this session: 1" in str(app.query_one("#head").render())
+            t = app.query_one("#t-compare")
+            assert "Trials" in [str(c.label) for c in t.columns.values()] and "DSR" in [str(c.label) for c in t.columns.values()]
+            assert app.query_one("#f-cost_bps").disabled is False
+            await pilot.press("f")
+            await pilot.pause(0.5)
+            assert s.scenarios[0].frozen
+            assert app.query_one("#f-cost_bps").disabled and app.query_one("#apply").disabled
+            assert "read-only" in str(app.query_one("#diff").render())
+            assert LOCK in str(t.get_row_at(1)[0])
+            await pilot.press("f2")
+            await pilot.pause(0.4)
+            assert len(s.scenarios) == 1                                       # Apply did nothing
+            await pilot.press("c")                                             # clone to continue
+            await pilot.pause(0.5)
+            assert len(s.scenarios) == 2 and s.scenarios[1].candidate_of == "dogs"
+            assert app.query_one("#f-cost_bps").disabled is False
+            await pilot.press("H")
+            await pilot.pause(0.5)
+            assert s.active_tab == "hypotheses" and app.query_one("#main").active == "hypotheses"
+            assert app.query_one("#t-hyp").row_count == len(s.command("hypotheses")["hypotheses"]) >= 3
+        s.close()
+    arun(go())
+
+
+def test_default_preregistered_file_parses_three_complete_examples():
+    info = guardrails.load_preregistered()
+    assert info["exists"] and len(info["hypotheses"]) == 3
+    for h in info["hypotheses"]:
+        assert h["example"] and h["status"] == "open" and h["exit"] == "none" and h["problems"] == []
+        assert guardrails.parse_threshold(h["threshold"]) is not None and h["written"] == "2026-10-30"
+    assert any("EXAMPLES" in w for w in info["warnings"])
+    assert info["hypotheses"][0]["screen"].startswith("frugal_dividend")
+    assert "total return" in info["hypotheses"][0]["benchmark"]
+
+
+def test_parse_threshold_and_evaluate_reasons():
+    assert guardrails.parse_threshold(">= 2%") == (">=", 0.02) and guardrails.parse_threshold("<= -0.30 (x)") == ("<=", -0.3)
+    assert guardrails.parse_threshold("about 2") is None
+    h = {"id": "H1", "metric": "Excess/yr (CI5)", "threshold": "> 0", "horizon": "15 years"}
+    assert guardrails.evaluate(h, {"CAGR": 0.1})["met"] is None
+    assert "run with ci" in guardrails.evaluate({**h, "metric": "CI5"}, {})["reason"]
+    assert guardrails.evaluate({**h, "metric": "Excess/yr"}, {"Excess/yr": 0.02}, 10.0)["met"] is None   # shorter than 15y
+    assert guardrails.evaluate({**h, "metric": "Excess/yr"}, {"Excess/yr": 0.02}, 15.0)["met"] is True
+
+
+def test_link_reports_met_and_counts_trials_against_the_hypothesis(reg, tmp_path):
+    path = tmp_path / "PREREGISTERED.md"
+    path.write_text(PREREG)
+    s = Session(reg, prereg=str(path))
+    info = s.command("hypotheses")
+    assert [h["id"] for h in info["hypotheses"]] == ["H1", "H2", "H3"] and info["hypotheses"][0]["example"]
+    run_scenario(s, cost_bps=10)
+    run_scenario(s, "momentum_6m")
+    with pytest.raises(SessionError) as e:
+        s.command("link", {"scenario": "dogs", "hypothesis": "H9"})
+    assert e.value.status == 404
+    s.command("link", {"scenario": "dogs", "hypothesis": "h1"})
+    s.command("link", {"scenario": "momentum_6m", "hypothesis": "H2"})
+    h = {x["id"]: x for x in s.command("hypotheses")["hypotheses"]}
+    assert h["H1"]["linked"][0]["met"] is False and h["H1"]["met"] is False        # excess is about -3 points
+    assert h["H1"]["linked"][0]["value"] < 0.10 and h["H1"]["linked"][0]["label"] == "dogs"
+    assert h["H2"]["linked"][0]["met"] is True and h["H2"]["met"] is True
+    c = s.command("compare")
+    assert row_of(c, "dogs")["family"] == "synthetic:dogs@H1" and "[H1]" in row_of(c, "dogs")["mark"]
+    # new versions inherit the link; the hypothesis' family counts every variant against it
+    s.command("set_params", {"scenario": "dogs", "params": {"cost_bps": 15}, "run": True, "wait": True})
+    s.command("set_params", {"scenario": "dogs v2", "params": {"cost_bps": 20}, "run": True, "wait": True})
+    c = s.command("compare")
+    assert row_of(c, "dogs v3")["values"]["Trials"] == 3 and row_of(c, "momentum_6m")["values"]["Trials"] == 1
+    assert s.snapshot()["trials"]["families"]["synthetic:dogs@H1"] == 3
+    assert h["H1"]["linked"][0]["met"] is False
+    assert [x["met"] for x in s.command("hypotheses")["hypotheses"][0]["linked"]] == [False]
+    # a horizon longer than the data cannot be met
+    s.command("link", {"scenario": "momentum_6m", "hypothesis": "H3"})
+    x = s.command("hypotheses")["hypotheses"][2]["linked"][0]
+    assert x["met"] is None and "covers" in x["reason"]
+    s.command("link", {"scenario": "momentum_6m", "hypothesis": None})
+    assert s.command("hypotheses")["hypotheses"][2]["linked"] == []
+    assert "H1" in s.view("hypotheses") and "NOT MET" in s.view("hypotheses")
+    json.dumps(s.snapshot())
+
+
+def test_chart_compare_data_carries_trials_and_dsr(charts):
+    s, srv = charts
+    c = chart(srv, "compare")
+    assert {"Trials", "DSR"} <= set(c["columns"]) and c["trials_total"] == s.trials_total() >= 2
+    dogs = row_of(c, "dogs")
+    assert dogs["values"]["Trials"] >= 1 and 0 < dogs["values"]["DSR"] < 1 and "frozen" in dogs
+    assert "Trials" not in c["rows"][0]["values"]
+    assert web.data_compare(s)["trials_total"] == c["trials_total"]

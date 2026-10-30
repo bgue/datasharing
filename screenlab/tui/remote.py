@@ -179,7 +179,9 @@ class RemoteSession:
             out.append(SimpleNamespace(id=d["id"], name=d["name"], version=d["version"], label=d["label"],
                                        color=d["color"], params=d["params"], status=d["status"], job=d.get("job"),
                                        diff_line=d.get("diff_from_previous"), error=d.get("error"),
-                                       metrics=d.get("metrics") or {}))
+                                       metrics=d.get("metrics") or {}, frozen=bool(d.get("frozen")),
+                                       candidate_of=d.get("candidate_of"), hypothesis=d.get("hypothesis"),
+                                       trials=d.get("trials"), dsr=d.get("dsr")))
         return out
 
     @property
@@ -201,6 +203,9 @@ class RemoteSession:
     @property
     def mc(self) -> dict:
         return self._ensure()["mc"]
+
+    def trials_total(self) -> int:
+        return int((self._ensure().get("trials") or {}).get("total") or 0)
 
     def card(self) -> _Card:
         st = self._ensure()

@@ -31,10 +31,10 @@ from textual.widgets import (Button, Checkbox, DataTable, Footer, Input, Label, 
 from textual.widgets.option_list import Option
 
 from .. import metrics as _metrics
-from .session import FETCH_SOURCES, PASSIVE_COLOR, TABS, Session, SessionError
+from .session import CAND, FETCH_SOURCES, LOCK, PASSIVE_COLOR, TABS, Session, SessionError, fmt_cell
 
 TAB_TITLES = {"compare": "Compare", "curves": "Curves", "timing": "Timing", "picks": "Picks", "exit": "Exit",
-              "montecarlo": "Monte Carlo", "runs": "Runs", "log": "Log", "data": "Data"}
+              "montecarlo": "Monte Carlo", "runs": "Runs", "log": "Log", "data": "Data", "hypotheses": "Hypotheses"}
 SOURCE_TITLES = {"sec": "SEC", "boc": "Bank of Canada", "fred": "FRED", "stooq": "Stooq", "statcan": "StatCan"}
 HELP = """\
 [b]screenlab-tui[/b]  scenarios are versions: Apply creates 'name v2' and keeps 'name'.
@@ -42,11 +42,13 @@ HELP = """\
  a  add scenario          c  clone selected       d  delete selected
  r  run selected (all not run with shift+R)       F2 / Apply  new version + run
  x  toggle trend exit switch (then Apply)
+ f  freeze the selected version (read-only; later versions are out-of-sample candidates, extra trials)
+ l  link the selected scenario to a pre-registered hypothesis   H  Hypotheses tab
  m  Monte Carlo           t  timing study         p  picks
  s  save screen spec JSON e  export markdown+CSV  T  light/dark theme
  w  charts in the browser (Plotly, follows this screen)
  D  Data tab: datasets, download free datasets (needs an SEC contact)
- 1-9 switch tab           ?  this help            q  quit
+ 1-9 switch tab (H = Hypotheses)          ?  this help            q  quit
 
 Colours: every scenario keeps its colour; the passive index is grey.
 Control endpoint: see screenlab/tui/PROTOCOL.md."""
@@ -78,13 +80,14 @@ class AddScreen(ModalScreen):
     AddScreen OptionList { height: 14; }
     """
 
-    def __init__(self, screens):
+    def __init__(self, screens, title: str = "Add scenario: choose a screen (Enter), Esc cancels", order: bool = False):
         super().__init__()
-        self.names = sorted(screens)
+        self.names = list(screens) if order else sorted(screens)
+        self.title = title
 
     def compose(self) -> ComposeResult:
         with Vertical():
-            yield Label("Add scenario: choose a screen (Enter), Esc cancels")
+            yield Label(self.title)
             yield OptionList(*self.names, id="screen-list")
 
     def on_mount(self) -> None:
@@ -138,12 +141,13 @@ class ScreenlabApp(App):
     BINDINGS = [
         Binding("a", "add", "Add"), Binding("c", "clone", "Clone"), Binding("r", "run", "Run"),
         Binding("R", "run_all", "Run all"), Binding("d", "delete", "Delete"),
-        Binding("x", "toggle_exit", "Exit on/off"), Binding("m", "montecarlo", "Monte Carlo"),
+        Binding("x", "toggle_exit", "Exit on/off"), Binding("f", "freeze", "Freeze"), Binding("l", "link", "Link"),
+        Binding("H", "tab('hypotheses')", "Hypotheses"), Binding("m", "montecarlo", "Monte Carlo"),
         Binding("t", "timing", "Timing"), Binding("p", "picks", "Picks"), Binding("s", "save_spec", "Save spec"),
         Binding("e", "export", "Export"), Binding("w", "charts", "Charts"), Binding("D", "tab('data')", "Data"), Binding("T", "theme", "Theme"),
         Binding("question_mark", "help", "Help"),
         Binding("f2", "apply", "Apply", priority=True), Binding("q", "quit", "Quit"),
-        *[Binding(str(i + 1), f"tab('{t}')", show=False) for i, t in enumerate(TABS)],
+        *[Binding(str(i + 1), f"tab('{t}')", show=False) for i, t in enumerate(TABS[:9])],
     ]
 
     def __init__(self, session: Session, control_port: int | None = None, theme: str | None = None):
@@ -207,6 +211,10 @@ class ScreenlabApp(App):
                 with TabPane("Runs", id="runs"):
                     yield Static("Enter on a row re-runs that stored run and checks it reproduces", classes="pane-title")
                     yield DataTable(id="t-runs", cursor_type="row")
+                with TabPane("Hypotheses", id="hypotheses"):
+                    yield Static("", id="hyp-note", classes="pane-title")
+                    yield DataTable(id="t-hyp", cursor_type="row")
+                    yield Static("", id="hyp-detail")
                 with TabPane("Log", id="log"):
                     yield RichLog(id="log-view", wrap=True, markup=False)
                 with TabPane("Data", id="data"):
@@ -326,7 +334,8 @@ class ScreenlabApp(App):
         s = self.session
         card = s.card()
         store = s.store_path()
-        self.query_one("#head", Static).update(card.line() + f"   store: {store or 'off'}")
+        self.query_one("#head", Static).update(
+            card.line() + f"   store: {store or 'off'}   trials this session: {s.trials_total()}")
         warn = Text()
         for w in card.warnings():
             warn.append(w + "\n", style="bold red" if "price index" in w else "bold yellow")
@@ -352,8 +361,10 @@ class ScreenlabApp(App):
         for i, sc in enumerate(s.scenarios):
             mark = {"done": "", "failed": " failed", "queued": " queued", "running": " running",
                     "cancelled": " cancelled", "new": " not run"}[sc.status]
+            flags = (f" {LOCK}" if sc.frozen else "") + (f" {CAND}cand" if sc.candidate_of else "") + (
+                f" [{sc.hypothesis}]" if sc.hypothesis else "")
             ol.add_option(Option(Text.assemble((" ● ", sc.color), (sc.label, "bold" if sc.id == s.selected else ""),
-                                               (mark, "dim")), id=sc.id))
+                                               (flags, "yellow"), (mark, "dim")), id=sc.id))
             if sc.id == s.selected:
                 sel = i + 1
         if sel is not None:
@@ -389,9 +400,9 @@ class ScreenlabApp(App):
         if sc is None:
             self._shown = None
             return
-        if self._shown == sc.id:
+        if self._shown == (sc.id, bool(sc.frozen)):
             return
-        self._shown = sc.id
+        self._shown = (sc.id, bool(sc.frozen))
         scr = sc.params.get("screen")
         lab = sc.params.get("lab")
         self._syncing = True
@@ -407,7 +418,14 @@ class ScreenlabApp(App):
             v = sc.params.get(key)
             self.query_one(f"#f-{key}", Input).value = "" if v is None else str(v)
         self.query_one("#f-exit", Switch).value = bool(sc.params.get("exit"))
-        self.query_one("#diff", Static).update(sc.diff_line or "")
+        note = sc.diff_line or ""
+        if sc.frozen:
+            note = f"{LOCK} frozen: read-only. Clone (c) to continue; the clone is an out-of-sample candidate."
+        elif sc.candidate_of:
+            note = f"{CAND} candidate of frozen {sc.candidate_of}: each look counts as an extra trial against it.\n{note}"
+        self.query_one("#diff", Static).update(note)
+        for w in self.query("#editor Input, #editor Select, #editor Switch, #editor Button"):
+            w.disabled = bool(sc.frozen)
 
     def _refresh_tab(self, tab: str) -> None:
         getattr(self, f"_draw_{tab}")()
@@ -433,13 +451,16 @@ class ScreenlabApp(App):
         rows = []
         for r in c["rows"]:
             label = Text.assemble(("● ", r["color"]), (r["label"], "bold"),
-                                  (" (passive)" if r["passive"] else "", "dim"))
-            rows.append([label, *[Text(_metrics.fmt(x, r["values"].get(x)), justify="right") for x in cols]])
+                                  (" (passive)" if r["passive"] else "", "dim"),
+                                  (" " + r["mark"] if r.get("mark") else "", "yellow"))
+            rows.append([label, *[Text(fmt_cell(x, r["values"].get(x)), justify="right") for x in cols]])
         self._fill(t, ["Scenario", *cols], rows)
         note = []
         if c["missing"]:
             note.append("not run yet: " + ", ".join(c["missing"]))
         note += c["diffs"]
+        note.append(f"trials this session: {c['trials_total']}. Trials = variants of the row's family tried; DSR = chance the "
+                    f"Sharpe survives that many tries (low = likely luck). {LOCK} frozen, {CAND} out-of-sample candidate.")
         note.append("CI5/CI95: bootstrap interval of Excess/yr (run with ci). Excess/yr is against the passive index.")
         self.query_one("#compare-note", Static).update("\n".join(note))
 
@@ -549,6 +570,26 @@ class ScreenlabApp(App):
         self._fill(t, cols, [[str(r.get(c) or "")[:19 if c == "created_at" else 14 if c == "run_key" else 40]
                               for c in cols] for r in h["runs"]])
         t._run_keys = [r["run_key"] for r in h["runs"]]
+
+    def _draw_hypotheses(self) -> None:
+        info = self.session.command("hypotheses")
+        t = self.query_one("#t-hyp", DataTable)
+        self.query_one("#hyp-note", Static).update(
+            f"{info['path']}  (Enter or l: link the selected scenario to the highlighted hypothesis)")
+        rows = []
+        for h in info["hypotheses"]:
+            linked = ", ".join(f"{x['label'] or x['scenario']}: " + {True: "met", False: "NOT met", None: "undecided"}[x["met"]]
+                               for x in h["linked"])
+            rows.append([Text(h["id"] + (" (example)" if h["example"] else ""), style="bold"), h["status"], h["name"],
+                         f"{h['metric']} {h['threshold']}", h["horizon"] or "", linked])
+        self._fill(t, ["Id", "Status", "Hypothesis", "Pass mark", "Horizon", "Linked scenarios"], rows)
+        t._ids = [h["id"] for h in info["hypotheses"]]
+        detail = [*info["warnings"]]
+        for h in info["hypotheses"]:
+            for x in h["linked"]:
+                if x["reason"]:
+                    detail.append(f"{h['id']} {x['label'] or x['scenario']}: {x['reason']}")
+        self.query_one("#hyp-detail", Static).update("\n".join(detail))
 
     def _draw_log(self) -> None:
         v = self.query_one("#log-view", RichLog)
@@ -686,6 +727,12 @@ class ScreenlabApp(App):
     def _download_btn(self) -> None:
         self.action_download()
 
+    @on(DataTable.RowSelected, "#t-hyp")
+    def _link_row(self, ev: DataTable.RowSelected) -> None:
+        ids = getattr(ev.data_table, "_ids", [])
+        if ev.cursor_row < len(ids) and self._cmd("link", {"hypothesis": ids[ev.cursor_row]}, "link"):
+            self.notify(f"linked to {ids[ev.cursor_row]}: its variants now count against that hypothesis")
+
     @on(DataTable.RowSelected, "#t-runs")
     def _rerun(self, ev: DataTable.RowSelected) -> None:
         keys = getattr(ev.data_table, "_run_keys", [])
@@ -747,6 +794,9 @@ class ScreenlabApp(App):
         if sc is None:
             self.notify("add a scenario first (a)", severity="warning")
             return
+        if sc.frozen:
+            self.notify(f"{sc.label} is frozen and read-only: clone it (c) to continue", severity="warning")
+            return
         try:
             changed = self._form_params(sc)
         except SessionError as e:
@@ -779,6 +829,29 @@ class ScreenlabApp(App):
 
     def action_run(self) -> None:
         self._cmd("run", {})
+
+    def action_freeze(self) -> None:
+        sc = next((x for x in self.session.scenarios if x.id == self.session.selected), None)
+        if sc is None:
+            self.notify("select a scenario first", severity="warning")
+        elif sc.frozen:
+            self.notify(f"{sc.label} is already frozen (the `unfreeze` command logs a line)", severity="warning")
+        elif self._cmd("freeze", {}):
+            self.notify(f"{sc.label} frozen: read-only; later versions are out-of-sample candidates")
+
+    def action_link(self) -> None:
+        hyps = self.session.command("hypotheses")["hypotheses"]
+        if not hyps:
+            self.notify("no hypotheses in the pre-registration file", severity="warning")
+            return
+        ids = ["(none)"] + [h["id"] for h in hyps]
+        names = ["(none) unlink"] + [f"{h['id']}  {h['name']}" for h in hyps]
+
+        def done(pick):
+            if pick:
+                hid = ids[names.index(pick)]
+                self._cmd("link", {"hypothesis": None if hid == "(none)" else hid}, "link")
+        self.push_screen(AddScreen(names, "Link the selected scenario to a hypothesis (Enter), Esc cancels", order=True), done)
 
     def action_run_all(self) -> None:
         self._cmd("run", {"scenario": "all"})

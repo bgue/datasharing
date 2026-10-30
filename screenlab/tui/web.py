@@ -189,7 +189,7 @@ def data_compare(session) -> dict:
     out = _base(session, "compare", len(c["rows"]) < 2, "No finished runs yet: run a scenario to compare it "
                                                         "with the passive index.")
     out.update(benchmark=c["benchmark"], columns=c["columns"], rows=c["rows"], missing=c["missing"],
-               diffs=c["diffs"])
+               diffs=c["diffs"], trials_total=c["trials_total"])
     return out
 
 

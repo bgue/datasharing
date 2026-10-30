@@ -213,6 +213,27 @@ result like any run. `sec_user_agent` is required when `sec` is among the source
 each listed lab it does not already know (`registry.register_csv`), so `datasets` lists it and the scenario editor's Dataset
 Select (and the `lab` param) offers it. Result: `{"jobs": [...]}`; with `wait` also `"fetch": <last_fetch>`.
 
+### `freeze` / `unfreeze`
+Args: `{"scenario": "dogs"}`. `freeze` makes that version frozen (`frozen: true` in the scenario object and snapshot): the app
+shows a lock and a read-only editor. `set_params` or `clone_scenario` from a frozen version (or from one of its
+candidates) creates a scenario with `candidate: true`, `candidate_of: "<frozen label>"`; each candidate adds one trial to the
+frozen row's `Trials`, so its `DSR` drops. `unfreeze` clears the flag, logs a line, and returns `{"scenario", "candidates"}`;
+candidates stay flagged.
+
+### `link` / `hypotheses`
+`hypotheses` (no args) -> `{"path", "exists", "warnings", "hypotheses": [{"id": "H1", "example": true, "name", "screen",
+"dataset", "benchmark", "horizon", "metric", "threshold", "costs", "exit", "written", "status", "linked": [{"scenario",
+"label", "metric", "threshold", "value", "met": true|false|null, "reason"}], "met": true|false|null}]}`, parsed from
+`research/PREREGISTERED.md` (or `Session(prereg=...)`, env `SCREENLAB_PREREG`). `met` is null with a `reason` when the metric
+is missing or the result covers less than the stated horizon. `link` args `{"scenario": "dogs", "hypothesis": "H1"}`
+(`null` unlinks; 404 for an unknown id) links every version of that scenario; its trial family becomes `<lab>:<screen>@H1`.
+
+### Compare columns `Trials` and `DSR`
+`compare` rows carry `values.Trials` (int) and `values.DSR` (0..1 or absent when not computable), plus `frozen`, `candidate`,
+`candidate_of`, `hypothesis`, `family` and `mark`; the result has `trials_total` (variants run this session). The passive row
+has neither. Snapshot: `trials: {"total", "families": {family: count}}`, `hypotheses` (as above), and per scenario `frozen`,
+`candidate`, `candidate_of`, `hypothesis`, `family`, `trials`, `dsr`.
+
 ### `snapshot` / `view`
 `snapshot` (also `GET /state`) -> the whole state:
 ```json

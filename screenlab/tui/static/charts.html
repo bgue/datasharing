@@ -101,7 +101,7 @@ const pct = (v, d = 1) => v == null ? "–" : (v * 100).toFixed(d) + "%";
 const num = (v, d = 2) => v == null ? "–" : Number(v).toFixed(d);
 const money = v => v == null ? "–" : Math.abs(v) >= 1e6 ? (v / 1e6).toFixed(2) + "M" : Math.abs(v) >= 1e3 ? (v / 1e3).toFixed(0) + "K" : Number(v).toFixed(0);
 const isPct = c => /CAGR|Vol|DD|Excess|Worst|CI5|CI95|P\(|Turnover|Costs|TimeOut|mean|median|hit_rate|worst/i.test(c) && !/Sharpe|Switches|AvgN|BeatBench/i.test(c);
-const cell = (c, v) => v == null ? "–" : typeof v === "number" ? (isPct(c) ? pct(v) : Math.abs(v) >= 1000 ? money(v) : num(v, 2)) : String(v);
+const cell = (c, v) => v == null ? "–" : typeof v === "number" ? (c === "Trials" ? String(Math.round(v)) : isPct(c) ? pct(v) : Math.abs(v) >= 1000 ? money(v) : num(v, 2)) : String(v);
 
 function table(columns, rows, keyColors) {
   const t = el("table");
@@ -231,7 +231,8 @@ const tabs = {
       return t;
     }), {hovermode: "closest", yaxis: {autorange: "reversed", type: "category", categoryorder: "array", categoryarray: ex.map(r => r.label)},
       xaxis: {tickformat: ".1%", zeroline: true, zerolinecolor: d.passive.color, zerolinewidth: 2}});
-    root.append(details("Table", table(["Scenario", ...cols], rows.map(r => [r.label, ...cols.map(c => r.values[c])]), rows.map(r => r.color))));
+    root.append(details("Table", table(["Scenario", ...cols], rows.map(r => [r.label + (r.mark ? " " + r.mark : ""), ...cols.map(c => r.values[c])]), rows.map(r => r.color))));
+    root.append(flag("Trials this session: " + d.trials_total + ". Trials = variants of the row's family tried; DSR = chance its Sharpe survives that many tries (low = likely luck)."));
   },
 
   timing(d, root) {

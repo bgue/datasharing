@@ -25,9 +25,11 @@ from dataclasses import dataclass, field
 from .. import metrics as _metrics
 from ..errors import ServerError
 from ..jsonout import jsonify
+from . import guardrails as G
 
 PROTOCOL = 1
-TABS = ("compare", "curves", "timing", "picks", "exit", "montecarlo", "runs", "log", "data")
+TABS = ("compare", "curves", "timing", "picks", "exit", "montecarlo", "runs", "log", "data", "hypotheses")
+LOCK, CAND = "\U0001F512", "\u25C7"        # frozen / out-of-sample candidate markers
 # Okabe-Ito order, as the research charts use it (research/montecarlo_sp500.py COL); more hues after the eight
 PALETTE = ["#0072B2", "#56B4E9", "#D55E00", "#E69F00", "#009E73", "#CC79A7", "#F0E442", "#7B3294"]
 PASSIVE_COLOR = "#6B6B6B"
@@ -35,7 +37,8 @@ PARAM_KEYS = ("screen", "lab", "n", "rebalance_months", "cost_bps", "commission"
               "start", "end")
 CONFIG_KEYS = ("rebalance_months", "cost_bps", "commission", "mer", "cash_rate")
 COMPARE_COLS = ("CAGR", "Vol", "Sharpe", "MaxDD", "Worst12m", "Excess/yr", "CI5", "CI95", "P(>0)", "BeatBenchYrs",
-                "AvgN", "Turnover", "Costs/yr", "TimeOut", "Switches/yr")
+                "AvgN", "Turnover", "Costs/yr", "TimeOut", "Switches/yr", "Trials", "DSR")
+GUARD_COLS = ("Trials", "DSR")
 EXIT_ARGS = ("signals", "weights", "threshold", "min_votes", "hysteresis", "screen_params", "macro",
              "exposure_when_flagged")
 POLICY_ARGS = ("park", "park_mer", "park_cost_bps", "switch_cost_bps", "reentry", "reentry_delay_days",
@@ -43,7 +46,8 @@ POLICY_ARGS = ("park", "park_mer", "park_cost_bps", "switch_cost_bps", "reentry"
 FINAL = ("done", "failed", "cancelled")
 COMMANDS = ("add_scenario", "clone_scenario", "set_params", "remove_scenario", "run", "compare", "timing",
             "montecarlo", "exit_eval", "picks", "show", "select", "save_spec", "export", "history", "jobs",
-            "cancel", "set_theme", "snapshot", "view", "curves", "screens", "datasets", "fetch_data")
+            "cancel", "set_theme", "snapshot", "view", "curves", "screens", "datasets", "fetch_data", "freeze", "unfreeze",
+            "link", "hypotheses")
 # data downloader (operation `fetch_data`, implemented in ops/fetch_data.py); hosts are shown in the Data tab form
 FETCH_SOURCES = ("sec", "boc", "fred", "stooq", "statcan", "shiller", "tiingo")
 FETCH_HOSTS = {"sec": ["www.sec.gov", "data.sec.gov"], "boc": ["www.bankofcanada.ca"], "fred": ["fred.stlouisfed.org"],
@@ -73,6 +77,9 @@ class Scenario:
     diff_line: str | None = None
     diff: list = field(default_factory=list)
     previous: str | None = None
+    frozen: bool = False             # a conclusion is being tested: parameters are read-only
+    candidate_of: str | None = None  # label of the frozen version this one derives from (out-of-sample candidate)
+    hypothesis: str | None = None    # id in research/PREREGISTERED.md; part of the trial family
 
     @property
     def label(self) -> str:
@@ -86,7 +93,9 @@ class Scenario:
         d = {"id": self.id, "name": self.name, "version": self.version, "label": self.label, "color": self.color,
              "params": self.params, "status": self.status, "job": self.job,
              "metrics": {**(self.result["metrics"] if self.result else {}), **(self.ci or {})},
-             "diff_from_previous": self.diff_line, "error": self.error}
+             "diff_from_previous": self.diff_line, "error": self.error, "frozen": self.frozen,
+             "candidate": self.candidate_of is not None, "candidate_of": self.candidate_of,
+             "hypothesis": self.hypothesis}
         return d
 
 
@@ -102,14 +111,26 @@ def _num(x):
     return None if x is None else x
 
 
+def fmt_cell(name: str, v) -> str:
+    """One Compare cell as text: Trials as an integer, DSR with two decimals, '\u2014' where they cannot be computed."""
+    if name == "Trials":
+        return "\u2014" if v is None else str(int(v))
+    if name == "DSR":
+        return "\u2014" if v is None or v != v else f"{v:.2f}"
+    return _metrics.fmt(name, v)
+
+
 class Session:
     """Scenarios, versions, results, the comparison set, active tab and Monte Carlo settings.
 
     registry   a LabRegistry (build it with mode="thread" for in-process jobs); `registry.store` is the store.
     lab        dataset name (default `registry.default`)."""
 
-    def __init__(self, registry, lab: str | None = None, store=None, jobs=None, own: bool = False):
+    def __init__(self, registry, lab: str | None = None, store=None, jobs=None, own: bool = False,
+                 prereg: str | None = None):
         self.registry = registry
+        self.prereg_path = prereg or os.environ.get("SCREENLAB_PREREG") or None   # default: research/PREREGISTERED.md
+        self._trials: dict = {}                         # family -> set of parameter-set keys looked at (never shrinks)
         self.own = own                                  # close() stops the registry's JobManager only if True
         self.lab = lab or registry.default
         if store is not None:
@@ -402,6 +423,7 @@ class Session:
     def cmd_clone_scenario(self, scenario=None, name=None) -> dict:
         src = self._find(scenario)
         sc = self._new_scenario(self._unique_name(name or src.name + "_copy"), 1, json.loads(json.dumps(src.params)))
+        sc.hypothesis, sc.candidate_of = src.hypothesis, self._root_frozen(src)   # continuing a frozen one is a candidate
         self.selected = sc.id
         self.log(f"cloned {src.label} -> {sc.label}")
         self._emit("scenarios")
@@ -424,10 +446,14 @@ class Session:
         ver = max(s.version for s in self.scenarios if s.name == src.name) + 1
         sc = self._new_scenario(src.name, ver, merged)
         sc.diff, sc.previous = diff, src.label
+        sc.hypothesis, sc.candidate_of = src.hypothesis, self._root_frozen(src)
         sc.diff_line = f"{src.label} -> {sc.label}: " + ", ".join(
             f"{d['param']} {self._short(d['from'])} -> {self._short(d['to'])}" for d in diff)
         self.selected = sc.id
         self.log(sc.diff_line)
+        if sc.candidate_of:
+            self.log(f"{sc.label} is an out-of-sample candidate of frozen {sc.candidate_of}: it counts as an extra trial "
+                     f"against that row")
         out = {"scenario": sc.to_dict(), "previous": src.label, "diff": diff, "diff_line": sc.diff_line}
         if run:
             out["jobs"] = self._submit_backtests([sc], ci=bool(ci))
@@ -502,6 +528,7 @@ class Session:
         jobs = []
         for sc in scs:
             sc.error = None
+            self._register_trial(sc)
             sc.result = None if force or sc.status in ("failed", "cancelled", "new") else sc.result
             j = self._submit("backtest", self._bt_args(sc), [sc], force=force)
             sc.job = self._tracked[j["job_id"]]["info"]
@@ -716,6 +743,114 @@ class Session:
         r = next(iter(rows.values()))
         sc.ci = {k: r[k] for k in ("CI5", "CI95", "P(>0)", "t") if r.get(k) is not None}
 
+    # ---------------------------------------------------------------- guardrails: trials, DSR, frozen, hypotheses
+    def _family(self, sc: Scenario) -> str:
+        """The trial family: dataset + screen, plus the linked hypothesis id (`dogs@H1`), so trials count against it."""
+        s = sc.params.get("screen")
+        base = s.get("name", "screen") if isinstance(s, dict) else str(s)
+        return f"{sc.params.get('lab') or self.lab}:{base}" + (f"@{sc.hypothesis}" if sc.hypothesis else "")
+
+    def _register_trial(self, sc: Scenario) -> None:
+        """A parameter set that was run is a trial of its family for good (removing a version does not undo it)."""
+        key = json.dumps(sc.params, sort_keys=True, default=str)
+        self._trials.setdefault(self._family(sc), set()).add(key)
+
+    def _root_frozen(self, src: Scenario) -> str | None:
+        return src.label if src.frozen else src.candidate_of
+
+    def trials_total(self) -> int:
+        return sum(len(v) for v in self._trials.values())
+
+    def _trial_count(self, sc: Scenario) -> int:
+        """Trials of this row's family: the session's own count, or the store's `trials_in_family` from the result when
+        that is larger (it spans sessions); a frozen row adds one per candidate derived from it."""
+        n = max(len(self._trials.get(self._family(sc), ())), int((sc.result or {}).get("trials_in_family") or 0))
+        if sc.frozen:
+            n += sum(1 for x in self.scenarios if x.candidate_of == sc.label)
+        return max(n, 1)
+
+    def _stats_of(self, sc: Scenario):
+        hit = getattr(sc, "_gstats", None)
+        if hit is None or hit[0] is not sc.result:
+            hit = (sc.result, G.curve_stats(sc.result["curve"]) if sc.result else None)
+            sc._gstats = hit
+        return hit[1]
+
+    def _guard(self, sc: Scenario) -> dict:
+        """Trials and DSR of one scenario's result (None where it cannot be computed)."""
+        if not sc.result:
+            return {"trials": None, "dsr": None}
+        n = self._trial_count(sc)
+        fam = self._family(sc)
+        sharpes = [x.result["metrics"].get("Sharpe") for x in self.scenarios if x.result and self._family(x) == fam]
+        return {"trials": n, "dsr": G.row_dsr(sc.result["metrics"].get("Sharpe"), self._stats_of(sc), n, sharpes)}
+
+    def mark(self, sc: Scenario) -> str:
+        return " ".join(m for m, on in ((LOCK, sc.frozen), (f"{CAND} candidate", sc.candidate_of is not None),
+                                        (f"[{sc.hypothesis}]", bool(sc.hypothesis))) if on)
+
+    def cmd_freeze(self, scenario=None) -> dict:
+        sc = self._find(scenario)
+        if not sc.frozen:
+            sc.frozen = True
+            self.log(f"froze {sc.label}: read-only; later versions of it are out-of-sample candidates "
+                     f"and count as extra trials against it")
+            self._emit("scenarios")
+        return {"scenario": sc.to_dict()}
+
+    def cmd_unfreeze(self, scenario=None) -> dict:
+        sc = self._find(scenario)
+        cands = [x.label for x in self.scenarios if x.candidate_of == sc.label]
+        if sc.frozen:
+            sc.frozen = False
+            self.log(f"UNFROZE {sc.label}: it can be edited again; its {len(cands)} candidate(s) stay flagged "
+                     f"and still count as trials")
+            self._emit("scenarios")
+        return {"scenario": sc.to_dict(), "candidates": cands}
+
+    def load_hypotheses(self) -> dict:
+        return G.load_preregistered(self.prereg_path)
+
+    def cmd_link(self, scenario=None, hypothesis=None) -> dict:
+        """Link a scenario (every version of it) to a hypothesis id of the pre-registration file, or unlink with null."""
+        src = self._find(scenario)
+        if hypothesis in (None, "", "none"):
+            hid = None
+        else:
+            hid = str(hypothesis).strip().upper()
+            known = [h["id"] for h in self.load_hypotheses()["hypotheses"]]
+            if hid not in known:
+                raise SessionError(404, f"unknown hypothesis {hypothesis!r}; the file has {known or 'none'}")
+        for x in self.scenarios:
+            if x.name == src.name:
+                x.hypothesis = hid
+                if x.status != "new":
+                    self._register_trial(x)          # its past runs count against the hypothesis from now on
+        self.log(f"linked {src.name} to {hid}" if hid else f"unlinked {src.name} from its hypothesis")
+        self._emit("scenarios")
+        return {"scenario": src.to_dict(), "hypothesis": hid}
+
+    def cmd_hypotheses(self) -> dict:
+        """The pre-registered hypotheses, with the linked scenarios and whether their latest result meets the threshold."""
+        info = self.load_hypotheses()
+        for h in info["hypotheses"]:
+            linked = []
+            for name in dict.fromkeys(s.name for s in self.scenarios if s.hypothesis == h["id"]):
+                vs = [s for s in self.scenarios if s.name == name and s.result]
+                if not vs:
+                    linked.append({"scenario": name, "label": None, "met": None, "value": None,
+                                   "reason": "no finished run yet"})
+                    continue
+                latest = max(vs, key=lambda s: s.version)
+                st = self._stats_of(latest)
+                vals = {**latest.result["metrics"], **(latest.ci or {}), **{k: v for k, v in zip(
+                    GUARD_COLS, (self._guard(latest)["trials"], self._guard(latest)["dsr"])) if v is not None}}
+                linked.append({"scenario": name, "label": latest.label, **G.evaluate(h, vals, st["years"] if st else None)})
+            h["linked"] = linked
+            h["met"] = None if not linked else (None if any(x["met"] is None for x in linked)
+                                                else all(x["met"] for x in linked))
+        return info
+
     # ---------------------------------------------------------------- compare
     def cmd_compare(self, scenarios=None, ci=False) -> dict:
         with self._lock:
@@ -731,25 +866,34 @@ class Session:
                  "values": dict(first.result["bench_metrics"]) if first else {}}]
         for s in scs:
             if s.result:
+                g = self._guard(s)
                 rows.append({"id": s.id, "label": s.label, "color": s.color, "passive": False, "version": s.version,
-                             "values": {**s.result["metrics"], **(s.ci or {})}})
-        have = [c for c in COMPARE_COLS if any(r["values"].get(c) is not None for r in rows)]
-        return {"benchmark": plabel, "columns": have, "rows": rows,
+                             "frozen": s.frozen, "candidate": s.candidate_of is not None,
+                             "candidate_of": s.candidate_of, "hypothesis": s.hypothesis, "mark": self.mark(s),
+                             "family": self._family(s),
+                             "values": {**s.result["metrics"], **(s.ci or {}),
+                                        **{k: v for k, v in (("Trials", g["trials"]), ("DSR", g["dsr"])) if v is not None}}})
+        have = [c for c in COMPARE_COLS if c in GUARD_COLS and len(rows) > 1
+                or any(r["values"].get(c) is not None for r in rows)]
+        return {"benchmark": plabel, "columns": have, "rows": rows, "trials_total": self.trials_total(),
                 "missing": [s.label for s in (scs if scenarios else self.scenarios) if not s.result],
                 "diffs": [s.diff_line for s in self.scenarios if s.diff_line]}
 
     def compare_text(self) -> str:
         c = self.cmd_compare()
         cols = c["columns"]
-        w = max([len(r["label"]) for r in c["rows"]] + [8])
+        lab = lambda r: (r["label"] + (" " + r["mark"] if r.get("mark") else ""))
+        w = max([len(lab(r)) for r in c["rows"]] + [8])
         head = f"{'':2}{'Scenario':<{w}}  " + "  ".join(f"{x:>11}" for x in cols)
         lines = [head, "-" * len(head)]
         for r in c["rows"]:
-            vals = "  ".join(f"{_metrics.fmt(x, r['values'].get(x)):>11}" for x in cols)
-            lines.append(f"{'*' if r['passive'] else ' '} {r['label']:<{w}}  {vals}   [{r['color']}]")
+            vals = "  ".join(f"{fmt_cell(x, r['values'].get(x)):>11}" for x in cols)
+            lines.append(f"{'*' if r['passive'] else ' '} {lab(r):<{w}}  {vals}   [{r['color']}]")
         if c["missing"]:
             lines.append("not run yet: " + ", ".join(c["missing"]))
         lines += c["diffs"]
+        lines.append(f"trials this session: {c['trials_total']}  (DSR: chance the Sharpe survives the number of variants tried "
+                     f"in its family; {LOCK} frozen, {CAND} out-of-sample candidate)")
         return "\n".join(lines)
 
     def curves_data(self) -> dict:
@@ -792,9 +936,10 @@ class Session:
         if format in ("csv", "both"):
             buf = io.StringIO()
             w = csv.writer(buf)
-            w.writerow(["scenario", "passive", "color", *c["columns"]])
+            w.writerow(["scenario", "passive", "color", "frozen", "candidate_of", "hypothesis", *c["columns"]])
             for r in c["rows"]:
-                w.writerow([r["label"], r["passive"], r["color"], *[r["values"].get(x) for x in c["columns"]]])
+                w.writerow([r["label"], r["passive"], r["color"], r.get("frozen", False), r.get("candidate_of") or "",
+                            r.get("hypothesis") or "", *[r["values"].get(x) for x in c["columns"]]])
             with open(base + ".csv", "w", newline="") as f:
                 f.write(buf.getvalue())
             files.append(base + ".csv")
@@ -803,8 +948,9 @@ class Session:
             lines = [f"# screenlab export", "", card.line(), *[f"- {x}" for x in card.warnings()], "",
                      "| scenario | " + " | ".join(c["columns"]) + " |", "|" + "---|" * (len(c["columns"]) + 1)]
             for r in c["rows"]:
-                lines.append(f"| {r['label']} | " + " | ".join(_metrics.fmt(x, r["values"].get(x)) for x in c["columns"]) + " |")
-            lines += ["", *c["diffs"]]
+                lines.append(f"| {r['label']}{' ' + r['mark'] if r.get('mark') else ''} | "
+                             + " | ".join(fmt_cell(x, r["values"].get(x)) for x in c["columns"]) + " |")
+            lines += ["", f"trials this session: {c['trials_total']}", *c["diffs"]]
             with open(base + ".md", "w") as f:
                 f.write("\n".join(lines) + "\n")
             files.append(base + ".md")
@@ -973,7 +1119,9 @@ class Session:
                 "store": self.store_path(), "active_tab": self.active_tab, "selected": self.selected,
                 "theme": self.theme, "screens": self.screen_names(), "data": self.data_state(),
                 "passive": {"id": "passive", "label": self.passive_label(), "color": PASSIVE_COLOR},
-                "scenarios": [s.to_dict() for s in self.scenarios],
+                "scenarios": [{**s.to_dict(), "family": self._family(s), **self._guard(s)} for s in self.scenarios],
+                "trials": {"total": self.trials_total(), "families": {k: len(v) for k, v in self._trials.items()}},
+                "hypotheses": self.cmd_hypotheses(),
                 "jobs": [j for j in self.cmd_jobs()["jobs"] if j["status"] not in FINAL],
                 "mc": dict(self.mc), "analyses": self.analyses, "log": self.log_lines(200)}, None)
 
@@ -1002,7 +1150,9 @@ class Session:
             tab = tab or self.active_tab
             card = self.card()
             head = [card.line(), *card.warnings(), f"Scenarios: " + (", ".join(
-                f"{'>' if s.id == self.selected else ''}{s.label} [{s.color}] {s.status}" for s in self.scenarios) or "none"),
+                f"{'>' if s.id == self.selected else ''}{s.label}{' ' + self.mark(s) if self.mark(s) else ''} [{s.color}] {s.status}"
+                for s in self.scenarios) or "none"),
+                    f"Trials this session: {self.trials_total()}",
                     "Jobs: " + ("; ".join(f"{j['kind']} {j['progress']:.0%}" for j in self.cmd_jobs()["jobs"]
                                           if j["status"] not in FINAL) or "idle"), f"== {tab} =="]
             body = getattr(self, f"_view_{tab}")()
@@ -1084,6 +1234,22 @@ class Session:
             lines += [f"  {f.get('source')} {f.get('status')} {f.get('bytes')} {f.get('path')}"
                       for f in (man.get("files") or [])[:40]]
             lines += [f"  error: {e}" for e in (man.get("errors") or [])[:20]]
+        return "\n".join(lines)
+
+    def _view_hypotheses(self) -> str:
+        info = self.cmd_hypotheses()
+        lines = [f"pre-registration: {info['path']}" + ("" if info["exists"] else " (missing)"), *info["warnings"]]
+        for h in info["hypotheses"]:
+            tag = "EXAMPLE " if h["example"] else ""
+            lines.append(f"{h['id']} [{h['status']}] {tag}{h['name']}: {h['metric']} {h['threshold']} over {h['horizon']} "
+                         f"vs {h['benchmark']} (screen {h['screen']}, costs {h['costs']}, exit {h['exit'] or 'none'}, "
+                         f"written {h['written']})")
+            for x in h["linked"]:
+                verdict = {True: "MET", False: "NOT MET", None: "undecided"}[x["met"]]
+                val = "" if x["value"] is None else f" {x['metric']}={x['value']:.4g}"
+                lines.append(f"    linked {x['label'] or x['scenario']}: {verdict}{val}" + (f" ({x['reason']})" if x["reason"] else ""))
+        if not info["hypotheses"]:
+            lines.append("no hypotheses: copy a block from the template in the file, then `link` a scenario to it")
         return "\n".join(lines)
 
     def _view_log(self) -> str:
