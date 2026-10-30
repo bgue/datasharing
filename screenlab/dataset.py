@@ -6,6 +6,8 @@ SyntheticBuilder     the synthetic market (`data.synthetic_market`).
 BundledSP500Builder  20 S&P 500 names from the installed skfolio wheel (its SP500 series is a PRICE index; sp500_lab adds a dividend yield).
 CSVBuilder           fundamentals / prices / indices csv files (`data.load_csv`).
 SECBuilder           SEC Financial Statement Data Sets zips (+ a prices frame) -> fundamentals.
+RealUSBuilder        D1: 20 real US names daily (skfolio) + the S&P 500 total return (daily price index plus Shiller's monthly
+                     dividend yield) + committed USDCAD / CPI / 10y mirrors; `Lab.real_us()`.
 BoCMacro             Bank of Canada Valet json -> `MacroSeries` (macro data, not a Dataset).
 
 `DataCard` is the manifest every report prints: name, source, span, names, benchmark kind (price vs
@@ -97,6 +99,7 @@ class DataCard:
     foreign_share: float | None = field(default=None, compare=False)   # P3: share of names domiciled outside Canada (None: no metadata)
     foreign_countries: dict = field(default_factory=dict, compare=False)   # P3: non-home domicile -> share of names
     currencies: tuple = field(default=(), compare=False)      # P3: currencies of the names (from security_meta)
+    notes: tuple = field(default=(), compare=False)           # D1: builder-supplied WARNING lines, printed after the generic ones
 
     def foreign_line(self) -> str:
         """P3: "foreign: 100% of names (US 100%), currencies USD; withholding: taxable creditable (FTC), tfsa lost, rrsp
@@ -157,6 +160,7 @@ class DataCard:
             out.append(f"WARNING: survivorship score {sc:+.1%}/yr: an equal-weight basket of this dataset's "
                        f"names beat its benchmark by that much, so it probably holds survivors chosen with "
                        f"hindsight and results are likely flattered.")
+        out.extend(self.notes)                                      # D1
         return out
 
     def to_dict(self) -> dict:
@@ -181,6 +185,7 @@ class Dataset:
     universe: Universe                    # bound to this dataset's data on construction
     manifest: DataCard
     security_meta: pd.DataFrame | None = None   # P3: ticker -> domicile / listing / currency / wrapper / ... (data.SECURITY_META_COLS)
+    index_info: dict | None = None              # D1: index name -> {"yield": Series by year, "foreign_share": x} for the tax of the passive index
 
     def __post_init__(self):
         object.__setattr__(self, "universe", self.universe.bind(self.fundamentals, self.prices))
@@ -193,7 +198,8 @@ class Dataset:
     def from_frames(cls, fundamentals, prices, indices=None, universe: Universe | None = None, *,
                     name="custom", source="in-memory frames", index_kinds: dict | None = None,
                     pit: bool | None = True, currency="n/a", licence="",
-                    assumed_kinds: tuple = (), security_meta: pd.DataFrame | None = None) -> "Dataset":
+                    assumed_kinds: tuple = (), security_meta: pd.DataFrame | None = None,
+                    index_info: dict | None = None, notes: tuple = ()) -> "Dataset":
         """Build a Dataset and compute its card. `index_kinds` maps index name -> "price"|"total_return"
         (unlisted indices count as total_return); `assumed_kinds` names the indices whose kind was not stated
         by the source (the card warns about them). `security_meta` (optional, see `data.security_meta`): per-ticker
@@ -212,13 +218,14 @@ class Dataset:
                         n_names=int(prices.shape[1]), benchmark=None, benchmark_kind=None, pit=pit,
                         delisted_included=n_del > 0, n_delisted=n_del, survivorship_score=float("nan"),
                         currency=currency, licence=licence, universe=uni.fingerprint(), index_kinds=kinds,
-                        assumed_kinds=tuple(assumed_kinds), **_meta_card(security_meta))
-        ds = cls(prices, fundamentals, idx, uni, card, security_meta)
+                        assumed_kinds=tuple(assumed_kinds), notes=tuple(notes), **_meta_card(security_meta))
+        ds = cls(prices, fundamentals, idx, uni, card, security_meta, index_info)
         first = idx.columns[0] if len(idx.columns) else None
         return ds._with_card(ds.card_for(first)) if first else ds
 
     def _with_card(self, card: DataCard) -> "Dataset":
-        return Dataset(self.prices, self.fundamentals, self.indices, self.universe, card, self.security_meta)
+        return Dataset(self.prices, self.fundamentals, self.indices, self.universe, card, self.security_meta,
+                       self.index_info)
 
     def _series(self, name: str) -> pd.Series | None:
         if name in self.indices:
@@ -256,12 +263,12 @@ class Dataset:
         idx = self.indices.copy()
         idx[name] = series
         card = replace(self.manifest, index_kinds={**self.manifest.index_kinds, name: kind})
-        ds = Dataset(self.prices, self.fundamentals, idx, self.universe, card, self.security_meta)
+        ds = Dataset(self.prices, self.fundamentals, idx, self.universe, card, self.security_meta, self.index_info)
         return ds._with_card(ds.card_for(card.benchmark or name))
 
     def with_universe(self, universe: Universe) -> "Dataset":
         card = replace(self.manifest, universe=universe.fingerprint())
-        ds = Dataset(self.prices, self.fundamentals, self.indices, universe, card, self.security_meta)
+        ds = Dataset(self.prices, self.fundamentals, self.indices, universe, card, self.security_meta, self.index_info)
         return ds._with_card(ds.card_for(card.benchmark, card.dividend_yield))
 
 
@@ -309,6 +316,110 @@ class BundledSP500Builder:
             index_kinds={c: "price" for c in idx.columns}, pit=None, currency="USD",
             licence="sample data shipped with skfolio; check its licence before redistributing",
             security_meta=security_meta(prices.columns, domicile="US", currency="USD", eligible_dividend=False))
+
+
+REAL_US_SURVIVORSHIP = ("WARNING: survivorship: the 20 names were chosen as 2022 survivors; prior work measured roughly +10 "
+                        "points a year of bias against the index; the index row is bias-free.")
+REAL_US_NO_FUNDAMENTALS = ("WARNING: no fundamentals: only price-based screens (momentum, low volatility) can run; dividend/value "
+                           "screens are unavailable until the owner loads fundamentals.")
+REAL_US_BENCHMARK = ("NOTE: the benchmark SP500_TR is the real S&P 500 total return: the daily price index with Shiller's "
+                     "monthly dividend yield (dividend / price of the month) accrued daily and reinvested; it ignores "
+                     "intra-month timing and the withholding of a Canadian investor, and is not the S&P's own TR series.")
+
+
+def real_us_total_return(price: pd.Series, shiller: pd.DataFrame) -> tuple:
+    """(S&P 500 total-return index, daily dividend yield) from a daily PRICE index and Shiller's monthly frame
+    (`date, sp500, dividend`): the yield of a day is dividend / sp500 of its month (the last known month after the
+    sheet ends); each day's return is the price return plus yield x days since the previous day / 365.25.
+    The TR index starts at the price index's first value."""
+    sh = shiller.dropna(subset=["sp500", "dividend"]).copy()
+    sh.index = pd.DatetimeIndex(pd.to_datetime(sh["date"])).to_period("M").to_timestamp()
+    ym = (sh["dividend"] / sh["sp500"]).rename("y")
+    price = price.dropna()
+    y = ym.reindex(ym.index.union(price.index.to_period("M").to_timestamp().unique())).ffill()
+    y = y.reindex(price.index.to_period("M").to_timestamp()).set_axis(price.index).bfill()
+    dt = pd.Series(np.r_[0.0, np.diff(price.index.to_numpy("datetime64[D]").astype(float))] / 365.25, index=price.index)
+    ret = price.pct_change().fillna(0.0) + y * dt
+    tr = (1.0 + ret).cumprod() * float(price.iloc[0])
+    return tr.rename("SP500_TR"), y.rename("dividend_yield")
+
+
+@dataclass(frozen=True)
+class RealUSBuilder:
+    """D1: real US data, 1990-2022, from what is reachable: 20 large caps (skfolio, daily ADJUSTED close, the 2022
+    survivors), the S&P 500 price index (skfolio) turned into a total-return index with Shiller's monthly dividend yield
+    (`data/mirrors/shiller_sp500_monthly.csv`), and macro (USDCAD daily, US CPI monthly, 10-year yield) from the
+    committed mirrors. `dividend_mode`:
+      "none"         the adjusted prices carry all return as price: no dividend events, dividends untaxed and no
+                     withholding (understates tax).
+      "index_yield"  every name is attributed a dividend stream at the index yield of the month (fundamentals row per
+                     name per month with dividend = yield x price); the pipeline treats the dividends as inside the
+                     adjusted prices (reinvested) and deducts them from the price gain, so dividend tax and US
+                     withholding exist in the ledger. An approximation: real names pay more or less than the index.
+    `home` is the investor's country (security_meta domiciles are US, so foreign_share is 100% for "CA")."""
+    start: str = "1990-01-01"
+    end: str | None = None
+    dividend_mode: str = "index_yield"
+    home: str = "CA"
+    mirror_dir: str | None = None
+    path_prices: str | None = None
+    path_index: str | None = None
+
+    def macro(self, index=None):
+        """`MacroSeries` with fx (USDCAD, CAD per USD), cpi (US CPI-U level) and y10 (10-year yield as a decimal)."""
+        from .macro import MacroSeries
+        from .realdata.fetch import mirror_path
+        o = self
+        fx = pd.read_csv(mirror_path("usdcad_daily.csv", o.mirror_dir), index_col=0, parse_dates=True)["usdcad"].dropna()
+        cpi = pd.read_csv(mirror_path("us_cpi_monthly.csv", o.mirror_dir), index_col=0, parse_dates=True)["cpi"]
+        y10 = pd.read_csv(mirror_path("us_10y_monthly.csv", o.mirror_dir), index_col=0, parse_dates=True)["y10"] / 100.0
+        f = pd.concat({"fx": fx, "cpi": cpi, "y10": y10}, axis=1, sort=True)
+        return MacroSeries.from_frame(f, index)
+
+    def build(self, **opts) -> Dataset:
+        o = replace(self, **opts)
+        if o.dividend_mode not in ("none", "index_yield"):
+            raise ValueError(f"dividend_mode must be 'none' or 'index_yield', got {o.dividend_mode!r}")
+        from .data import add_ratios, security_meta
+        from .realdata import bundled
+        from .realdata.fetch import mirror_path
+        prices = bundled.sp500_prices(o.path_prices)
+        price_idx = bundled.sp500_index(o.path_index)["SP500"]
+        lo, hi = pd.Timestamp(o.start), (pd.Timestamp(o.end) if o.end else None)
+        prices, price_idx = prices.loc[lo:hi], price_idx.loc[lo:hi]
+        if len(prices) < 2:
+            raise ValueError(f"no data between {o.start} and {o.end}: the bundled prices span 1990-01-02..2022-12-28")
+        shiller = pd.read_csv(mirror_path("shiller_sp500_monthly.csv", o.mirror_dir))
+        tr, yld = real_us_total_return(price_idx, shiller)
+        idx = pd.DataFrame({"SP500_TR": tr, "SP500": price_idx})
+        if o.dividend_mode == "index_yield":
+            first = pd.Series(prices.index, index=prices.index).groupby(prices.index.to_period("M")).first()
+            ym = yld.reindex(first.to_numpy())
+            rows = prices.loc[first.to_numpy()].stack().rename("price").reset_index()
+            rows.columns = ["date", "ticker", "price"]
+            rows["dividend"] = rows["price"] * ym.reindex(rows["date"]).to_numpy()
+            rows["sector"] = rows["ticker"].map(bundled.SECTORS).fillna("Unknown")
+            rows["market_cap"] = np.nan
+            fund = add_ratios(rows)
+        else:
+            fund = bundled.price_only_fundamentals(prices, bundled.SECTORS)
+        meta = security_meta(prices.columns, domicile="US", currency="USD", wrapper="stock", eligible_dividend=False)
+        by_year = yld.groupby(yld.index.year).mean()
+        mode_note = ("WARNING: prices are ADJUSTED closes (dividends and splits folded into price). Dividend mode 'none': "
+                     "all return is treated as price, dividends are untaxed and there is no withholding, so tax is "
+                     "understated." if o.dividend_mode == "none" else
+                     "WARNING: prices are ADJUSTED closes (dividends and splits folded into price). Dividend mode "
+                     "'index_yield': each name is attributed a dividend stream at the S&P 500 yield of the month (Shiller), "
+                     "deducted from its price return; the real dividends of these 20 names differ, so dividend tax and "
+                     "withholding are an approximation.")
+        return Dataset.from_frames(
+            fund, prices, idx, name="real_us",
+            source="skfolio sp500 (20 names, daily adjusted close, S&P 500 price index) + Shiller dividends (GitHub "
+                   "datasets/s-and-p-500) + USDCAD, CPI, 10y mirrors",
+            index_kinds={"SP500_TR": "total_return", "SP500": "price"}, pit=None, currency="USD",
+            licence="skfolio sample data (check its licence before redistributing); mirrors: ODC-PDDL, see data/mirrors/SOURCES.md",
+            security_meta=meta, index_info={"SP500_TR": {"yield": by_year, "foreign_share": 1.0 if o.home != "US" else 0.0}},
+            notes=(REAL_US_SURVIVORSHIP, mode_note, REAL_US_NO_FUNDAMENTALS, REAL_US_BENCHMARK))
 
 
 @dataclass(frozen=True)

@@ -46,7 +46,7 @@ withholding (TFSA: withheld and not recoverable; RRSP: exempt on US-listed secur
 from __future__ import annotations
 
 import inspect
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Protocol, runtime_checkable
 
 import warnings as _warnings
@@ -381,7 +381,7 @@ class TaxConfig:
     foreign_col: str | None = None
     home: str = "CA"
     liquidate_at_end: bool = False
-    index_dividend_yield: float | None = None
+    index_dividend_yield: "float | dict | pd.Series | None" = None            # D1: or {year: yield}
     index_foreign_share: float = 0.0
     # P1: RRSP deferral and the parked-cash income kind
     rrsp_withdrawal_rate: float | None = None
@@ -700,18 +700,35 @@ def index_yield(bench, mkt, tax: TaxConfig, start) -> tuple:
     if y is not None:
         return float(y), "benchmark dividend_yield"
     if tax.index_dividend_yield is not None:
+        if isinstance(tax.index_dividend_yield, (dict, pd.Series)):         # D1: a yield per year {year: yield}
+            return pd.Series(tax.index_dividend_yield, dtype=float), "TaxConfig.index_dividend_yield (by year)"
         return float(tax.index_dividend_yield), "TaxConfig.index_dividend_yield"
+    info = _index_info(mkt, bench)                                          # D1: the dataset's own yield by year
+    if info is not None and info.get("yield") is not None:
+        return pd.Series(info["yield"], dtype=float), "dataset dividend yield by year (e.g. Shiller's S&P 500 yield)"
     snap = mkt.view(mkt.trading_day(start))
     cap, dy = snap["market_cap"].fillna(0.0), snap["div_yield"].fillna(0.0).clip(lower=0.0)
     y = float((cap * dy).sum() / cap.sum()) if cap.sum() > 0 else 0.0
     return y, "cap-weighted universe dividend yield at the start (the index series has no yield of its own)"
 
 
-def tax_buy_and_hold(curve: pd.Series, yield_: float, tax: TaxConfig, capital: float) -> tuple:
+def _index_info(mkt, bench):
+    """D1: `Dataset.index_info[bench.index]` ({"yield": Series by year, "foreign_share": x}) or None."""
+    info = getattr(getattr(mkt, "dataset", None), "index_info", None)
+    return (info or {}).get(getattr(bench, "index", None))
+
+
+def tax_buy_and_hold(curve: pd.Series, yield_, tax: TaxConfig, capital: float) -> tuple:
     """Tax a buy-and-hold curve (the passive index): dividends `yield_` a year are paid out and reinvested each bar
-    (income on the previous bar's value), taxed as received; gains are realized only if `liquidate_at_end`."""
+    (income on the previous bar's value), taxed as received; gains are realized only if `liquidate_at_end`.
+    D1: `yield_` may also be a Series (or dict) of yields by calendar year; a year it lacks takes the nearest earlier
+    year's (the first year's before it)."""
     c = (curve / curve.iloc[0]).astype(float)
     dt = np.diff(((c.index - c.index[0]).days / 365.25).to_numpy())
+    if isinstance(yield_, (pd.Series, dict)):                                # D1
+        ys = pd.Series(yield_, dtype=float).sort_index()
+        yrs = c.index.year[:-1]
+        yield_ = ys.reindex(ys.index.union(yrs.unique())).ffill().bfill().loc[yrs].to_numpy()
     div = c.to_numpy()[:-1] * yield_ * dt
     fs = tax.index_foreign_share
     ev = pd.DataFrame({"div_ca": np.r_[0.0, div * (1 - fs)], "div_fx": np.r_[0.0, div * fs], "gain": 0.0, "loss": 0.0,
@@ -737,7 +754,11 @@ def report_columns(rows: dict, results: dict, bench, bcurve: pd.Series, cfg, mkt
         return {}
     capital = tax_cfg.capital if tax_cfg.capital is not None else getattr(cfg, "capital", 100_000)
     y, _note = index_yield(bench, mkt, tax_cfg, start)
-    itab, icurve = tax_buy_and_hold(bcurve, y, tax_cfg, capital)
+    info = _index_info(mkt, bench)                                           # D1: the dataset knows the index is foreign
+    itax = tax_cfg
+    if info and tax_cfg.index_foreign_share == 0.0 and info.get("foreign_share"):
+        itax = replace(tax_cfg, index_foreign_share=float(info["foreign_share"]))
+    itab, icurve = tax_buy_and_hold(bcurve, y, itax, capital)
     bl = bench.label
     icagr = summarize(icurve)[M.CAGR]
     rows[bl].update({M.AFTERTAX_CAGR: icagr, M.TAXDRAG_YR: rows[bl][M.CAGR] - icagr})

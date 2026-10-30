@@ -13,7 +13,7 @@ FETCH = $(PY) -m screenlab.realdata.cli free --dest "$(DEST)" --start $(START) \
 	$(if $(SEC_USER_AGENT),--sec-user-agent "$(SEC_USER_AGENT)") $(if $(PERIODS),--periods $(PERIODS))
 
 .PHONY: help install test test-fast tui tui-serve rest mcp notebook zip data-free data-sec data-boc \
-	data-fred data-prices data-tr data-status data-hosts clean
+	data-fred data-prices data-tr data-mirrors data-panel data-status data-hosts clean
 
 help:  ## list the targets
 	@echo "screenlab targets (variables: SEC_USER_AGENT, SOURCES, TICKERS, PERIODS, DEST, START, PORT)"
@@ -65,6 +65,12 @@ data-prices:  ## Stooq prices and index proxies only
 
 data-tr:  ## total-return benchmarks: Shiller S&P 500 (monthly, free) + Tiingo (TIINGO_API_KEY)
 	$(FETCH) --sources shiller,tiingo
+
+data-mirrors:  ## refresh the committed real-data mirrors (screenlab/data/mirrors/, GitHub raw only)
+	$(PY) -m screenlab.realdata.cli mirrors
+
+data-panel:  ## D3: point-in-time S&P 500 panel -> screenlab/data/panel/ (235 MB, LOCAL USE ONLY)
+	$(PY) -m screenlab.realdata.cli panel
 
 data-status:  ## show what is in data/ and which labs can be built
 	$(PY) -m screenlab.realdata.cli status --dest "$(DEST)"

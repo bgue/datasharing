@@ -53,7 +53,7 @@ from . import exit_inputs  # registers the additional exit signals into exit_sig
 from .exit_inputs import (CorrelationSpike, CreditSpread, DeathCross, DistanceFromHigh, DownsideDeviation,
                           EarningsBreadth, NewLowsMinusHighs, PortfolioStop, PortfolioVsIndex,
                           VolTermStructure, YieldCurve, YieldSpreadCompression)
-from .dataset import (BoCMacro, BundledSP500Builder, CSVBuilder, DataCard, Dataset, DatasetBuilder, SECBuilder,
+from .dataset import (BoCMacro, BundledSP500Builder, CSVBuilder, RealUSBuilder, DataCard, Dataset, DatasetBuilder, SECBuilder,
                       SyntheticBuilder)
 from .universe import AllListed, Filtered, Membership, TopN, Universe
 from .runspec import RunSpec, code_version, dataset_id
@@ -97,6 +97,6 @@ __all__ = ["__version__", "Lab", "BacktestReport", "Config", "cap_tiered", "simu
            "VolTermStructure", "YieldCurve", "YieldSpreadCompression",
            "Grid", "random_search", "run_sweep", "walk_forward",
            "bootstrap_excess", "deflated_sharpe", "t_stat_excess", "RunSpec", "code_version", "dataset_id",
-           "Dataset", "DataCard", "DatasetBuilder", "SyntheticBuilder", "BundledSP500Builder", "CSVBuilder",
+           "Dataset", "DataCard", "DatasetBuilder", "SyntheticBuilder", "BundledSP500Builder", "RealUSBuilder", "CSVBuilder",
            "SECBuilder", "BoCMacro", "Universe", "AllListed", "TopN", "Membership", "Filtered",
            "NullStore", "SQLiteStore", "Job", "JobManager", "Cancelled"]

@@ -166,6 +166,47 @@ The bundled sample has only 20 hand-picked large companies that are still around
 price-only screens (`momentum_12_1`, `momentum_6m`, `momentum_12m`, `low_vol`); asking for `dogs` here gives
 `KeyError: 'unknown screen: dogs'`. For real fundamentals see `screenlab/realdata/ACQUIRE.md`.
 
+For the same 20 names with a real total-return S&P 500 benchmark (price index plus Shiller's dividend yield), real
+USDCAD / CPI / 10-year series and dividends in the tax ledger, use `Lab.real_us()`; see "What ships in the box, real" in
+`screenlab/realdata/ACQUIRE.md`.
+
+### 5b2. Point-in-time S&P 500 panel (local use only)
+```
+make data-panel            # or: screenlab-data panel      (235 MB; needs github.com and release-assets.githubusercontent.com)
+```
+```python
+from screenlab import Lab
+lab = Lab.real_sp500(start="1990-01-01")          # freq="ME" for month-end bars (faster, smaller)
+print(lab.backtest(["momentum_12m", "stable_high_yield", "dogs"]))
+```
+This is the real thing, not synthetic: per-stock daily prices and cash dividends 1968-2026 for 1,742 names that were ever in
+the S&P 500, including the ones later delisted, and the dates each was a member (source: the `Johnbrick123/sp500-data` release;
+CRSP 1968-2006, then Yahoo / Tiingo / Quandl WIKI). On any date the universe is the S&P 500 as it was then (about 500 names), so
+there is no survivorship bias; the data card's survivorship score comes out near zero. The benchmark is `SP500_TR` (the real
+S&P 500 total return, as in `Lab.real_us`) when the window lies inside 1990-2022, and the cap-less `SP500_EW_PIT` (equal-weight
+total return of the then-members) over the whole span; USDCAD, CPI and the 10-year yield are in `lab.macro`.
+
+* **Local use only.** The repository states no licence and part of the data is CRSP-derived. The files go to the git-ignored
+  `screenlab/data/panel/` (with `MANIFEST.json` holding their SHA-256) and are never committed or redistributed; neither should
+  results files that embed them. The cleaned frames are cached in `data/panel/cache/` (a full 1990-2026 daily load takes about
+  15 s and 2 GB the first time, under a second after).
+* **What it cleans.** Rows with a non-positive price are dropped; a dividend above 25% of the close is dropped (45 rows from 1989
+  on); an identical dividend within 20 days of the previous one is dropped as a duplicate (15 rows). `dividend` = the trailing
+  365 days of per-share dividends, `price` = close, `div_yield` = dividend / price, refreshed at each month-end; the
+  total-return prices behind the backtest are `adj_close`. A trailing yield after a price collapse is real and is kept: in
+  2008-09 `dogs` picks AIG, Fannie Mae and the like (yields of 100% and more); that is why its worst drawdown is -83%.
+* **What it lacks.** No shares outstanding, no market cap, no fundamentals. Size cuts cannot rank and value / buyback screens
+  cannot run, so `Lab.real_sp500` ships the registry screens that need only price and dividends (`dogs`, `stable_high_yield`,
+  `stable_dividend`, `momentum_6m`, `momentum_12m`; `screaming_value`, `frugal_dividend`, `basic_buyback` and the Graham /
+  Piotroski / Magic Formula screens are not offered) with the market-cap cut removed: `dogs` is
+  the ten highest yields of the whole S&P 500, not of the 30 largest; `stable_high_yield` takes the 50 least volatile payers of
+  the whole index. Say so whenever you quote their numbers.
+* **Leavers and delistings.** A name that leaves the index but keeps trading leaves the universe at the next rebalance and can
+  still be sold at its price. A name whose prices end (delisted, merged) takes the library's usual delisting haircut
+  (`delist_return`, default -30%), which is harsh for a takeover paid at a premium; try `delist_return=0` as a bound.
+* **Mixed sources.** CRSP 96% of 1990-94 rows, Yahoo from about 1995, Tiingo and WIKI patches; the data card prints the mix by
+  era. Prices are as the sources store them; the small differences between sources are not reconciled.
+
 ### 5c. How to read the output
 - **The `Data:` line (the data card)** says what you are testing on. `synthetic` = fake. `PIT yes/n/a` =
   whether fundamentals were known at the time (point in time). `delisted yes (51)` = dead companies are

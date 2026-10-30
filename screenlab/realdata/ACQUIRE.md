@@ -12,6 +12,40 @@ vendor's own page on the day you buy. Checked on 2026-10-27.
 
 ---
 
+## What ships in the box, real
+
+`Lab.real_us()` runs on real US data with no network and no download. What is real, what is missing, and how your own
+downloads replace it:
+
+| Piece | Real source | Span |
+|---|---|---|
+| 20 US large caps, daily | skfolio's bundled sample: ADJUSTED close (dividends and splits folded into price) | 1990-01-02 .. 2022-12-28 |
+| S&P 500 total return `SP500_TR` | skfolio's daily S&P 500 PRICE index + Robert Shiller's monthly dividend yield (dividend / price of the month) accrued daily | same |
+| USDCAD daily, US CPI, 10-year yield | Federal Reserve / BLS series, committed in `screenlab/data/mirrors/` (licences, URLs, row counts: `SOURCES.md` there) | 1971 / 1913 / 1953 to 2026 |
+
+Refresh the mirrors with `make data-mirrors` (or `screenlab-data mirrors`); the only host needed is
+`raw.githubusercontent.com`.
+
+**Missing, on purpose:** company fundamentals (no P/E, yield, book value: only price screens, momentum and low
+volatility, run); delisted companies (the 20 names are 2022 survivors, so an equal-weight basket of them beats the
+index by about 8 points a year: judge a screen against the `SP500_TR` row, which is bias-free, and against the
+survivor basket, not against zero); Canadian stocks; each name's actual dividends. `dividend_mode="index_yield"`
+(default) gives every name the index's yield of the month so dividend tax and US withholding appear in the tax
+ledger, an approximation; `dividend_mode="none"` treats all return as price (dividends untaxed, tax understated).
+`lab.data_card().warnings()` prints all of this on every report. The index is taxed with the real Shiller yield by year
+(`TaxConfig.index_dividend_yield` also takes `{year: yield}`).
+
+**Replacing it with your own data:**
+1. `make data-free SEC_USER_AGENT="Your Name you@example.com"` (SEC fundamentals, Stooq prices, FRED / Bank of Canada
+   macro; section 2A) and `make data-tr` (Shiller and Tiingo total-return benchmarks, section 3) on a machine that can
+   reach those hosts, then `Lab.from_csv(...)` on the files in `data/` (section 4).
+2. A `securities.csv` (ticker, domicile, listing, currency, wrapper, underlying_domicile, eligible_dividend) beside
+   them tells the tax stage which names are foreign, which are Canadian-listed ETFs and which dividends are eligible
+   (`docs/TAXES.md`); without it every name is assumed Canadian.
+3. Pass your macro as `TaxConfig(macro=...)` for the CAD basis of US names (the real-data lab keeps its own in `lab.macro`).
+
+---
+
 ## 1. What the tool needs and why
 
 screenlab loads three files (see `data.py` and `Lab.from_csv(fundamentals, prices, indices)`):

@@ -41,7 +41,9 @@ from . import boc_valet, sec_fsds
 
 SOURCES = ("sec", "boc", "fred", "stooq", "statcan")        # the default run
 TR_SOURCES = ("shiller", "tiingo")                         # opt-in total-return benchmark sources
-ALL_SOURCES = SOURCES + TR_SOURCES
+MIRROR_SOURCES = ("mirror",)                               # refreshes the committed real-data mirrors (data/mirrors/)
+PANEL_SOURCES = ("panel",)                               # D3: point-in-time S&P 500 panel -> data/panel/ (local use only)
+ALL_SOURCES = SOURCES + TR_SOURCES + MIRROR_SOURCES + PANEL_SOURCES   # D3
 FRED_SERIES = ("CPIAUCSL", "DGS3MO", "DGS10", "DPRIME", "DEXCAUS", "BAMLC0A0CM")
 FRED_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id={id}"
 STOOQ_URL = "https://stooq.com/q/d/l/?s={sym}&i=d"
@@ -81,8 +83,15 @@ ETF_NOTE = "check current MER on the issuer page (figures from the task brief; i
 DOCS_URL = "https://code.claude.com/docs/en/cloud-environments#network-access"
 SOURCE_HOSTS = HOSTS = {"sec": ["www.sec.gov"], "boc": ["www.bankofcanada.ca"], "fred": ["fred.stlouisfed.org"],
          "stooq": ["stooq.com"], "statcan": ["www150.statcan.gc.ca"],
-         "shiller": ["shillerdata.com", "img1.wsimg.com"], "tiingo": ["api.tiingo.com"]}
-NOTES = {"stooq": "Stooq closes are split-adjusted; dividend adjustment is not guaranteed, so `tri` is a price "
+         "shiller": ["shillerdata.com", "img1.wsimg.com"], "tiingo": ["api.tiingo.com"],
+         "mirror": ["raw.githubusercontent.com"],
+         "panel": ["github.com", "release-assets.githubusercontent.com"]}   # D3
+NOTES = {"panel": "Point-in-time S&P 500 prices + dividends 1968-2026 (Johnbrick123/sp500-data release assets, 235 MB) -> "
+                  "data/panel/. No licence stated, partly CRSP-derived: LOCAL USE ONLY, never commit or redistribute.",   # D3
+         "mirror": "Refreshes the four committed files in screenlab/data/mirrors/ (Shiller S&P 500 monthly, USDCAD daily, "
+                   "US CPI, US 10y yield) from the datasets/* GitHub repositories; licences and spans in "
+                   "data/mirrors/SOURCES.md. Writes there (or --dir), not into `dest`.",
+         "stooq": "Stooq closes are split-adjusted; dividend adjustment is not guaranteed, so `tri` is a price "
                   "index unless you verify the symbol (ACQUIRE.md section 6). indices_stooq.csv is written with "
                   "kind=\"price\" explicitly. Stooq may also require a CAPTCHA "
                   "API key; a non-CSV reply is reported as an error.",
@@ -551,6 +560,82 @@ def etf_suggestions(dest="data") -> list:
                    f'(or SPY {ETF_PROXIES["SPY"]["mer"]}); {ETF_NOTE}')
     return out
 
+# ------------------------------------------------------------------------------------------ mirror
+# D1: real data from GitHub mirrors of Shiller / Federal Reserve / BLS series (raw.githubusercontent.com is reachable
+# where the finance hosts are not). The four files are committed so a git archive carries them.
+MIRROR_DIR = Path(__file__).resolve().parents[1] / "data" / "mirrors"
+_RAW = "https://raw.githubusercontent.com/datasets/{repo}/main/data/{file}"
+MIRRORS = {                       # published file -> (repo, file in repo, parser name)
+    "shiller_sp500_monthly.csv": ("s-and-p-500", "data.csv", "shiller"),
+    "usdcad_daily.csv": ("exchange-rates", "daily.csv", "usdcad"),
+    "us_cpi_monthly.csv": ("cpi-us", "cpiai.csv", "cpi"),
+    "us_10y_monthly.csv": ("bond-yields-us-10y", "monthly.csv", "y10"),
+}
+
+
+def mirror_url(name: str) -> str:
+    repo, f, _ = MIRRORS[name]
+    return _RAW.format(repo=repo, file=f)
+
+
+def _mirror_frame(kind: str, body: bytes) -> pd.DataFrame:
+    """Parse one datasets/* csv into the committed form (see data/mirrors/SOURCES.md)."""
+    host = "raw.githubusercontent.com"
+    df = pd.read_csv(io.BytesIO(body))
+    if kind == "shiller":
+        cols = ["Date", "SP500", "Dividend", "Earnings", "Consumer Price Index", "Long Interest Rate"]
+        if not set(cols) <= set(df.columns):
+            raise FetchError(f"Shiller mirror lacks columns {sorted(set(cols) - set(df.columns))}", host)
+        df = df[cols].rename(columns={"Date": "date", "SP500": "sp500", "Dividend": "dividend", "Earnings": "earnings",
+                                      "Consumer Price Index": "cpi", "Long Interest Rate": "long_rate"})
+        for c in df.columns[2:]:                       # zeros after the Shiller sheet ends are placeholders: missing
+            df[c] = df[c].where(df[c] != 0)
+        return df
+    if kind == "usdcad":
+        if not {"Date", "Country", "Exchange rate"} <= set(df.columns):
+            raise FetchError("exchange-rates mirror lacks Date, Country, Exchange rate", host)
+        df = df[df["Country"] == "Canada"][["Date", "Exchange rate"]].rename(columns={"Date": "date", "Exchange rate": "usdcad"})
+        return df.sort_values("date").reset_index(drop=True)
+    if kind in ("cpi", "y10"):
+        want, new = ("Index", "cpi") if kind == "cpi" else ("Rate", "y10")
+        if not {"Date", want} <= set(df.columns):
+            raise FetchError(f"{kind} mirror lacks Date, {want}", host)
+        return df[["Date", want]].rename(columns={"Date": "date", want: new})
+    raise ValueError(kind)
+
+
+def _fetch_mirror(m, opener, report, mirror_dir=None):
+    out = Path(mirror_dir) if mirror_dir else MIRROR_DIR
+    out.mkdir(parents=True, exist_ok=True)
+    for k, name in enumerate(MIRRORS):
+        report(k / len(MIRRORS), name)
+        df = _mirror_frame(MIRRORS[name][2], _get(mirror_url(name), opener, timeout=120))
+        if df.empty:
+            raise FetchError(f"{name}: no rows", "raw.githubusercontent.com")
+        path = out / name
+        df.to_csv(path, index=False, lineterminator="\n")
+        _record(m, "mirror", path, "ok")
+    report(1, f"{len(MIRRORS)} files")
+
+
+def fetch_mirrors(mirror_dir=None, opener=None, progress=None) -> Manifest:
+    """Refresh the four committed mirror files in `mirror_dir` (default `MIRROR_DIR`); a failure is in `errors`."""
+    m = Manifest(dest=str(mirror_dir or MIRROR_DIR), created=_dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"))
+    m.allow_hosts["mirror"] = list(HOSTS["mirror"])
+    try:
+        _fetch_mirror(m, opener, progress or (lambda f, msg="": None), mirror_dir)
+    except Exception as e:                       # noqa: BLE001
+        _error(m, "mirror", e)
+    return m
+
+
+def mirror_path(name: str, mirror_dir=None) -> Path:
+    """Path of a committed mirror file (a `MIRRORS` key)."""
+    p = (Path(mirror_dir) if mirror_dir else MIRROR_DIR) / name
+    if not p.exists():
+        raise FileNotFoundError(f"{p} not found; refresh with `make data-mirrors` (needs raw.githubusercontent.com)")
+    return p
+
 
 # ------------------------------------------------------------------------------------------ labs
 def discover_labs(dest="data") -> tuple:
@@ -576,7 +661,7 @@ def register_labs(registry, manifest: "Manifest | None" = None, dest="data") -> 
 # ------------------------------------------------------------------------------------------ main
 def fetch_free(dest="data", sources=SOURCES, sec_user_agent=None, periods=None, tickers=DEFAULT_TICKERS,
                start="2000-01-01", opener=None, progress=None, tiingo_api_key=None,
-               tiingo_tickers=TIINGO_DEFAULT_TICKERS) -> Manifest:
+               tiingo_tickers=TIINGO_DEFAULT_TICKERS, mirror_dir=None) -> Manifest:
     """Download the free datasets into `dest`; never raises for a source failure (see the manifest `errors`).
 
     `opener(request, timeout=...)` replaces urllib.request.urlopen (tests); `progress(frac, msg)` is called per
@@ -616,6 +701,11 @@ def fetch_free(dest="data", sources=SOURCES, sec_user_agent=None, periods=None, 
                 _fetch_stooq(m, root, opener, tickers, start, report)
             elif s == "shiller":
                 _fetch_shiller(m, root, opener, start, report)
+            elif s == "panel":                                                  # D3
+                from .sp500_panel import fetch_source
+                fetch_source(m, root, opener, report)
+            elif s == "mirror":
+                _fetch_mirror(m, opener, report, mirror_dir)
             elif s == "tiingo":
                 _fetch_tiingo(m, root, opener, tiingo_tickers, start, tiingo_api_key, report)
             else:

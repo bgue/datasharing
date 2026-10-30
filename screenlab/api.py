@@ -32,7 +32,7 @@ from dataclasses import dataclass, field, replace
 import pandas as pd
 
 from . import backtest, data, metrics
-from .dataset import CSVBuilder, DataCard, Dataset, SyntheticBuilder
+from .dataset import CSVBuilder, DataCard, Dataset, RealUSBuilder, SyntheticBuilder
 from .benchmarks import (IndexBenchmark, ScreenBenchmark, equal_weight_top, parse_benchmark, passive_index,
                          price_benchmark_message)
 from .errors import BenchmarkKindError
@@ -55,6 +55,7 @@ class Lab:
     persist: str = "metrics"                  # persist level when a store is on: none|inputs|metrics|full
     session_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     allow_price_benchmark: bool = False       # True: a price-index benchmark is allowed (flattered excess, with a warning)
+    macro: object = None                      # D1: a MacroSeries that came with the data (Lab.real_us); pass it as TaxConfig(macro=lab.macro)
 
     def __post_init__(self):
         self._tl = threading.local()
@@ -139,6 +140,28 @@ class Lab:
     @classmethod
     def synthetic(cls, freq: str = "B", n_stocks: int = 250, years: int = 25, seed: int = 7, **kw) -> "Lab":
         return cls.from_dataset(SyntheticBuilder(n_stocks=n_stocks, years=years, freq=freq, seed=seed).build(), **kw)
+
+    @classmethod
+    def real_us(cls, start: str = "1990-01-01", end: str | None = None, dividend_mode: str = "index_yield", **kw) -> "Lab":
+        """D1: 33 years (1990-2022) of REAL US data, no network: 20 large caps daily (skfolio, adjusted close, 2022
+        survivors), benchmark `SP500_TR` = the S&P 500 price index plus Shiller's monthly dividend yield accrued daily
+        (total return), macro in `lab.macro` (USDCAD daily, US CPI, 10-year yield; committed under data/mirrors/).
+        Price-only: only price screens (momentum_12_1, momentum_6m, momentum_12m, low_vol) run. `home="CA"`: the names are
+        US, so withholding and the FTC apply. `dividend_mode`: "index_yield" (default) attributes each name a dividend
+        stream at the index yield of the month so dividend tax and withholding exist; "none" leaves all return as price
+        (dividends untaxed, tax understated). Read `lab.data_card().warnings()`."""
+        from .realdata.bundled import price_screens
+        b = RealUSBuilder(start=start, end=end, dividend_mode=dividend_mode)
+        kw.setdefault("screens", price_screens(5))
+        kw.setdefault("macro", b.macro())
+        return cls.from_dataset(b.build(), **kw)
+
+    @classmethod
+    def real_sp500(cls, start: str = "1990-01-01", end: str | None = None, freq: str = "D", **kw) -> "Lab":
+        """D3: the point-in-time S&P 500 panel (1968-2026, delisted names, per-stock dividends); LOCAL USE ONLY, needs
+        `make data-panel`. See realdata/sp500_panel.py and the data guide."""
+        from .realdata.sp500_panel import real_sp500
+        return real_sp500(start=start, end=end, freq=freq, **kw)
 
     @classmethod
     def from_csv(cls, fundamentals: str, prices: str, indices: str | None = None, **kw) -> "Lab":

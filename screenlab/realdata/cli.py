@@ -3,6 +3,8 @@
     screenlab-data free --dest data --sec-user-agent "Jane Doe jane@example.com" --sources sec,boc,fred
     screenlab-data status [--dest data]
     screenlab-data free --sources shiller,tiingo      # total-return benchmarks (Tiingo: env TIINGO_API_KEY)
+    screenlab-data mirrors [--dir DIR]      # refresh the committed real-data mirrors (GitHub raw only)
+    screenlab-data panel [--dir DIR]        # D3: point-in-time S&P 500 panel (235 MB, local use only) -> data/panel/
     screenlab-data hosts
 """
 from __future__ import annotations
@@ -70,6 +72,10 @@ def main(argv=None, out=None, opener=None) -> int:
     st = sub.add_parser("status", help="show the manifest and the labs that can be built")
     st.add_argument("--dest", default="data")
     sub.add_parser("hosts", help="print the network allow-list")
+    mi = sub.add_parser("mirrors", help="refresh the committed real-data mirrors (needs raw.githubusercontent.com)")
+    mi.add_argument("--dir", default=None, help="folder to write (default: screenlab/data/mirrors)")
+    pa = sub.add_parser("panel", help="D3: download the point-in-time S&P 500 panel (github.com release assets, local use only)")   # D3
+    pa.add_argument("--dir", default=None, help="folder to write (default: screenlab/data/panel)")   # D3
     a = ap.parse_args(argv)
     if a.cmd == "hosts":
         print_hosts(out)
@@ -83,6 +89,24 @@ def main(argv=None, out=None, opener=None) -> int:
         m.labs, m.macro = fetch.discover_labs(a.dest)
         _print_manifest(m, out, a.dest)
         return 0
+    if a.cmd == "panel":                                                                  # D3
+        from . import sp500_panel
+        try:
+            man = sp500_panel.download(a.dir, opener, progress=lambda f, msg="": print(f"[{f:4.0%}] {msg}", file=out))
+        except fetch.FetchError as e:
+            print(f"panel: {e}   [allow {e.host}]", file=out)
+            return 1
+        for e in man["files"]:
+            print(f"  {e['bytes']:>12,} B  {e['sha256'][:16]}  {e['file']}", file=out)
+        print("local use only: no licence stated, partly CRSP-derived; never commit or redistribute", file=out)
+        return 0
+    if a.cmd == "mirrors":
+        m = fetch.fetch_mirrors(a.dir, opener, progress=lambda f, msg: print(f"[{f:4.0%}] {msg}", file=out))
+        for f in m.files:
+            print(f"  {f['status']:<7} {f['bytes']:>12,} B  {f['path']}", file=out)
+        for e in m.errors:
+            print(f"  error: {e['error']}   [allow {e['host']}]", file=out)
+        return 1 if m.errors else 0
     try:
         m = fetch.fetch_free(a.dest, _csv(a.sources) or fetch.SOURCES, a.sec_user_agent, _csv(a.periods),
                              _csv(a.tickers) or fetch.DEFAULT_TICKERS, a.start, opener,

@@ -14,6 +14,15 @@
 - Daily-start timing study (phase and start modes) with a tranche blend.
 - `Lab` SDK, CLIs, and a pytest suite that runs through the SDK.
 
+- Real data (D1): `Lab.real_us()`: 33 years (1990-2022) of real US data with no
+  network: 20 survivor names daily, `SP500_TR` = price index + Shiller's
+  dividend yield, USDCAD / CPI / 10y from committed mirrors
+  (`data/mirrors/`, refresh `make data-mirrors`). Price screens only; still
+  missing: fundamentals, delisted names, Canadian prices (Phase 1 items 1, 4).
+- Real data (D3): `Lab.real_sp500()`: point-in-time S&P 500 panel, 1968-2026, 1,742 ever-members incl. delisted, per-stock cash
+  dividends, membership intervals (`make data-panel`, 235 MB into the git-ignored `data/panel/`; LOCAL USE ONLY, no licence, partly
+  CRSP-derived). Dividend and price screens run with real taxed dividends; no market cap / fundamentals, so size-cut, value and
+  buyback screens still wait for Phase 1 item 1. See "5b2" in `docs/GETTING_STARTED.md`.
 - Real data: bundled S&P 500 prices + index and US CPI/T-bill; Bank of
   Canada and SEC FSDS adapters tested on fixtures (`realdata/ACQUIRE.md`).
 - Construction: cap / inverse-vol weights, position and sector caps, hold
