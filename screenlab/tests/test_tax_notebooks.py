@@ -5,6 +5,7 @@ they are meant to say.
 """
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -224,11 +225,25 @@ def test_plan_notebook_runs():                                   # PC: the plan 
     assert "XIRR" in secs[2][0] and "TWR" in secs[2][0] and "time-weighted" in secs[2][0] and "money-weighted" in secs[2][0]
     guide = "\n".join(secs[6])
     assert all(s in guide for s in ("US CPI", "US 10-year", "DECISIONS.md", "2025", "haircut of 30%", "do not commit"))
-    n_fig = 0
-    for _, src in code_cells:
-        if "; show(fig)" in src:
-            n_fig += src.count("; show(fig)")
-            assert "legend" in src, src[:80]                                                     # a legend on every figure
-            assert "INDEX_COL" in src or "pp." in src, src[:80]                                  # the grey dashed base case (pp.* draws it itself)
-    assert n_fig >= 8
+    # V1: the figures are interactive Altair charts (research/plan_charts.py): no matplotlib; every plot cell calls pch.* and
+    # shows the chart; the run prints one "[chart]" line per figure naming its legend entries, the index base case among them;
+    # the saved outputs carry the Vega-Lite 5 spec (tooltips, legend, index series) and a PNG fallback in the same output
+    assert "matplotlib" not in code and "plt." not in code and "pp." not in code
+    plot_cells = [(i, src) for i, src in code_cells if re.search(r"^show\(", src, re.M)]
+    n_fig = sum(len(re.findall(r"^show\(", src, re.M)) for _, src in plot_cells)
+    assert n_fig >= 8 and len(plot_cells) >= 8 - 3                                               # figures 2 and 5 draw three panels, 6-8 several
+    for i, src in plot_cells:
+        assert "pch." in src or "panels(" in src, src[:80]                                       # drawn by plan_charts
+    lines = [l for l in out.splitlines() if l.startswith("[chart]")]
+    assert len(lines) == n_fig, (len(lines), n_fig)
+    assert all("Buy and hold the index" in l for l in lines), lines                               # the base case in every figure's legend
+    saved = nbformat.read(str(path), 4)                                                           # the outputs saved in the notebook
+    bundles = [o for c in saved.cells if c.cell_type == "code" for o in c.get("outputs", [])
+               if o.get("output_type") == "display_data" and "application/vnd.vegalite.v5+json" in o.get("data", {})]
+    assert len(bundles) == n_fig, len(bundles)
+    for o in bundles:
+        spec = json.dumps(o["data"]["application/vnd.vegalite.v5+json"])
+        assert "image/png" in o["data"] and len(o["data"]["image/png"]) > 1000                      # a static fallback beside the interactive chart
+        assert '"tooltip"' in spec and '"legend"' in spec and "Buy and hold the index" in spec and "strokeDash" in spec or "xOffset" in spec
+    assert path.stat().st_size < 5_000_000                                                        # month-end data keeps the notebook small
     assert "Buy and hold the index" in text and '"Buy and hold the index"' in code

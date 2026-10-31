@@ -86,6 +86,9 @@ Mechanics agreed:
 <!-- PB: montecarlo/plan_mc.py, research/plan_plots.py, tests/test_plan_mc.py -->
 `plan_montecarlo(lab, spec, n_paths=1000, generator="block", seed=0, horizon_end=None, cpi="joint", block_months=12)` in `montecarlo/plan_mc.py` (the frame-level core is `simulate(monthly, flows, horizon_end, rates=..., goal=...)`; `replay`, `xirr`, `FlowGrid`, `TaxRates` are public). Figures: `research/plan_plots.py` (`fan_chart`, `terminal_hist`, `paired_hist`, `sequence_bars`, `reversal_bars`, `figures`).
 
+<!-- V1: research/plan_charts.py, notebooks/plan_dca.ipynb -->
+Interactive charts: `research/plan_charts.py` (Altair / Vega-Lite 5: `wealth_chart`, `metrics_chart`, `tax_chart`, `fan_chart`, `terminal_hist`, `paired_hist`, `sequence_chart`, `reversal_chart`, `invest_vs_hold_chart`, `flows_chart`, `save_png`) gives every point a tooltip, hover rules, and pan and zoom; `notebooks/plan_dca.ipynb` uses them (needs `altair>=5,<6` and `vl-convert-python`, in the `notebook` extra).
+
 Method and approximations (all repeated on `PlanMC.card.notes`):
 - History: the straight run's `result.monthly` (strategy, index, rf) plus monthly inflation from `result.series["cpi_deflator"]`. Monthly, not daily: it is the series alpha/beta/Sharpe use, 12-month blocks stay 12 steps, and biweekly flows are handled inside the month (a flow at day fraction `f` of month `k` grows by `(1+r_k)^(1-f)`).
 - The four columns are resampled jointly as one small monthly `Dataset` by the existing generators (`block` 12 months default, `stationary`, `regime`, `iid`, or a generator object). Per-path streams: path `k` depends on `seed` and `k` only, not on `n_paths` or the horizon.

@@ -29,7 +29,7 @@ data = ["skfolio", "statsmodels", "xlrd", "openpyxl", "pyarrow"]
 # REST (FastAPI) and MCP servers; mirrors screenlab/requirements-server.txt.
 server = ["fastapi", "uvicorn", "httpx", "mcp"]
 # Notebook screenlab/notebooks/explore_runs.ipynb.
-notebook = ["jupyterlab", "ipykernel", "matplotlib", "nbclient", "nbformat"]
+notebook = ["jupyterlab", "ipykernel", "matplotlib", "nbclient", "nbformat", "altair>=5,<6", "vl-convert-python"]   # V1: Altair 5 = Vega-Lite 5 (the notebook mime type), vl-convert for the PNG fallback
 # Optional Bayesian search (sweep.bayes_search), see screenlab/docs/BAYESIAN_SWEEPS.md.
 bayes = ["optuna"]
 # Terminal UI (screenlab-tui), also served in a browser via `textual serve`.
