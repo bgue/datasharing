@@ -644,13 +644,15 @@ class Session:
         self._emit("jobs")
         return {"jobs": [j]}
 
-    def cmd_plan(self, scenario=None, run=True, force=False, add_extra=None, remove_extra=None, **form) -> dict:   # PC: Plan tab
+    def cmd_plan(self, scenario=None, run=True, force=False, add_extra=None, remove_extra=None, add_phase=None,
+                 remove_phase=None, set_phase=None, flat_phase=False, **form) -> dict:   # PC: Plan tab
         """The dated investment plan of the scenario's strategy against the index (the `plan` operation). `form` is any of
         the plan form fields (start, end, initial, periodic, frequency, growth, extra, withdrawals, withdraw_from,
         withdraw_growth, cash_timing, index_mer, goal); they are remembered (`analyses.plan_form`). `add_extra` /
-        `remove_extra` edit the extraordinary investments; `run=false` only edits the form."""
+        `remove_extra` edit the extraordinary investments; `run=false` only edits the form. V2: `use_phases`, `phases`,
+        `phase_growth` and `add_phase` / `remove_phase` / `set_phase` / `flat_phase` edit the contribution phases."""
         sc = self._find(scenario)
-        _plan_tab.update_form(self.analyses["plan_form"], form, add_extra, remove_extra)
+        _plan_tab.update_form(self.analyses["plan_form"], form, add_extra, remove_extra, add_phase, remove_phase, set_phase, flat_phase)
         if not run:
             self._emit("plan")
             return {"form": self.analyses["plan_form"], "jobs": []}

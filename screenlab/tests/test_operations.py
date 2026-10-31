@@ -193,7 +193,8 @@ SAMPLES = {
     "plan": {"screen": "dogs", "start": "2002-01-31", "end": "2008-12-31", "initial": 10000.0, "periodic": 500.0,
              "frequency": "monthly", "growth": "cpi", "extra": [{"date": "2004-03-01", "amount": 5000.0, "note": "bonus"}],
              "withdrawals": 800.0, "withdraw_from": "2007-01-01", "goal": 90000.0,
-             "tax": {"model": "canadian", "account": "tfsa", "province": "AB"}, "config": {"rebalance_months": 12}},   # PC:
+             "tax": {"model": "canadian", "account": "tfsa", "province": "AB"}, "config": {"rebalance_months": 12},
+             "phases": [{"years_from": 0, "years_to": 2, "amount": 500.0, "note": "early"}, {"years_from": 2, "years_to": 3, "amount": 900.0}]},   # PC: V2:
     "plan_montecarlo": {"screen": "dogs", "start": "2002-01-31", "initial": 10000.0, "periodic": 500.0, "n_paths": 20,
                         "generator": "stationary", "seed": 2, "horizon_end": "2012-12-31"},                          # PC:
     "fetch_data": {"sources": ["boc"], "dest": "data", "sec_user_agent": "A B a@b.c", "tickers": ["XIU.TO"],

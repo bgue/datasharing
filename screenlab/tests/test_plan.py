@@ -17,7 +17,7 @@ from screenlab.backtest import simulate
 from screenlab.data import add_ratios
 from screenlab.metrics import METRICS as REGISTRY
 from screenlab.pipeline import CashAccrual
-from screenlab.plan import METRICS, CashFlow, PlanSpec, capm_stats, metrics_table, run_plan, schedule, xirr
+from screenlab.plan import METRICS, CashFlow, Phase, PlanSpec, capm_stats, metrics_table, run_plan, schedule, xirr
 from screenlab.serial import from_dict, to_dict
 from screenlab.taxes import PlaceholderCanadianTax, index_ledger, tax_buy_and_hold_flows
 
@@ -111,6 +111,58 @@ def test_schedule_cpi_indexing_follows_the_anniversary_level():
     assert amt["2022-01-02"] == pytest.approx(121.0)
     with pytest.raises(ValueError):
         schedule(PlanSpec("x", "2020-01-02", periodic=100, growth="cpi", index_mer=0.0), IDX, None)
+
+
+# V2: phased contributions
+BASE = (Phase(0, 10, 500, "early"), Phase(10, 13, 3000, "peak"), Phase(13, 20, 1000, "late"))
+
+
+def test_phases_base_case_counts_and_sums_exact():
+    s = schedule(PlanSpec("x", "2020-01-02", phases=BASE, end="2040-01-01", index_mer=0.0), IDX, None)
+    assert set(s["kind"]) == {"periodic"}
+    g = s.groupby("note")["amount"].agg(["count", "sum"])
+    assert g.loc["early"].tolist() == [120, 60000.0]
+    assert g.loc["peak"].tolist() == [36, 108000.0]
+    assert g.loc["late"].tolist() == [84, 84000.0]
+    assert s["date"].min() == pd.Timestamp("2020-01-02") and s.loc[s["note"] == "early", "date"].max() == pd.Timestamp("2029-12-02")
+    assert s.loc[s["note"] == "peak", "date"].min() == pd.Timestamp("2030-01-02")     # half-open: year 10 belongs to the next phase
+
+
+def test_phases_gap_means_no_contribution_and_none_runs_to_withdraw_from():
+    ph = (Phase(0, 1, 100), Phase(2, None, 50))
+    s = schedule(PlanSpec("x", "2020-01-02", phases=ph, end="2023-01-01", withdraw_from="2022-07-02", index_mer=0.0), IDX, None)
+    assert (s["amount"] == 100).sum() == 12
+    d = s["date"]
+    assert not ((d >= "2021-01-02") & (d < "2022-01-02")).any()                       # the gap
+    assert d.max() == pd.Timestamp("2022-06-02") and (s["amount"] == 50).sum() == 6   # stops at withdraw_from
+
+
+def test_phases_cpi_indexing_from_the_plan_start_and_nominal_switch():
+    cpi = pd.Series([100.0, 110.0, 121.0], index=pd.to_datetime(["2019-01-01", "2021-01-01", "2022-01-01"]))
+    ph = (Phase(0, 1, 100), Phase(1, 3, 200))
+    s = schedule(PlanSpec("x", "2020-01-02", phases=ph, growth="cpi", end="2022-03-01", index_mer=0.0), IDX, cpi).set_index("date")["amount"]
+    assert s["2020-06-02"] == pytest.approx(100.0) and s["2021-01-02"] == pytest.approx(220.0) and s["2022-01-02"] == pytest.approx(242.0)
+    n = schedule(PlanSpec("x", "2020-01-02", phases=ph, growth="cpi", phase_growth="nominal", end="2022-03-01", index_mer=0.0),
+                 IDX, None).set_index("date")["amount"]
+    assert n["2021-01-02"] == 200 and n["2022-01-02"] == 200
+
+
+def test_phases_validation_and_serial_roundtrip():
+    for bad in ((Phase(0, 2, 1), Phase(1, 3, 1)), (Phase(2, 3, 1), Phase(0, 1, 1)), (Phase(0, None, 1), Phase(1, 2, 1)),
+                (Phase(0, 1, -1),), (Phase(-1, 1, 1),), (Phase(1, 1, 1),)):
+        with pytest.raises(ValueError):
+            PlanSpec("x", "2020-01-02", phases=bad)
+    with pytest.raises(ValueError):
+        PlanSpec("x", "2020-01-02", phase_growth="real")
+    sp = PlanSpec("x", "2020-01-02", phases=BASE)
+    assert from_dict(to_dict(sp)) == sp
+
+
+def test_phases_replace_periodic_and_the_card_warns():
+    sp = spec(periodic=999, phases=(Phase(0, 1, 100),), end="2020-06-30")
+    assert set(schedule(sp, IDX, None)["amount"]) == {100.0}
+    res = run_plan(make_lab(), sp)
+    assert any("flat periodic" in w for w in res.card.warnings()) and (res.flows["amount"] <= 100).all()
 
 
 def test_schedule_withdrawals_extras_and_decumulation():

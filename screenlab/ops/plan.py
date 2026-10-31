@@ -36,6 +36,15 @@ class ExtraFlow:
 
 
 @dataclass
+class PhaseSpec:  # V2
+    """One contribution phase: `amount` per period over plan years [years_from, years_to)."""
+    years_from: float = arg(doc="plan year the phase starts (0 = the start date)")
+    years_to: float | None = arg(None, "plan year the phase ends (exclusive); null = until `withdraw_from` or the end")
+    amount: float = arg(0.0, "contribution per period in dollars during the phase")
+    note: str = arg("", "free text")
+
+
+@dataclass
 class PlanRequest:
     """The plan: every field of `plan.PlanSpec`, with the account and tax settings as `tax` and the strategy settings as `config`."""
     screen: str = arg(doc="the configured strategy: a screen name of the lab (see list_screens)")
@@ -47,6 +56,10 @@ class PlanRequest:
     frequency: Literal["biweekly", "monthly", "quarterly", "annual"] = arg("monthly", "period of the contribution")
     growth: float | Literal["cpi"] = arg(0.0, "annual growth of the periodic contribution: a number (0.03) or 'cpi' (indexed to inflation)")
     extra: list[ExtraFlow] | None = arg(None, "extraordinary dated flows [{date, amount, note}]; negative = withdrawal")
+    phases: list[PhaseSpec] | None = arg(None, "contribution phases [{years_from, years_to, amount, note}] by plan year; "
+                                               "when given they replace `periodic` (gaps = no contribution)")  # V2
+    phase_growth: Literal["indexed", "nominal"] = arg("indexed", "'indexed': phase amounts are start-date dollars and follow `growth` "
+                                                                 "(incl. 'cpi') from the plan start; 'nominal': paid as given")  # V2
     withdrawals: float = arg(0.0, "periodic withdrawal in dollars once `withdraw_from` is reached (needs withdraw_from)")
     withdraw_from: str | None = arg(None, "start of the decumulation phase; periodic contributions stop there")
     withdraw_growth: float | Literal["cpi"] = arg(0.0, "annual growth of the withdrawal: a number or 'cpi'")
@@ -121,6 +134,32 @@ def _flows(extra) -> tuple:
     return tuple(out)
 
 
+def _phases(phases) -> tuple:  # V2
+    from ..plan import Phase
+    out = []
+    for i, x in enumerate(phases or ()):
+        if isinstance(x, Phase):
+            out.append(x)
+            continue
+        if not isinstance(x, dict):
+            raise ServerError(400, f"`phases[{i}]` must be an object {{years_from, years_to, amount, note}}")
+        bad = [k for k in x if k not in ("years_from", "years_to", "amount", "note")]
+        if bad:
+            raise ServerError(400, f"unknown field {bad[0]!r} in phases[{i}]; allowed: ['years_from', 'years_to', 'amount', 'note']")
+        if "years_from" not in x or "amount" not in x:
+            raise ServerError(400, f"phases[{i}] needs `years_from` and `amount`")
+        lo = _num(f"phases[{i}].years_from", x["years_from"], lo=0.0)
+        hi = None if x.get("years_to") is None else _num(f"phases[{i}].years_to", x["years_to"], lo=lo, strict_lo=True)
+        out.append(Phase(lo, hi, _num(f"phases[{i}].amount", x["amount"], lo=0.0), str(x.get("note") or "")))
+    for i, ph in enumerate(out[1:], 1):
+        prev = out[i - 1]
+        if ph.years_from < prev.years_from:
+            raise ServerError(400, f"`phases[{i}].years_from` must be ascending ({ph.years_from} < {prev.years_from})")
+        if prev.years_to is None or ph.years_from < prev.years_to:
+            raise ServerError(400, f"`phases[{i}]` overlaps phases[{i - 1}]: phases must not overlap (half-open [from, to))")
+    return tuple(out)
+
+
 def _plan_kw(lab, a) -> dict:
     """The run keywords shared by both operations, validated (every bad field is a 400 naming the field)."""
     if lab is not None and a.screen not in lab.screens and not a.screen.lstrip().startswith("{"):
@@ -139,8 +178,11 @@ def _plan_kw(lab, a) -> dict:
     initial = _num("initial", a.initial, lo=0.0)
     periodic = _num("periodic", a.periodic, lo=0.0)
     extra = _flows(a.extra)
-    if initial + periodic <= 0 and not any(f.amount > 0 for f in extra):
-        raise ServerError(400, "the plan has no contribution: give `initial`, `periodic` or a positive `extra` flow")
+    phases = _phases(a.phases)  # V2
+    if a.phase_growth not in ("indexed", "nominal"):
+        raise ServerError(400, f"`phase_growth` must be 'indexed' or 'nominal', got {a.phase_growth!r}")
+    if initial + periodic <= 0 and not any(f.amount > 0 for f in extra) and not any(p.amount > 0 for p in phases):
+        raise ServerError(400, "the plan has no contribution: give `initial`, `periodic`, `phases` or a positive `extra` flow")
     rf = a.risk_free if isinstance(a.risk_free, str) else _num("risk_free", a.risk_free, lo=-0.5)
     if isinstance(rf, str) and rf not in ("us10y", "ca10y"):
         raise ServerError(400, f"`risk_free` must be 'us10y', 'ca10y' or a number, got {rf!r}")
@@ -158,7 +200,8 @@ def _plan_kw(lab, a) -> dict:
             d.setdefault("province", "AB")
         cfg["tax"] = R._tax_config(d)
     return clean(dict(screen=a.screen, start=start, end=end, initial=initial, periodic=periodic, frequency=a.frequency,
-                      growth=_growth("growth", a.growth), extra=extra or None, withdrawals=_num("withdrawals", a.withdrawals, lo=0.0),
+                      growth=_growth("growth", a.growth), extra=extra or None,
+                      phases=phases or None, phase_growth=None if a.phase_growth == "indexed" else a.phase_growth, withdrawals=_num("withdrawals", a.withdrawals, lo=0.0),
                       withdraw_from=wf, withdraw_growth=_growth("withdraw_growth", a.withdraw_growth),
                       cash_timing=a.cash_timing, index_mer=_num("index_mer", a.index_mer, lo=0.0, hi=0.5),
                       goal=None if a.goal is None else _num("goal", a.goal, lo=0.0, strict_lo=True),
@@ -167,13 +210,13 @@ def _plan_kw(lab, a) -> dict:
 
 
 def make_spec(lab, screen, start, *, end=None, initial=0.0, periodic=0.0, frequency="monthly", growth=0.0, extra=None,
-              withdrawals=0.0, withdraw_from=None, withdraw_growth=0.0, cash_timing="invest", index_mer=0.0005, goal=None,
+              phases=None, phase_growth="indexed", withdrawals=0.0, withdraw_from=None, withdraw_growth=0.0, cash_timing="invest", index_mer=0.0005, goal=None,
               risk_free="us10y", inflation="auto", label="", tax_from_outside=False, **cfg):
     """The `plan.PlanSpec` of the keywords both operations take (`cfg`: Config overrides, `tax` included)."""
     from ..plan import PlanSpec
     return PlanSpec(screen=screen, start=str(start)[:10], config=lab._cfg(**cfg), end=None if end is None else str(end)[:10],
                     initial=initial, periodic=periodic, frequency=frequency, growth=growth, extra=_flows(extra),
-                    withdrawals=withdrawals, withdraw_from=None if withdraw_from is None else str(withdraw_from)[:10],
+                    phases=_phases(phases), phase_growth=phase_growth, withdrawals=withdrawals, withdraw_from=None if withdraw_from is None else str(withdraw_from)[:10],
                     withdraw_growth=withdraw_growth, cash_timing=cash_timing, index_mer=index_mer, goal=goal,
                     risk_free=risk_free, inflation=inflation, label=label, tax_from_outside=bool(tax_from_outside))
 
@@ -187,6 +230,9 @@ def spec_json(spec) -> dict:
     out = {k: scalar(getattr(spec, k)) for k in ("screen", "start", "end", "initial", "periodic", "frequency", "growth",
                                                  "withdrawals", "withdraw_from", "withdraw_growth", "cash_timing", "index_mer",
                                                  "goal", "risk_free", "inflation", "tax_from_outside", "label")}
+    out["phases"] = [{"years_from": scalar(p.years_from), "years_to": scalar(p.years_to), "amount": scalar(p.amount), "note": p.note}
+                     for p in spec.phases]  # V2
+    out["phase_growth"] = spec.phase_growth
     out["extra"] = [{"date": f.date, "amount": scalar(f.amount), "note": f.note} for f in spec.extra]
     out["account"] = getattr(tx, "account", None)
     out["rebalance_months"] = getattr(cfg, "rebalance_months", None)
@@ -273,13 +319,13 @@ class Plan(Operation):
     """A dated investment plan (lump sum, periodic, extraordinary flows, withdrawals) on a strategy against the index: wealth, XIRR, alpha / beta / Sharpe, pre-tax, after-tax and real."""
     name = "plan"
     takes_max_points = False
-    registry_order = ("screen", "start", "end", "initial", "periodic", "frequency", "growth", "extra", "withdrawals",
+    registry_order = ("screen", "start", "end", "initial", "periodic", "frequency", "growth", "extra", "phases", "phase_growth", "withdrawals",
                       "withdraw_from", "withdraw_growth", "cash_timing", "index_mer", "goal", "risk_free", "inflation",
                       "tax_from_outside", "label", "tax", "config", "lab", "daily")
     Args = PlanArgs
 
     def run(self, lab, screen, start, end=None, initial: float = 0.0, periodic: float = 0.0, frequency: str = "monthly",
-            growth=0.0, extra=None, withdrawals: float = 0.0, withdraw_from=None, withdraw_growth=0.0,
+            growth=0.0, extra=None, phases=None, phase_growth: str = "indexed", withdrawals: float = 0.0, withdraw_from=None, withdraw_growth=0.0,
             cash_timing: str = "invest", index_mer: float = 0.0005, goal=None, risk_free="us10y", inflation="auto",
             label: str = "", tax_from_outside: bool = False, daily: bool = False, **cfg):
         """The straight calculation of a plan (see plan.py, docs/PLAN.md); returns a `plan.PlanResult`.
@@ -289,7 +335,7 @@ class Plan(Operation):
         the lab's Config. `daily` only affects the JSON (full daily series). Pure computation on the lab's data."""
         from ..plan import run_plan
         return run_plan(lab, make_spec(lab, screen, start, end=end, initial=initial, periodic=periodic, frequency=frequency,
-                                       growth=growth, extra=extra, withdrawals=withdrawals, withdraw_from=withdraw_from,
+                                       growth=growth, extra=extra, phases=phases, phase_growth=phase_growth, withdrawals=withdrawals, withdraw_from=withdraw_from,
                                        withdraw_growth=withdraw_growth, cash_timing=cash_timing, index_mer=index_mer,
                                        goal=goal, risk_free=risk_free, inflation=inflation, label=label,
                                        tax_from_outside=tax_from_outside, **cfg))
@@ -311,7 +357,7 @@ class PlanMonteCarlo(Operation):
     Args = PlanMCArgs
 
     def run(self, lab, screen, start, end=None, initial: float = 0.0, periodic: float = 0.0, frequency: str = "monthly",
-            growth=0.0, extra=None, withdrawals: float = 0.0, withdraw_from=None, withdraw_growth=0.0,
+            growth=0.0, extra=None, phases=None, phase_growth: str = "indexed", withdrawals: float = 0.0, withdraw_from=None, withdraw_growth=0.0,
             cash_timing: str = "invest", index_mer: float = 0.0005, goal=None, risk_free="us10y", inflation="auto",
             label: str = "", tax_from_outside: bool = False, n_paths: int = 1000, generator: str = "block", seed: int = 0,
             horizon_end=None, result=None, **cfg):
@@ -319,7 +365,7 @@ class PlanMonteCarlo(Operation):
         the number of paths, the resampler (block | stationary | regime | iid | history), the seed and the last date of the
         paths. `result`: the `plan.PlanResult` of the same plan, when the caller has it (not repeated)."""
         spec = make_spec(lab, screen, start, end=end, initial=initial, periodic=periodic, frequency=frequency,
-                         growth=growth, extra=extra, withdrawals=withdrawals, withdraw_from=withdraw_from,
+                         growth=growth, extra=extra, phases=phases, phase_growth=phase_growth, withdrawals=withdrawals, withdraw_from=withdraw_from,
                          withdraw_growth=withdraw_growth, cash_timing=cash_timing, index_mer=index_mer, goal=goal,
                          risk_free=risk_free, inflation=inflation, label=label, tax_from_outside=tax_from_outside, **cfg)
         from ..montecarlo.plan_mc import plan_montecarlo

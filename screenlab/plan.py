@@ -87,6 +87,18 @@ class CashFlow:
     note: str = ""
 
 
+# V2: phased contributions (docs/PLAN.md "Phases")
+@serializable("Phase")
+@dataclass(frozen=True)
+class Phase:
+    """Contribution per period over plan years [years_from, years_to), counted from `PlanSpec.start` (None: until
+    `withdraw_from` or the end). The amount is in start-date dollars when the plan's growth is indexed."""
+    years_from: float
+    years_to: "float | None"
+    amount: float
+    note: str = ""
+
+
 @serializable("PlanSpec")
 @dataclass(frozen=True)
 class PlanSpec:
@@ -111,8 +123,31 @@ class PlanSpec:
     inflation: "str | float" = "auto"          # "auto" (CA CPI if loaded, else US CPI) | "us" | "ca" | constant annual rate
     tax_from_outside: bool = False             # True: tax is paid from money outside the account (the pre-2026-10 basis, see DECISIONS.md)
     label: str = ""
+    # V2: phases replace `periodic` when non-empty; phase_growth "indexed" applies `growth` (incl. "cpi") from the plan start
+    # to each phase amount, "nominal" pays the phase amount as is.
+    phases: tuple = ()
+    phase_growth: str = "indexed"
 
     def __post_init__(self):
+        # V2:
+        if self.phase_growth not in ("indexed", "nominal"):
+            raise ValueError(f"phase_growth must be 'indexed' or 'nominal', got {self.phase_growth!r}")
+        prev = None
+        for i, ph in enumerate(self.phases):
+            if ph.years_from < 0:
+                raise ValueError(f"phases[{i}].years_from must be >= 0, got {ph.years_from!r}")
+            if ph.years_to is not None and ph.years_to <= ph.years_from:
+                raise ValueError(f"phases[{i}].years_to ({ph.years_to}) must be after years_from ({ph.years_from})")
+            if ph.amount < 0:
+                raise ValueError(f"phases[{i}].amount must be >= 0, got {ph.amount!r}")
+            if prev is not None:
+                if prev.years_to is None:
+                    raise ValueError(f"phases[{i - 1}] has no end (years_to None) and must be the last phase")
+                if ph.years_from < prev.years_from:
+                    raise ValueError(f"phases[{i}].years_from must be ascending")
+                if ph.years_from < prev.years_to:
+                    raise ValueError(f"phases[{i}] overlaps phases[{i - 1}]: years_from {ph.years_from} < {prev.years_to}")
+            prev = ph
         if self.frequency not in FREQ:
             raise ValueError(f"frequency must be one of {sorted(FREQ)}, got {self.frequency!r}")
         if self.cash_timing not in ("invest", "hold"):
@@ -188,7 +223,16 @@ def schedule(spec: PlanSpec, index: pd.DatetimeIndex, cpi: "pd.Series | None") -
     rows = []
     if spec.initial:
         rows.append((start, float(spec.initial), "initial", ""))
-    if spec.periodic:
+    if spec.phases:  # V2: phases replace `periodic`; dates stay on the plan's cadence, filtered to [from, to)
+        grid = _dates(start, spec.frequency, until, wf)
+        for ph in spec.phases:
+            lo = start + pd.DateOffset(months=round(12 * ph.years_from))
+            hi = None if ph.years_to is None else start + pd.DateOffset(months=round(12 * ph.years_to))
+            for d in grid:
+                if d >= lo and (hi is None or d < hi):
+                    f = 1.0 if spec.phase_growth == "nominal" else _factor(spec.growth, start, d, cpi)
+                    rows.append((d, float(ph.amount) * f, "periodic", ph.note))
+    elif spec.periodic:
         for d in _dates(start, spec.frequency, until, wf):
             rows.append((d, float(spec.periodic) * _factor(spec.growth, start, d, cpi), "periodic", ""))
     if spec.withdrawals and wf is not None:
@@ -447,6 +491,8 @@ def run_plan(lab, spec: PlanSpec) -> PlanResult:
         end_eff = last_bar
     else:
         end_eff = mkt.trading_day(end_req, "prev") if end_req is not None else last_bar
+    if spec.phases and spec.periodic:  # V2
+        warnings.append(f"phases are set: the flat periodic amount ({spec.periodic:g}) is ignored")
     sched = schedule(replace(spec, end=str(end_eff.date())), index, cpi)
     sched = sched[sched["executed"].notna()].copy()
     if sched.empty:

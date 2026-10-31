@@ -14,7 +14,7 @@ from screenlab.tui import web
 from screenlab.tui.session import Session, SessionError
 
 TAX = {"model": "canadian", "province": "AB", "account": "tfsa", "other_income": 90000}
-FORM = {"start": "2002-01-31", "end": "2008-12-31", "initial": 10000, "periodic": 500, "growth": "cpi", "withdrawals": 800,
+FORM = {"use_phases": False, "start": "2002-01-31", "end": "2008-12-31", "initial": 10000, "periodic": 500, "growth": "cpi", "withdrawals": 800,
         "withdraw_from": "2007-01-01", "goal": 90000, "add_extra": {"date": "2004-03-01", "amount": 5000, "note": "bonus"}}
 
 
@@ -164,5 +164,122 @@ def test_app_plan_tab_runs_a_plan_and_draws(s):
             assert app.query_one("#pl-q").row_count == 5 and app.query_one("#pl-seq").row_count >= 1
             assert "P(strategy beats the index" in str(app.query_one("#pl-mc").render())
             assert "terminal wealth, strategy" in str(app.query_one("#pl-hist").render())
+        sess.close()
+    arun(go())
+
+
+# V2: contribution phases
+def test_default_form_carries_the_base_case_with_phases_on():
+    f = P.new_form()
+    assert f["use_phases"] is True and f["phase_growth"] == "indexed"
+    assert [(x["years_from"], x["years_to"], x["amount"]) for x in f["phases"]] == [(0, 10, 500), (10, 13, 3000), (13, 20, 1000)]
+    f["phases"][0]["amount"] = 1                                          # a fresh form never aliases the defaults
+    assert P.new_form()["phases"][0]["amount"] == 500
+    sess = Session(make_registry(), own=True)
+    try:
+        assert sess.snapshot()["analyses"]["plan_form"]["phases"][1]["amount"] == 3000
+    finally:
+        sess.close()
+
+
+def test_phase_table_edits_flat_button_and_validation():
+    f = P.new_form()
+    P.update_form(f, {}, remove_phase=1)
+    assert [x["amount"] for x in f["phases"]] == [500, 1000]
+    P.update_form(f, {}, add_phase={"years_from": 10, "years_to": 13, "amount": "2500", "note": "n"})
+    assert [x["amount"] for x in f["phases"]] == [500, 2500, 1000] and f["phases"][1]["note"] == "n"      # kept sorted
+    P.update_form(f, {}, set_phase={"index": 1, "amount": 2600, "years_to": None})
+    assert f["phases"][1]["amount"] == 2600 and f["phases"][1]["years_to"] is None
+    for kw, word in (({"add_phase": {"years_from": 5, "years_to": 4, "amount": 1}}, "years_to"),
+                     ({"add_phase": {"years_from": 5, "years_to": 6, "amount": -1}}, "amount"),
+                     ({"remove_phase": 9}, "remove_phase"), ({"set_phase": {"index": 9}}, "set_phase"),
+                     ({"add_phase": {"years_from": "x", "amount": 1}}, "years_from")):
+        with pytest.raises(SessionError, match=word):
+            P.update_form(f, {}, **kw)
+    with pytest.raises(SessionError, match="phase_growth"):
+        P.update_form(f, {"phase_growth": "real"})
+    f = P.new_form()
+    f["periodic"] = 750.0
+    P.update_form(f, {}, flat_phase=True)
+    assert f["phases"] == [{"years_from": 0.0, "years_to": None, "amount": 750.0, "note": "flat"}] and f["use_phases"] is True
+
+
+def test_phases_off_sends_flat_and_on_sends_phases_not_periodic():
+    class S:
+        _screen_ref = staticmethod(lambda p: "dogs")
+    sc = type("Sc", (), {"params": {}, "label": "dogs"})()
+    f = P.new_form()
+    f["start"] = "2002-01-31"
+    a = P.args_for(S(), sc, f)
+    assert a["periodic"] == 0.0 and [x["amount"] for x in a["phases"]] == [500, 3000, 1000] and a["phase_growth"] == "indexed"
+    P.update_form(f, {"use_phases": False})
+    a = P.args_for(S(), sc, f)
+    assert a["periodic"] == 500 and "phases" not in a
+    P.update_form(f, {"use_phases": True, "phases": [{"years_from": 0, "years_to": 3, "amount": 1}, {"years_from": 2, "years_to": 4, "amount": 1}]})
+    with pytest.raises(SessionError, match="overlap"):
+        P.args_for(S(), sc, f)
+
+
+def test_plan_run_through_the_tui_with_phases_matches_per_phase_sums_and_toggle_off_restores_flat():
+    sess = Session(make_registry(), own=True)
+    try:
+        sess.command("add_scenario", {"screen": "dogs", "run": True, "wait": True, "rebalance_months": 12})
+        ph = [{"years_from": 0, "years_to": 2, "amount": 100, "note": "a"}, {"years_from": 3, "years_to": 4, "amount": 300, "note": "b"}]
+        r = sess.command("plan", {"start": "2002-01-31", "end": "2007-12-31", "initial": 0, "periodic": 999, "phases": ph,
+                                  "wait": True, "timeout": 120})
+        assert r["jobs"][0]["status"] == "done", r
+        p = sess.analyses["plan"]["dogs"]["plan"]
+        assert p["spec"]["periodic"] == 0 and [x["amount"] for x in p["spec"]["phases"]] == [100, 300]
+        summ = P.phase_summary(p)
+        assert [(x["count"], x["total"]) for x in summ] == [(24, 2400.0), (12, 3600.0)]                # the gap year pays nothing
+        c = p["flows"]["columns"]
+        per = [row for row in p["flows"]["rows"] if row[c.index("kind")] == "periodic"]
+        assert sum(row[c.index("amount")] for row in per) == 6000.0 and len(per) == 36
+        assert "contributed by phase: years 0-2: 24 x -> 2,400; years 3-4: 12 x -> 3,600" in sess.view("plan")
+        assert "contribution phases (in use)" in sess.view("plan")
+        r = sess.command("plan", {"use_phases": False, "periodic": 200, "wait": True, "timeout": 120})
+        assert r["jobs"][0]["status"] == "done", r
+        p = sess.analyses["plan"]["dogs"]["plan"]
+        assert p["spec"]["periodic"] == 200 and p["spec"]["phases"] == [] and P.phase_summary(p) == []
+        fl = {row[c.index("amount")] for row in p["flows"]["rows"] if row[c.index("kind")] == "periodic"}
+        assert fl == {200.0} and "OFF, flat periodic used" in sess.view("plan")
+        json.dumps(sess.snapshot())
+    finally:
+        sess.close()
+
+
+def test_app_phases_table_toggle_and_flat_button():
+    pytest.importorskip("textual")
+    pytest.importorskip("textual_plotext")
+    from textual.widgets import Input, Switch
+    from screenlab.tui.app import ScreenlabApp
+
+    async def go():
+        sess = Session(make_registry(), own=True)
+        app = ScreenlabApp(sess, control_port=None)
+        async with app.run_test(size=(190, 70)) as pilot:
+            await settle(pilot, app)
+            sess.command("add_scenario", {"screen": "dogs", "run": True, "wait": True, "rebalance_months": 12})
+            await settle(pilot, app)
+            await pilot.press("P")
+            await settle(pilot, app)
+            t = app.query_one("#pl-phases")
+            assert t.row_count == 3 and app.query_one("#pl-use-phases", Switch).value is True
+            assert app.query_one("#pl-periodic", Input).disabled is True
+            for wid, v in (("#pl-p-from", "20"), ("#pl-p-to", "25"), ("#pl-p-amount", "50")):
+                app.query_one(wid, Input).value = v
+            app.query_one("#pl-p-add").press()
+            await until(lambda: app.query_one("#pl-phases").row_count == 4, 10, pilot, "a phase row")
+            app.query_one("#pl-phases").move_cursor(row=3)
+            app.query_one("#pl-p-del").press()
+            await until(lambda: app.query_one("#pl-phases").row_count == 3, 10, pilot, "a phase row removed")
+            app.query_one("#pl-periodic", Input).value = "700"
+            app.query_one("#pl-p-flat").press()
+            await until(lambda: app.query_one("#pl-phases").row_count == 1, 10, pilot, "flat phase")
+            assert sess.analyses["plan_form"]["phases"][0]["amount"] == 700
+            app.query_one("#pl-use-phases", Switch).value = False
+            await until(lambda: sess.analyses["plan_form"]["use_phases"] is False, 10, pilot, "toggle off")
+            await settle(pilot, app)
+            assert app.query_one("#pl-periodic", Input).disabled is False
         sess.close()
     arun(go())

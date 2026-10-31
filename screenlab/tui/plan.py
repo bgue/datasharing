@@ -13,7 +13,13 @@ this module registers the chart builder with `web.BUILDERS`. `tui_command("plan"
 from __future__ import annotations
 
 KIND, KIND_MC, TAB = "plan", "plan_montecarlo", "plan"
+# V2: the owner's illustrative phase plan (what is available to invest by phase of life): years 0-10 $500, 10-13 $3,000,
+# 13-20 $1,000 a month; the form starts with it and "Use phases" ON (docs/DECISIONS.md)
+BASE_PHASES = ({"years_from": 0.0, "years_to": 10.0, "amount": 500.0, "note": "early years"},
+               {"years_from": 10.0, "years_to": 13.0, "amount": 3000.0, "note": "peak saving"},
+               {"years_from": 13.0, "years_to": 20.0, "amount": 1000.0, "note": "later years"})
 FORM_DEFAULT = {"start": None, "end": None, "initial": 10000.0, "periodic": 500.0, "frequency": "monthly", "growth": 0.0,
+                "use_phases": True, "phases": [dict(p) for p in BASE_PHASES], "phase_growth": "indexed",
                 "extra": [], "withdrawals": 0.0, "withdraw_from": None, "withdraw_growth": 0.0, "cash_timing": "invest",
                 "index_mer": 0.0005, "goal": None, "n_paths": 500, "generator": "block", "seed": 0}
 FREQUENCIES = ("biweekly", "monthly", "quarterly", "annual")
@@ -40,7 +46,7 @@ BLOCKS = " ▁▂▃▄▅▆▇█"
 
 # ------------------------------------------------------------------ session side (no Textual)
 def new_form() -> dict:
-    return {k: (list(v) if isinstance(v, list) else v) for k, v in FORM_DEFAULT.items()}
+    return {k: ([dict(x) if isinstance(x, dict) else x for x in v] if isinstance(v, list) else v) for k, v in FORM_DEFAULT.items()}
 
 
 def _num(name, v):
@@ -51,9 +57,12 @@ def _num(name, v):
         raise SessionError(400, f"plan {name} must be a number, got {v!r}") from None
 
 
-def update_form(form: dict, fields: dict, add_extra=None, remove_extra=None) -> dict:
+def update_form(form: dict, fields: dict, add_extra=None, remove_extra=None, add_phase=None, remove_phase=None,
+                set_phase=None, flat_phase=False) -> dict:
     """Merge `fields` (any of FORM_DEFAULT's keys) into the plan form in place, validated; `add_extra` is one
-    `{date, amount, note}` (or a list of them), `remove_extra` an index (or a list) into the extras table."""
+    `{date, amount, note}` (or a list of them), `remove_extra` an index (or a list) into the extras table. V2: the
+    phases table has the same edits: `add_phase` `{years_from, years_to, amount, note}`, `remove_phase` an index (or a list),
+    `set_phase` `{index, ...fields}` edits one row, `flat_phase` replaces the table by one phase 0..end of the flat periodic."""
     from .session import SessionError
     bad = [k for k in fields if k not in FORM_DEFAULT]
     if bad:
@@ -78,6 +87,14 @@ def update_form(form: dict, fields: dict, add_extra=None, remove_extra=None) -> 
                 form[k] = int(v)
             except (TypeError, ValueError):
                 raise SessionError(400, f"plan {k} must be an integer, got {v!r}") from None
+        elif k == "use_phases":
+            form[k] = bool(v) and v not in ("false", "False", "0", "off")
+        elif k == "phase_growth":
+            if v not in PHASE_GROWTHS:
+                raise SessionError(400, f"plan phase_growth must be one of {list(PHASE_GROWTHS)}, got {v!r}")
+            form[k] = v
+        elif k == "phases":                                     # V2
+            form[k] = [_phase(x) for x in (v or [])]
         elif k == "extra":
             form[k] = []
             for x in (v or []):
@@ -91,7 +108,70 @@ def update_form(form: dict, fields: dict, add_extra=None, remove_extra=None) -> 
             raise SessionError(400, f"remove_extra {i}: the extras table has {len(form['extra'])} rows")
         del form["extra"][i]
     form["extra"].sort(key=lambda x: x["date"])
+    # V2: phases table edits
+    if flat_phase:
+        form["use_phases"] = True
+        form["phases"] = [{"years_from": 0.0, "years_to": None, "amount": float(form["periodic"]), "note": "flat"}]
+    for x in ([add_phase] if isinstance(add_phase, dict) else (add_phase or [])):
+        form["phases"].append(_phase(x))
+    if set_phase is not None:
+        if not isinstance(set_phase, dict) or not isinstance(set_phase.get("index"), int) or not 0 <= set_phase["index"] < len(form["phases"]):
+            raise SessionError(400, f"set_phase needs an `index` into the phases table ({len(form['phases'])} rows)")
+        form["phases"][set_phase["index"]] = _phase({**form["phases"][set_phase["index"]], **{k: v for k, v in set_phase.items() if k != "index"}})
+    for i in sorted({remove_phase} if isinstance(remove_phase, int) else set(remove_phase or ()), reverse=True):
+        if not 0 <= i < len(form["phases"]):
+            raise SessionError(400, f"remove_phase {i}: the phases table has {len(form['phases'])} rows")
+        del form["phases"][i]
+    form["phases"].sort(key=lambda x: (x["years_from"], 1e9 if x["years_to"] is None else x["years_to"]))
     return form
+
+
+PHASE_GROWTHS = ("indexed", "nominal")
+
+
+def _phase(x) -> dict:  # V2
+    from .session import SessionError
+    if not isinstance(x, dict) or "years_from" not in x or "amount" not in x:
+        raise SessionError(400, "a contribution phase is an object {years_from, years_to, amount, note}")
+    lo = _num("phase years_from", x["years_from"])
+    hi = None if x.get("years_to") in (None, "") else _num("phase years_to", x["years_to"])
+    amount = _num("phase amount", x["amount"])
+    if lo < 0 or amount < 0 or (hi is not None and hi <= lo):
+        raise SessionError(400, f"phase [{lo:g}, {hi}) amount {amount:g}: years_from >= 0, years_to after years_from, amount >= 0")
+    return {"years_from": lo, "years_to": hi, "amount": amount, "note": str(x.get("note") or "")}
+
+
+def check_phases(phases: list) -> None:  # V2
+    """Phases must not overlap (half-open [from, to), sorted by years_from)."""
+    from .session import SessionError
+    for a, b in zip(phases, phases[1:]):
+        if a["years_to"] is None or b["years_from"] < a["years_to"]:
+            raise SessionError(400, f"plan phases overlap: [{a['years_from']:g}, {a['years_to']}) and [{b['years_from']:g}, {b['years_to']})")
+
+
+def phase_summary(plan: dict) -> list:  # V2
+    """[{years_from, years_to, amount, note, count, total}] from a plan result's flows: the periodic contributions
+    made (applied) in each phase of the spec. Empty when the plan has no phases."""
+    import pandas as pd
+    phases = plan["spec"].get("phases") or []
+    if not phases:
+        return []
+    fl = plan["flows"]
+    c = {k: fl["columns"].index(k) for k in ("date", "kind", "amount", "applied")}
+    start = pd.Timestamp(plan["spec"]["start"])
+    out = []
+    for ph in phases:
+        lo = start + pd.DateOffset(months=round(12 * ph["years_from"]))
+        hi = None if ph["years_to"] is None else start + pd.DateOffset(months=round(12 * ph["years_to"]))
+        rows = [r for r in fl["rows"] if r[c["kind"]] == "periodic" and r[c["applied"]] and pd.Timestamp(r[c["date"]]) >= lo
+                and (hi is None or pd.Timestamp(r[c["date"]]) < hi)]
+        out.append({**ph, "count": len(rows), "total": float(sum(r[c["amount"]] for r in rows))})
+    return out
+
+
+def phase_line(plan: dict) -> str:  # V2
+    return "; ".join(f"years {x['years_from']:g}-{'end' if x['years_to'] is None else format(x['years_to'], 'g')}: "
+                     f"{x['count']} x -> {x['total']:,.0f}" for x in phase_summary(plan))
 
 
 def _extra(x) -> dict:
@@ -120,6 +200,11 @@ def args_for(session, sc, form: dict, mc: bool = False) -> dict:
         a["end"] = p["end"]
     for k in ("initial", "periodic", "frequency", "growth", "withdrawals", "withdraw_growth", "cash_timing", "index_mer"):
         a[k] = form[k]
+    if form.get("use_phases") and form.get("phases"):             # V2: the phases replace the flat periodic amount
+        check_phases(form["phases"])
+        a["periodic"] = 0.0
+        a["phases"] = [dict(x) for x in form["phases"]]
+        a["phase_growth"] = form.get("phase_growth", "indexed")
     if form["extra"]:
         a["extra"] = [dict(x) for x in form["extra"]]
     cfg = {k: p[k] for k in CONFIG_KEYS if p.get(k) is not None}
@@ -214,8 +299,12 @@ def view_text(analyses: dict, grid) -> str:
     """Plain text of the tab for `Session.view`; `grid(columns, rows)` formats a table."""
     a = analyses.get(TAB) or {}
     f = analyses.get("plan_form") or {}
-    head = ("plan form: " + ", ".join(f"{k}={v}" for k, v in f.items() if k not in ("extra",) and v not in (None, ""))
+    head = ("plan form: " + ", ".join(f"{k}={v}" for k, v in f.items() if k not in ("extra", "phases") and v not in (None, ""))
             + (f"; extras {f['extra']}" if f.get("extra") else ""))
+    if f.get("phases"):
+        head += "\ncontribution phases (" + ("in use" if f.get("use_phases") else "OFF, flat periodic used") + "): " + "; ".join(
+            f"years {x['years_from']:g}-{'end' if x['years_to'] is None else format(x['years_to'], 'g')} {x['amount']:,.0f}"
+            + (f" ({x['note']})" if x["note"] else "") for x in f["phases"])
     if not a:
         return head + "\nno plan yet: run the `plan` command (key P in the TUI)"
     out = [head]
@@ -234,6 +323,8 @@ def view_text(analyses: dict, grid) -> str:
         for c, name in SERIES:
             if c in s:
                 out.append(f"{name:>22} {sparkline(s[c])} {s[c][-1]:,.0f}")
+        if phase_summary(p):                                               # V2
+            out.append("contributed by phase: " + phase_line(p))
         if p.get("goal"):
             out.append(goal_line(p))
         out += [w for w in p["card"]["warnings"] if w.startswith("WARNING")][:6]
@@ -311,7 +402,7 @@ def pane(app):
     from rich.text import Text
     from textual import on
     from textual.containers import Horizontal, Vertical, VerticalScroll
-    from textual.widgets import Button, DataTable, Input, Label, Select, Static, TabPane
+    from textual.widgets import Button, DataTable, Input, Label, Select, Static, Switch, TabPane
     from textual_plotext import PlotextPlot
 
     from .session import PASSIVE_COLOR, SessionError
@@ -333,6 +424,8 @@ def pane(app):
         PlanPane #pl-note { height: auto; padding: 0 1; color: $text-muted; }
         PlanPane #pl-metrics { height: 16; }
         PlanPane #pl-extras { height: 6; }
+        PlanPane #pl-phases { height: 6; }                                                     /* V2 */
+        PlanPane #pl-phase-sum { height: auto; padding: 0 1; }
         PlanPane #pl-chart { height: 20; }
         PlanPane #pl-fan { height: 18; }
         PlanPane #pl-q { height: 8; }
@@ -364,6 +457,22 @@ def pane(app):
                     yield Vertical(Label("Cash timing"), Select([(f, f) for f in CASH_TIMINGS], id="pl-cash", allow_blank=False,
                                                                 value="invest"), classes="pl-field")
                     yield field("Index MER /yr", "pl-mer")
+                # V2: contribution phases (what is available to invest by phase of life)
+                yield Static("Contribution phases: amount per period by plan year (from, to; blank to = until withdrawals or the end)",
+                             classes="pane-title")
+                with Horizontal(classes="pl-row"):
+                    yield Vertical(Label("Use phases"), Switch(value=True, id="pl-use-phases"), classes="pl-field")
+                    yield Vertical(Label("Phase growth"), Select([(f, f) for f in PHASE_GROWTHS], id="pl-phase-growth",
+                                                                 allow_blank=False, value="indexed"), classes="pl-field")
+                yield DataTable(id="pl-phases", cursor_type="row")
+                with Horizontal(classes="pl-row"):
+                    yield field("From year", "pl-p-from")
+                    yield field("To year", "pl-p-to")
+                    yield field("Amount $ per period", "pl-p-amount")
+                    yield field("Note", "pl-p-note")
+                    yield Vertical(Button("Add row", id="pl-p-add"), Button("Update selected", id="pl-p-set"),
+                                   Button("Remove selected", id="pl-p-del"), Button("Flat", id="pl-p-flat"), classes="pl-field")
+                yield Static("", id="pl-phase-sum")
                 yield Static("Extraordinary investments (negative = withdrawal)", classes="pane-title")
                 yield DataTable(id="pl-extras", cursor_type="row")
                 with Horizontal(classes="pl-row"):
@@ -398,6 +507,8 @@ def pane(app):
                  "growth": q("#pl-growth") or 0, "withdrawals": q("#pl-withdrawals") or 0,
                  "withdraw_from": q("#pl-withdraw-from") or None, "withdraw_growth": q("#pl-withdraw-growth") or 0,
                  "goal": q("#pl-goal") or None, "cash_timing": self.query_one("#pl-cash", Select).value,
+                 "use_phases": self.query_one("#pl-use-phases", Switch).value,
+                 "phase_growth": self.query_one("#pl-phase-growth", Select).value,
                  "index_mer": q("#pl-mer") or 0, "n_paths": q("#pl-npaths") or 500,
                  "generator": self.query_one("#pl-gen", Select).value, "seed": q("#pl-seed") or 0}
             return v
@@ -409,8 +520,11 @@ def pane(app):
                          ("#pl-withdraw-growth", "withdraw_growth"), ("#pl-goal", "goal"), ("#pl-mer", "index_mer"),
                          ("#pl-npaths", "n_paths"), ("#pl-seed", "seed")):
                 s(i, f.get(k))
-            for i, k in (("#pl-frequency", "frequency"), ("#pl-cash", "cash_timing"), ("#pl-gen", "generator")):
+            for i, k in (("#pl-frequency", "frequency"), ("#pl-cash", "cash_timing"), ("#pl-gen", "generator"),
+                         ("#pl-phase-growth", "phase_growth")):
                 self.query_one(i, Select).value = f[k]
+            self.query_one("#pl-use-phases", Switch).value = bool(f["use_phases"])
+            self.query_one("#pl-periodic", Input).disabled = bool(f["use_phases"])           # V2: greyed out while phases are used
 
         def _send(self, cmd: str) -> None:
             self.app._cmd(cmd, self._form_values(), cmd)
@@ -422,6 +536,51 @@ def pane(app):
         @on(Button.Pressed, "#pl-run-mc")
         def _run_mc(self) -> None:
             self._send("plan_mc")
+
+        # V2: phases table, same pattern as the extras table
+        def _phase_inputs(self) -> dict:
+            q = lambda i: self.query_one(i, Input).value.strip()
+            return {"years_from": q("#pl-p-from"), "years_to": q("#pl-p-to") or None, "amount": q("#pl-p-amount"), "note": q("#pl-p-note")}
+
+        @on(Switch.Changed, "#pl-use-phases")
+        def _toggle(self, ev) -> None:
+            self.query_one("#pl-periodic", Input).disabled = bool(ev.value)
+            if bool(ev.value) != bool((self.app.session.analyses.get("plan_form") or {}).get("use_phases")):
+                self.app._cmd("plan", {"run": False, "use_phases": bool(ev.value)}, "plan")
+
+        @on(Button.Pressed, "#pl-p-add")
+        def _padd(self) -> None:
+            if self.app._cmd("plan", {"run": False, "add_phase": self._phase_inputs()}, "plan"):
+                for i in ("#pl-p-from", "#pl-p-to", "#pl-p-amount", "#pl-p-note"):
+                    self.query_one(i, Input).value = ""
+
+        @on(Button.Pressed, "#pl-p-set")
+        def _pset(self) -> None:
+            t = self.query_one("#pl-phases", DataTable)
+            if t.row_count and t.cursor_row is not None:
+                new = {k: v for k, v in self._phase_inputs().items() if v not in (None, "")}
+                if not self._phase_inputs()["years_to"] and self.query_one("#pl-p-from", Input).value.strip():
+                    new["years_to"] = None
+                self.app._cmd("plan", {"run": False, "set_phase": {"index": int(t.cursor_row), **new}}, "plan")
+
+        @on(Button.Pressed, "#pl-p-del")
+        def _pdel(self) -> None:
+            t = self.query_one("#pl-phases", DataTable)
+            if t.row_count and t.cursor_row is not None:
+                self.app._cmd("plan", {"run": False, "remove_phase": int(t.cursor_row)}, "plan")
+
+        @on(Button.Pressed, "#pl-p-flat")
+        def _pflat(self) -> None:
+            self.app._cmd("plan", {"run": False, "periodic": self.query_one("#pl-periodic", Input).value.strip() or 0,
+                                   "flat_phase": True}, "plan")
+
+        @on(DataTable.RowHighlighted, "#pl-phases")
+        def _pick(self, ev) -> None:
+            f = self.app.session.analyses.get("plan_form") or {}
+            if ev.cursor_row is not None and 0 <= ev.cursor_row < len(f.get("phases", [])):
+                x = f["phases"][ev.cursor_row]
+                for i, v in (("#pl-p-from", x["years_from"]), ("#pl-p-to", x["years_to"]), ("#pl-p-amount", x["amount"]), ("#pl-p-note", x["note"])):
+                    self.query_one(i, Input).value = "" if v is None else (f"{v:g}" if isinstance(v, float) else str(v))
 
         @on(Button.Pressed, "#pl-x-add")
         def _add(self) -> None:
@@ -443,8 +602,14 @@ def pane(app):
             s = self.app.session
             f = s.analyses.get("plan_form") or new_form()
             if self._seen != f:
-                self._seen = {k: (list(v) if isinstance(v, list) else v) for k, v in f.items()}
+                self._seen = {k: ([dict(y) if isinstance(y, dict) else y for y in v] if isinstance(v, list) else v) for k, v in f.items()}
                 self._fill_form(f)
+            pt = self.query_one("#pl-phases", DataTable)                                        # V2
+            pt.clear(columns=True)
+            pt.add_columns("From year", "To year", "Amount $ / period", "Note")
+            for x in f["phases"]:
+                pt.add_row(Text(f"{x['years_from']:g}", justify="right"), Text("until end" if x["years_to"] is None else f"{x['years_to']:g}", justify="right"),
+                           Text(f"{x['amount']:,.0f}", justify="right"), x["note"])
             ex = self.query_one("#pl-extras", DataTable)
             ex.clear(columns=True)
             ex.add_columns("Date", "Amount $", "Note")
@@ -453,6 +618,8 @@ def pane(app):
             sc = next((x for x in s.scenarios if x.id == s.selected), None)
             note = self.query_one("#pl-note", Static)
             m, c, spark, goal = (self.query_one(i) for i in ("#pl-metrics", "#pl-chart", "#pl-spark", "#pl-goalline"))
+            psum = self.query_one("#pl-phase-sum", Static)
+            psum.update("")
             c.plt.clear_figure()
             m.clear(columns=True)
             if sc is None:
@@ -477,6 +644,8 @@ def pane(app):
                 self._draw_mc(None, None)
                 c.refresh()
                 return
+            if phase_summary(p):                                                               # V2
+                psum.update("Contributed by phase: " + phase_line(p))
             m.add_columns("Metric", "Strategy", "Index", "Difference")
             for x in metric_records(p):
                 st = {True: "bold green", False: "", None: ""}[x["better"]]

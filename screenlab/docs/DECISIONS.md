@@ -23,3 +23,8 @@ Same reason. `data/mirrors/us_cpi_monthly.csv` is used with a warning line; the 
 ## 2026-10-31 Headline return for dated cash flows: money-weighted (XIRR)
 
 Time-weighted returns are kept for alpha, beta, Sharpe, volatility and drawdown against the index. The headline figure for a plan is the money-weighted return, because the plan's question is what the investor's own dollars earned.
+
+## 2026-10-31 Contribution phases: the TUI default is the owner's illustrative phase plan; phase amounts are indexed by default
+
+The owner asked to vary the monthly contribution by phase of life, with the base case years 1-10 $500, 10-13 $3,000, 13-20 $1,000. `PlanSpec.phases` carries it (docs/PLAN.md, Phases), and the Plan tab's default form is that base case with "Use phases" ON. It is an illustration of what might be available to invest at each stage, not a recommendation or a forecast of the owner's income; the flat periodic field stays and the switch restores it. `phase_growth` defaults to `"indexed"`: the phase amounts are in start-date dollars and rise with `growth` (CPI), counted from the plan start, so $3,000 in year 10 is not silently a smaller real sum than $500 in year 1. `"nominal"` pays the numbers as written. The operation default (`phases` empty) is unchanged: only the TUI form starts with phases. Revisit if the owner prefers amounts stated in the dollars of each phase's own start.
+

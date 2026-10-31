@@ -52,7 +52,8 @@ A dated investment plan on the selected scenario's strategy, against the passive
 ([../docs/PLAN.md](../docs/PLAN.md)). The form takes the start and end dates, a lump sum, a periodic contribution with its frequency and
 growth (a number or `cpi`), extraordinary investments (type a date and an amount, Add row; select a row, Remove selected),
 withdrawals with the date they start and their growth, a goal in dollars, the cash timing (`invest`: a contribution buys the target
-weights the next trading day; `hold`: it waits in cash until the next rebalance) and the index's MER. The strategy and the account
+weights the next trading day; `hold`: it waits in cash until the next rebalance) and the index's MER. Contribution phases (the amount available to invest by phase of life) are a table of from year, to year, amount per period and note, with the owner's base case
+as the default (years 0-10 $500, 10-13 $3,000, 13-20 $1,000 a month; Add row, Update selected, Remove selected); the "Use phases" switch (on by default) replaces and greys out the flat periodic field, Flat copies the flat periodic into one phase, and after a run a line shows the count and total contributed in each phase. The strategy and the account
 are those of the selected scenario (its Tax section; none = before tax). Run plan shows the metrics table (strategy, index,
 difference; green where the strategy wins), a terminal chart of money contributed against the strategy and the index, before and
 after tax, with a text sparkline of each line, and the goal line. Run MC adds the quantile table of after-tax terminal wealth,

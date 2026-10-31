@@ -156,6 +156,13 @@ def test_rest_plan_montecarlo(client):
     ({"config": {"nonsense": 1}}, "nonsense"),
     ({"surprise": 1}, "surprise"),
     ({"initial": 0, "periodic": 0, "extra": None}, "contribution"),
+    ({"phases": [{"years_from": 0, "years_to": 2, "amount": -1}]}, "phases[0].amount"),                          # V2:
+    ({"phases": [{"years_from": 0, "years_to": 2, "amount": 1}, {"years_from": 1, "years_to": 3, "amount": 1}]}, "phases[1]"),
+    ({"phases": [{"years_from": 3, "years_to": 4, "amount": 1}, {"years_from": 0, "years_to": 1, "amount": 1}]}, "ascending"),
+    ({"phases": [{"years_from": 0, "years_to": 0, "amount": 1}]}, "phases[0].years_to"),
+    ({"phases": [{"years_from": 0, "amount": 1, "bogus": 2}]}, "bogus"),
+    ({"phases": [{"years_from": 0}]}, "amount"),
+    ({"phase_growth": "real"}, "phase_growth"),
 ])
 def test_bad_fields_are_400s_that_name_the_field(client, patch, word):
     body = {**BODY, **patch}
@@ -195,3 +202,17 @@ def test_one_monte_carlo_implementation_and_the_tax_basis_option(client):
     mc = client.post("/labs/synthetic/plan_montecarlo", json={**taxable, "n_paths": 6, "seed": 2, "generator": "history",
                                                               "horizon_end": "2008-12-31"})
     assert mc.status_code == 200, mc.text
+
+
+def test_phases_request_reaches_the_flows(client):  # V2:
+    body = {**BODY, "periodic": 0, "growth": 0.0, "initial": 0, "withdrawals": 0, "withdraw_from": None, "extra": None,
+            "phases": [{"years_from": 0, "years_to": 1, "amount": 100, "note": "a"}, {"years_from": 2, "years_to": 3, "amount": 300, "note": "b"}]}
+    r = client.post("/labs/synthetic/plan", json=body)
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["spec"]["phases"][1] == {"years_from": 2.0, "years_to": 3.0, "amount": 300.0, "note": "b"}
+    cols = j["flows"]["columns"]
+    rows = [dict(zip(cols, row)) for row in j["flows"]["rows"]]
+    per = [x for x in rows if x["kind"] == "periodic"]
+    assert sorted({(x["amount"], x["note"]) for x in per}) == [(100.0, "a"), (300.0, "b")]
+    assert sum(x["note"] == "a" for x in per) == 12 and sum(x["note"] == "b" for x in per) == 12
