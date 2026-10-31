@@ -197,3 +197,59 @@ def test_flows_chart_stacks_by_phase(phased):
         tot[r["kind"]] = tot.get(r["kind"], 0) + r["amount"]
     b = {x["label"]: x["contributed"] for x in pch.phase_bands(phased)}
     assert all(abs(tot[k] - b[k]) < 1e-3 * max(1, b[k]) + 1 for k in b)
+
+
+# X1: the comparison charts of the case-study notebook: two schedules, each invested in the screen and in the index fund
+def test_leg_names_come_from_one_helper():
+    legs = pch.leg_names("Momentum")
+    assert list(legs.values()) == ["Momentum, static contributions", "Index fund, static contributions",
+                                   "Momentum, phased contributions", "Index fund, phased contributions"]
+    assert list(legs) == [("static", "screen"), ("static", "index"), ("phased", "screen"), ("phased", "index")]
+    assert pch.leg_names("Dogs", ("static",)) == {("static", "screen"): "Dogs, static contributions", ("static", "index"): "Index fund, static contributions"}
+    assert pch.screen_label("momentum_12m") == "Momentum" and pch.screen_label("dogs") == "Dogs" and pch.screen_label("some_new_screen") == "Some new screen"
+    (sc, ic), (pc_, pi) = pch.leg_colors("static"), pch.leg_colors("phased")
+    assert len({sc, ic, pc_, pi}) == 4 and ic != pch.INDEX and pi != pch.INDEX             # colour = schedule, the index fund its lighter tint
+
+
+def test_compare_chart_names_all_four_legs(runs, phased):
+    r, _, _ = runs
+    both = {"static": r, "phased": phased}
+    spec, units = _check(pch.compare_chart(both, "Momentum", mark_goal=True, log=False), needs_index=False)
+    names = pch.series_names(spec)
+    assert all(n in names for n in pch.leg_names("Momentum").values()), names
+    assert "Net money in, static contributions" in names and "Net money in, phased contributions" in names
+    txt = json.dumps(spec)
+    assert pch.leg_colors("static")[1] in txt and pch.leg_colors("phased")[1] in txt and "strokeDash" in txt and "First at the goal" in txt
+    tips = [t["title"] for u in units if _mark(u) == "rule" for t in u["encoding"]["tooltip"]]
+    assert "Momentum minus index fund, static contributions" in tips and "Momentum minus index fund, phased contributions" in tips
+    one, _ = _check(pch.compare_chart({"static": r}, "Dogs", bands=None), needs_index=False)
+    assert pch.series_names(one)[:2] == ["Dogs, static contributions", "Index fund, static contributions"]
+    banded, _ = _check(pch.compare_chart({"phased": phased}, "Momentum", bands=pch.phase_bands(phased)), needs_index=False)
+    assert "Phase: peak saving ($3,000/mo)" in pch.series_names(banded)
+
+
+def test_compare_flows_and_bars_name_the_legs(runs, phased):
+    r, _, _ = runs
+    spec, _ = _check(pch.compare_flows_chart({"static": r, "phased": phased}, "Momentum"), needs_index=False)
+    names = pch.series_names(spec)
+    assert all(n in names for n in pch.leg_names("Momentum").values()) and "Phase: peak saving ($3,000/mo)" in names
+    combos = [(g, s, k) for g in ("TFSA", "RRSP") for s in ("static", "phased") for k in ("screen", "index")]
+    rows = [dict(group=g, sched=s, kind=k, value=float(i)) for i, (g, s, k) in enumerate(combos, 1)]
+    spec, units = _check(pch.compare_bars(pd.DataFrame(rows), "Momentum"), needs_index=False)
+    assert all(n in pch.series_names(spec) for n in pch.leg_names("Momentum").values())
+    assert any(_mark(u) == "bar" and u["encoding"]["tooltip"] for u in units)
+
+
+def test_monte_carlo_charts_take_a_schedule_colour(runs):
+    _, _, mc = runs
+    cols = pch.leg_colors("phased")
+    for ch in (pch.fan_chart(mc, strategy_label="Momentum, phased contributions", index_label="Index fund, phased contributions", colors=cols),
+               pch.terminal_hist(mc, strategy_label="Momentum, phased contributions", index_label="Index fund, phased contributions", colors=cols),
+               pch.paired_hist(mc, strategy_label="Momentum, phased contributions", index_label="Index fund, phased contributions", colors=cols),
+               pch.sequence_chart(mc, strategy_label="Momentum, phased contributions", index_label="Index fund, phased contributions", colors=cols),
+               pch.invest_vs_hold_chart(runs[0], runs[1], strategy_label="Momentum, phased contributions", index_label="Index fund, phased contributions",
+                                        colors=cols + ("#009E73",))):
+        spec, _ = _check(ch, needs_index=False)
+        txt = json.dumps(spec)
+        assert cols[0] in txt and cols[1] in txt and any("Index fund, phased contributions" in n for n in pch.series_names(spec) + ["Index fund, phased contributions"] if n)
+        assert pch.INDEX not in txt                                    # no grey base case: the index fund is the schedule's lighter tint

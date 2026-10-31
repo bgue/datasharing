@@ -18,6 +18,13 @@ every mark carries a tooltip with exact values. Each function takes the objects 
     save_png(chart, path)                static picture via vl-convert (the fallback for viewers that cannot run Vega)
     mimebundle(chart)                    {vega-lite v5 json, image/png} for one notebook output; show(chart) displays it
 
+X1: comparison charts for the case-study notebook (two contribution schedules, each invested in the screen and in the index fund):
+
+    leg_names(screen)                    the four leg names in one place ("Momentum, static contributions", "Index fund, ...")
+    compare_chart({schedule: result}, screen)       wealth of the legs: colour = schedule, solid = screen, dashed lighter = index fund
+    compare_flows_chart({schedule: result}, screen) dollars in and out by schedule, and the running net money in per leg
+    compare_bars(df, screen)             grouped bars of one value per group (an account) for the legs
+
 Daily series are cut to month-ends (about 400 rows a line), so a notebook with these charts stays well under 5 MB.
 """
 from __future__ import annotations
@@ -406,7 +413,9 @@ FAN_T = "Series"
 HIST_T = "Series"
 
 
-def fan_chart(mc, log=True, y_domain=None, strategy_label=STRAT_LABEL, index_label=INDEX_LABEL, title=None, width=W, height=H, legend=True):
+def fan_chart(mc, log=True, y_domain=None, strategy_label=STRAT_LABEL, index_label=INDEX_LABEL, title=None, width=W, height=H, legend=True,
+              colors=None):
+    sc_, ic_ = colors or (STRAT, INDEX)                     # X1: (strategy colour, index colour) of a comparison notebook
     f = mc.fan.round(0)
     f = f[f["contributed"] > 0].clip(lower=1.0)                      # the opening row (nothing in yet) cannot sit on a log axis
     fd = f.reset_index()
@@ -414,9 +423,9 @@ def fan_chart(mc, log=True, y_domain=None, strategy_label=STRAT_LABEL, index_lab
     fd["date"] = pd.DatetimeIndex(fd["date"])
     sl, il = f"{strategy_label}: median", f"{index_label}: median"
     b = lambda lab, a, c: f"{lab}: {a}-{c}% of paths"
-    rows = [(b(strategy_label, 5, 95), STRAT, [1, 0], 0.14, 1), (b(strategy_label, 25, 75), STRAT, [1, 0], 0.28, 1),
-            (b(index_label, 5, 95), INDEX, [1, 0], 0.14, 1), (b(index_label, 25, 75), INDEX, [1, 0], 0.28, 1),
-            (sl, STRAT, [1, 0], 1, 2.6), (il, INDEX, DASH_INDEX, 1, 2.6), (CONTRIB_LABEL, INK, DASH_DOT, 1, 1.8)]
+    rows = [(b(strategy_label, 5, 95), sc_, [1, 0], 0.14, 1), (b(strategy_label, 25, 75), sc_, [1, 0], 0.28, 1),
+            (b(index_label, 5, 95), ic_, [1, 0], 0.14, 1), (b(index_label, 25, 75), ic_, [1, 0], 0.28, 1),
+            (sl, sc_, [1, 0], 1, 2.6), (il, ic_, DASH_INDEX, 1, 2.6), (CONTRIB_LABEL, INK, DASH_DOT, 1, 1.8)]
     keys = {"index_p50": il, "strategy_p50": sl, "contributed": CONTRIB_LABEL}
     if mc.goal is not None:
         gname = f"Goal {_money(mc.goal)}"
@@ -459,14 +468,15 @@ def _hist_df(values: pd.Series, edges: np.ndarray, label: str) -> pd.DataFrame:
     return pd.DataFrame({"lo": edges[:-1], "hi": edges[1:], "count": cnt, "share": cnt / max(len(v), 1), "series": label})
 
 
-def terminal_hist(mc, bins=50, strategy_label=STRAT_LABEL, index_label=INDEX_LABEL, title=None, width=W, height=H, legend=True):
+def terminal_hist(mc, bins=50, strategy_label=STRAT_LABEL, index_label=INDEX_LABEL, title=None, width=W, height=H, legend=True, colors=None):
+    sc_, ic_ = colors or (STRAT, INDEX)                     # X1
     t = mc.terminal
     hi = float(np.nanpercentile(pd.concat([t.strategy_after_tax, t.index_after_tax]), 99.5))
     edges = np.linspace(0, hi, bins + 1)
     sl, il = f"{strategy_label} (after tax)", f"{index_label} (after tax)"
     contributed = float(mc.fan["contributed"].iloc[-1])
-    rows = [(il, INDEX, DASH_INDEX, 0.5, 2), (sl, STRAT, [1, 0], 0.65, 2), (f"{index_label}: median", INDEX, DASH_INDEX, 1, 2.4),
-            (f"{strategy_label}: median", STRAT, [1, 0], 1, 2.4)]
+    rows = [(il, ic_, DASH_INDEX, 0.5, 2), (sl, sc_, [1, 0], 0.65, 2), (f"{index_label}: median", ic_, DASH_INDEX, 1, 2.4),
+            (f"{strategy_label}: median", sc_, [1, 0], 1, 2.4)]
     gname = None
     if mc.goal is not None:
         gname = f"Goal {_money(mc.goal)}: short in {mc.p_shortfall:.0%} (strategy), {mc.p_shortfall_index:.0%} (index)"
@@ -502,7 +512,9 @@ def terminal_hist(mc, bins=50, strategy_label=STRAT_LABEL, index_label=INDEX_LAB
     return ch.interactive(bind_y=False)
 
 
-def paired_hist(mc, bins=50, strategy_label=STRAT_LABEL, index_label=INDEX_LABEL, title=None, width=W, height=H, legend=True):
+def paired_hist(mc, bins=50, strategy_label=STRAT_LABEL, index_label=INDEX_LABEL, title=None, width=W, height=H, legend=True, colors=None):
+    sc_, ic_ = colors or (STRAT, INDEX)                     # X1: ahead in the strategy colour, behind in a neutral grey, the base case in the index colour
+    bc_ = BEHIND if colors is None else "#999999"
     d = mc.paired.astype(float)
     lim = float(np.nanpercentile(np.abs(d), 99)) or 1.0
     edges = np.linspace(-lim, lim, bins + 1)
@@ -510,7 +522,7 @@ def paired_hist(mc, bins=50, strategy_label=STRAT_LABEL, index_label=INDEX_LABEL
     an, bn = f"{strategy_label} ahead of the index: {ahead:.0%} of paths", f"{strategy_label} behind the index: {1 - ahead:.0%}"
     zn = f"{index_label} (base case: difference 0)"
     mn = f"Median {_money(float(d.median()))}"
-    sp = _spec([(an, STRAT, [1, 0], 0.8, 2), (bn, BEHIND, [1, 0], 0.8, 2), (zn, INDEX, DASH_INDEX, 1, 2.2), (mn, INK, [1, 0], 1, 2)])
+    sp = _spec([(an, sc_, [1, 0], 0.8, 2), (bn, bc_, [1, 0], 0.8, 2), (zn, ic_, DASH_INDEX, 1, 2.2), (mn, INK, [1, 0], 1, 2)])
     h = pd.concat([_hist_df(d[d >= 0], edges, an), _hist_df(d[d < 0], edges, bn)], ignore_index=True)
     h = h[h["count"] > 0]
     h["zero"] = 0
@@ -528,9 +540,9 @@ def paired_hist(mc, bins=50, strategy_label=STRAT_LABEL, index_label=INDEX_LABEL
     return alt.layer(*bar_layers, vr).properties(width=width, height=height, title=title or f"Paired difference ({_sub(mc)})").interactive(bind_y=False)
 
 
-def _grouped(d, xcol, xorder, ycol, ytitle, strategy_label, index_label, tips, width, height, title, legend=True, extra_rule=None):
+def _grouped(d, xcol, xorder, ycol, ytitle, strategy_label, index_label, tips, width, height, title, legend=True, extra_rule=None, colors=None):
     names = [strategy_label, index_label]
-    cs = alt.Scale(domain=names, range=[STRAT, INDEX])
+    cs = alt.Scale(domain=names, range=list(colors or (STRAT, INDEX)))        # X1: colors = (strategy, index)
     base = alt.Chart(d).encode(x=alt.X(f"{xcol}:N", sort=xorder, title=None, axis=alt.Axis(labelAngle=0, labelLimit=200)),
                                xOffset=alt.XOffset("holding:N", sort=names), y=alt.Y(f"{ycol}:Q", title=ytitle, axis=alt.Axis(format=MONEY_AXIS)))
     bars = base.mark_bar(size=40).encode(
@@ -548,7 +560,7 @@ def _grouped(d, xcol, xorder, ycol, ytitle, strategy_label, index_label, tips, w
     return alt.layer(*layers).properties(width=width, height=height, title=title).resolve_scale(color="independent")
 
 
-def sequence_chart(mc, stat="median", strategy_label=STRAT_LABEL, index_label=INDEX_LABEL, title=None, width=380, height=H, legend=True):
+def sequence_chart(mc, stat="median", strategy_label=STRAT_LABEL, index_label=INDEX_LABEL, title=None, width=380, height=H, legend=True, colors=None):
     s = mc.sequence
     names = {"first": "first third", "middle": "middle third", "last": "last third"}
     rows = []
@@ -562,10 +574,10 @@ def sequence_chart(mc, stat="median", strategy_label=STRAT_LABEL, index_label=IN
             alt.Tooltip("wealth:Q", title=f"{stat.capitalize()} terminal wealth, after tax", format="$,.0f"),
             alt.Tooltip("n:Q", title="Paths in the group"), alt.Tooltip("short_txt:N", title="Strategy paths below the goal")]
     return _grouped(d, "third", [f"{names[i]} (n={int(s.loc[i, 'n'])})" for i in s.index], "wealth", f"{stat.capitalize()} terminal wealth, after tax",
-                    strategy_label, index_label, tips, width, height, title or f"Sequence of returns ({_sub(mc)})", legend)
+                    strategy_label, index_label, tips, width, height, title or f"Sequence of returns ({_sub(mc)})", legend, colors=colors)
 
 
-def reversal_chart(mc, strategy_label=STRAT_LABEL, index_label=INDEX_LABEL, title="Same returns, same flows, opposite order", width=380, height=H, legend=True):
+def reversal_chart(mc, strategy_label=STRAT_LABEL, index_label=INDEX_LABEL, title="Same returns, same flows, opposite order", width=380, height=H, legend=True, colors=None):
     r = mc.reversal.loc[["forward", "reversed"]]
     lab = {"forward": "Historical order", "reversed": "Same returns, reversed"}
     rows = [dict(order=lab[i], holding=h, wealth=float(r.loc[i, col])) for i in r.index
@@ -575,14 +587,15 @@ def reversal_chart(mc, strategy_label=STRAT_LABEL, index_label=INDEX_LABEL, titl
             alt.Tooltip("wealth:Q", title="Terminal wealth, after tax", format="$,.0f")]
     c = float(r["contributed"].iloc[0])
     return _grouped(d, "order", list(lab.values()), "wealth", "Terminal wealth, after tax", strategy_label, index_label, tips, width, height, title,
-                    legend, extra_rule=(f"Contributed {_money(c)}", c))
+                    legend, extra_rule=(f"Contributed {_money(c)}", c), colors=colors)
 
 
 # ================================================================================================= cash timing
-def invest_vs_hold_chart(r_invest, r_hold, strategy_label=STRAT_LABEL, index_label=INDEX_LABEL, title="Cash timing", y_domain=None):
+def invest_vs_hold_chart(r_invest, r_hold, strategy_label=STRAT_LABEL, index_label=INDEX_LABEL, title="Cash timing", y_domain=None, colors=None):
+    sc_, ic_, hc_ = colors or (STRAT, INDEX, PALETTE[1])        # X1: (invest, index, hold) colours
     si, sh = r_invest.series, r_hold.series
     inv, hold_, idx = f"{strategy_label}: invest on arrival (after tax)", f"{strategy_label}: hold cash until the rebalance (after tax)", f"{index_label} (after tax)"
-    sp = _spec([(CONTRIB_LABEL, INK, DASH_DOT, 1, 1.8), (inv, STRAT, [1, 0], 1, 2.6), (hold_, PALETTE[1], [1, 0], 1, 2.2), (idx, INDEX, DASH_INDEX, 1, 2.6)])
+    sp = _spec([(CONTRIB_LABEL, INK, DASH_DOT, 1, 1.8), (inv, sc_, [1, 0], 1, 2.6), (hold_, hc_, [1, 0], 1, 2.2), (idx, ic_, DASH_INDEX, 1, 2.6)])
     mi, mh = _months(si), _months(sh)
     wide = pd.DataFrame({"date": mi.index, "contributed": np.maximum(mi["contributed"].astype(float).to_numpy(), 1.0),
                          "invest": mi["strategy_after_tax"].astype(float).to_numpy(), "index": mi["index_after_tax"].astype(float).to_numpy()})
@@ -603,7 +616,7 @@ def invest_vs_hold_chart(r_invest, r_hold, strategy_label=STRAT_LABEL, index_lab
     sel, rule, dot = _hover(None, wide, alt.X("date:T"), "y", tips)
     left = alt.layer(left, rule, sel, dot).interactive(bind_y=False)
     cash_name, none_name = "Cash held, hold run", f"{index_label} and the invest run: no cash"
-    sp2 = _spec([(cash_name, PALETTE[1], [1, 0], 0.5, 1.5), (none_name, INDEX, DASH_INDEX, 1, 2.4)])
+    sp2 = _spec([(cash_name, hc_, [1, 0], 0.5, 1.5), (none_name, ic_, DASH_INDEX, 1, 2.4)])
     cd = pd.DataFrame({"date": mh.index, "cash": mh["cash"].astype(float).to_numpy(), "series": cash_name})
     area = alt.Chart(cd).mark_area(line={"strokeWidth": 1.5}).encode(
         x=x, y=alt.Y("cash:Q", title="Uninvested cash, dollars", axis=alt.Axis(format=MONEY_AXIS)),
@@ -615,6 +628,217 @@ def invest_vs_hold_chart(r_invest, r_hold, strategy_label=STRAT_LABEL, index_lab
                                             tooltip=[alt.Tooltip("series:N", title="Series"), alt.Tooltip("y:Q", title="Cash held", format="$,.0f")])
     right = alt.layer(area, zero).properties(width=330, height=H, title="The cash the hold run carries").interactive(bind_y=False)
     return style(alt.hconcat(left, right).resolve_scale(color="independent", strokeDash="independent"), title)
+
+
+# ================================================================================================= comparison charts
+# X1: the case-study notebook compares two contribution schedules, each invested twice (the screen, the passive index fund).
+# Encoding in every comparison chart: colour = schedule, solid = the screen, dashed lighter tint of the same colour = the index fund.
+SCHEDULES = {"static": "static contributions", "phased": "phased contributions"}
+SCHED_COLORS = {"static": PALETTE[0], "phased": PALETTE[1]}
+INDEX_FUND = "Index fund"
+ENCODING_NOTE = ("Colour is the contribution schedule (blue for static, vermillion for phased); a solid line is the screen, "
+                 "a dashed lighter line of the same colour is the index fund that received the same dollars on the same days")
+SCREEN_NAMES = {"momentum_12m": "Momentum", "momentum_6m": "Momentum (6 months)", "dogs": "Dogs", "stable_high_yield": "Stable high yield",
+                "stable_dividend": "Stable dividend", "screaming_value": "Screaming value", "value_momentum": "Value and momentum"}
+
+
+def screen_label(strat: str) -> str:
+    """The short name of a screen as it appears in a leg name ("Momentum" for momentum_12m)."""
+    return SCREEN_NAMES.get(strat, strat.replace("_", " ").capitalize())
+
+
+def _tint(hexcol: str, f: float = 0.45) -> str:
+    """The colour mixed with white: f = the share of white."""
+    c = hexcol.lstrip("#")
+    r, g, b = (int(c[i:i + 2], 16) for i in (0, 2, 4))
+    return "#{:02X}{:02X}{:02X}".format(*(round(v + (255 - v) * f) for v in (r, g, b)))
+
+
+def sched_label(sched: str) -> str:
+    return SCHEDULES.get(sched, str(sched))
+
+
+def leg_names(screen: str, schedules=("static", "phased")) -> dict:
+    """The legs of the comparison, named in one place: {(schedule, "screen" | "index"): name}, e.g.
+    ("static", "screen") -> "Momentum, static contributions", ("static", "index") -> "Index fund, static contributions"."""
+    out = {}
+    for sc in schedules:
+        out[(sc, "screen")] = f"{screen}, {sched_label(sc)}"
+        out[(sc, "index")] = f"{INDEX_FUND}, {sched_label(sc)}"
+    return out
+
+
+def leg_colors(sched: str) -> tuple:
+    """(screen colour, index fund colour) of a schedule: the index fund is the lighter tint of the same colour."""
+    c = SCHED_COLORS.get(sched, PALETTE[2])
+    return c, _tint(c)
+
+
+def _enc_cols(sp, legend=True, title="Series", cols=2):
+    lg = alt.Legend(title=title, orient="bottom", columns=cols, symbolStrokeWidth=3, symbolType="stroke", symbolOpacity=1, labelLimit=420,
+                    titleColor=INK, labelColor=INK2) if legend else None
+    return dict(color=alt.Color("series:N", scale=sp["color"], legend=lg, sort=sp["names"]),
+                strokeDash=alt.StrokeDash("series:N", scale=sp["dash"], legend=lg),
+                opacity=alt.Opacity("series:N", scale=sp["opacity"], legend=None),
+                strokeWidth=alt.StrokeWidth("series:N", scale=sp["width"], legend=None))
+
+
+def compare_chart(results: dict, screen: str, after_tax=True, goal="spec", log=True, y_domain=None, mark_goal=False, bands=None,
+                  title=None, width=W, height=H, legend=True, legend_cols=2):
+    """Wealth of the legs of one or two schedules on one set of axes. `results`: {schedule: PlanResult}, schedule in
+    ("static", "phased"); `screen`: the screen's short name. Per schedule: the screen (solid), the index fund (dashed, lighter),
+    the net money put in (dotted); the plan's goal in amber. `bands`: phase_bands(result) to shade the phases behind the lines;
+    `mark_goal`: a marker where each leg first holds the goal. Tooltip on every month: all legs, the money in, screen minus index fund."""
+    scheds = list(results)
+    legs = leg_names(screen, scheds)
+    cs, ci = ("strategy_after_tax", "index_after_tax") if after_tax else ("strategy_pre", "index_pre")
+    months = {k: _months(r.series) for k, r in results.items()}
+    idx = months[scheds[0]].index
+    wide = pd.DataFrame({"date": idx})
+    keys, rows = {}, []
+    for k in scheds:
+        m = months[k].reindex(idx, method="nearest")
+        wide[f"{k}_c"] = np.maximum(m["contributed"].astype(float).to_numpy(), 1.0)
+        wide[f"{k}_s"] = m[cs].astype(float).to_numpy()
+        wide[f"{k}_i"] = m[ci].astype(float).to_numpy()
+        wide[f"{k}_d"] = wide[f"{k}_s"] - wide[f"{k}_i"]
+        sc_, ic_ = leg_colors(k)
+        keys[f"{k}_s"], keys[f"{k}_i"] = legs[k, "screen"], legs[k, "index"]
+        rows += [(legs[k, "screen"], sc_, [1, 0], 1, 2.8), (legs[k, "index"], ic_, DASH_INDEX, 1, 2.8)]
+    for k in scheds:
+        cname = f"Net money in, {sched_label(k)}"
+        keys[f"{k}_c"] = cname
+        rows.append((cname, leg_colors(k)[0], DASH_DOT, 0.8, 1.6))
+    g = results[scheds[0]].spec.goal if goal == "spec" else goal
+    if g is not None:
+        gname = f"Goal {_money(g)}"
+        wide["goal"], keys["goal"] = float(g), gname
+        rows.append((gname, AMBER, DASH_DASHDOT, 1, 1.8))
+    wide["y"] = wide[f"{scheds[0]}_s"]
+    sp = _spec(rows)
+    cols = [c for c in wide.columns if c not in ("date", "y") and not c.endswith("_d")]
+    dom = list(y_domain) if y_domain else _auto_domain(wide, cols)
+    yscale = alt.Scale(type="log", domain=dom, nice=False) if log else alt.Scale(zero=True)
+    tag = "after tax" if after_tax else "before tax"
+    yt = f"Wealth {tag}, dollars{' (log scale)' if log else ''}"
+    x = alt.X("date:T", title="Date", axis=alt.Axis(format="%Y", tickCount=12))
+    y = alt.Y("dollars:Q", scale=yscale, title=yt, axis=_log_axis(dom, yt) if log else alt.Axis(format=MONEY_AXIS, title=yt))
+    lines = _fold(wide, keys).mark_line().encode(x=x, y=y, **_enc_cols(sp, legend, "Series", legend_cols)).properties(width=width, height=height)
+    layers = ([_phase_rects(bands)] if bands else []) + [lines]
+    tips = [alt.Tooltip("date:T", title="Date", format="%d %b %Y")]
+    for k in scheds:
+        tips += [alt.Tooltip(f"{k}_c:Q", title=f"Net money in, {sched_label(k)}", format=MONEY_TIP),
+                 alt.Tooltip(f"{k}_s:Q", title=f"{legs[k, 'screen']} ({tag})", format=MONEY_TIP),
+                 alt.Tooltip(f"{k}_i:Q", title=f"{legs[k, 'index']} ({tag})", format=MONEY_TIP),
+                 alt.Tooltip(f"{k}_d:Q", title=f"{screen} minus index fund, {sched_label(k)}", format="$,.0f")]
+    sel, rule, dot = _hover(None, wide, alt.X("date:T"), "y", tips)
+    layers += [rule, sel, dot]
+    if mark_goal and g is not None:
+        pts = []
+        for k in scheds:
+            for who, col in (("screen", cs), ("index", ci)):
+                d0 = first_reached(results[k].series[col], g)
+                if d0 is not None:
+                    nm = legs[k, who]
+                    pts.append(dict(date=d0, dollars=float(g), series=nm, marker="First at the goal", label=f"First at the goal: {nm}",
+                                    when=d0.strftime("%d %b %Y"), years=(d0 - results[k].series.index[0]).days / 365.25))
+        if pts:
+            layers.append(alt.Chart(pd.DataFrame(pts)).mark_point(size=170, filled=True, stroke=INK, strokeWidth=1.5, shape="circle").encode(
+                x="date:T", y=alt.Y("dollars:Q", scale=yscale), color=alt.Color("series:N", scale=sp["color"], legend=None),
+                shape=alt.Shape("marker:N", scale=alt.Scale(domain=["First at the goal"], range=["circle"]),
+                                legend=alt.Legend(title="Marker", orient="bottom", symbolFillColor=INK2)),
+                tooltip=[alt.Tooltip("label:N", title="Marker"), alt.Tooltip("when:N", title="First at the goal"),
+                         alt.Tooltip("years:Q", title="Years into the plan", format=".1f"),
+                         alt.Tooltip("dollars:Q", title="Goal", format=MONEY_TIP)]))
+    ch = alt.layer(*layers).resolve_scale(shape="independent")
+    if title:
+        ch = ch.properties(title=title)
+    return ch.interactive(bind_y=False)
+
+
+def compare_flows_chart(results: dict, screen: str, title="Dollars in and out each year, by schedule"):
+    """Top: the dollars in and out each year, one panel per schedule, stacked by kind (the phased schedule's contributions by phase).
+    Bottom: the running net money in for the legs; the index fund receives the same dollars on the same days, so each
+    dashed line runs under the solid line of the same colour."""
+    scheds = list(results)
+    legs = leg_names(screen, scheds)
+    base = {"initial": ("Lump sum", PALETTE[0]), "periodic": ("Monthly contributions, static", PALETTE[4]), "extra": ("Windfalls", AMBER),
+            "withdrawal": ("Withdrawals", INK2)}
+    names, colors, rows = [], [], []
+    for k, r in results.items():
+        bands = phase_bands(r)
+        kinds = dict(base)
+        if bands:
+            kinds = {"initial": base["initial"], **{f"phase{i}": (b["label"], PHASE_COLORS[i % len(PHASE_COLORS)]) for i, b in enumerate(bands)},
+                     "extra": base["extra"], "withdrawal": base["withdrawal"]}
+        for v in kinds.values():
+            if v[0] not in names:
+                names.append(v[0])
+                colors.append(v[1])
+        fl = r.flows[r.flows["applied"]].copy()
+        if bands:
+            dts = pd.to_datetime(fl["date"])
+            fl["kind"] = [next((f"phase{i}" for i, b in enumerate(bands) if b["start"] <= d < b["end"]), "phase0") if kk == "periodic" else kk
+                          for kk, d in zip(fl["kind"], dts)]
+        fl["year"] = pd.to_datetime(fl["executed"]).dt.year
+        by = fl.pivot_table(index="year", columns="kind", values="amount", aggfunc="sum").reindex(columns=list(kinds)).fillna(0.0)
+        cnt = fl.pivot_table(index="year", columns="kind", values="amount", aggfunc="count").reindex(columns=list(kinds)).fillna(0)
+        for y_ in by.index:
+            for kk in kinds:
+                if by.loc[y_, kk] != 0:
+                    rows.append(dict(schedule=sched_label(k).capitalize(), year=int(y_), kind=kinds[kk][0], amount=float(by.loc[y_, kk]),
+                                     flows=int(cnt.loc[y_, kk]), order=names.index(kinds[kk][0])))
+    d = pd.DataFrame(rows)
+    bars = alt.Chart(d).mark_bar(width=9).encode(
+        x=alt.X("year:O", title="Year", axis=alt.Axis(labelAngle=-90, labelOverlap=True)),
+        y=alt.Y("amount:Q", title="Dollars in (up) and out (down) in the year", axis=alt.Axis(format=MONEY_AXIS)),
+        color=alt.Color("kind:N", scale=alt.Scale(domain=names, range=colors), sort=names, legend=alt.Legend(title="Kind of flow", orient="bottom", columns=3)),
+        order=alt.Order("order:Q"),
+        column=alt.Column("schedule:N", title=None, header=alt.Header(labelFontSize=13, labelFontWeight="bold"), sort=[sched_label(k).capitalize() for k in scheds]),
+        tooltip=[alt.Tooltip("schedule:N", title="Schedule"), alt.Tooltip("year:O", title="Year"), alt.Tooltip("kind:N", title="Kind"),
+                 alt.Tooltip("amount:Q", title="Dollars in the year", format=MONEY_TIP), alt.Tooltip("flows:Q", title="Number of flows")]
+    ).properties(width=W // 2 + 20, height=220)
+    nrows, lrows = [], []
+    for k, r in results.items():
+        net = r.series["contributed"].resample("YE").last()
+        for who in ("index", "screen"):
+            nrows.append(pd.DataFrame({"year": net.index.year, "series": legs[k, who], "dollars": net.to_numpy()}))
+        sc_, ic_ = leg_colors(k)
+        lrows += [(legs[k, "index"], ic_, DASH_INDEX, 1, 5.0), (legs[k, "screen"], sc_, [1, 0], 1, 2.2)]
+    order = [legs[k, w] for k in scheds for w in ("screen", "index")]
+    lrows.sort(key=lambda t: order.index(t[0]))
+    nd = pd.concat(nrows)
+    sp = _spec(lrows)
+    enc = dict(x=alt.X("year:O", title="Year", axis=alt.Axis(labelAngle=-90)),
+               y=alt.Y("dollars:Q", title="Running total of net money in, dollars", axis=alt.Axis(format=MONEY_AXIS)),
+               tooltip=[alt.Tooltip("year:O", title="End of year"), alt.Tooltip("series:N", title="Leg"),
+                        alt.Tooltip("dollars:Q", title="Net money in so far", format=MONEY_TIP)],
+               **_enc_cols(sp, True, "Leg", 2))
+    line = alt.layer(alt.Chart(nd).mark_line().encode(**enc), alt.Chart(nd).mark_point(filled=True, size=40).encode(**enc)).properties(width=W + 120, height=170)
+    return style(alt.vconcat(bars, line).resolve_scale(color="independent", strokeDash="independent"), title)
+
+
+def compare_bars(df: pd.DataFrame, screen: str, schedules=("static", "phased"), value_title="Value", fmt=MONEY_AXIS, tip_fmt=MONEY_TIP,
+                 label_fmt="$,.2s", title=None, legend=True, width=300, height=300, group_title=None):
+    """Grouped bars, one group per value of df["group"] (an account, say), one bar per leg. `df` columns: group, sched
+    ("static" / "phased"), kind ("screen" / "index"), value. Screen bars are the schedule's colour, index fund bars its lighter
+    tint with an outline in the schedule's colour. Tooltip on every bar."""
+    legs = leg_names(screen, schedules)
+    d = df.copy()
+    d["leg"] = [legs[s_, k_] for s_, k_ in zip(d["sched"], d["kind"])]
+    order = list(legs.values())
+    rng = [leg_colors(s_)[0 if k_ == "screen" else 1] for (s_, k_) in legs]
+    stroke = [leg_colors(s_)[0] for (s_, k_) in legs]
+    tips = [alt.Tooltip("group:N", title=group_title or "Group"), alt.Tooltip("leg:N", title="Leg"), alt.Tooltip("value:Q", title=value_title, format=tip_fmt)]
+    b = alt.Chart(d).encode(x=alt.X("group:N", sort=list(dict.fromkeys(d["group"])), title=group_title, axis=alt.Axis(labelAngle=0)),
+                            xOffset=alt.XOffset("leg:N", sort=order), y=alt.Y("value:Q", title=value_title, axis=alt.Axis(format=fmt)))
+    bars = b.mark_bar(size=18, strokeWidth=1.5).encode(
+        color=alt.Color("leg:N", scale=alt.Scale(domain=order, range=rng), sort=order,
+                        legend=alt.Legend(title="Leg", orient="bottom", columns=2, labelLimit=420) if legend else None),
+        stroke=alt.Stroke("leg:N", scale=alt.Scale(domain=order, range=stroke), legend=None), tooltip=tips)
+    txt = b.mark_text(dy=-6, fontSize=9, color=INK2).encode(text=alt.Text("value:Q", format=label_fmt))
+    return alt.layer(bars, txt).properties(width=width, height=height, title=title or "")
+
 
 
 # ================================================================================================= output
@@ -647,7 +871,7 @@ def _png(spec: dict, scale: float) -> bytes:
     raw = vlc.vegalite_to_png(json.dumps(spec), scale=scale, vl_version="5.20")
     try:                                                  # flat-colour charts: a 96-colour palette is invisible and 3x smaller
         from PIL import Image
-        im = Image.open(io.BytesIO(raw)).convert("RGB").quantize(colors=96, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE)
+        im = Image.open(io.BytesIO(raw)).convert("RGB").quantize(colors=256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)   # X1: 256 colours keep the thin legend swatches of tinted series true
         buf = io.BytesIO()
         im.save(buf, format="PNG", optimize=True)
         return buf.getvalue()

@@ -185,27 +185,44 @@ def test_plan_notebook_runs():                                   # PC: the plan 
     first = nb.cells[0].source
     assert nb.cells[0].cell_type == "markdown" and "LOCAL USE ONLY" in first and "unlicensed" in first      # the licence is the first thing read
     assert "make data-panel" in first and "local use" in first and "not redistributed" in first and "Not tax advice" in first
+    assert "momentum_12m" in first and "`STRAT`" in first and "baseline rule" in first and "Index fund" in first         # the title cell names the screen and the baseline rule
     t0 = time.time()
-    out = run_notebook(path, timeout=420)                        # with the on-disk cache: under three minutes
-    assert time.time() - t0 <= 240
-    for tbl in range(1, 8):
+    out = run_notebook(path, timeout=480)                        # with the on-disk cache: about two minutes
+    assert time.time() - t0 <= 300
+    for tbl in range(1, 10):
         assert f"Table {tbl}." in out
     code_cells = [(i, "".join(c.source)) for i, c in enumerate(nb.cells) if c.cell_type == "code"]
     code = "\n".join(src for _, src in code_cells)
     assert 'Lab.real_sp500(start=START, end=END)' in code and 'START, END = "1990-01-01", "2022-12-30"' in code   # exactly these arguments: the cache is hit
-    assert "lab.plan(" in code and "plan_mc.plan_montecarlo(" in code and "result=plans[a]" in code and "generator=\"history\"" in code and 'growth="cpi"' in code and "withdrawals=3_000" in code
-    assert 'CashFlow("1999-03-01", 25_000' in code and 'CashFlow("2009-03-01", 15_000' in code and 'withdraw_from="2018-01-01"' in code
-    assert "rrsp_withdrawal_rate=rrsp_rate" in code and "rrsp_rate=0.30" in code and "other_income=90_000" in code and "GOAL = 1_500_000" in code
-    # the Summary: two computed paragraphs, right after the setup and the runs, before Section 1
-    summ = [i for i, src in code_cells if "## Summary" in src]
-    assert len(summ) == 1 and 'say(f\'\'\'' in dict(code_cells)[summ[0]]
-    sec1 = next(i for i, c in enumerate(nb.cells) if c.cell_type == "markdown" and "".join(c.source).startswith("## 1."))
-    assert summ[0] < sec1 and all(not "".join(nb.cells[j].source).startswith("##") for j in range(1, summ[0]))
-    body = dict(code_cells)[summ[0]].split("## Summary", 1)[1]
+    assert code.count('STRAT = "momentum_12m"') == 1 and "pch.screen_label(STRAT)" in code and "pch.leg_names(SCREEN)" in code      # the screen is one variable; the legs come from one helper
+    assert "lab.plan(" in code and "plan_mc.plan_montecarlo(" in code and 'result=plans[s, "tfsa"]' in code and "generator=\"history\"" in code and 'growth="cpi"' in code and "withdrawals=3_000" in code
+    assert 'CashFlow("1999-03-01", 25_000' in code and 'CashFlow("2009-03-01", 15_000' in code and 'withdraw_from="2018-01-01"' in code and 'cash_timing="hold"' in code
+    assert "rrsp_withdrawal_rate=rrsp_rate" in code and "rrsp_rate=0.30" in code and "other_income=90_000" in code and "GOAL = 1_500_000" in code and "N_PATHS = 500" in code
+    assert 'Phase(0, 10, 500, "early years")' in code and 'Phase(10, 13, 3_000, "peak saving")' in code and 'Phase(13, 20, 1_000, "later years")' in code
+    assert 'phase_growth="indexed"' in code and "pch.phase_bands(R[\"phased\"])" in code
+    assert "lab.backtest(APP, rebalance_months=rb, start=START)" in code and all(f'"{s}"' in code for s in ("dogs", "momentum_12m", "momentum_6m", "stable_high_yield", "stable_dividend"))
+    # the Summary is cells[1], computed from the runs, ahead of everything else; the how-to-read map is cells[2]
+    summ = nb.cells[1]
+    assert summ.cell_type == "code" and "## Summary" in summ.source and "say(f'''" in summ.source and not any(c.cell_type == "markdown" and c.source.startswith("##") for c in nb.cells[:2])
+    body = summ.source.split("## Summary", 1)[1]
     paras = [p for p in body.split("\n\n") if p.strip().startswith("**")]
-    assert len(paras) == 2 and paras[0].startswith("**What the plan produced.**") and paras[1].startswith("**What it means for the goal and the risk.**")
-    assert "{usd(" in paras[0] and "{pc(" in paras[0] and "mt.p_beat_index" in paras[1] and "yrs_goal" in paras[1]       # the numbers come from variables
-    # composition: seven numbered sections plus V3's 2b (phased contributions), each opening with a question and ending in "What the evidence says"
+    assert len(paras) == 3 and paras[0].startswith("**What was done.**") and paras[1].startswith("**The primary finding") and paras[2].startswith("**The secondary finding")
+    assert "{usd(" in paras[0] and "{pc(" in paras[1] and "mt[st].p_beat_index" in paras[2] and "mt[st].p_shortfall" in paras[2] and "{SUMTAB}" in body       # the numbers come from variables
+    assert "Years to the {usd(GOAL)} goal" in summ.source and "Versus the index fund, same schedule: final wealth" in summ.source and "Versus the index fund, same schedule: XIRR points a year" in summ.source
+    assert "ahead(DF[st" in paras[1] and "verdict" in summ.source and "Appendix A" in summ.source                  # the sign of the result chooses the words
+    saved = nbformat.read(str(path), 4)
+    sum_md = next(o["data"]["text/markdown"] for o in saved.cells[1].outputs if "text/markdown" in o.get("data", {}))
+    legs = ["Momentum, static contributions", "Index fund, static contributions", "Momentum, phased contributions", "Index fund, phased contributions"]
+    assert all(l in sum_md for l in legs) and "| Net money in |" in sum_md and "| Final wealth after tax |" in sum_md and "| XIRR after tax and inflation |" in sum_md
+    assert "Years to the \\$1,500,000 goal" in sum_md and "Versus the index fund, same schedule" in sum_md and "baseline" in sum_md
+    assert len(sum_md.split()) < 700                                                              # readable in a minute or two, table included
+    how = nb.cells[2]
+    assert how.cell_type == "code" and "## How to read this notebook" in how.source and "{LEG[\"static\", \"screen\"]}" in how.source and "{LEG[\"phased\", \"index\"]}" in how.source
+    how_md = next(o["data"]["text/markdown"] for o in saved.cells[2].outputs if "text/markdown" in o.get("data", {}))
+    assert "**Static contributions**" in how_md and "**Phased contributions**" in how_md and "**Index fund**" in how_md and all(l in how_md for l in legs)
+    assert "account" in how_md and "TFSA" in how_md and "colour is the schedule" in how_md
+    # composition: seven numbered sections plus Appendix A, each opening with a question (and, from Section 2 on, saying which comparison it makes)
+    # and ending in "What the evidence says"
     secs = []
     for c in nb.cells:
         src = "".join(c.source)
@@ -213,44 +230,56 @@ def test_plan_notebook_runs():                                   # PC: the plan 
             secs.append([src])
         elif secs:
             secs[-1].append(src)
-    assert len(secs) == 8 and secs[2][0].startswith("## 2b. Contributions by phase of life")      # V3: after the straight calculation, before the metrics
+    assert [s[0].split("\n")[0].split(".")[0] for s in secs] == ["## 1", "## 2", "## 3", "## 4", "## 5", "## 6", "## 7", "## Appendix A"]
+    assert not re.search(r"\b\d[a-z]\b\.|Section \d[a-z]|Figure \d[a-z]|Table \d[a-z]", "\n".join("\n".join(s) for s in secs))         # no "2b" any more
     for sec in secs:
         assert "What the evidence says" in "\n".join(sec), sec[0][:40]
         assert "question" in sec[0], sec[0][:40]
+    assert sum("\n".join(s).count("What the evidence says") for s in secs) >= 7
+    for sec in secs[1:6]:
+        assert re.search(r"compar", sec[0]), sec[0][:60]
+    assert "Static contributions: the screen against the index fund" in secs[1][0] and "Phased contributions" in secs[2][0] and "accounts" in secs[3][0].lower()
+    assert "XIRR" in secs[1][0] and "TWR" in secs[1][0] and "time-weighted" in secs[1][0] and "money-weighted" in secs[1][0]
+    assert "invest on arrival" in secs[4][0].lower() or "invested on arrival" in secs[4][0].lower() or "cash_timing" in secs[4][0]
+    assert "Monte Carlo" in secs[5][0] and "Does the choice of screen matter" in secs[7][0] and "screaming_value" in secs[7][0]
     text = "\n".join("".join(c.source) for c in nb.cells if c.cell_type == "markdown")
     prose = "\n".join(m.group(2) for m in re.finditer(r"say\(f?(\"\"\"|\'\'\')(.*?)\1\)", code, re.S))
+    assert len(prose) > 5000
     for tic in ("let's", "Let's", "note that", "Note that", "!", "-> "):
-        assert tic not in text + prose, tic
-    # the XIRR / TWR paragraph, the reading guide (US stand-ins, 2025 tables, delisting haircut, licence), the base case in every figure
-    assert "XIRR" in secs[3][0] and "TWR" in secs[3][0] and "time-weighted" in secs[3][0] and "money-weighted" in secs[3][0]
-    guide = "\n".join(secs[7])
-    assert all(s in guide for s in ("US CPI", "US 10-year", "DECISIONS.md", "2025", "haircut of 30%", "do not commit"))
-    # V1: the figures are interactive Altair charts (research/plan_charts.py): no matplotlib; every plot cell calls pch.* and
-    # shows the chart; the run prints one "[chart]" line per figure naming its legend entries, the index base case among them;
-    # the saved outputs carry the Vega-Lite 5 spec (tooltips, legend, index series) and a PNG fallback in the same output
+        assert tic not in text + prose + sum_md + how_md, tic
+    # section numbers cited in the text exist: Sections 1-7, Appendix A
+    for n in re.findall(r"Sections? (\d+)", text + prose):
+        assert 1 <= int(n) <= 7, n
+    # the reading guide (US stand-ins, 2025 tables, delisting haircut, licence, the screen's definition and the value screens), the baseline in every figure
+    guide = "\n".join(secs[6])
+    assert all(s in guide for s in ("US CPI", "US 10-year", "DECISIONS.md", "2025", "haircut of 30%", "do not commit", "momentum_6m", "market capitalisation"))
+    # the figures are interactive Altair charts (research/plan_charts.py): no matplotlib; every plot cell calls pch.* and shows the
+    # chart; the run prints one "[chart]" line per figure naming its legend entries, an index fund leg for every schedule shown
     assert "matplotlib" not in code and "plt." not in code and "pp." not in code
     plot_cells = [(i, src) for i, src in code_cells if re.search(r"^show\(", src, re.M)]
     n_fig = sum(len(re.findall(r"^show\(", src, re.M)) for _, src in plot_cells)
-    assert n_fig >= 10 and len(plot_cells) >= 10 - 3                                               # figures 2 and 5 draw three panels, 6-8 several
+    assert n_fig == 10 and len(plot_cells) == 10
     for i, src in plot_cells:
         assert "pch." in src or "panels(" in src, src[:80]                                       # drawn by plan_charts
     lines = [l for l in out.splitlines() if l.startswith("[chart]")]
     assert len(lines) == n_fig, (len(lines), n_fig)
-    assert all("Buy and hold the index" in l for l in lines), lines                               # the base case in every figure's legend
-    saved = nbformat.read(str(path), 4)                                                           # the outputs saved in the notebook
+    for l in lines:
+        assert "Index fund" in l, l
+        for sched in ("static", "phased"):
+            if f"Momentum, {sched} contributions" in l or f"{sched} contributions" in l:
+                assert f"Index fund, {sched} contributions" in l, (sched, l)                   # every schedule shown has its baseline leg in the legend
+    assert any(all(leg in l for leg in legs) for l in lines)                                      # Figures 4 and 6 show all four legs
+    assert not any("Buy and hold the index" in l for l in lines)                                  # the old base-case name is gone
     bundles = [o for c in saved.cells if c.cell_type == "code" for o in c.get("outputs", [])
                if o.get("output_type") == "display_data" and "application/vnd.vegalite.v5+json" in o.get("data", {})]
     assert len(bundles) == n_fig, len(bundles)
     for o in bundles:
         spec = json.dumps(o["data"]["application/vnd.vegalite.v5+json"])
         assert "image/png" in o["data"] and len(o["data"]["image/png"]) > 1000                      # a static fallback beside the interactive chart
-        assert '"tooltip"' in spec and '"legend"' in spec and "Buy and hold the index" in spec and "strokeDash" in spec or "xOffset" in spec
+        assert '"tooltip"' in spec and '"legend"' in spec and "Index fund" in spec                   # tooltips, a legend, the baseline named
     assert path.stat().st_size < 5_000_000                                                        # month-end data keeps the notebook small
-    assert "Buy and hold the index" in text and '"Buy and hold the index"' in code
-    # V3: Section 2b, phased against flat contributions: the owner's phases, the phase bands and stacks, four legs, a computed paragraph
-    assert 'Phase(0, 10, 500, "early years")' in code and 'Phase(10, 13, 3_000, "peak saving")' in code and 'Phase(13, 20, 1_000, "later years")' in code
-    assert '"phase_growth": "indexed"' in code and "pch.phase_bands(phased)" in code and "Table 2b." in out
-    sec2b = "\n".join(secs[2])
-    assert "Figure 2b" in sec2b and "Figure 2c" in sec2b and "Phase:" in "\n".join(lines) and "peak saving" in sec2b
-    assert "{usd(PH_GROSS)}" in sec2b and "{pc(more_net / FL_NET)}" in sec2b and "dx_dogs" in dict(code_cells)[next(i for i, src in code_cells if "dx_dogs" in src and "say(" in src)]
-    assert "phased" in dict(code_cells)[summ[0]] and "Section 2b" in dict(code_cells)[summ[0]] and len(paras) == 2        # the Summary names the phased plan in one clause
+    # Appendix A: the table of pre-tax CAGRs at both rebalance frequencies, a computed sentence, the value screens said not to run
+    app = "\n".join(secs[7])
+    assert "Table 9." in out and "SP500_TR" in out and "12-month rebalance" in app and "6-month rebalance" in app
+    app_out = next(o["data"]["text/markdown"] for c in saved.cells[-1:] for o in c.outputs if "text/markdown" in o.get("data", {}))
+    assert "dogs" in app_out and "momentum_6m" in app_out and "sign flips" in app_out and "only screen ahead" in app_out
