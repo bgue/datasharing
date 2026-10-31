@@ -38,7 +38,7 @@ _m('CAGR', 'CAGR', 'fraction/yr', 'higher', 'pct',
 _m('Vol', 'Volatility', 'fraction/yr', 'lower', 'pct',
    'Annualised standard deviation of the periodic returns (fraction per year).'),
 _m('Sharpe', 'Sharpe ratio', 'ratio', 'higher', 'num',
-   'Annualised mean return divided by annualised volatility, risk-free rate 0 (ratio, unitless).'),
+   'Annualised mean return divided by annualised volatility, risk-free rate 0 (ratio, unitless). In a plan: the monthly excess return over the risk-free series named on the data card, times sqrt(12).'),
 _m('MaxDD', 'Max drawdown', 'fraction', 'higher', 'pct',
    'Maximum drawdown, the worst peak-to-trough fall of the curve (fraction, negative; -0.47 = -47%).'),
 _m('Worst12m', 'Worst 12 months', 'fraction', 'higher', 'pct',
@@ -106,6 +106,51 @@ _m('TaxDrag/yr', 'Tax drag per year', 'fraction/yr', 'lower', 'pct',
 _m('AfterTaxExcess/yr', 'After-tax excess return per year', 'fraction/yr', 'higher', 'pct',
    "After-tax CAGR minus the equally taxed passive index's after-tax CAGR (fraction per year). Only in a run with Config.tax."),
 
+# Plan module (plan.py): a dated investment plan, strategy vs the passive index. "Money-weighted" figures use the dated
+# flows; "time-weighted" ones the flow-free NAV. Amounts are dollars of the plan.
+_m('Contributed', 'Contributed', 'currency', None, 'num',
+   'Plan; net money put in by the investor: contributions minus withdrawals received (currency units).'),
+_m('FinalPreTax', 'Final value, pre-tax', 'currency', 'higher', 'num',
+   'Plan; value of the portfolio on the last bar before tax (currency units).'),
+_m('FinalAfterTax', 'Final value, after tax', 'currency', 'higher', 'num',
+   'Plan; value on the last bar less the tax paid so far (taxes are paid from outside the account) and, in an RRSP, less the withdrawal-rate tax on the balance (currency units).'),
+_m('FinalReal', 'Final value, pre-tax, real', 'currency', 'higher', 'num',
+   'Plan; pre-tax final value deflated by the CPI to start-date dollars (currency units). The CPI series is named on the data card.'),
+_m('FinalAfterTaxReal', 'Final value, after tax, real', 'currency', 'higher', 'num',
+   'Plan; after-tax final value deflated by the CPI to start-date dollars (currency units).'),
+_m('Gain', 'Gain', 'currency', 'higher', 'num',
+   'Plan; pre-tax final value minus net contributions (currency units); withdrawals received count as money taken out.'),
+_m('XIRR', 'XIRR, pre-tax', 'fraction/yr', 'higher', 'pct',
+   'Plan; money-weighted annual return of the dated flows and the pre-tax final value (fraction per year, Excel convention: days / 365). The headline return of a plan.'),
+_m('XIRRAfterTax', 'XIRR, after tax', 'fraction/yr', 'higher', 'pct',
+   'Plan; XIRR with the after-tax final value, and RRSP withdrawals net of their tax (fraction per year).'),
+_m('XIRRReal', 'XIRR, pre-tax, real', 'fraction/yr', 'higher', 'pct',
+   'Plan; XIRR with every flow and the final value deflated by the CPI to start-date dollars (fraction per year).'),
+_m('XIRRAfterTaxReal', 'XIRR, after tax, real', 'fraction/yr', 'higher', 'pct',
+   'Plan; after-tax XIRR on CPI-deflated flows (fraction per year).'),
+_m('TWR', 'Time-weighted return', 'fraction/yr', 'higher', 'pct',
+   'Plan; compound annual growth rate of the flow-free NAV over the plan window, pre-tax (fraction per year). Contributions and withdrawals do not move it.'),
+_m('TWRAfterTax', 'Time-weighted return, after tax', 'fraction/yr', 'higher', 'pct',
+   'Plan; TWR with the NAV scaled by the share of the balance left after tax (fraction per year).'),
+_m('Alpha', 'Alpha', 'fraction/yr', 'higher', 'pct',
+   "Plan; annualised intercept (monthly x 12) of the regression of the strategy's monthly excess return over the risk-free rate on the index's (fraction per year). The risk-free series is named on the data card."),
+_m('Beta', 'Beta', 'ratio', None, 'num',
+   "Plan; slope of the regression of the strategy's monthly excess return over the risk-free rate on the index's (ratio, unitless)."),
+_m('TrackingError', 'Tracking error', 'fraction/yr', 'lower', 'pct',
+   'Plan; annualised standard deviation of the monthly return difference strategy minus index (fraction per year).'),
+_m('InfoRatio', 'Information ratio', 'ratio', 'higher', 'num',
+   'Plan; annualised mean monthly return difference strategy minus index, divided by the tracking error (ratio, unitless).'),
+_m('TaxPaid', 'Tax paid', 'currency', 'lower', 'num',
+   'Plan; total tax over the plan: dividends, realized gains, interest, foreign withholding, RRSP withdrawals and the RRSP balance at the end (currency units).'),
+_m('CostDrag/yr', 'Trading cost drag per year', 'fraction/yr', 'lower', 'pct',
+   'Plan; trading costs paid over the plan divided by the average balance and the years (fraction per year, approximate).'),
+_m('MERDrag/yr', 'Expense ratio drag per year', 'fraction/yr', 'lower', 'pct',
+   "Plan; the holdings' average annual expense ratio (strategy) or the index fund's MER (fraction per year)."),
+_m('YearsToGoal', 'Years to goal', 'years', 'lower', 'num',
+   'Plan; years from the start until the after-tax value first reaches the goal amount (empty if it never does or there is no goal).'),
+_m('GoalShortfall', 'Goal shortfall', 'currency', 'lower', 'num',
+   'Plan; goal amount minus the after-tax final value, floored at 0 (currency units; empty without a goal).'),
+
 # Monte Carlo (ops/montecarlo.py): distributions over resampled paths, per portfolio and horizon
 for _q in (5, 25, 50, 75, 95):
     _m(f'TermWealth_p{_q}', f'Terminal wealth p{_q}', 'currency', 'higher', 'num',
@@ -156,6 +201,27 @@ class M:
     AFTERTAX_CAGR = 'AfterTaxCAGR'
     TAXDRAG_YR = 'TaxDrag/yr'
     AFTERTAX_EXCESS_YR = 'AfterTaxExcess/yr'
+    PLAN_CONTRIBUTED = 'Contributed'
+    PLAN_FINAL_PRETAX = 'FinalPreTax'
+    PLAN_FINAL_AFTERTAX = 'FinalAfterTax'
+    PLAN_FINAL_REAL = 'FinalReal'
+    PLAN_FINAL_AFTERTAX_REAL = 'FinalAfterTaxReal'
+    PLAN_GAIN = 'Gain'
+    PLAN_XIRR = 'XIRR'
+    PLAN_XIRR_AFTERTAX = 'XIRRAfterTax'
+    PLAN_XIRR_REAL = 'XIRRReal'
+    PLAN_XIRR_AFTERTAX_REAL = 'XIRRAfterTaxReal'
+    PLAN_TWR = 'TWR'
+    PLAN_TWR_AFTERTAX = 'TWRAfterTax'
+    PLAN_ALPHA = 'Alpha'
+    PLAN_BETA = 'Beta'
+    PLAN_TRACKING_ERROR = 'TrackingError'
+    PLAN_INFO_RATIO = 'InfoRatio'
+    PLAN_TAX_PAID = 'TaxPaid'
+    PLAN_COST_DRAG_YR = 'CostDrag/yr'
+    PLAN_MER_DRAG_YR = 'MERDrag/yr'
+    PLAN_YEARS_TO_GOAL = 'YearsToGoal'
+    PLAN_GOAL_SHORTFALL = 'GoalShortfall'
     DIST_MEAN = 'mean'
     DIST_STD = 'std'
     DIST_MIN = 'min'

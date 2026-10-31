@@ -741,6 +741,71 @@ def tax_buy_and_hold(curve: pd.Series, yield_, tax: TaxConfig, capital: float) -
     return assess(c, ev, tax, capital)
 
 
+# PA: the passive index with dated flows (plan.py)
+def index_ledger(growth: pd.Series, flows: pd.Series, cost_bps: float = 0.0) -> tuple:
+    """Units ledger of an index fund bought and sold with dated flows. `growth`: price of one unit (any level, net of MER);
+    `flows`: executed date -> amount (> 0 buys `a (1 - bps/1e4) / P` units, < 0 sells `|a| / (1 - bps/1e4)` of value so that
+    the investor receives `|a|`; capped at the whole holding). Returns (value before the day's flow, units bought, cash
+    received by the investor on a sale, units held after the flow); all indexed like `growth`. The first value is the first
+    flow itself (like the strategy curve, whose first point is the amount invested)."""
+    cb = cost_bps / 1e4
+    P = growth.to_numpy(float)
+    amt = flows.reindex(growth.index).fillna(0.0).to_numpy()
+    n = len(P)
+    pre, bought, recv, held, u = np.zeros(n), np.zeros(n), np.zeros(n), np.zeros(n), 0.0
+    for i in range(n):
+        pre[i] = u * P[i] if i else max(amt[0], 0.0)
+        a = amt[i]
+        if a > 0:
+            bought[i], recv[i] = a * (1 - cb) / P[i], 0.0
+        elif a < 0:
+            g = min(-a / (1 - cb), pre[i])
+            bought[i], recv[i] = -g / P[i], g * (1 - cb)
+        u += bought[i]
+        held[i] = u
+    mk = lambda x: pd.Series(x, index=growth.index)      # noqa: E731
+    return mk(pre), mk(bought), mk(recv), mk(held)
+
+
+def tax_buy_and_hold_flows(growth: pd.Series, flows: pd.Series, yield_, tax: TaxConfig, cost_bps: float = 0.0) -> tuple:
+    """`tax_buy_and_hold` with dated lots: the index fund bought and sold with `flows` (see `index_ledger`), in dollars
+    (capital 1). Dividends `yield_` (float, or by calendar year like `tax_buy_and_hold`) on the previous bar's value after
+    that bar's flow, taxed as received and reinvested into the cost base (withholding per `tax.account` as there); a sale
+    realizes `received - average cost x share sold`; a purchase adds its amount to the cost base; with `liquidate_at_end` the
+    remaining gain is realized on the last bar. Returns (tax table, value curve before the day's flow, after-tax curve)."""
+    pre, bought, recv, held = index_ledger(growth, flows, cost_bps)
+    held = held.to_numpy()
+    P, n = growth.to_numpy(float), len(growth)
+    dt = np.diff(((growth.index - growth.index[0]).days / 365.25).to_numpy())
+    if isinstance(yield_, (pd.Series, dict)):
+        ys = pd.Series(yield_, dtype=float).sort_index()
+        yrs = growth.index.year[:-1]
+        yv = ys.reindex(ys.index.union(yrs.unique())).ffill().bfill().loc[yrs].to_numpy()
+    else:
+        yv = np.full(n - 1, float(yield_))
+    amt = flows.reindex(growth.index).fillna(0.0).to_numpy()
+    div, gain, basis = np.zeros(n), np.zeros(n), 0.0
+    for i in range(n):
+        if i:
+            div[i] = held[i - 1] * P[i - 1] * yv[i - 1] * dt[i - 1]
+            basis += div[i]
+        if amt[i] > 0:
+            basis += amt[i]
+        elif amt[i] < 0 and pre.iloc[i] > 0:
+            sold = -bought.iloc[i] * P[i]
+            sh = min(sold / pre.iloc[i], 1.0)
+            gain[i] = recv.iloc[i] - basis * sh
+            basis *= 1 - sh
+    if tax.liquidate_at_end:
+        gain[-1] += held[-1] * P[-1] - basis
+    fs = tax.index_foreign_share
+    ev = pd.DataFrame({"div_ca": div * (1 - fs), "div_fx": div * fs, "gain": np.maximum(gain, 0.0), "loss": np.minimum(gain, 0.0),
+                       "interest": 0.0, "wh_fx": div * fs * (0.0 if tax.account == "rrsp" else tax.rate_for("US"))},
+                      index=growth.index)
+    table, after = assess(pre, ev, tax, 1.0)
+    return table, pre, after
+
+
 # --------------------------------------------------------------------------- report columns
 def report_columns(rows: dict, results: dict, bench, bcurve: pd.Series, cfg, mkt, start, tax_cfg: TaxConfig | None = None) -> dict:
     """Add `AfterTaxCAGR`, `TaxDrag/yr`, `AfterTaxExcess/yr` to the report `rows` ({label: {metric: value}}) of the

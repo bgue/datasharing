@@ -417,6 +417,49 @@ class TaxStage:
         self._last_mv = pd.Series(np.where(dd, 0.0, mv[-1] * Fm[-1]), index=names)   # P3: CAD at the last date
         self._last_park = float(V[-1] * (1 - e[-1]))
 
+    # PA: external cash flows (plan.py). The ledger is in dollars of the plan (capital = 1): a contribution adds cost basis,
+    # a withdrawal sells the same share of every holding (pro rata) and realizes gain = proceeds - cost - basis sold.
+    def external_flow(self, d, amount: float, value: float, e: float, prev: pd.Series, target: pd.Series,
+                      cost: pd.Series | None = None, trade_follows: bool = False) -> None:
+        """A dated flow of `amount` dollars at `d` into (> 0) or out of (< 0, the GROSS value sold) the portfolio, whose
+        value before the flow was `value`, equity share `e`, drifted sleeve weights `prev`. `target` = the weights the
+        contribution buys (sleeve weights), `cost` = trading cost per name in dollars (a purchase's cost goes into the
+        cost base, a sale's cost comes out of the proceeds, as in `trade`). `trade_follows`: the contribution joins a
+        rebalance trade of the same date that buys it (only the parked share's basis is booked here)."""
+        if self.pb is None:
+            self.pb = value * (1 - e)
+        if amount >= 0:
+            self.pb += amount * (1 - e)
+            if trade_follows or amount == 0:
+                return
+            names = prev.index.union(target.index)
+            t = target.reindex(names, fill_value=0.0).to_numpy()
+            b = self.basis.reindex(names, fill_value=0.0).to_numpy()
+            F = self._fxf([d], self._info(names, self._mkt.view(d) if self._mkt is not None else pd.DataFrame()))[0]
+            b = b + t * amount * e * F
+            self.basis = pd.Series(b, index=names)[lambda x: (x != 0) | x.index.isin(prev.index) | x.index.isin(target.index)]
+            return
+        s = min(-amount / value, 1.0) if value > 0 else 0.0
+        names = prev.index.union(self.basis.index)
+        p = prev.reindex(names, fill_value=0.0).to_numpy()
+        b = self.basis.reindex(names, fill_value=0.0).to_numpy()
+        sell = p * value * e * s
+        c = cost.reindex(names, fill_value=0.0).to_numpy(float) if cost is not None else np.zeros(len(names))
+        F = self._fxf([d], self._info(names, self._mkt.view(d) if self._mkt is not None else pd.DataFrame()))[0]
+        self._gains(d, ((sell - c) * F - b * s)[sell > 1e-15])
+        self.basis = pd.Series(b * (1 - s), index=names)[lambda x: (x != 0) | x.index.isin(prev.index)]
+        if value * (1 - e) > 1e-15:
+            self._gains(d, [s * (value * (1 - e) - self.pb)])
+        self.pb *= 1 - s
+
+    def hold_cash_interest(self, seg_index, cash0: float, cash_factor) -> None:
+        """Interest on contributions parked in cash (`cash_timing="hold"`), ordinary income per bar."""
+        cf = np.asarray(cash_factor, float)
+        inc = np.zeros(len(cf))
+        inc[1:] = cash0 * np.diff(cf)
+        self._interest(seg_index, inc, "interest")
+    # PA: end
+
     def finish(self, curve: pd.Series, mkt=None) -> tuple:
         """(tax table per year, after-tax curve) for the pre-tax `curve`."""
         from .taxes import assess

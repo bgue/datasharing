@@ -406,8 +406,8 @@ enums:
       Vol:
         description: Annualised standard deviation of the periodic returns (fraction per year).
       Sharpe:
-        description: Annualised mean return divided by annualised volatility, risk-free rate 0 (ratio,
-          unitless).
+        description: 'Annualised mean return divided by annualised volatility, risk-free rate 0 (ratio, unitless).
+          In a plan: the monthly excess return over the risk-free series named on the data card, times sqrt(12).'
       MaxDD:
         description: Maximum drawdown, the worst peak-to-trough fall of the curve (fraction, negative;
           -0.47 = -47%).
@@ -492,6 +492,67 @@ enums:
       AfterTaxExcess/yr:
         description: After-tax CAGR minus the equally taxed passive index's after-tax CAGR (fraction per
           year). Only in a run with Config.tax.
+      Contributed:
+        description: 'Plan; net money put in by the investor: contributions minus withdrawals received (currency
+          units).'
+      FinalPreTax:
+        description: Plan; value of the portfolio on the last bar before tax (currency units).
+      FinalAfterTax:
+        description: Plan; value on the last bar less the tax paid so far (taxes are paid from outside the account)
+          and, in an RRSP, less the withdrawal-rate tax on the balance (currency units).
+      FinalReal:
+        description: Plan; pre-tax final value deflated by the CPI to start-date dollars (currency units). The
+          CPI series is named on the data card.
+      FinalAfterTaxReal:
+        description: Plan; after-tax final value deflated by the CPI to start-date dollars (currency units).
+      Gain:
+        description: Plan; pre-tax final value minus net contributions (currency units); withdrawals received
+          count as money taken out.
+      XIRR:
+        description: 'Plan; money-weighted annual return of the dated flows and the pre-tax final value (fraction
+          per year, Excel convention: days / 365). The headline return of a plan.'
+      XIRRAfterTax:
+        description: Plan; XIRR with the after-tax final value, and RRSP withdrawals net of their tax (fraction
+          per year).
+      XIRRReal:
+        description: Plan; XIRR with every flow and the final value deflated by the CPI to start-date dollars
+          (fraction per year).
+      XIRRAfterTaxReal:
+        description: Plan; after-tax XIRR on CPI-deflated flows (fraction per year).
+      TWR:
+        description: Plan; compound annual growth rate of the flow-free NAV over the plan window, pre-tax (fraction
+          per year). Contributions and withdrawals do not move it.
+      TWRAfterTax:
+        description: Plan; TWR with the NAV scaled by the share of the balance left after tax (fraction per
+          year).
+      Alpha:
+        description: Plan; annualised intercept (monthly x 12) of the regression of the strategy's monthly excess
+          return over the risk-free rate on the index's (fraction per year). The risk-free series is named on
+          the data card.
+      Beta:
+        description: Plan; slope of the regression of the strategy's monthly excess return over the risk-free
+          rate on the index's (ratio, unitless).
+      TrackingError:
+        description: Plan; annualised standard deviation of the monthly return difference strategy minus index
+          (fraction per year).
+      InfoRatio:
+        description: Plan; annualised mean monthly return difference strategy minus index, divided by the tracking
+          error (ratio, unitless).
+      TaxPaid:
+        description: 'Plan; total tax over the plan: dividends, realized gains, interest, foreign withholding,
+          RRSP withdrawals and the RRSP balance at the end (currency units).'
+      CostDrag/yr:
+        description: Plan; trading costs paid over the plan divided by the average balance and the years (fraction
+          per year, approximate).
+      MERDrag/yr:
+        description: Plan; the holdings' average annual expense ratio (strategy) or the index fund's MER (fraction
+          per year).
+      YearsToGoal:
+        description: Plan; years from the start until the after-tax value first reaches the goal amount (empty
+          if it never does or there is no goal).
+      GoalShortfall:
+        description: Plan; goal amount minus the after-tax final value, floored at 0 (currency units; empty
+          without a goal).
       TermWealth_p5:
         description: Monte Carlo; 5th percentile of terminal wealth across paths at the horizon (currency
           units, includes any contributions and withdrawals).

@@ -162,6 +162,8 @@ class Result:
     tax: pd.DataFrame | None = None   # tax per calendar year (taxes.TAX_COLS); None without Config.tax
     after_tax_curve: pd.Series | None = None   # the portfolio value after the tax paid so far (None without Config.tax)
     harvest: pd.DataFrame | None = None        # P2: loss-harvest records (harvesting.HARVEST_COLS); None without Config.tax.harvest
+    flows: pd.DataFrame | None = None          # PA: external flows executed (index = date; columns amount, cost); None without flows
+    cash_curve: pd.Series | None = None        # PA: uninvested cash per bar (cash_timing="hold"); None without flows
 
     @property
     def returns(self) -> pd.Series:
@@ -236,10 +238,19 @@ def schedule(mkt: Market, start, months: int, phase_days: int = 0, end=None) -> 
 
 
 def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, exposure=None,
-             selection=None) -> Result:
+             selection=None, flows=None, flow_mode: str = "invest") -> Result:
     """Run `screen` on the schedule `rebal`: an orchestrator over the pipeline stages (pipeline.py).
     `exposure`: precomputed (lagged) exposure path of the exit policy; by default it is computed from
-    `cfg.exit` on this schedule. `selection`: a `pipeline.Selection` (default: the screen's picks)."""
+    `cfg.exit` on this schedule. `selection`: a `pipeline.Selection` (default: the screen's picks).
+
+    PA: `flows` (default None = unchanged behaviour): a DataFrame indexed by EXECUTED trading day with a column
+    `amount` (dollars; > 0 contribution, < 0 withdrawal). The first formation date must carry a positive flow: it is the
+    starting value, and the curve is then in dollars (not per $1). A later flow, `flow_mode="invest"`: a contribution
+    buys the target weights of the last rebalance pro rata (CostModel per name, cost base = what was spent), a
+    withdrawal sells every holding pro rata (the cost is paid out of the sale: the investor receives `amount`); on a
+    rebalance date the contribution joins the rebalance trade. `"hold"`: contributions wait in cash (Accrual rate, taxed
+    as interest) until the next rebalance date; withdrawals take the cash first. Flows on or after `end` are ignored.
+    See plan.py for the arithmetic. TaxStage sees the flows through `external_flow`."""
     end = pd.Timestamp(end) if end else mkt.index[-1]
     tri = mkt.prices
     value, prev = 1.0, pd.Series(dtype=float)        # prev = drifted weights of live holdings
@@ -265,50 +276,139 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
             taxer.on_switch = hv.exit_sale
             held_prev = held.shift(1).fillna(1.0)
     rebal_set = set(rebal)
+    # PA: external flows (plan.py)
+    fl, cash, tgt_keep, flog, cash_pieces, hv_set = None, 0.0, pd.Series(dtype=float), [], [], set(steps) - set(rebal)
+    if flows is not None:
+        if flow_mode not in ("invest", "hold"):
+            raise ValueError(f"flow_mode must be 'invest' or 'hold', got {flow_mode!r}")
+        fl = (flows["amount"] if isinstance(flows, pd.DataFrame) else flows).astype(float).groupby(level=0).sum()
+        first = float(fl.get(rebal[0], 0.0))
+        if first <= 0:
+            raise ValueError("flows: the first formation date needs a positive flow (the starting value)")
+        value = first
+        pieces = [pd.Series([value], index=[rebal[0]])]
+        fl = fl[(fl.index > rebal[0]) & (fl.index < end) & (fl != 0)]
+        steps = sorted(set(steps) | set(fl.index))
+        flog.append((rebal[0], first, 0.0))
+
+    def flow_step(d, snap, A, value, cash, prev):
+        """PA: apply the flow `A` (and join held cash at a rebalance) at the start of step `d`.
+        Returns value, cash, prev (sleeve weights), pure (a flow-only step: nothing else is traded)."""
+        pure = A != 0.0 and d not in rebal_set and (hv is None or d not in hv_set)
+        e = float(held.get(d, 1.0)) if ov is not None else 1.0
+        ext = cost_tot = 0.0
+        if A < 0:                                                       # withdrawal: cash first, then pro rata
+            R = -A
+            take = min(cash, R)
+            cash -= take
+            R -= take
+            received = take
+            if R > 1e-12 and value > 1e-15:
+                cost_i = pd.Series(dtype=float)
+                G = min(R, value)
+                if len(prev):
+                    ws = prev * e
+                    for _ in range(12):                                 # the sale cost comes out of the proceeds
+                        G = min(R + float(cost_model.trade_cost(ws * (G / value), snap, value)) * value, value)
+                    dw = ws * (G / value)
+                    cost_i = pd.Series({n: float(cost_model.trade_cost(dw[[n]], snap, value)) * value for n in dw.index})
+                cost_tot = float(cost_i.sum())
+                received += G - cost_tot
+                if taxer is not None:
+                    taxer.external_flow(d, -G, value, e, prev, tgt_keep, cost_i)
+                value -= G
+            ext = -received
+        join = 0.0
+        if d in rebal_set:                                              # held cash joins the rebalance
+            join, cash = cash, 0.0
+        if A > 0:
+            ext = A
+            if pure and flow_mode == "invest":                          # buy the last target weights now
+                tg = tgt_keep
+                if len(tg):
+                    tg = tg[tri.loc[d, tg.index].notna().to_numpy()]
+                names = prev.index.union(tg.index)
+                cost_i = pd.Series(dtype=float)
+                if len(tg) and e > 1e-12:
+                    dw = tg * (A / (value + A))
+                    cost_i = pd.Series({n: float(cost_model.trade_cost(dw[[n]], snap, value + A)) * (value + A) * e
+                                        for n in tg.index})
+                    cost_tot = float(cost_i.sum())
+                    hold_ = prev.reindex(names, fill_value=0.0) * value * e + tg.reindex(names, fill_value=0.0) * A * e \
+                        - cost_i.reindex(names, fill_value=0.0)
+                    new_prev = hold_ / (value * e + A * e - cost_tot)
+                    new_prev = new_prev[new_prev > 0]
+                else:                                                   # no target (cash) or all parked
+                    new_prev = prev if e <= 1e-12 or not len(prev) else prev * (value / (value + A))
+                if taxer is not None:
+                    taxer.external_flow(d, A, value, e, prev, tg, cost_i)
+                value, prev = value + A - cost_tot, new_prev
+            elif d in rebal_set or flow_mode == "invest":               # joins the rebalance trade
+                join += A
+            else:                                                       # "hold": waits for the next rebalance
+                cash += A
+        if join > 0:
+            if taxer is not None:
+                taxer.external_flow(d, join, value, e, prev, tgt_keep, trade_follows=True)
+            if value > 0 and len(prev):
+                prev = prev * (value / (value + join))
+            value += join
+        if A != 0.0:
+            flog.append((d, ext, cost_tot))
+        return value, cash, prev, pure
 
     for j, d in enumerate(steps):
         progress.report(j / len(steps), f"{screen.name}: rebalance {j + 1}/{len(steps)}")
         snap = mkt.view(d)
-        e_now = float(held.get(d, 1.0)) if ov is not None else 1.0                     # Q3: equity share held at d
-        e_prev = float(held_prev.get(d, 1.0)) if hv is not None and ov is not None else e_now
-        vv = value * e_now if hv is not None else value                                # Q3: the equity money the stage sees
-        if hv is None or d in rebal_set:
-            picks = raw = selection.picks(mkt, screen, d)                              # Selection
-            picks = weighting.retain(picks, screen, snap, prev, cfg.min_holdings)      # Weighting
-            target = weighting.target(snap, picks, prev, cfg.min_holdings)
-            if hv is not None:                                                         # P2: harvest after Weighting
-                picks, target = hv.on_rebalance(d, snap, raw, picks, prev, vv, target)
-                last_reb = d
-        else:                                                                          # P2: year end / swap back: no screen run
-            target = hv.on_substep(d, snap, prev, vv, reentry=e_now > e_prev + 1e-12)       # Q3: exit re-entry
-            picks = list(target.index)
-        if hv is not None:                                                             # P2: new dates (swap back after a window)
-            for nd in hv.take_new_dates():
-                if d < nd < end and nd not in steps:
-                    steps.insert(int(np.searchsorted(steps, nd)), nd)
+        pure = False
+        if fl is not None:                                                             # PA: external flows
+            value, cash, prev, pure = flow_step(d, snap, float(fl.get(d, 0.0)), value, cash, prev)
+        if pure:                                                                       # PA: flow-only step: no screen, no rebalance
+            target = prev
+        else:
+            e_now = float(held.get(d, 1.0)) if ov is not None else 1.0                     # Q3: equity share held at d
+            e_prev = float(held_prev.get(d, 1.0)) if hv is not None and ov is not None else e_now
+            vv = value * e_now if hv is not None else value                                # Q3: the equity money the stage sees
+            if hv is None or d in rebal_set:
+                picks = raw = selection.picks(mkt, screen, d)                              # Selection
+                picks = weighting.retain(picks, screen, snap, prev, cfg.min_holdings)      # Weighting
+                target = weighting.target(snap, picks, prev, cfg.min_holdings)
+                if hv is not None:                                                         # P2: harvest after Weighting
+                    picks, target = hv.on_rebalance(d, snap, raw, picks, prev, vv, target)
+                    last_reb = d
+            else:                                                                          # P2: year end / swap back: no screen run
+                target = hv.on_substep(d, snap, prev, vv, reentry=e_now > e_prev + 1e-12)       # Q3: exit re-entry
+                picks = list(target.index)
+            if hv is not None:                                                             # P2: new dates (swap back after a window)
+                for nd in hv.take_new_dates():
+                    if d < nd < end and nd not in steps:
+                        steps.insert(int(np.searchsorted(steps, nd)), nd)
+                        hv_set.add(nd)
+            if fl is not None and (hv is None or d in rebal_set):                  # PA: the strategy target new money buys
+                tgt_keep = target
+
+            dw = target.sub(prev, fill_value=0).abs()
+            dw = dw[dw > 1e-12]
+            trade_cost = float(cost_model.trade_cost(dw, snap, value))                     # CostModel
+            if ov is not None:
+                trade_cost *= float(held.get(d, 1.0))    # only the invested share of the sleeve is traded
+            if taxer is not None:                                                          # TaxStage: gains realized by the trade
+                ev_ = float(held.get(d, 1.0)) if ov is not None else 1.0
+                # P1: each name's own trading cost (cost models are linear in the names), for the cost base / proceeds
+                tcost = pd.Series({n: float(cost_model.trade_cost(dw[[n]], snap, value)) * ev_ * value for n in dw.index}, dtype=float)
+                if hv is not None:
+                    hv.pre_trade()                                                         # P2
+                taxer.trade(d, value, ev_, prev, target, tcost)
+                if hv is not None:
+                    hv.post_trade(d, vv, prev, target, min(e_prev / e_now, 1.0) if e_now > 0 else 1.0)   # P2: superficial-loss bookkeeping (Q3: exit re-entry)
+            value *= 1 - trade_cost
+            if hv is None or d in rebal_set:
+                holdings[d], turn[d], costs[d] = picks, dw.sum() / 2, trade_cost
+            else:                                                                          # P2: a sub-step adds to its rebalance period
+                turn[last_reb] += dw.sum() / 2
+                costs[last_reb] += trade_cost
+
         nxt = steps[j + 1] if j + 1 < len(steps) else end
-
-        dw = target.sub(prev, fill_value=0).abs()
-        dw = dw[dw > 1e-12]
-        trade_cost = float(cost_model.trade_cost(dw, snap, value))                     # CostModel
-        if ov is not None:
-            trade_cost *= float(held.get(d, 1.0))    # only the invested share of the sleeve is traded
-        if taxer is not None:                                                          # TaxStage: gains realized by the trade
-            ev_ = float(held.get(d, 1.0)) if ov is not None else 1.0
-            # P1: each name's own trading cost (cost models are linear in the names), for the cost base / proceeds
-            tcost = pd.Series({n: float(cost_model.trade_cost(dw[[n]], snap, value)) * ev_ * value for n in dw.index}, dtype=float)
-            if hv is not None:
-                hv.pre_trade()                                                         # P2
-            taxer.trade(d, value, ev_, prev, target, tcost)
-            if hv is not None:
-                hv.post_trade(d, vv, prev, target, min(e_prev / e_now, 1.0) if e_now > 0 else 1.0)   # P2: superficial-loss bookkeeping (Q3: exit re-entry)
-        value *= 1 - trade_cost
-        if hv is None or d in rebal_set:
-            holdings[d], turn[d], costs[d] = picks, dw.sum() / 2, trade_cost
-        else:                                                                          # P2: a sub-step adds to its rebalance period
-            turn[last_reb] += dw.sum() / 2
-            costs[last_reb] += trade_cost
-
         seg = tri.loc[d:nxt]
         yrs = ((seg.index - d).days / 365.25).to_numpy()
         if target.empty:
@@ -338,7 +438,17 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
                           policy=getattr(ov, "policy", None), park_r=park_r if ov is not None else None)
         elif taxer is not None:                                                        # P1: all cash: interest only
             taxer.cash_segment(seg.index, value, accrual.cash_factor(yrs))
-        pieces.append(value * path.iloc[1:])
+        if cash > 0:                                                                   # PA: "hold" cash accrues alongside
+            cfs = np.asarray(accrual.cash_factor(yrs), float)
+            pieces.append(value * path.iloc[1:] + cash * cfs[1:])
+            cash_pieces.append(pd.Series(cash * cfs[1:], index=seg.index[1:]))
+            if taxer is not None:
+                taxer.hold_cash_interest(seg.index, cash, cfs)
+            cash *= cfs[-1]
+        else:
+            pieces.append(value * path.iloc[1:])
+            if fl is not None:
+                cash_pieces.append(pd.Series(0.0, index=seg.index[1:]))
         value *= path.iloc[-1]
 
     curve = pd.concat(pieces)
@@ -355,9 +465,15 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
     tax_table = after_curve = None
     if taxer is not None:
         tax_table, after_curve = taxer.finish(curve)
+    flow_df = cash_curve = None
+    if fl is not None:                                                                 # PA
+        flow_df = pd.DataFrame(flog, columns=["date", "amount", "cost"]).set_index("date")
+        cc = pd.concat([pd.Series([0.0], index=[rebal[0]])] + cash_pieces)
+        cash_curve = cc[~cc.index.duplicated(keep="last")].reindex(curve.index).fillna(0.0).rename("cash")
     return Result(screen.name, curve, holdings, pd.Series(turn), pd.Series(costs), expo, switches,
                   time_out, park_curve, ov.policy if ov is not None else None, tax_table, after_curve,
-                  harvest=hv.finish(curve, after_curve) if hv is not None else None)         # P2: harvest records
+                  harvest=hv.finish(curve, after_curve) if hv is not None else None,         # P2: harvest records
+                  flows=flow_df, cash_curve=cash_curve)                                      # PA
 
 
 def run(screen: Screen, mkt: Market, cfg: Config = Config(), start=None, end=None,
