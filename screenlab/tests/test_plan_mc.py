@@ -268,6 +268,66 @@ def test_plan_montecarlo_entry_point_extends_past_the_data(fake_plan):
     assert reg.fan.index[-1] == pd.Timestamp("2004-12-31")
 
 
+# --------------------------------------------------------------------------- one basis: the history replayed is the straight run
+def _rw_lab(tax):
+    from screenlab import Config, Lab, Market, ScreenBuilder
+    from screenlab.data import add_ratios
+    days = pd.bdate_range("2018-01-01", "2022-06-30")
+    rng = np.random.default_rng(5)
+    px = pd.DataFrame({t: 100 * np.cumprod(1 + rng.normal(0.0004 + i * 0.0002, 0.012, len(days))) for i, t in enumerate("ABC")}, index=days)
+    fund = pd.DataFrame([dict(date=pd.Timestamp("2018-01-01"), ticker=t, sector="in", price=100.0, market_cap=1000.0, dividend=3.0)
+                         for t in "ABC"])
+    lab = Lab(Market(add_ratios(fund), px), config=Config(rebalance_months=3, cost_bps=10, min_holdings=1, tax=tax))
+    lab.define(ScreenBuilder("all3", n=3).where("sector == 'in'").build())
+    return lab
+
+
+@pytest.mark.parametrize("account", ["tfsa", "rrsp", "taxable"])
+def test_history_replay_through_the_monte_carlo_equals_the_straight_run_after_tax(account, monkeypatch):
+    """THE acceptance test of the two calculations sharing one tax basis: dividends taxed every year, gains realized by the
+    quarterly rebalances and by a withdrawal, liquidation at the end; contributions mid-month; both legs."""
+    from screenlab import TaxConfig
+    from screenlab.plan import CashFlow, PlanSpec, run_plan
+    from screenlab.taxes import PlaceholderCanadianTax
+    tax = TaxConfig(model=PlaceholderCanadianTax(marginal_rate=0.40, federal_dtc=0.15, provincial_dtc=0.10, provincial_dtc_noneligible=0.03),
+                    account=account, **({"rrsp_withdrawal_rate": 0.3} if account == "rrsp" else {}))
+    lab = _rw_lab(tax)
+    sp = PlanSpec("all3", "2018-01-01", initial=5000, periodic=300, index_mer=0.001, end="2022-06-30",
+                  extra=(CashFlow("2019-03-15", 4000), CashFlow("2020-09-10", -2500)), withdraw_from="2021-07-01", withdrawals=400)
+    r = run_plan(lab, sp)
+    import screenlab.plan as plan
+    monkeypatch.setattr(plan, "run_plan", lambda *a, **k: (_ for _ in ()).throw(AssertionError("the straight run was repeated")))
+    mc = pm.plan_montecarlo(lab, sp, n_paths=3, generator="history", result=r)             # `result`: no second straight run
+    for leg in ("strategy", "index"):
+        want, got = r.metrics.loc[leg, "FinalAfterTax"], mc.terminal[f"{leg}_after_tax"]
+        assert (got.sub(want).abs() <= 1e-6 * abs(want)).all(), (account, leg, want, got.iloc[0])
+        assert got.nunique() == 1
+        assert mc.reversal.loc["forward", f"{leg}_after_tax"] == pytest.approx(want, rel=1e-9)         # the forward order IS the history
+    if account != "tfsa":
+        assert r.metrics.loc["strategy", "FinalAfterTax"] < 0.95 * r.metrics.loc["strategy", "FinalPreTax"]     # real tax in the test
+    assert mc.p_beat_index in (0.0, 1.0)
+    assert any("paid from the portfolio" in n for n in mc.card.notes)
+    if account == "taxable":                                    # resampled paths are taxed too (the MultiIndex used to leave both legs untaxed)
+        rnd = pm.plan_montecarlo(lab, sp, n_paths=20, seed=1, result=r)
+        assert (rnd.terminal["strategy_after_tax"] < rnd.terminal["strategy_pre"]).all()
+        assert (rnd.terminal["index_after_tax"] < rnd.terminal["index_pre"]).all()
+
+
+def test_tax_table_splits_the_multiindex_of_plan_result_by_leg():
+    cols = pd.MultiIndex.from_product([["strategy", "index"], ["tax_paid", "tax_dividends"]])
+    tab = pd.DataFrame(np.arange(8.0).reshape(2, 4), columns=cols, index=pd.Index([2000, 2001], name="year"))
+    s, i = pm._tax_table(tab, "strategy"), pm._tax_table(tab, "index")
+    assert list(s.columns) == ["tax_paid", "tax_dividends"] and s.iloc[0, 0] == 0.0 and i.iloc[0, 0] == 2.0
+    assert pm._tax_table(tab[["strategy"]], "index") is None
+
+
+def test_history_generator_needs_the_horizon_inside_the_history():
+    with pytest.raises(ValueError, match="history"):
+        pm.simulate(hist(24), mid_month_flows(24), "2003-12-31", n_paths=2, generator="history")
+    mc = pm.simulate(hist(24), mid_month_flows(24), "2001-12-31", n_paths=2, generator="history")
+    assert mc.terminal["strategy_pre"].nunique() == 1
+
+
 # --------------------------------------------------------------------------- plots
 def test_plot_smoke_every_figure_has_legend_and_the_index():
     from screenlab.research import plan_plots as pp

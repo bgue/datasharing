@@ -177,7 +177,7 @@ def test_prices_doubling_between_flows_xirr_exact():
 
 def test_withdrawal_realizing_a_gain_exact_in_the_ledger():
     lab = make_lab("2020-07-01", 2.0, cost_bps=0, tax=TaxConfig(model=MODEL, account="taxable"))
-    r = run_plan(lab, spec(initial=1000, end="2021-12-31", extra=(CashFlow("2020-07-01", -500),)))
+    r = run_plan(lab, spec(initial=1000, end="2021-12-31", extra=(CashFlow("2020-07-01", -500),), tax_from_outside=True))
     t = r.tax["strategy"]
     # 2020-07-01: value 2000, sells 500 = 25% of every holding: gain 500 - 0.25 x 1000 = 250; the rest (1500 vs basis 750) at the end
     assert t.loc[2020, "realized_gains"] == pytest.approx(250.0, rel=1e-12)
@@ -247,7 +247,7 @@ def test_hold_cash_earns_the_accrual_rate_until_the_rebalance():
 def test_hold_interest_is_taxed_as_income_in_a_taxable_account():
     tx = TaxConfig(model=MODEL, account="taxable")
     lab = make_lab(cost_bps=0, cash_rate=0.05, tax=tx)
-    r = run_plan(lab, spec(initial=1000, end="2021-12-31", extra=(CashFlow("2020-07-01", 500),), cash_timing="hold"))
+    r = run_plan(lab, spec(initial=1000, end="2021-12-31", extra=(CashFlow("2020-07-01", 500),), cash_timing="hold", tax_from_outside=True))
     yrs = (pd.Timestamp("2021-01-01") - pd.Timestamp("2020-07-01")).days / 365.25
     interest = 500 * (1.05 ** yrs - 1)
     got = r.tax["strategy"]["interest_income"].sum()
@@ -367,3 +367,94 @@ def test_spec_round_trips_through_serialization():
     assert from_dict(to_dict(sp)) == sp
     with pytest.raises(ValueError):
         PlanSpec("dogs", "1990-01-02", frequency="weekly")
+
+
+# ------------------------------------------------------------------------------------------------ one tax basis
+def _taxable(**kw):
+    return make_lab("2020-07-01", 2.0, cost_bps=0, tax=TaxConfig(model=MODEL, account="taxable", **kw))
+
+
+def test_tax_from_the_portfolio_one_year_of_gains_reconciles_with_the_ledger():
+    """1000 in, doubled by 2020-07-01, 500 withdrawn (25% of every holding: gain 250, tax 0.20 x 250 = 50 paid at the
+    2020 year end FROM the portfolio: 1500 -> 1450, the cost base 750 -> 725), flat in 2021; the 2021 end liquidates:
+    gain 1450 - 725 = 725, tax 145. After tax 1305. Paid from outside the account the same plan ends at 1500 - 50 - 150."""
+    sp = dict(initial=1000, end="2021-12-31", extra=(CashFlow("2020-07-01", -500),))
+    r = run_plan(_taxable(), spec(**sp))
+    s, t = r.series, r.tax["strategy"]
+    assert t.loc[2020, "tax_paid"] == pytest.approx(50.0, rel=1e-12) and t.loc[2021, "tax_paid"] == pytest.approx(145.0, rel=1e-12)
+    assert t.loc[2021, "realized_gains"] == pytest.approx(725.0, rel=1e-12)
+    assert t.loc[2021, "wealth_pre_tax"] == pytest.approx(1450.0, rel=1e-12)             # the portfolio that paid its 2020 tax
+    assert s["strategy_pre"].iloc[-1] == pytest.approx(1500.0, rel=1e-12)                # the same plan with no tax at all
+    assert s["strategy_after_tax"].loc["2020-12-30"] == pytest.approx(1500.0, rel=1e-12)  # the 2020 payment is on the last bar of the year
+    assert s["strategy_after_tax"].loc["2021-01-04"] == pytest.approx(1450.0, rel=1e-12)
+    assert s["strategy_after_tax"].iloc[-1] == pytest.approx(1500.0 - 50.0 - 145.0, rel=1e-12)
+    assert r.metrics.loc["strategy", "FinalAfterTax"] == pytest.approx(1305.0, rel=1e-12)
+    assert r.metrics.loc["strategy", "TaxPaid"] == pytest.approx(195.0, rel=1e-12)
+    # units on the after-tax NAV: V = (sum of units) x NAV exactly, on the day before the final settlement and on the last bar
+    u = r.flows["strategy_units"]
+    assert list(u.round(9)) == [1000.0, -250.0]                                          # 500 sold at NAV 2.0
+    assert u.sum() * s["strategy_unit_after_tax"].iloc[-1] == pytest.approx(1305.0, rel=1e-12)
+    assert u.sum() * s["strategy_unit_after_tax"].iloc[-2] == pytest.approx(s["strategy_after_tax"].iloc[-2], rel=1e-12)
+    # the pre-tax NAV is the flow-free price path: V_pre = units bought on it x NAV
+    assert s["strategy_unit"].iloc[-1] == pytest.approx(2.0, rel=1e-12)
+
+
+def test_tax_from_outside_restores_the_old_numbers():
+    r = run_plan(_taxable(), spec(initial=1000, end="2021-12-31", extra=(CashFlow("2020-07-01", -500),), tax_from_outside=True))
+    t = r.tax["strategy"]
+    assert t.loc[2021, "tax_paid"] == pytest.approx(150.0, rel=1e-12) and t.loc[2021, "realized_gains"] == pytest.approx(750.0, rel=1e-12)
+    assert r.metrics.loc["strategy", "FinalAfterTax"] == pytest.approx(1300.0, rel=1e-12)
+    assert r.series["strategy_after_tax"].loc["2021-01-04"] == pytest.approx(1450.0, rel=1e-12)
+    assert "strategy_unit_after_tax" not in r.series
+    assert r.extras["tax_basis"] == "outside" and any("outside the account" in n for n in r.card.notes)
+
+
+def test_tax_from_outside_after_tax_is_floored_at_zero_and_the_dates_are_on_the_card():
+    days = DATES
+    px = pd.DataFrame({t: np.select([days < "2020-07-01", days < "2021-03-01", days < "2021-09-01"], [1.0, 2.0, 0.05], 2.0)
+                       for t in "ABC"}, index=days)
+    fund = pd.DataFrame([dict(date=pd.Timestamp("2020-01-01"), ticker=t, sector="in", price=10.0, market_cap=1000.0, dividend=0.0)
+                         for t in "ABC"])
+    cfg = Config(rebalance_months=12, cost_bps=0, min_holdings=1, tax=TaxConfig(model=MODEL, account="taxable"))
+    lab = Lab(Market(add_ratios(fund), px), config=cfg)
+    lab.define(ScreenBuilder("all3", n=3).where("sector == 'in'").build())
+    # 1000 -> 2000; 1000 withdrawn on 2020-07-01 (gain 500, tax 100 at the 2020 year end); a crash to 25 in 2021-03..08, back to 1000
+    sp = dict(initial=1000, end="2021-12-31", extra=(CashFlow("2020-07-01", -1000),))
+    out = run_plan(lab, spec(**sp, tax_from_outside=True))
+    a = out.series["strategy_after_tax"]
+    assert (a >= 0).all() and a.min() == 0.0
+    bad = out.extras["floor_dates"]["strategy"]
+    assert bad[0] >= pd.Timestamp("2021-03-01") and bad[-1] < pd.Timestamp("2021-09-01")
+    assert any("floored at zero" in n and "strategy" in n and str(bad[0].date()) in n for n in out.card.notes)
+    assert a.iloc[-1] == pytest.approx(1000.0 - 100.0 - 100.0, rel=1e-12)            # 2020 tax 100, liquidation tax 0.2 x (1000 - 500)
+    inp = run_plan(lab, spec(**sp))                                                    # from the portfolio it cannot go negative
+    b = inp.series["strategy_after_tax"]
+    assert (b > 0).all() and not inp.extras["floor_dates"]
+    assert b.iloc[-1] == pytest.approx(900.0 - 0.2 * (900.0 - 450.0), rel=1e-12)       # the 2020 tax shrank the holding and its cost base
+
+
+def test_flow_steps_do_not_take_a_full_snapshot(monkeypatch):
+    lab = make_lab(cost_bps=0, tax=TaxConfig(model=MODEL, account="taxable"))
+    seen = []
+    orig = type(lab.market).view
+
+    def counting(self, asof):
+        seen.append(pd.Timestamp(asof))
+        return orig(self, asof)
+    monkeypatch.setattr(type(lab.market), "view", counting)
+    r = run_plan(lab, spec(initial=1000, periodic=100, end="2021-12-31"))
+    n_flows = int(r.flows["applied"].sum())
+    assert n_flows >= 24 and len(set(seen)) <= 4          # the 12-month rebalances (and nothing per flow or per tax payment)
+
+
+@pytest.mark.skipif(not __import__("screenlab.realdata.sp500_panel", fromlist=["x"]).available(), reason="S&P 500 panel not on this machine")
+def test_run_plan_cold_start_on_the_real_panel_is_fast_enough():
+    import time
+    from screenlab.taxes import CanadianTax
+    lab = Lab.real_sp500(start="1990-01-01", end="2022-12-30")
+    tx = TaxConfig(model=CanadianTax("AB", other_income=90_000), macro=lab.macro, account="taxable")
+    t0 = time.time()
+    r = lab.plan("dogs", "1990-01-02", tax=tx, end="2022-12-30", initial=10_000, periodic=500, growth="cpi", rebalance_months=12)
+    dt = time.time() - t0
+    print(f"run_plan cold start on the real panel: {dt:.1f} s")
+    assert dt < 40 and r.metrics.loc["strategy", "FinalAfterTax"] > 0        # target 20 s on a quiet machine; 60 s before the change

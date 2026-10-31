@@ -182,3 +182,16 @@ def test_lab_methods_take_live_objects():
     assert res.flows["kind"].tolist().count("extra") == 1 and res.spec.config.rebalance_months == 12
     mc = lab.plan_montecarlo("dogs", "2002-01-31", end="2006-12-31", initial=1000, periodic=100, n_paths=10, seed=1)
     assert len(mc.terminal) == 10
+
+
+def test_one_monte_carlo_implementation_and_the_tax_basis_option(client):
+    import screenlab.ops.plan as ops_plan
+    assert not hasattr(ops_plan, "monte_carlo") and not hasattr(ops_plan, "split_tax")          # the operation calls plan_mc
+    taxable = {**BODY, "tax": {"model": "canadian", "account": "taxable", "province": "AB"}}
+    a = client.post("/labs/synthetic/plan", json=taxable).json()
+    b = client.post("/labs/synthetic/plan", json={**taxable, "tax_from_outside": True}).json()
+    assert a["spec"]["tax_from_outside"] is False and b["spec"]["tax_from_outside"] is True
+    assert a["metrics"] != b["metrics"]                                                         # the two bases differ
+    mc = client.post("/labs/synthetic/plan_montecarlo", json={**taxable, "n_paths": 6, "seed": 2, "generator": "history",
+                                                              "horizon_end": "2008-12-31"})
+    assert mc.status_code == 200, mc.text

@@ -56,6 +56,9 @@ class PlanRequest:
     goal: float | None = arg(None, "target final value in dollars, nominal, after tax")
     risk_free: float | Literal["us10y", "ca10y"] = arg("us10y", "risk-free rate for Sharpe and alpha: a series name or a constant annual rate")
     inflation: float | Literal["auto", "us", "ca"] = arg("auto", "inflation: 'auto' (CA CPI if loaded, else US CPI with a warning), 'us', 'ca' or a constant annual rate")
+    tax_from_outside: bool = arg(False, "pay the tax from money outside the account (the older basis: after-tax value = pre-tax value "
+                                        "less the tax paid so far, never credited with growth); default: the tax is paid FROM the "
+                                        "portfolio at each year's last bar, as in every other backtest and in the Monte Carlo")
     label: str = arg("", "free text carried on the result")
     tax: TaxRequest | None = arg(None, "account and tax settings {model, account, province, other_income, rrsp_withdrawal_rate, ...}; "
                                        "without tax every figure is pre-tax")
@@ -72,7 +75,8 @@ class PlanArgs(PlanRequest):
 class PlanMCArgs(PlanRequest):
     """`plan_montecarlo`: the plan plus the study settings."""
     n_paths: int = arg(1000, "number of resampled paths")
-    generator: Literal["block", "stationary", "regime", "iid"] = arg("block", "return resampler: 12-month blocks, stationary bootstrap, regime blocks or iid months")
+    generator: Literal["block", "stationary", "regime", "iid", "history"] = arg("block", "return resampler: 12-month blocks, stationary bootstrap, regime blocks or iid months; "
+                                                                                       "'history' replays the recorded months in order (reproduces the straight calculation)")
     seed: int = arg(0, "random seed (path k depends on the seed and k only)")
     horizon_end: str | None = arg(None, "last date of the paths (default: `end`, else the last data month)")
 
@@ -158,19 +162,20 @@ def _plan_kw(lab, a) -> dict:
                       withdraw_from=wf, withdraw_growth=_growth("withdraw_growth", a.withdraw_growth),
                       cash_timing=a.cash_timing, index_mer=_num("index_mer", a.index_mer, lo=0.0, hi=0.5),
                       goal=None if a.goal is None else _num("goal", a.goal, lo=0.0, strict_lo=True),
-                      risk_free=rf, inflation=infl, label=a.label or None, **cfg))
+                      risk_free=rf, inflation=infl, label=a.label or None,
+                      tax_from_outside=bool(a.tax_from_outside) or None, **cfg))
 
 
 def make_spec(lab, screen, start, *, end=None, initial=0.0, periodic=0.0, frequency="monthly", growth=0.0, extra=None,
               withdrawals=0.0, withdraw_from=None, withdraw_growth=0.0, cash_timing="invest", index_mer=0.0005, goal=None,
-              risk_free="us10y", inflation="auto", label="", **cfg):
+              risk_free="us10y", inflation="auto", label="", tax_from_outside=False, **cfg):
     """The `plan.PlanSpec` of the keywords both operations take (`cfg`: Config overrides, `tax` included)."""
     from ..plan import PlanSpec
     return PlanSpec(screen=screen, start=str(start)[:10], config=lab._cfg(**cfg), end=None if end is None else str(end)[:10],
                     initial=initial, periodic=periodic, frequency=frequency, growth=growth, extra=_flows(extra),
                     withdrawals=withdrawals, withdraw_from=None if withdraw_from is None else str(withdraw_from)[:10],
                     withdraw_growth=withdraw_growth, cash_timing=cash_timing, index_mer=index_mer, goal=goal,
-                    risk_free=risk_free, inflation=inflation, label=label)
+                    risk_free=risk_free, inflation=inflation, label=label, tax_from_outside=bool(tax_from_outside))
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -181,7 +186,7 @@ def spec_json(spec) -> dict:
     tx = getattr(cfg, "tax", None)
     out = {k: scalar(getattr(spec, k)) for k in ("screen", "start", "end", "initial", "periodic", "frequency", "growth",
                                                  "withdrawals", "withdraw_from", "withdraw_growth", "cash_timing", "index_mer",
-                                                 "goal", "risk_free", "inflation", "label")}
+                                                 "goal", "risk_free", "inflation", "tax_from_outside", "label")}
     out["extra"] = [{"date": f.date, "amount": scalar(f.amount), "note": f.note} for f in spec.extra]
     out["account"] = getattr(tx, "account", None)
     out["rebalance_months"] = getattr(cfg, "rebalance_months", None)
@@ -257,69 +262,9 @@ def scalar_dict(d) -> dict:
 
 
 # ---------------------------------------------------------------------------------------------------
-# the Monte Carlo entry point
+# the operations call `plan_mc.plan_montecarlo` directly (one Monte Carlo implementation; it takes a `PlanResult` so that a
+# caller who has the straight run does not repeat it)
 # ---------------------------------------------------------------------------------------------------
-def split_tax(tax) -> dict | None:
-    """`PlanResult.tax` (columns MultiIndex (leg, column)) as {"strategy": frame, "index": frame}, the shape
-    `plan_mc.rates_from_table` reads. DEV: `plan_mc.plan_montecarlo` passes the MultiIndex frame through whole, which
-    leaves both legs untaxed on the paths, so the operation does the split itself (this function and `monte_carlo`)."""
-    if tax is None:
-        return None
-    if isinstance(tax, dict):
-        return tax
-    if isinstance(tax.columns, pd.MultiIndex):
-        return {leg: tax[leg].dropna(how="all") for leg in tax.columns.get_level_values(0).unique()}
-    return {"strategy": tax}
-
-
-def monte_carlo(lab, spec, n_paths=1000, generator="block", seed=0, horizon_end=None):
-    """`plan_mc.plan_montecarlo` with the tax tables split by leg and the plan's own tax conventions (final gains
-    realized, as `plan.run_plan` forces) so that the after-tax columns are taxed. Same arguments and result."""
-    from ..montecarlo import plan_mc as pm
-    res = _plan_module.run_plan(lab, spec)
-    m, ser = res.monthly, res.series
-    if m is None or len(m) < 3:
-        raise ValueError("the straight run has fewer than 3 months of history")
-    warn: list = []
-    if "cpi_deflator" in ser and ser["cpi_deflator"].notna().any():
-        infl = ser["cpi_deflator"].resample("ME").last().ffill().pct_change().reindex(m.index).fillna(0.0)
-    else:
-        infl = pd.Series(0.0, index=m.index)
-        warn.append("no CPI series in the straight run: real values equal nominal")
-    monthly = pd.DataFrame({"strategy": m["strategy"], "index": m["index"], "rf": m["rf"].fillna(0.0), "cpi": infl}
-                           ).dropna(subset=["strategy", "index"])
-    data_end = monthly.index[-1]
-    end = pd.Timestamp(horizon_end or spec.end or data_end)
-    if end > data_end:
-        warn.append(f"horizon {end.date()} is past the last data month {data_end.date()}: the extra months are resampled")
-    days = pd.bdate_range(pd.Timestamp(spec.start), end)
-    cp = None
-    if "cpi_deflator" in ser:
-        d = ser["cpi_deflator"].dropna()
-        extra = pd.bdate_range(d.index[-1] + pd.Timedelta(days=1), end)
-        if len(extra):
-            ext = d.iloc[-1] * (1.0 + float(monthly["cpi"].mean())) ** (((extra - d.index[-1]).days) / 30.4375)
-            cp = pd.concat([d, pd.Series(np.asarray(ext), index=extra)])
-        else:
-            cp = d
-    sched = _plan_module.schedule(spec, days, cp)
-    sched = sched[pd.to_datetime(sched["executed"]) <= end]
-    cfg = spec.config if spec.config is not None else lab.config
-    tax_cfg = getattr(cfg, "tax", None)
-    if tax_cfg is not None:
-        tax_cfg = replace(tax_cfg, capital=1.0, pay_from_portfolio=False, liquidate_at_end=True)     # as run_plan
-    else:
-        warn.append("no tax config: after-tax = pre-tax")
-    tables = split_tax(res.tax)
-    rates = {}
-    for leg in pm.LEGS:
-        rates[leg] = pm.rates_from_table(tables.get(leg) if tables else None, ser[f"{leg}_pre"], tax_cfg)
-        if tax_cfg is not None and rates[leg] is None:
-            warn.append(f"no {leg} tax table in the straight run: that leg is untaxed on the paths")
-    return pm.simulate(monthly, sched, end, rates=rates, goal=spec.goal, n_paths=n_paths, generator=generator,
-                       seed=seed, warnings=warn)
-
-
 # ---------------------------------------------------------------------------------------------------
 # the operations
 # ---------------------------------------------------------------------------------------------------
@@ -330,13 +275,13 @@ class Plan(Operation):
     takes_max_points = False
     registry_order = ("screen", "start", "end", "initial", "periodic", "frequency", "growth", "extra", "withdrawals",
                       "withdraw_from", "withdraw_growth", "cash_timing", "index_mer", "goal", "risk_free", "inflation",
-                      "label", "tax", "config", "lab", "daily")
+                      "tax_from_outside", "label", "tax", "config", "lab", "daily")
     Args = PlanArgs
 
     def run(self, lab, screen, start, end=None, initial: float = 0.0, periodic: float = 0.0, frequency: str = "monthly",
             growth=0.0, extra=None, withdrawals: float = 0.0, withdraw_from=None, withdraw_growth=0.0,
             cash_timing: str = "invest", index_mer: float = 0.0005, goal=None, risk_free="us10y", inflation="auto",
-            label: str = "", daily: bool = False, **cfg):
+            label: str = "", tax_from_outside: bool = False, daily: bool = False, **cfg):
         """The straight calculation of a plan (see plan.py, docs/PLAN.md); returns a `plan.PlanResult`.
 
         `screen` is a screen name, `start` the first investment date; `extra` is a list of `CashFlow` or
@@ -346,7 +291,8 @@ class Plan(Operation):
         return run_plan(lab, make_spec(lab, screen, start, end=end, initial=initial, periodic=periodic, frequency=frequency,
                                        growth=growth, extra=extra, withdrawals=withdrawals, withdraw_from=withdraw_from,
                                        withdraw_growth=withdraw_growth, cash_timing=cash_timing, index_mer=index_mer,
-                                       goal=goal, risk_free=risk_free, inflation=inflation, label=label, **cfg))
+                                       goal=goal, risk_free=risk_free, inflation=inflation, label=label,
+                                       tax_from_outside=tax_from_outside, **cfg))
 
     def build(self, lab, a) -> dict:
         return {**_plan_kw(lab, a), **({"daily": True} if a.daily else {})}
@@ -367,14 +313,17 @@ class PlanMonteCarlo(Operation):
     def run(self, lab, screen, start, end=None, initial: float = 0.0, periodic: float = 0.0, frequency: str = "monthly",
             growth=0.0, extra=None, withdrawals: float = 0.0, withdraw_from=None, withdraw_growth=0.0,
             cash_timing: str = "invest", index_mer: float = 0.0005, goal=None, risk_free="us10y", inflation="auto",
-            label: str = "", n_paths: int = 1000, generator: str = "block", seed: int = 0, horizon_end=None, **cfg):
+            label: str = "", tax_from_outside: bool = False, n_paths: int = 1000, generator: str = "block", seed: int = 0,
+            horizon_end=None, result=None, **cfg):
         """Monte Carlo study of a plan (montecarlo/plan_mc.py); returns a `plan_mc.PlanMC`. Arguments as `plan`, plus
-        the number of paths, the resampler (block | stationary | regime | iid), the seed and the last date of the paths."""
+        the number of paths, the resampler (block | stationary | regime | iid | history), the seed and the last date of the
+        paths. `result`: the `plan.PlanResult` of the same plan, when the caller has it (not repeated)."""
         spec = make_spec(lab, screen, start, end=end, initial=initial, periodic=periodic, frequency=frequency,
                          growth=growth, extra=extra, withdrawals=withdrawals, withdraw_from=withdraw_from,
                          withdraw_growth=withdraw_growth, cash_timing=cash_timing, index_mer=index_mer, goal=goal,
-                         risk_free=risk_free, inflation=inflation, label=label, **cfg)
-        mc = monte_carlo(lab, spec, n_paths=n_paths, generator=generator, seed=seed, horizon_end=horizon_end)
+                         risk_free=risk_free, inflation=inflation, label=label, tax_from_outside=tax_from_outside, **cfg)
+        from ..montecarlo.plan_mc import plan_montecarlo
+        mc = plan_montecarlo(lab, spec, n_paths=n_paths, generator=generator, seed=seed, horizon_end=horizon_end, result=result)
         mc.spec = spec
         return mc
 
@@ -384,8 +333,8 @@ class PlanMonteCarlo(Operation):
         he = parse_date("horizon_end", a.horizon_end)
         if he is not None and pd.Timestamp(he) <= pd.Timestamp(a.start):
             raise ServerError(400, f"`horizon_end` ({he}) must be after `start` ({a.start})")
-        if a.generator not in ("block", "stationary", "regime", "iid"):
-            raise ServerError(400, f"`generator` must be block, stationary, regime or iid, got {a.generator!r}")
+        if a.generator not in ("block", "stationary", "regime", "iid", "history"):
+            raise ServerError(400, f"`generator` must be block, stationary, regime, iid or history, got {a.generator!r}")
         return {**_plan_kw(lab, a), "n_paths": a.n_paths, "generator": a.generator, "seed": a.seed,
                 **({"horizon_end": he} if he else {})}
 

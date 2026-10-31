@@ -16,7 +16,17 @@ unit of analysis is the year; and 1000 paths x 30 years x 4 series stays small. 
 (biweekly flows, a mid-month start) is placed at its day fraction `f` of the month and grows by `(1 + r)**(1 - f)`
 for that month's return `r`, so intra-month timing is kept without daily returns.
 
-Tax is approximated, not re-simulated (no lots, no screens on the path): the straight run's tax table gives, per
+Tax basis (item "one tax basis"): the straight run pays its tax FROM the portfolio (`PlanSpec.tax_from_outside=False`), and
+so does every path. The straight run records, per leg and calendar year, the share of the portfolio it paid in tax at the
+year's last bar (`PlanResult.extras["settle"]`); the replay pays the same shares at the same months (December, and the last
+simulated month), and at the end the RRSP balance tax or, taxable, the tax on the liquidated gain (`gain_eff` x (wealth -
+net contributions), calibrated so that the history gives the straight run's liquidation tax). With `generator="history"`
+the recorded returns replay in their own order and every flow grows by the straight run's own daily NAV, so the terminal
+after-tax value equals the straight run's `FinalAfterTax` (tested to 1e-9 relative, TFSA / RRSP / taxable).
+With `tax_from_outside` the straight run's table cannot be read as shares of the portfolio: the older approximation
+below is used and the card says so.
+
+Older approximation (legacy and `tax_from_outside`; no lots, no screens on the path): the straight run's tax table gives, per
 calendar year, the dividend / foreign / interest tax and the realized-gain tax as a share of that year's mean
 pre-tax wealth; on every path the after-tax wealth is the pre-tax recursion less the same monthly drag (tax paid
 from the portfolio). Account: TFSA no drag; RRSP the straight run's (usually nil) drag and, at the end, the balance
@@ -92,10 +102,11 @@ class FlowGrid:
     step: np.ndarray
     frac: np.ndarray
     amount: np.ndarray
+    exact: dict | None = None        # leg -> growth of one dollar from the flow to the month end (history replay only; NaN: use frac)
 
     @classmethod
-    def make(cls, step, frac, amount) -> "FlowGrid":
-        return cls(np.asarray(step, int), np.asarray(frac, float), np.asarray(amount, float))
+    def make(cls, step, frac, amount, exact=None) -> "FlowGrid":
+        return cls(np.asarray(step, int), np.asarray(frac, float), np.asarray(amount, float), exact)
 
 
 @dataclass(frozen=True)
@@ -107,6 +118,22 @@ class TaxRates:
     gain_eff: float = 0.0                 # tax per $ of realized gain (end-of-plan liquidation)
     rrsp: float = 0.0                     # RRSP withdrawal rate on the end balance
     liquidate: bool = False
+    settle: pd.Series = field(default_factory=lambda: pd.Series(dtype=float))   # by year: share of the portfolio paid at the year's last month
+
+    def settlement(self, dates: pd.DatetimeIndex) -> np.ndarray:
+        """Share of the portfolio paid in tax at each grid month: the year's share in every December and in the last month
+        (a year past the straight run's table repeats its last year)."""
+        n = len(dates)
+        out = np.zeros(n)
+        if not len(self.settle):
+            return out
+        yrs = dates.year.to_numpy()
+        s = self.settle.sort_index()
+        full = s.reindex(range(min(int(s.index.min()), int(yrs.min())), max(int(s.index.max()), int(yrs.max())) + 1)).ffill().bfill()
+        for k in range(1, n):
+            if dates[k].month == 12 or k == n - 1:
+                out[k] = float(full.loc[int(yrs[k])])
+        return out
 
     def monthly_drag(self, years: np.ndarray) -> np.ndarray:
         d = (self.div.add(self.gain, fill_value=0.0)).sort_index()
@@ -119,21 +146,28 @@ class TaxRates:
 
 
 # --------------------------------------------------------------------------- the replay kernel
-def replay(r: np.ndarray, grid: FlowGrid, rates: TaxRates | None = None, dates: pd.DatetimeIndex | None = None):
+def replay(r: np.ndarray, grid: FlowGrid, rates: TaxRates | None = None, dates: pd.DatetimeIndex | None = None,
+           leg: str | None = None):
     """Wealth of one leg on paths `r` [P, N] of monthly returns (column 0 is the anchor, ignored), flows `grid`.
 
     Returns pre [P, N], after [P, N] (pre less the tax drag; no liquidation), basis [P] (net contributions at cost).
-    v_k = v_{k-1}(1 + r_k) + sum_i a_i (1 + r_k)^(1 - f_i), floored at 0.
+    v_k = v_{k-1}(1 + r_k) + sum_i a_i (1 + r_k)^(1 - f_i), floored at 0. With `grid.exact[leg]` (history replay) the factor
+    (1 + r_k)^(1 - f_i) is the leg's own growth from the flow to the month end. The tax of `rates.settle` is paid at the grid
+    months as a share of the after-tax wealth (and of its cost base); without it the older monthly drag applies.
     """
     r = np.atleast_2d(np.asarray(r, float))
     P, N = r.shape
-    drag = np.zeros(N)
+    drag, pay = np.zeros(N), np.zeros(N)
     if rates is not None and dates is not None:
-        drag = rates.monthly_drag(dates.year.to_numpy())
+        if len(rates.settle):
+            pay = rates.settlement(dates)
+        else:
+            drag = rates.monthly_drag(dates.year.to_numpy())
+    ex = grid.exact.get(leg) if grid.exact and leg else None
     by = {}
-    for k, f, a in zip(grid.step, grid.frac, grid.amount):
+    for j, (k, f, a) in enumerate(zip(grid.step, grid.frac, grid.amount)):
         if 1 <= k < N:
-            by.setdefault(int(k), []).append((float(f), float(a)))
+            by.setdefault(int(k), []).append((float(f), float(a), float(ex[j]) if ex is not None else float("nan")))
     pre = np.zeros((P, N))
     aft = np.zeros((P, N))
     v = np.zeros(P)
@@ -143,8 +177,8 @@ def replay(r: np.ndarray, grid: FlowGrid, rates: TaxRates | None = None, dates: 
         g = 1.0 + r[:, k]
         v = v * g
         w = w * g
-        for f, a in by.get(k, ()):
-            amt = a * g ** (1.0 - f)
+        for f, a, x in by.get(k, ()):
+            amt = a * (x if x == x else g ** (1.0 - f))
             if a < 0:
                 with np.errstate(invalid="ignore", divide="ignore"):
                     cut = np.where(w > 0, np.minimum(1.0, -amt / np.where(w > 0, w, 1.0)), 1.0)
@@ -154,6 +188,9 @@ def replay(r: np.ndarray, grid: FlowGrid, rates: TaxRates | None = None, dates: 
             v = np.maximum(v + amt, 0.0)
             w = np.maximum(w + amt, 0.0)
         w = w * (1.0 - drag[k])
+        if pay[k]:
+            w = w * (1.0 - pay[k])
+            basis = basis * (1.0 - pay[k])
         pre[:, k] = v
         aft[:, k] = w
     return pre, aft, basis
@@ -214,6 +251,9 @@ def _worst12_group(r: np.ndarray) -> np.ndarray:
 def _tax_table(tab, leg: str):
     if tab is None:
         return None
+    if isinstance(tab, pd.DataFrame) and isinstance(tab.columns, pd.MultiIndex):       # PlanResult.tax: (leg, column)
+        legs = list(tab.columns.get_level_values(0).unique())
+        return tab[leg].dropna(how="all") if leg in legs else None
     if isinstance(tab, dict):
         if leg in tab:
             return tab[leg]
@@ -248,15 +288,25 @@ def rates_from_table(tab: pd.DataFrame | None, pre: pd.Series, cfg_tax: Any) -> 
 
 
 # --------------------------------------------------------------------------- generators and grids
+@dataclass(frozen=True)
+class HistoryReplay:
+    """Not a resampler: every path is the recorded history in its own order (months 1..N-1). With the straight run's
+    flows and tax it reproduces the straight run: the acceptance test that the two calculations share one basis."""
+    def to_dict(self) -> dict:
+        return {"__t": "HistoryReplay"}
+
+
 def make_generator(generator="block", block_months: float = 12):
     if not isinstance(generator, str):
         return generator
+    if generator == "history":
+        return HistoryReplay()
     g = {"block": lambda: BlockBootstrap(block_months=block_months),
          "stationary": lambda: StationaryBootstrap(mean_block_months=block_months),
          "regime": lambda: RegimeBootstrap(block_months=min(6, block_months)),
          "iid": lambda: IIDBootstrap()}.get(generator)
     if g is None:
-        raise ValueError(f"generator must be block|stationary|regime|iid or a generator object, got {generator!r}")
+        raise ValueError(f"generator must be block|stationary|regime|iid|history or a generator object, got {generator!r}")
     return g()
 
 
@@ -267,8 +317,10 @@ def month_grid(first_month_end: pd.Timestamp, end: pd.Timestamp) -> pd.DatetimeI
     return pd.date_range(e0, last, freq="ME")
 
 
-def flow_grid(flows: pd.DataFrame, E: pd.DatetimeIndex, warnings: list | None = None) -> FlowGrid:
-    """Flows (`date`, `amount`; a column `executed` / `executed_date` wins over `date`) on the month grid E."""
+def flow_grid(flows: pd.DataFrame, E: pd.DatetimeIndex, warnings: list | None = None, use_exact: bool = False) -> FlowGrid:
+    """Flows (`date`, `amount`; a column `executed` / `executed_date` wins over `date`) on the month grid E. With
+    `use_exact`, the columns `growth_strategy` / `growth_index` (the straight run's growth of one dollar from the flow to
+    its month's last bar) ride along for the history replay."""
     if flows is None or not len(flows):
         return FlowGrid.make([], [], [])
     dcol = next((c for c in ("executed", "executed_date", "exec_date", "date") if c in flows), "date")
@@ -281,7 +333,10 @@ def flow_grid(flows: pd.DataFrame, E: pd.DatetimeIndex, warnings: list | None = 
     dd = d[ok].reset_index(drop=True)
     lo, hi = E[k - 1].to_numpy(), E[k].to_numpy()
     frac = (dd.to_numpy() - lo) / (hi - lo)
-    return FlowGrid.make(k, np.clip(frac.astype(float), 0.0, 1.0), flows["amount"].to_numpy(float)[ok])
+    ex = None
+    if use_exact and "growth_strategy" in flows and "growth_index" in flows:
+        ex = {"strategy": flows["growth_strategy"].to_numpy(float)[ok], "index": flows["growth_index"].to_numpy(float)[ok]}
+    return FlowGrid.make(k, np.clip(frac.astype(float), 0.0, 1.0), flows["amount"].to_numpy(float)[ok], ex)
 
 
 # --------------------------------------------------------------------------- the study on a history
@@ -315,10 +370,17 @@ def simulate(monthly: pd.DataFrame, flows: pd.DataFrame, horizon_end, *, rates=N
     E = month_grid(monthly.index[0], pd.Timestamp(horizon_end))
     N = len(E)
     base = _history_dataset(monthly, E[0])
-    ps = gen.paths(base, int(n_paths), N / 12.0, seed, start=E[0])
-    R = ps.returns                                           # [P, N, 4]: strategy, index, rf, cpi (step 0 = 0)
+    history = isinstance(gen, HistoryReplay)
+    if history:
+        if N - 1 > len(monthly):
+            raise ValueError(f"generator='history' replays the recorded months: the horizon needs {N - 1}, the history has {len(monthly)}")
+        R = np.zeros((int(n_paths), N, 4))
+        R[:, 1:, :] = monthly.to_numpy()[None, :N - 1, :]
+    else:
+        ps = gen.paths(base, int(n_paths), N / 12.0, seed, start=E[0])
+        R = ps.returns                                       # [P, N, 4]: strategy, index, rf, cpi (step 0 = 0)
     assert R.shape[1] == N, (R.shape, N)
-    grid = flow_grid(flows, E, warnings)
+    grid = flow_grid(flows, E, warnings, use_exact=history)
     out = _evaluate(R[:, :, 0], R[:, :, 1], R[:, :, 3], grid, E, rates, goal)
     reversal = _reversal(monthly, flows, rates, E[0], warnings)
     card = _card(base, gen, seed, warnings + ([account_note] if account_note else []), cpi, N - 1)
@@ -331,8 +393,8 @@ def simulate(monthly: pd.DataFrame, flows: pd.DataFrame, horizon_end, *, rates=N
 
 def _evaluate(rs, ri, rc, grid, E, rates, goal) -> dict:
     rs_, ri_ = rates.get("strategy"), rates.get("index")
-    pre_s, aft_s, b_s = replay(rs, grid, rs_, E)
-    pre_i, aft_i, b_i = replay(ri, grid, ri_, E)
+    pre_s, aft_s, b_s = replay(rs, grid, rs_, E, "strategy")
+    pre_i, aft_i, b_i = replay(ri, grid, ri_, E, "index")
     N = len(E)
     ts = terminal_after_tax(aft_s[:, -1], b_s, rs_)
     ti = terminal_after_tax(aft_i[:, -1], b_i, ri_)
@@ -379,12 +441,13 @@ def _reversal(monthly, flows, rates, E0, warnings) -> pd.DataFrame:
     """Deterministic: the history's own returns in order vs the same returns reversed, same flows."""
     E = month_grid(monthly.index[0], monthly.index[-1])
     grid = flow_grid(flows, E, None)
+    grid_exact = flow_grid(flows, E, None, use_exact=True)           # the forward order is the recorded history: its own flow growth
     rows = {}
     for name, order in (("forward", slice(None)), ("reversed", slice(None, None, -1))):
         a = {}
         for leg in LEGS:
             r = np.r_[0.0, monthly[leg].to_numpy()[order]][None, :]
-            pre, aft, b = replay(r, grid, rates.get(leg), E)
+            pre, aft, b = replay(r, grid_exact if name == "forward" else grid, rates.get(leg), E, leg)
             a[f"{leg}_pre"] = float(pre[0, -1])
             a[f"{leg}_after_tax"] = float(terminal_after_tax(aft[:, -1], b, rates.get(leg))[0])
         rows[name] = a
@@ -408,12 +471,53 @@ def _first(df: pd.DataFrame, names):
     return next((c for c in names if c in df), None)
 
 
+def _hist_flows(res, ser) -> pd.DataFrame:
+    """The straight run's applied flows as the replay sees them: `date` = executed trading day, `amount` = what the
+    investor paid in (> 0) or received (< 0), plus the straight run's own growth of one dollar from the flow to the last
+    bar of its month, per leg (`growth_*`, exact for the history replay)."""
+    fl = res.flows[res.flows["applied"]]
+    amt = np.where(fl["amount"] > 0, fl["amount"], -fl["received"]).astype(float)
+    out = pd.DataFrame({"date": pd.to_datetime(fl["executed"]).to_numpy(), "amount": amt})
+    last = pd.Series(ser.index, index=ser.index).groupby(ser.index.to_period("M")).last()
+    L = pd.PeriodIndex(out["date"], freq="M")
+    for leg in LEGS:
+        u = ser[f"{leg}_unit"]
+        out[f"growth_{leg}"] = (u.reindex(last.reindex(L).to_numpy()).to_numpy() / u.reindex(out["date"]).to_numpy())
+    return out[out["amount"] != 0].reset_index(drop=True)
+
+
+def _settled_rates(res, leg: str, monthly, hist_flows, tax_cfg, warn: list) -> TaxRates:
+    """TaxRates of a leg from the straight run's own payments (tax paid from the portfolio): the share paid at each
+    year's last bar, the RRSP rate, and `gain_eff` calibrated so that replaying the history gives the straight run's
+    tax on the liquidation."""
+    info = res.extras["settle"][leg]
+    acct = getattr(tax_cfg, "account", "taxable")
+    rr = 0.0
+    if acct == "rrsp":
+        f = getattr(tax_cfg, "rrsp_rate", None)
+        rr = float(f() if callable(f) else (getattr(tax_cfg, "rrsp_withdrawal_rate", 0.0) or 0.0)) or 0.0
+    tr = TaxRates(acct, gain_eff=0.0, rrsp=rr, liquidate=True, settle=info["frac"])
+    liq = float(info["liquidation_tax"])
+    if acct == "taxable" and liq != 0.0:
+        E = month_grid(monthly.index[0], monthly.index[-1])
+        grid = flow_grid(hist_flows, E, None, use_exact=True)
+        r = np.r_[0.0, monthly[leg].to_numpy()][None, :]
+        _, aft, b = replay(r, grid, tr, E, leg)
+        gain = float(max(aft[0, -1] - b[0], 0.0))
+        tr = replace(tr, gain_eff=liq / gain if gain > 0 else 0.0)
+        if gain <= 0:
+            warn.append(f"{leg}: the straight run paid tax on the liquidation but the replayed history shows no gain over net contributions")
+    return tr
+
+
 def plan_montecarlo(lab, spec, n_paths: int = 1000, generator="block", seed: int = 0, horizon_end=None,
-                    cpi: str = "joint", block_months: float = 12) -> PlanMC:
+                    cpi: str = "joint", block_months: float = 12, result=None) -> PlanMC:
     """Monte Carlo study of `spec` (a `plan.PlanSpec`) on `lab`: see the module doc. Horizon = `horizon_end`, else
-    `spec.end`, else the end of the straight run's history."""
+    `spec.end`, else the end of the straight run's history. `result`: the `plan.PlanResult` of `spec` when the caller has
+    it (the straight run is then not repeated). `generator="history"` replays the recorded months in order (see
+    `HistoryReplay`)."""
     from .. import plan as _plan
-    res = _plan.run_plan(lab, spec)
+    res = result if result is not None else _plan.run_plan(lab, spec)
     m = res.monthly
     if m is None or len(m) < 3:
         raise ValueError("the straight run has fewer than 3 months of history")
@@ -443,14 +547,35 @@ def plan_montecarlo(lab, spec, n_paths: int = 1000, generator="block", seed: int
         cp = pd.concat([d, pd.Series(np.asarray(ext), index=extra)]) if len(extra) else d
     sched = _plan.schedule(spec, days, cp)
     sched = sched[pd.to_datetime(sched[_first(sched, ("executed", "executed_date", "exec_date", "date"))]) <= end]
+    hist_flows = None
+    if getattr(res, "flows", None) is not None and "applied" in res.flows and "growth_strategy" not in sched:
+        # the history part of the schedule is the straight run's own flows (its executed days, what was paid / received);
+        # only flows after its last bar come from the schedule
+        hist_flows = _hist_flows(res, ser)
+        last_bar = ser.index[-1]
+        fut = sched[pd.to_datetime(sched["executed"]) > last_bar][["executed", "amount"]].rename(columns={"executed": "date"})
+        hist_flows = hist_flows[pd.to_datetime(hist_flows["date"]) <= end]
+        sched = pd.concat([hist_flows, fut], ignore_index=True)
     cfg = getattr(spec, "config", None) or getattr(lab, "config", None)
-    tax_cfg = getattr(cfg, "tax", None)
+    tax_cfg = (res.extras or {}).get("tax_cfg") if getattr(res, "extras", None) else None
+    if tax_cfg is None:
+        tax_cfg = _plan.plan_tax_config(getattr(cfg, "tax", None), bool(getattr(spec, "tax_from_outside", False)))
     rates = {}
     if tax_cfg is None:
         warn.append("no tax config: after-tax = pre-tax")
-    for leg in LEGS:
-        rates[leg] = rates_from_table(_tax_table(getattr(res, "tax", None), leg), ser[f"{leg}_pre"], tax_cfg)
-        if tax_cfg is not None and rates[leg] is None:
-            warn.append(f"no {leg} tax table in the straight run: that leg is untaxed on the paths")
+    settled = tax_cfg is not None and hist_flows is not None and "settle" in (getattr(res, "extras", None) or {})
+    if settled:
+        for leg in LEGS:
+            rates[leg] = _settled_rates(res, leg, monthly, hist_flows, tax_cfg, warn)
+        warn.append("tax: paid from the portfolio on every path, as the share of the portfolio the straight run paid in each calendar "
+                    "year; the end tax (RRSP balance, or the gain over net contributions when taxable) is calibrated on the straight run")
+    else:
+        if tax_cfg is not None and getattr(spec, "tax_from_outside", False):
+            warn.append("tax_from_outside: the straight run pays its tax from outside the account; on the paths the tax comes out of "
+                        "the portfolio (effective rates by year), so the two bases differ")
+        for leg in LEGS:
+            rates[leg] = rates_from_table(_tax_table(getattr(res, "tax", None), leg), ser[f"{leg}_pre"], tax_cfg)
+            if tax_cfg is not None and rates[leg] is None:
+                warn.append(f"no {leg} tax table in the straight run: that leg is untaxed on the paths")
     return simulate(monthly, sched, end, rates=rates, goal=getattr(spec, "goal", None), n_paths=n_paths,
                     generator=generator, seed=seed, cpi=cpi, block_months=block_months, warnings=warn)

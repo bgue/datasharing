@@ -217,6 +217,9 @@ class TaxStage:
         self._last_mv = pd.Series(dtype=float)
         self._last_park = 0.0
         self._mkt, self._fx, self._fx0, self._warn = None, None, None, []      # P3
+        self._info_memo: dict = {}
+        self.settled = False                         # plan.py: tax paid from the portfolio WITH flows (see `year_pay`)
+        self.liquidation_tax = 0.0
         self.on_switch = None                        # Q3: callback(date, names, gains, cost sold, proceeds, value kept) at an exit switch
 
     # ---- P3: security metadata, foreign dividends and the CAD basis
@@ -232,7 +235,19 @@ class TaxStage:
 
     def _info(self, names, snap: pd.DataFrame) -> pd.DataFrame:
         """P3: `TaxConfig.foreign_info` for `names`, security_meta filling what the snapshot lacks; records the
-        missing-FX warnings."""
+        missing-FX warnings. The last few answers are kept per (snapshot, names): the flow steps of a plan ask again and
+        again for the same names on the same snapshot."""
+        key = (id(snap), tuple(names))
+        hit = self._info_memo.get(key)
+        if hit is not None and hit[0] is snap:
+            return hit[1]
+        info = self._info_compute(names, snap)
+        if len(self._info_memo) >= 16:
+            self._info_memo.pop(next(iter(self._info_memo)))
+        self._info_memo[key] = (snap, info)
+        return info
+
+    def _info_compute(self, names, snap: pd.DataFrame) -> pd.DataFrame:
         base = snap.reindex(names) if len(snap) else pd.DataFrame(index=pd.Index(names))
         meta = getattr(getattr(self._mkt, "dataset", None), "security_meta", None)
         if meta is not None:
@@ -420,12 +435,13 @@ class TaxStage:
     # PA: external cash flows (plan.py). The ledger is in dollars of the plan (capital = 1): a contribution adds cost basis,
     # a withdrawal sells the same share of every holding (pro rata) and realizes gain = proceeds - cost - basis sold.
     def external_flow(self, d, amount: float, value: float, e: float, prev: pd.Series, target: pd.Series,
-                      cost: pd.Series | None = None, trade_follows: bool = False) -> None:
+                      cost: pd.Series | None = None, trade_follows: bool = False, snap: pd.DataFrame | None = None) -> None:
         """A dated flow of `amount` dollars at `d` into (> 0) or out of (< 0, the GROSS value sold) the portfolio, whose
         value before the flow was `value`, equity share `e`, drifted sleeve weights `prev`. `target` = the weights the
         contribution buys (sleeve weights), `cost` = trading cost per name in dollars (a purchase's cost goes into the
         cost base, a sale's cost comes out of the proceeds, as in `trade`). `trade_follows`: the contribution joins a
-        rebalance trade of the same date that buys it (only the parked share's basis is booked here)."""
+        rebalance trade of the same date that buys it (only the parked share's basis is booked here). `snap`: the snapshot the
+        security metadata is read from (default: the market's view of `d`; the simulation passes the last full one)."""
         if self.pb is None:
             self.pb = value * (1 - e)
         if amount >= 0:
@@ -435,7 +451,7 @@ class TaxStage:
             names = prev.index.union(target.index)
             t = target.reindex(names, fill_value=0.0).to_numpy()
             b = self.basis.reindex(names, fill_value=0.0).to_numpy()
-            F = self._fxf([d], self._info(names, self._mkt.view(d) if self._mkt is not None else pd.DataFrame()))[0]
+            F = self._fxf([d], self._info(names, snap if snap is not None else (self._mkt.view(d) if self._mkt is not None else pd.DataFrame())))[0]
             b = b + t * amount * e * F
             self.basis = pd.Series(b, index=names)[lambda x: (x != 0) | x.index.isin(prev.index) | x.index.isin(target.index)]
             return
@@ -445,12 +461,38 @@ class TaxStage:
         b = self.basis.reindex(names, fill_value=0.0).to_numpy()
         sell = p * value * e * s
         c = cost.reindex(names, fill_value=0.0).to_numpy(float) if cost is not None else np.zeros(len(names))
-        F = self._fxf([d], self._info(names, self._mkt.view(d) if self._mkt is not None else pd.DataFrame()))[0]
+        F = self._fxf([d], self._info(names, snap if snap is not None else (self._mkt.view(d) if self._mkt is not None else pd.DataFrame())))[0]
         self._gains(d, ((sell - c) * F - b * s)[sell > 1e-15])
         self.basis = pd.Series(b * (1 - s), index=names)[lambda x: (x != 0) | x.index.isin(prev.index)]
         if value * (1 - e) > 1e-15:
             self._gains(d, [s * (value * (1 - e) - self.pb)])
         self.pb *= 1 - s
+
+    # plan.py: tax paid from the portfolio while money keeps arriving. At each calendar year's last bar the simulation asks
+    # `year_pay` for the tax of the year on the events so far, sells that share of every holding (`scale`: the cost base
+    # shrinks with it, no gain is realized on the part sold) and continues on the smaller portfolio, so later flows and
+    # later events are on the portfolio that really exists.
+    def _events(self) -> pd.DataFrame:
+        ev = pd.concat(self._ev) if self._ev else pd.DataFrame()
+        return ev.groupby(level=0).sum() if len(ev) else ev
+
+    def year_pay(self, curve: pd.Series, d) -> float:
+        """The tax of the calendar year ending at the bar `d` (the year's tax, not the RRSP balance tax) on the events
+        recorded up to `d`, `curve` = the portfolio's value up to `d` (already net of the earlier years' tax)."""
+        from dataclasses import replace
+        from .taxes import assess
+        ev = self._events()
+        ev = ev[ev.index <= d] if len(ev) else ev
+        tab, _ = assess(curve[curve.index <= d], ev, replace(self.tax, pay_from_portfolio=False, liquidate_at_end=False),
+                        self.capital, warnings=[], settled=True)
+        row = tab.iloc[-1]
+        return float(row["tax_paid"] - row["tax_rrsp_withdrawal"])
+
+    def scale(self, s: float) -> None:
+        """A share `s` of every holding was sold to pay tax: the cost bases shrink with it."""
+        self.basis = self.basis * (1.0 - s)
+        if self.pb is not None:
+            self.pb *= 1.0 - s
 
     def hold_cash_interest(self, seg_index, cash0: float, cash_factor) -> None:
         """Interest on contributions parked in cash (`cash_timing="hold"`), ordinary income per bar."""
@@ -462,14 +504,23 @@ class TaxStage:
 
     def finish(self, curve: pd.Series, mkt=None) -> tuple:
         """(tax table per year, after-tax curve) for the pre-tax `curve`."""
+        from dataclasses import replace
         from .taxes import assess
+        tax0 = replace(self.tax, pay_from_portfolio=False) if self.settled else self.tax
+        ev0 = self._events() if self.settled else None
         if self.tax.liquidate_at_end:
             gains = list((self._last_mv - self.basis.reindex(self._last_mv.index, fill_value=0.0)).to_numpy())
             if self.pb is not None:
                 gains.append(self._last_park - self.pb)
             self._gains(curve.index[-1], gains)
-        ev = pd.concat(self._ev) if self._ev else pd.DataFrame()
-        ev = ev.groupby(level=0).sum() if len(ev) else ev
+        ev = self._events()
+        if self.settled:                                                               # plan.py: see year_pay
+            tab, after = assess(curve, ev, tax0, self.capital, warnings=self._warn, settled=True)
+            if self.tax.liquidate_at_end:                                              # the tax on the liquidation alone
+                t0, _ = assess(curve, ev0, tax0, self.capital, warnings=[], settled=True)
+                self.liquidation_tax = float(tab["tax_paid"].iloc[-1] - t0["tax_paid"].iloc[-1])
+            tab.attrs["liquidation_tax"] = self.liquidation_tax
+            return tab, after
         return assess(curve, ev, self.tax, self.capital, warnings=self._warn)          # P3
 
 

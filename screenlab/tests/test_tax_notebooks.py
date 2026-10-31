@@ -192,7 +192,7 @@ def test_plan_notebook_runs():                                   # PC: the plan 
     code_cells = [(i, "".join(c.source)) for i, c in enumerate(nb.cells) if c.cell_type == "code"]
     code = "\n".join(src for _, src in code_cells)
     assert 'Lab.real_sp500(start=START, end=END)' in code and 'START, END = "1990-01-01", "2022-12-30"' in code   # exactly these arguments: the cache is hit
-    assert "lab.plan(" in code and "lab.plan_montecarlo(" in code and 'growth="cpi"' in code and "withdrawals=3_000" in code
+    assert "lab.plan(" in code and "plan_mc.plan_montecarlo(" in code and "result=plans[a]" in code and "generator=\"history\"" in code and 'growth="cpi"' in code and "withdrawals=3_000" in code
     assert 'CashFlow("1999-03-01", 25_000' in code and 'CashFlow("2009-03-01", 15_000' in code and 'withdraw_from="2018-01-01"' in code
     assert "rrsp_withdrawal_rate=rrsp_rate" in code and "rrsp_rate=0.30" in code and "other_income=90_000" in code and "GOAL = 1_500_000" in code
     # the Summary: two computed paragraphs, right after the setup and the runs, before Section 1

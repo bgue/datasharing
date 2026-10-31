@@ -164,6 +164,7 @@ class Result:
     harvest: pd.DataFrame | None = None        # P2: loss-harvest records (harvesting.HARVEST_COLS); None without Config.tax.harvest
     flows: pd.DataFrame | None = None          # PA: external flows executed (index = date; columns amount, cost); None without flows
     cash_curve: pd.Series | None = None        # PA: uninvested cash per bar (cash_timing="hold"); None without flows
+    tax_payments: pd.DataFrame | None = None   # PA: tax paid from the portfolio at each year's last bar (paid, frac of the value); only with flows and pay_from_portfolio
 
     @property
     def returns(self) -> pd.Series:
@@ -250,7 +251,14 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
     withdrawal sells every holding pro rata (the cost is paid out of the sale: the investor receives `amount`); on a
     rebalance date the contribution joins the rebalance trade. `"hold"`: contributions wait in cash (Accrual rate, taxed
     as interest) until the next rebalance date; withdrawals take the cash first. Flows on or after `end` are ignored.
-    See plan.py for the arithmetic. TaxStage sees the flows through `external_flow`."""
+    See plan.py for the arithmetic. TaxStage sees the flows through `external_flow`.
+
+    Speed: a step that is neither a rebalance nor a harvest date (a flow, a tax payment) trades at the prices of that day
+    but reads the cost model and the tax metadata from the last full snapshot, not a new `mkt.view(d)`.
+    With flows and `cfg.tax.pay_from_portfolio` the year's tax is paid FROM the portfolio at the year's last bar: the
+    TaxStage assesses the year on the events so far (`year_pay`), the portfolio and the cost bases shrink by that share
+    (`Result.tax_payments`), and `Result.curve` is the portfolio as it really was (net of the tax paid); the
+    tax table is then `settled` (see `taxes.assess`)."""
     end = pd.Timestamp(end) if end else mkt.index[-1]
     tri = mkt.prices
     value, prev = 1.0, pd.Series(dtype=float)        # prev = drifted weights of live holdings
@@ -278,6 +286,7 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
     rebal_set = set(rebal)
     # PA: external flows (plan.py)
     fl, cash, tgt_keep, flog, cash_pieces, hv_set = None, 0.0, pd.Series(dtype=float), [], [], set(steps) - set(rebal)
+    tax_set, pay_log, last_snap = set(), [], None
     if flows is not None:
         if flow_mode not in ("invest", "hold"):
             raise ValueError(f"flow_mode must be 'invest' or 'hold', got {flow_mode!r}")
@@ -290,6 +299,12 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
         fl = fl[(fl.index > rebal[0]) & (fl.index < end) & (fl != 0)]
         steps = sorted(set(steps) | set(fl.index))
         flog.append((rebal[0], first, 0.0))
+        if taxer is not None and cfg.tax.pay_from_portfolio:                          # tax comes out of the portfolio at each year's last bar
+            taxer.settled = True
+            ix = mkt.index
+            ye = ix[:-1][ix.year[1:] != ix.year[:-1]]
+            tax_set = {d for d in ye if rebal[0] < d < end}
+            steps = sorted(set(steps) | tax_set)
 
     def flow_step(d, snap, A, value, cash, prev):
         """PA: apply the flow `A` (and join held cash at a rebalance) at the start of step `d`.
@@ -315,7 +330,7 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
                 cost_tot = float(cost_i.sum())
                 received += G - cost_tot
                 if taxer is not None:
-                    taxer.external_flow(d, -G, value, e, prev, tgt_keep, cost_i)
+                    taxer.external_flow(d, -G, value, e, prev, tgt_keep, cost_i, snap=snap)
                 value -= G
             ext = -received
         join = 0.0
@@ -341,7 +356,7 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
                 else:                                                   # no target (cash) or all parked
                     new_prev = prev if e <= 1e-12 or not len(prev) else prev * (value / (value + A))
                 if taxer is not None:
-                    taxer.external_flow(d, A, value, e, prev, tg, cost_i)
+                    taxer.external_flow(d, A, value, e, prev, tg, cost_i, snap=snap)
                 value, prev = value + A - cost_tot, new_prev
             elif d in rebal_set or flow_mode == "invest":               # joins the rebalance trade
                 join += A
@@ -349,7 +364,7 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
                 cash += A
         if join > 0:
             if taxer is not None:
-                taxer.external_flow(d, join, value, e, prev, tgt_keep, trade_follows=True)
+                taxer.external_flow(d, join, value, e, prev, tgt_keep, trade_follows=True, snap=snap)
             if value > 0 and len(prev):
                 prev = prev * (value / (value + join))
             value += join
@@ -359,10 +374,15 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
 
     for j, d in enumerate(steps):
         progress.report(j / len(steps), f"{screen.name}: rebalance {j + 1}/{len(steps)}")
-        snap = mkt.view(d)
+        if fl is not None and last_snap is not None and d not in rebal_set and (hv is None or d not in hv_set):
+            snap = last_snap                                                           # flow / tax step: no new snapshot
+        else:
+            snap = last_snap = mkt.view(d)
         pure = False
         if fl is not None:                                                             # PA: external flows
             value, cash, prev, pure = flow_step(d, snap, float(fl.get(d, 0.0)), value, cash, prev)
+            if d in tax_set and not pure and d not in rebal_set and (hv is None or d not in hv_set):
+                pure = True                                                            # a tax payment alone: nothing else is traded
         if pure:                                                                       # PA: flow-only step: no screen, no rebalance
             target = prev
         else:
@@ -407,6 +427,16 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
             else:                                                                          # P2: a sub-step adds to its rebalance period
                 turn[last_reb] += dw.sum() / 2
                 costs[last_reb] += trade_cost
+
+        if d in tax_set:                                                               # the year's tax comes out of the portfolio
+            so_far = pd.concat(pieces)
+            so_far = so_far[~so_far.index.duplicated(keep="last")]
+            pay = taxer.year_pay(so_far, d)
+            tot = value + cash
+            sh = min(pay / tot, 1.0) if tot > 0 else 0.0
+            value, cash = value * (1 - sh), cash * (1 - sh)
+            taxer.scale(sh)
+            pay_log.append((d, pay, sh))
 
         nxt = steps[j + 1] if j + 1 < len(steps) else end
         seg = tri.loc[d:nxt]
@@ -463,6 +493,7 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
         pr = np.concatenate([np.zeros(1)] + park_pieces)
         park_curve = pd.Series(np.cumprod(1 + pr), index=curve.index, name="park")
     tax_table = after_curve = None
+    settled_ = taxer is not None and taxer.settled
     if taxer is not None:
         tax_table, after_curve = taxer.finish(curve)
     flow_df = cash_curve = None
@@ -473,7 +504,8 @@ def simulate(screen: Screen, mkt: Market, cfg: Config, rebal: list, end=None, ex
     return Result(screen.name, curve, holdings, pd.Series(turn), pd.Series(costs), expo, switches,
                   time_out, park_curve, ov.policy if ov is not None else None, tax_table, after_curve,
                   harvest=hv.finish(curve, after_curve) if hv is not None else None,         # P2: harvest records
-                  flows=flow_df, cash_curve=cash_curve)                                      # PA
+                  flows=flow_df, cash_curve=cash_curve,                                      # PA
+                  tax_payments=pd.DataFrame(pay_log, columns=["date", "paid", "frac"]).set_index("date") if settled_ else None)
 
 
 def run(screen: Screen, mkt: Market, cfg: Config = Config(), start=None, end=None,

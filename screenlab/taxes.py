@@ -548,8 +548,14 @@ def _carry_back(hist: dict, year: int, loss: float) -> tuple:
     return used, refund, by_year
 
 
-def assess(curve: pd.Series, events: pd.DataFrame, tax: TaxConfig, capital: float, warnings=()) -> tuple:
+def assess(curve: pd.Series, events: pd.DataFrame, tax: TaxConfig, capital: float, warnings=(), settled: bool = False) -> tuple:
     """Tax per calendar year and the after-tax curve.
+
+    `settled` (plan.py, tax paid from the portfolio WITH external flows): `curve` and `events` are already those of the
+    portfolio that paid its earlier years' tax (the simulation shrank the holdings at each year's last bar), so nothing is
+    scaled by a running factor; each row's `wealth_pre_tax` is that portfolio's value before the year's tax and
+    `wealth_after_tax` that value less the year's tax; the returned curve is the portfolio itself, its last bar less the
+    last year's tax (and RRSP balance tax).
 
     `curve` pre-tax wealth (1.0 at the start); `events` indexed by date with columns `EVENT_COLS`, in the same
     wealth units as `curve` (an event of 0.01 is 1% of the starting wealth). Dollars = units x capital x the
@@ -594,7 +600,7 @@ def assess(curve: pd.Series, events: pd.DataFrame, tax: TaxConfig, capital: floa
     last_year = max(set(yrs))
     for y in sorted(set(yrs)):
         e = by_year.loc[y] if y in by_year.index else pd.Series(0.0, index=list(EVENT_COLS))
-        scale = capital * (f if tax.pay_from_portfolio else 1.0)
+        scale = capital * (f if tax.pay_from_portfolio and not settled else 1.0)
         dca, dfx, g, l, intr = (float(e[c]) * scale for c in EVENT_COLS[:5])
         dne, whfx, dfund, whfund, whlost = (float(e[c]) * scale for c in P3_EVENT_COLS)   # P3
         fin = dfx + dfund - whfund                          # P3: foreign income stacked: direct gross + fund net
@@ -637,7 +643,7 @@ def assess(curve: pd.Series, events: pd.DataFrame, tax: TaxConfig, capital: floa
         carry = carry_out
         total = max(0.0, float(t_div + t_fx + t_cg + t_int))   # a net credit is not paid out
         end = last_bar[y]
-        wealth = capital * float(curve.loc[end]) * (f if tax.pay_from_portfolio else 1.0)
+        wealth = capital * float(curve.loc[end]) * (f if tax.pay_from_portfolio and not settled else 1.0)
         pay = min(total, wealth) if wealth > 0 else 0.0
         pay -= refund                                       # P2: the carry-back refund is a credit at this year end
         hist[int(y)] = [taxable, t_cg]                      # P2
@@ -646,10 +652,12 @@ def assess(curve: pd.Series, events: pd.DataFrame, tax: TaxConfig, capital: floa
                                          "carried_back": cb, "refund": refund, "refund_by_year": cb_years})
         wd = 0.0                                                                        # P1: RRSP withdrawal tax, last bar
         if rrsp_rate is not None and y == last_year and wealth > 0:
-            wd = rrsp_rate * (wealth - pay if tax.pay_from_portfolio else wealth)
+            wd = rrsp_rate * (wealth - pay if tax.pay_from_portfolio or settled else wealth)
             pay += wd
         mask = curve.index >= end
-        if tax.pay_from_portfolio:
+        if settled:
+            after = wealth - pay
+        elif tax.pay_from_portfolio:
             f_new = f * (1 - pay / wealth) if wealth > 0 else 0.0
             factor[mask] = f_new
             after = capital * float(curve.loc[end]) * f_new
@@ -659,6 +667,8 @@ def assess(curve: pd.Series, events: pd.DataFrame, tax: TaxConfig, capital: floa
             after = wealth - (cum + pay)
         cum += pay
         pre_w = capital * float(curve.loc[end])
+        if settled:
+            after_last = after
         rows[int(y)] = [dca, dfx + dfund, g, l, intr, carry_out, t_div, t_fx, t_cg, t_int, wd, pay, cum, pre_w, after,
                         1 - after / pre_w if pre_w > 0 else 0.0]
     table = pd.DataFrame.from_dict(rows, orient="index", columns=TAX_COLS[:-2])   # P2: the last two are added below
@@ -668,6 +678,10 @@ def assess(curve: pd.Series, events: pd.DataFrame, tax: TaxConfig, capital: floa
     table.attrs["year_tax"] = year_tax                                           # P2: YearTax per year, breakdown has carried_back / refund
     table.attrs["warnings"] = warnings
     table.attrs["convention"] = tax.report_lines()                                    # P1 / Q1: RRSP convention + bracket + harvesting lines
+    if settled:
+        after_curve = curve.copy()
+        after_curve.iloc[-1] = after_last / capital
+        return table, after_curve.rename("after_tax")
     after_curve = curve * factor if tax.pay_from_portfolio else curve - paid_cum / capital
     return table, after_curve.rename("after_tax")
 
@@ -768,11 +782,18 @@ def index_ledger(growth: pd.Series, flows: pd.Series, cost_bps: float = 0.0) -> 
 
 
 def tax_buy_and_hold_flows(growth: pd.Series, flows: pd.Series, yield_, tax: TaxConfig, cost_bps: float = 0.0) -> tuple:
-    """`tax_buy_and_hold` with dated lots: the index fund bought and sold with `flows` (see `index_ledger`), in dollars
+    """With `tax.pay_from_portfolio` (the plan's default) the year's tax is taken from the fund at the year's last bar
+    (units, and with them the cost base, shrink pro rata, no gain realized on the part sold), so later flows and dividends
+    sit on the smaller holding: `_bh_flows_settled`; the returned curves are then the fund as it actually was (net of the tax
+    paid), `table.attrs["payments"]` lists the payments (date, paid, frac of the value after the day's flow) and
+    `table.attrs["liquidation_tax"]` the tax on the gain realized at the end. Otherwise (paid from outside):
+    `tax_buy_and_hold` with dated lots: the index fund bought and sold with `flows` (see `index_ledger`), in dollars
     (capital 1). Dividends `yield_` (float, or by calendar year like `tax_buy_and_hold`) on the previous bar's value after
     that bar's flow, taxed as received and reinvested into the cost base (withholding per `tax.account` as there); a sale
     realizes `received - average cost x share sold`; a purchase adds its amount to the cost base; with `liquidate_at_end` the
     remaining gain is realized on the last bar. Returns (tax table, value curve before the day's flow, after-tax curve)."""
+    if tax.pay_from_portfolio:
+        return _bh_flows_settled(growth, flows, yield_, tax, cost_bps)
     pre, bought, recv, held = index_ledger(growth, flows, cost_bps)
     held = held.to_numpy()
     P, n = growth.to_numpy(float), len(growth)
@@ -804,6 +825,72 @@ def tax_buy_and_hold_flows(growth: pd.Series, flows: pd.Series, yield_, tax: Tax
                       index=growth.index)
     table, after = assess(pre, ev, tax, 1.0)
     return table, pre, after
+
+
+def _bh_events(index, div, gain, tax: TaxConfig) -> pd.DataFrame:
+    fs = tax.index_foreign_share
+    return pd.DataFrame({"div_ca": div * (1 - fs), "div_fx": div * fs, "gain": np.maximum(gain, 0.0), "loss": np.minimum(gain, 0.0),
+                         "interest": 0.0, "wh_fx": div * fs * (0.0 if tax.account == "rrsp" else tax.rate_for("US"))}, index=index)
+
+
+def _bh_flows_settled(growth: pd.Series, flows: pd.Series, yield_, tax: TaxConfig, cost_bps: float) -> tuple:
+    """The index fund with dated flows and tax paid from the fund: one pass over the bars (units, cost base), the tax of
+    each calendar year assessed on the events so far at the year's last bar and sold pro rata. Returns (tax table,
+    value curve before the day's flow, after-tax curve)."""
+    cb = cost_bps / 1e4
+    idx = growth.index
+    P, n = growth.to_numpy(float), len(growth)
+    dt = np.diff(((idx - idx[0]).days / 365.25).to_numpy())
+    if isinstance(yield_, (pd.Series, dict)):
+        ys = pd.Series(yield_, dtype=float).sort_index()
+        yrs = idx.year[:-1]
+        yv = ys.reindex(ys.index.union(yrs.unique())).ffill().bfill().loc[yrs].to_numpy()
+    else:
+        yv = np.full(n - 1, float(yield_))
+    amt = flows.reindex(idx).fillna(0.0).to_numpy()
+    year = idx.year.to_numpy()
+    pre, div, gain = np.zeros(n), np.zeros(n), np.zeros(n)
+    u = basis = 0.0
+    tx = replace(tax, capital=1.0)
+    log = []
+    for i in range(n):
+        if i:
+            div[i] = u * P[i - 1] * yv[i - 1] * dt[i - 1]
+            basis += div[i]
+        pre[i] = u * P[i] if i else max(amt[0], 0.0)
+        a = amt[i]
+        if a > 0:
+            u += a * (1 - cb) / P[i]
+            basis += a
+        elif a < 0 and pre[i] > 0:
+            g = min(-a / (1 - cb), pre[i])
+            sh = min(g / pre[i], 1.0)
+            gain[i] = g * (1 - cb) - basis * sh
+            basis *= 1 - sh
+            u -= g / P[i]
+        if i < n - 1 and year[i + 1] != year[i]:                       # the year's last bar: its tax comes out of the fund
+            tab, _ = assess(pd.Series(pre[:i + 1], index=idx[:i + 1]), _bh_events(idx[:i + 1], div[:i + 1], gain[:i + 1], tax),
+                             tx, 1.0, settled=True)
+            row = tab.iloc[-1]
+            pay = float(row["tax_paid"] - row["tax_rrsp_withdrawal"])
+            v = u * P[i]
+            s = pay / v if v > 0 else 0.0
+            u *= 1 - s
+            basis *= 1 - s
+            log.append((idx[i], pay, s))
+    liq = 0.0
+    if tax.liquidate_at_end:
+        ev0 = _bh_events(idx, div, gain, tax)
+        g2 = gain.copy()
+        g2[-1] += u * P[-1] - basis
+        t0, _ = assess(pd.Series(pre, index=idx), ev0, tx, 1.0, settled=True)
+        table, after = assess(pd.Series(pre, index=idx), _bh_events(idx, div, g2, tax), tx, 1.0, settled=True)
+        liq = float(table["tax_paid"].iloc[-1] - t0["tax_paid"].iloc[-1])
+    else:
+        table, after = assess(pd.Series(pre, index=idx), _bh_events(idx, div, gain, tax), tx, 1.0, settled=True)
+    table.attrs["payments"] = pd.DataFrame(log, columns=["date", "paid", "frac"]).set_index("date")
+    table.attrs["liquidation_tax"] = liq
+    return table, pd.Series(pre, index=idx), after
 
 
 # --------------------------------------------------------------------------- report columns

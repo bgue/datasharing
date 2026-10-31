@@ -15,7 +15,7 @@ amount of a stream is `periodic * f(date)`, f = (1 + growth)^n with n = annivers
 `withdrawals * f` run from `withdraw_from`. Negative `extra` flows are withdrawals. A flow executed on the last bar of
 the run is not made (`applied` False in `PlanResult.flows`).
 
-Strategy leg (units ledger over `backtest.simulate(..., flows=)`). With V the portfolio before the flow, e the equity
+Strategy leg (units ledger over `backtest.simulate(..., flows=)`; a flow-only step reads costs and tax metadata from the last full snapshot). With V the portfolio before the flow, e the equity
 share (1 without an exit policy), w the drifted weights, t the strategy's target weights at its last rebalance, c_i the
 one-way cost rate of name i (CostModel):
     contribution A, invest   buy_i = t_i * A * e      cost_i = c_i * buy_i      holding_i = w_i V e + buy_i - cost_i
@@ -30,11 +30,18 @@ Units: NAV u (1.0 on the first date) moves with the flow-free return u_t = u_(t-
 external flow executed on t-1 (costs stay in the return); units bought = F / u. Hence V_t = (sum units) * u_t exactly.
 Flat prices, zero tax: V_T = sum of contributions - sum of costs, exactly.
 
-Taxes. The plan runs the TaxStage with capital = 1 (ledger in dollars) and `pay_from_portfolio=False`: tax is paid from
-outside the account, so a later contribution is not shrunk by earlier tax (the ledger stays homogeneous). After-tax value =
-pre-tax value less the cumulative tax paid (no growth is credited on money paid out) and, in an RRSP, less
-`rrsp_withdrawal_rate` x the balance (the value of cashing it in); RRSP withdrawals are taxed at that rate on the amount
-received (taken out of the withdrawal: TaxPaid, XIRRAfterTax and the flows frame carry it, the after-tax value series does not). `liquidate_at_end` is forced on: the final gains are realized. Without `Config.tax` nothing is taxed.
+Taxes. The plan runs the TaxStage with capital = 1 (ledger in dollars). DEFAULT, tax paid FROM the portfolio (as every other
+backtest of the library): at each calendar year's last bar the year's tax is assessed on the events so far and sold pro rata
+from every holding (the cost bases shrink with it, no gain realized on the part sold), so later flows and events sit on the
+smaller portfolio; the curve is the portfolio as it was. The last year's tax, the tax on the gains realized at the end
+(`liquidate_at_end` is forced on) and, in an RRSP, `rrsp_withdrawal_rate` x the balance come out on the last bar; the RRSP
+haircut also runs along the after-tax series. Flows are priced on the after-tax NAV u_at (V = sum F_i / u_at,i x u_at exactly);
+the pre-tax NAV u treats the payments as outflows (V_pre = sum F_i / u_i x u: the same plan with no tax). The after-tax
+series cannot go below zero. `tax_from_outside=True`: `pay_from_portfolio=False`, tax paid from outside the account, after-tax
+value = pre-tax value less the cumulative tax paid so far (no growth credited on money paid out) and, in an RRSP, less
+`rrsp_withdrawal_rate` x the balance; floored at zero, the dates on which the tax paid exceeded the portfolio are on the card.
+RRSP withdrawals are taxed at that rate on the amount received (taken out of the withdrawal: TaxPaid, XIRRAfterTax and the
+flows frame carry it, the after-tax value series does not). Without `Config.tax` nothing is taxed.
 
 Index leg. The benchmark's total-return series net of `index_mer` (daily accrual (1 - mer)^years) is bought with the same
 flows; a purchase of A buys A (1 - bps/1e4) / P units, a withdrawal sells G = |A| / (1 - bps/1e4). `taxes.tax_buy_and_hold_flows`
@@ -102,6 +109,7 @@ class PlanSpec:
     goal: float | None = None                  # target final value, nominal, after tax
     risk_free: "str | float" = "us10y"         # "us10y" | "ca10y" | constant annual rate
     inflation: "str | float" = "auto"          # "auto" (CA CPI if loaded, else US CPI) | "us" | "ca" | constant annual rate
+    tax_from_outside: bool = False             # True: tax is paid from money outside the account (the pre-2026-10 basis, see DECISIONS.md)
     label: str = ""
 
     def __post_init__(self):
@@ -342,6 +350,56 @@ def _nav(pre: pd.Series, ext: pd.Series) -> pd.Series:
     return pd.Series(np.cumprod(1.0 + r), index=pre.index)
 
 
+def plan_tax_config(tx, outside: bool = False):
+    """The plan's tax conventions on a copy of `Config.tax`: ledger in dollars (capital 1), final gains realized, and the
+    tax paid FROM the portfolio (default) or from outside the account (`PlanSpec.tax_from_outside`)."""
+    return None if tx is None else replace(tx, capital=1.0, pay_from_portfolio=not outside, liquidate_at_end=True)
+
+
+def _units_value(unit: pd.Series, ext: pd.Series) -> pd.Series:
+    """Value before the day's flow of a units ledger: units bought by the flows executed BEFORE the day (the first date's
+    flow is already in) times the flow-free NAV `unit`: V_t = (sum of F_i / u_i, i < t) u_t."""
+    f = ext.reindex(unit.index).fillna(0.0)
+    units = f / unit
+    before = units.cumsum().shift(1)
+    before.iloc[0] = units.iloc[0]
+    return before * unit
+
+
+def _settled_after(act: pd.Series, table: pd.DataFrame, rrsp_rate: "float | None") -> pd.Series:
+    """After-tax value of a portfolio that paid its own tax (the year's tax was sold out of it at each year's last bar, so
+    `act` is already net of it): `act`, less on the last bar the last year's tax (liquidation included) and, in an RRSP,
+    `rrsp_rate` x the balance (the haircut also runs along the series: the value of cashing it in). Never below zero."""
+    r = rrsp_rate or 0.0
+    last = table.iloc[-1]
+    out = act * (1.0 - r)
+    out.iloc[-1] = (float(act.iloc[-1]) - float(last["tax_paid"] - last["tax_rrsp_withdrawal"])) * (1.0 - r)
+    return out.clip(lower=0.0)
+
+
+def _settle_rates(act: pd.Series, table: pd.DataFrame, payments: "pd.DataFrame | None", ext: pd.Series) -> dict:
+    """What the Monte Carlo needs of a settled leg: the share of the portfolio paid in tax at each year's last bar
+    (`frac`, by year: the tax over the value after that day's flow, before its trading cost, which is what the flow-free
+    NAV sees), the same for the last year's event tax (liquidation excluded), and the tax on the liquidation."""
+    frac = pd.Series(dtype=float)
+    if payments is not None and len(payments):
+        base = act.reindex(payments.index) + ext.reindex(payments.index).fillna(0.0)
+        frac = pd.Series((payments["paid"] / base.where(base > 0)).fillna(0.0).to_numpy(),
+                         index=[int(pd.Timestamp(d).year) for d in payments.index])
+    last = table.iloc[-1]
+    liq = float(table.attrs.get("liquidation_tax", 0.0))
+    end_v = float(act.iloc[-1])
+    ev = float(last["tax_paid"] - last["tax_rrsp_withdrawal"]) - liq
+    frac.loc[int(table.index[-1])] = ev / end_v if end_v > 0 else 0.0
+    return {"frac": frac.sort_index(), "liquidation_tax": liq, "wealth_end": end_v}
+
+
+def _floor(after: pd.Series) -> tuple:
+    """(after-tax value floored at zero, the dates on which the tax paid from outside exceeded the portfolio)."""
+    bad = after.index[(after < 0).to_numpy()]
+    return after.clip(lower=0.0), bad
+
+
 def _after_tax(pre: pd.Series, table: pd.DataFrame, rrsp_rate: "float | None") -> pd.Series:
     """Pre-tax value less the tax paid so far (each year's tax at that year's last bar, minus the final RRSP balance tax,
     which the haircut `rrsp_rate` x balance represents all along). RRSP withdrawal tax is not here: it is taken out of the
@@ -403,11 +461,17 @@ def run_plan(lab, spec: PlanSpec) -> PlanResult:
     # ---- tax: dollars of the plan, paid from outside the account, final gains realized
     cfg = cfg0
     tx = cfg0.tax
+    outside = bool(spec.tax_from_outside)
     if tx is not None:
-        tx = replace(tx, capital=1.0, pay_from_portfolio=False, liquidate_at_end=True)
+        tx = plan_tax_config(tx, outside)
         cfg = replace(cfg, tax=tx)
         infos.append("tax paid from outside the account (after-tax value = pre-tax value less tax paid so far); "
-                     "final gains realized; see plan.py")
+                     "final gains realized; see plan.py" if outside else
+                     "tax paid from the portfolio at each calendar year's last bar (the holdings shrink by the tax; the "
+                     "final year's tax, the tax on the gains realized at the end and an RRSP's balance tax come out on the "
+                     "last bar); see plan.py")
+        if not outside and getattr(tx, "harvest", None) is not None:
+            warnings.append("tax-loss harvesting with the tax paid from the portfolio: the harvest lots are not scaled by the tax payments (approximate)")
     else:
         warnings.append("no Config.tax: every plan figure is pre-tax and after-tax equals pre-tax")
     if isinstance(cfg.costs, StandardCosts):
@@ -427,20 +491,36 @@ def run_plan(lab, spec: PlanSpec) -> PlanResult:
         if pol.rescreen_on_reentry:
             rebal = sorted(set(rebal) | {d for d in pol.reentry_dates if rebal[0] < d < end_eff})
         res = backtest.simulate(screen, mkt, cfg, rebal, end_eff, expo, flows=fdf, flow_mode=spec.cash_timing)
-    pre = res.curve
-    win = pre.index
+    act = res.curve                                              # the portfolio as it was (net of the tax it paid, when portfolio-paid)
+    win = act.index
     ext = res.flows["amount"]                                    # net external flow per executed date (withdrawals as received)
     rrsp_rate = tx.rrsp_rate() if tx is not None and tx.account == "rrsp" else None
     flow_tax = (-ext.clip(upper=0.0) * (rrsp_rate or 0.0))
-    if tx is not None:
+    settled = tx is not None and not outside
+    floor_dates: dict = {}
+    u_at = {}
+    if settled:
         tab_s = res.tax.copy()
         tab_s.attrs = dict(res.tax.attrs)
-        after = _after_tax(pre, tab_s, rrsp_rate)
+        paid_s = res.tax_payments
+        T_s = paid_s["paid"].reindex(win).fillna(0.0) if paid_s is not None and len(paid_s) else pd.Series(0.0, index=win)
+        u_at["strategy"] = _nav(act, ext)                        # flows on the after-tax NAV: V = (sum F_i / u_i) u exactly
+        s_unit = _nav(act, ext.reindex(win).fillna(0.0) - T_s)                            # the same without the tax payments: the pre-tax NAV
+        pre = _units_value(s_unit, ext)
+        after = _settled_after(act, tab_s, rrsp_rate)
+    elif tx is not None:
+        pre = act
+        tab_s = res.tax.copy()
+        tab_s.attrs = dict(res.tax.attrs)
+        after, floor = _floor(_after_tax(pre, tab_s, rrsp_rate))
+        if len(floor):
+            floor_dates["strategy"] = floor
+    else:
+        pre, tab_s, after = act, None, act.copy()
+    if tx is not None:
         for w in res.tax.attrs.get("warnings", ()):
             if w not in warnings:
                 warnings.append(w)
-    else:
-        tab_s, after = None, pre.copy()
 
     # ---- index leg
     ib = replace(bench, mer=float(spec.index_mer), cost_bps=0.0)
@@ -454,9 +534,15 @@ def run_plan(lab, spec: PlanSpec) -> PlanResult:
         itax = tx
         if info and tx.index_foreign_share == 0.0 and info.get("foreign_share"):
             itax = replace(tx, index_foreign_share=float(info["foreign_share"]))
-        tab_i, _ipre, _iafter = tax_buy_and_hold_flows(gcurve, plan_flows, y, itax, float(bench.cost_bps))
+        tab_i, act_i, _iafter = tax_buy_and_hold_flows(gcurve, plan_flows, y, itax, float(bench.cost_bps))
         iflow_tax = (-iext.clip(upper=0.0) * (rrsp_rate or 0.0))
-        iafter = _after_tax(ipre, tab_i, rrsp_rate)
+        if settled:
+            iafter = _settled_after(act_i, tab_i, rrsp_rate)
+            u_at["index"] = _nav(act_i, iext)
+        else:
+            iafter, floor = _floor(_after_tax(ipre, tab_i, rrsp_rate))
+            if len(floor):
+                floor_dates["index"] = floor
         infos.append(f"index dividend yield: {ynote}")
     else:
         tab_i, iafter, iflow_tax = None, ipre.copy(), pd.Series(0.0, index=win)
@@ -473,8 +559,9 @@ def run_plan(lab, spec: PlanSpec) -> PlanResult:
                     if yv in t.index:
                         t.loc[yv, ["tax_rrsp_withdrawal", "tax_paid"]] += v
                 t["cum_tax_paid"] = t["tax_paid"].cumsum()
-                t["wealth_after_tax"] = t["wealth_pre_tax"] - t["cum_tax_paid"]
-                t["cum_drag"] = 1.0 - t["wealth_after_tax"] / t["wealth_pre_tax"].where(t["wealth_pre_tax"] > 0)
+                if not settled:
+                    t["wealth_after_tax"] = t["wealth_pre_tax"] - t["cum_tax_paid"]
+                    t["cum_drag"] = 1.0 - t["wealth_after_tax"] / t["wealth_pre_tax"].where(t["wealth_pre_tax"] > 0)
             parts[leg] = t
         tax_tab = pd.concat(parts, axis=1)
 
@@ -484,13 +571,19 @@ def run_plan(lab, spec: PlanSpec) -> PlanResult:
     if cpi.dropna().index[-1] < win[-1] - pd.Timedelta(days=100):
         warnings.append(f"CPI series ends {cpi.dropna().index[-1].date()}, before the plan end {win[-1].date()}: last value carried forward")
     contributed = ext.reindex(win).fillna(0.0).cumsum().rename("contributed")
-    s_unit, i_unit = _nav(pre, ext), _nav(ipre, iext)
+    if not settled:
+        s_unit = _nav(pre, ext)
+    i_unit = _nav(ipre, iext)
     series = pd.DataFrame({
         "contributed": contributed, "strategy_pre": pre, "strategy_after_tax": after,
         "index_pre": ipre, "index_after_tax": iafter, "cpi_deflator": defl,
         "strategy_real": pre / defl, "index_real": ipre / defl,
         "strategy_after_tax_real": after / defl, "index_after_tax_real": iafter / defl,
         "cash": res.cash_curve.reindex(win).fillna(0.0), "strategy_unit": s_unit, "index_unit": i_unit})
+    if settled:                                                  # flow-free NAVs of the portfolios that paid their own tax
+        for leg, aft, a_ in (("strategy", after, act), ("index", iafter, act_i)):
+            ratio = (aft / a_.where(a_ > 1e-12)).fillna(1.0)
+            series[f"{leg}_unit_after_tax"] = u_at[leg] * ratio / float(ratio.iloc[0] or 1.0)
 
     # ---- flows frame (per planned flow)
     fl = sched.copy()
@@ -499,8 +592,11 @@ def run_plan(lab, spec: PlanSpec) -> PlanResult:
     fl["ext"] = fl["executed"].map(ext).fillna(0.0) * share * fl["applied"]
     fl["received"] = np.where(fl["amount"] < 0, -fl["ext"], 0.0)
     fl["flow_tax"] = fl["received"] * (rrsp_rate or 0.0)
-    fl["strategy_units"] = (fl["ext"] / fl["executed"].map(s_unit)).fillna(0.0)
-    fl["index_units"] = (fl["executed"].map(ibought).fillna(0.0) * share * fl["applied"])
+    fl["strategy_units"] = (fl["ext"] / fl["executed"].map(u_at["strategy"] if settled else s_unit)).fillna(0.0)
+    if settled and "index" in u_at:
+        fl["index_units"] = (fl["ext"] / fl["executed"].map(u_at["index"])).fillna(0.0)
+    else:
+        fl["index_units"] = (fl["executed"].map(ibought).fillna(0.0) * share * fl["applied"])
     fl = fl.drop(columns="ext")
 
     # ---- monthly returns
@@ -517,15 +613,23 @@ def run_plan(lab, spec: PlanSpec) -> PlanResult:
     card = lab.data_card()
     notes = [f"plan: inflation series {cpi_name}", f"plan: risk-free series {rf_name}"] + [f"plan: {i}" for i in infos] \
         + [f"WARNING: {w}" for w in warnings]
+    for leg, bad in floor_dates.items():
+        notes.append(f"WARNING: tax paid from outside exceeded the {leg} portfolio on {len(bad)} date(s) "
+                     f"({bad[0].date()} to {bad[-1].date()}): the after-tax value is floored at zero there")
     card = dataclasses.replace(card, notes=tuple(card.notes) + tuple(notes))
     # ---- costs
     cost_d = 0.0
     if res.costs is not None and len(res.costs):
-        cost_d += float((res.costs * pre.reindex(res.costs.index).ffill()).sum())
+        cost_d += float((res.costs * act.reindex(res.costs.index).ffill()).sum())
     cost_d += float(res.flows["cost"].sum())
     i_cost_d = float((plan_flows.abs().sum()) * bench.cost_bps / 1e4)
     extras = {"cost_dollars": {"strategy": cost_d, "index": i_cost_d}, "mer": {"strategy": _mer_drag(res, cfg, mkt), "index": float(spec.index_mer)},
-              "rrsp_rate": rrsp_rate, "rf_name": rf_name, "cpi_name": cpi_name, "taxed": tx is not None}
+              "rrsp_rate": rrsp_rate, "rf_name": rf_name, "cpi_name": cpi_name, "taxed": tx is not None,
+              "tax_basis": None if tx is None else ("outside" if outside else "portfolio"), "tax_cfg": tx,
+              "floor_dates": floor_dates}
+    if settled:                                                  # what the Monte Carlo replays (montecarlo/plan_mc.py)
+        extras["settle"] = {"strategy": _settle_rates(act, tab_s, res.tax_payments, ext),
+                            "index": _settle_rates(act_i, tab_i, tab_i.attrs.get("payments"), iext)}
     result = PlanResult(spec, fl, series, mon, pd.DataFrame(), tax_tab, card, None, extras)
     result.metrics = metrics_table(result)
     if spec.goal is not None:
@@ -604,7 +708,7 @@ def metrics_table(result: PlanResult) -> pd.DataFrame:
             return xirr(list(f.index) + [T], list(f.to_numpy()) + [tv])
         r = unit.to_numpy()
         ratio_at = (aft / pre.where(pre > 1e-12)).fillna(1.0)
-        unit_at = unit * ratio_at / float(ratio_at.iloc[0] or 1.0)
+        unit_at = s[f"{leg}_unit_after_tax"] if f"{leg}_unit_after_tax" in s else unit * ratio_at / float(ratio_at.iloc[0] or 1.0)
         taxp = float(result.tax[(leg, "tax_paid")].sum()) if result.tax is not None else 0.0
         x = dict(Contributed=contributed, FinalPreTax=fin, FinalAfterTax=fa, FinalReal=fin / dT, FinalAfterTaxReal=fa / dT,
                  Gain=fin - contributed,
