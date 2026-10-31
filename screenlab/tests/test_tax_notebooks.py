@@ -205,7 +205,7 @@ def test_plan_notebook_runs():                                   # PC: the plan 
     paras = [p for p in body.split("\n\n") if p.strip().startswith("**")]
     assert len(paras) == 2 and paras[0].startswith("**What the plan produced.**") and paras[1].startswith("**What it means for the goal and the risk.**")
     assert "{usd(" in paras[0] and "{pc(" in paras[0] and "mt.p_beat_index" in paras[1] and "yrs_goal" in paras[1]       # the numbers come from variables
-    # composition: seven sections, each opening with a question and ending in "What the evidence says"
+    # composition: seven numbered sections plus V3's 2b (phased contributions), each opening with a question and ending in "What the evidence says"
     secs = []
     for c in nb.cells:
         src = "".join(c.source)
@@ -213,7 +213,7 @@ def test_plan_notebook_runs():                                   # PC: the plan 
             secs.append([src])
         elif secs:
             secs[-1].append(src)
-    assert len(secs) == 7
+    assert len(secs) == 8 and secs[2][0].startswith("## 2b. Contributions by phase of life")      # V3: after the straight calculation, before the metrics
     for sec in secs:
         assert "What the evidence says" in "\n".join(sec), sec[0][:40]
         assert "question" in sec[0], sec[0][:40]
@@ -222,8 +222,8 @@ def test_plan_notebook_runs():                                   # PC: the plan 
     for tic in ("let's", "Let's", "note that", "Note that", "!", "-> "):
         assert tic not in text + prose, tic
     # the XIRR / TWR paragraph, the reading guide (US stand-ins, 2025 tables, delisting haircut, licence), the base case in every figure
-    assert "XIRR" in secs[2][0] and "TWR" in secs[2][0] and "time-weighted" in secs[2][0] and "money-weighted" in secs[2][0]
-    guide = "\n".join(secs[6])
+    assert "XIRR" in secs[3][0] and "TWR" in secs[3][0] and "time-weighted" in secs[3][0] and "money-weighted" in secs[3][0]
+    guide = "\n".join(secs[7])
     assert all(s in guide for s in ("US CPI", "US 10-year", "DECISIONS.md", "2025", "haircut of 30%", "do not commit"))
     # V1: the figures are interactive Altair charts (research/plan_charts.py): no matplotlib; every plot cell calls pch.* and
     # shows the chart; the run prints one "[chart]" line per figure naming its legend entries, the index base case among them;
@@ -231,7 +231,7 @@ def test_plan_notebook_runs():                                   # PC: the plan 
     assert "matplotlib" not in code and "plt." not in code and "pp." not in code
     plot_cells = [(i, src) for i, src in code_cells if re.search(r"^show\(", src, re.M)]
     n_fig = sum(len(re.findall(r"^show\(", src, re.M)) for _, src in plot_cells)
-    assert n_fig >= 8 and len(plot_cells) >= 8 - 3                                               # figures 2 and 5 draw three panels, 6-8 several
+    assert n_fig >= 10 and len(plot_cells) >= 10 - 3                                               # figures 2 and 5 draw three panels, 6-8 several
     for i, src in plot_cells:
         assert "pch." in src or "panels(" in src, src[:80]                                       # drawn by plan_charts
     lines = [l for l in out.splitlines() if l.startswith("[chart]")]
@@ -247,3 +247,10 @@ def test_plan_notebook_runs():                                   # PC: the plan 
         assert '"tooltip"' in spec and '"legend"' in spec and "Buy and hold the index" in spec and "strokeDash" in spec or "xOffset" in spec
     assert path.stat().st_size < 5_000_000                                                        # month-end data keeps the notebook small
     assert "Buy and hold the index" in text and '"Buy and hold the index"' in code
+    # V3: Section 2b, phased against flat contributions: the owner's phases, the phase bands and stacks, four legs, a computed paragraph
+    assert 'Phase(0, 10, 500, "early years")' in code and 'Phase(10, 13, 3_000, "peak saving")' in code and 'Phase(13, 20, 1_000, "later years")' in code
+    assert '"phase_growth": "indexed"' in code and "pch.phase_bands(phased)" in code and "Table 2b." in out
+    sec2b = "\n".join(secs[2])
+    assert "Figure 2b" in sec2b and "Figure 2c" in sec2b and "Phase:" in "\n".join(lines) and "peak saving" in sec2b
+    assert "{usd(PH_GROSS)}" in sec2b and "{pc(more_net / FL_NET)}" in sec2b and "dx_dogs" in dict(code_cells)[next(i for i, src in code_cells if "dx_dogs" in src and "say(" in src)]
+    assert "phased" in dict(code_cells)[summ[0]] and "Section 2b" in dict(code_cells)[summ[0]] and len(paras) == 2        # the Summary names the phased plan in one clause

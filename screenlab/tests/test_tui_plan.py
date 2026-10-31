@@ -283,3 +283,25 @@ def test_app_phases_table_toggle_and_flat_button():
             assert app.query_one("#pl-periodic", Input).disabled is False
         sess.close()
     arun(go())
+
+
+# V3: the browser chart carries the contribution phases (background bands)
+def test_chart_data_includes_the_phases_for_the_default_base_case_form():
+    sess = Session(make_registry(), own=True)
+    try:
+        sess.command("add_scenario", {"screen": "dogs", "run": True, "wait": True, "rebalance_months": 12})
+        r = sess.command("plan", {"start": "2002-01-31", "end": "2008-12-31", "wait": True, "timeout": 120})   # the form's default phases
+        assert r["jobs"][0]["status"] == "done", r
+        d = web.chart_data(sess, "plan")
+        json.dumps(d)
+        ph = d["plans"][0]["phases"]
+        last = d["plans"][0]["x"][-1][:10]
+        assert len(ph) == 1 and (ph[0]["amount"], ph[0]["note"]) == (500.0, "early years")       # 2002-2008 sits inside years 0-10
+        assert (ph[0]["from"], ph[0]["to"]) == ("2002-01-31", last) and ph[0]["years_to"] == 10.0
+        assert all({"from", "to", "amount", "note", "contributed"} <= set(x) and x["contributed"] > 0 for x in ph)
+        summ = P.phase_summary(sess.analyses["plan"]["dogs"]["plan"])
+        assert [x["contributed"] for x in ph] == [x["total"] for x in summ][:1]
+        r = sess.command("plan", {"use_phases": False, "periodic": 200, "wait": True, "timeout": 120})
+        assert web.chart_data(sess, "plan")["plans"][0]["phases"] == []
+    finally:
+        sess.close()

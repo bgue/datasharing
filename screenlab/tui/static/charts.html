@@ -368,7 +368,21 @@ const tabs = {
       if (p.flows.length) tr.push({type: "scatter", mode: "markers", name: "extraordinary flows", x: p.flows.map(f => f.date), y: p.flows.map(f => (S.contributed[Math.max(0, x.findIndex(v => v >= f.date))] ?? null)),
         marker: {color: theme.variables.accent, size: 9, symbol: p.flows.map(f => f.amount >= 0 ? "triangle-up" : "triangle-down"), line: {color: theme.variables.surface, width: 1}},
         customdata: p.flows.map(f => [f.amount, f.note]), hovertemplate: "%{x|%b %Y}: <b>%{customdata[0]:$,.0f}</b> %{customdata[1]}<extra>extra flow</extra>"});
-      plot(b1, tr, {hovermode: "x unified", xaxis: {hoverformat: "%b %Y"}, yaxis: {tickprefix: "$", tickformat: "~s", title: {text: "wealth"}}});
+      // V3: contribution phases as labelled background bands (shapes), a legend entry each, and a hover line with the phase's dates, amount, note and total contributed
+      const shapes = [], per = {biweekly: "2wk", monthly: "mo", quarterly: "qtr", annual: "yr"}[sp.frequency] || "period";
+      (p.phases || []).forEach((ph, i) => {
+        const col = ["#009E73", "#CC79A7", "#F0E442", "#56B4E9", "#8C6D31", "#7F7F7F"][i % 6];
+        const name = `Phase: ${ph.note || "phase " + (i + 1)} (${money(ph.amount)}/${per})`;
+        shapes.push({type: "rect", xref: "x", yref: "paper", x0: ph.from, x1: ph.to, y0: 0, y1: 1, layer: "below", line: {width: 0}, fillcolor: hexA(col, 0.16),
+          label: {text: ph.note || "phase " + (i + 1), textposition: "top left", font: {size: 11, color: theme.variables.text_muted}}});
+        tr.push({type: "scatter", mode: "markers", name: name, legendgroup: "phases", x: [null], y: [null], hoverinfo: "skip",
+          marker: {color: hexA(col, 0.45), size: 12, symbol: "square"}});
+        const idx = x.map((v, j) => j).filter(j => x[j] >= ph.from && x[j] < ph.to);
+        tr.push({type: "scatter", mode: "markers", name: name, legendgroup: "phases", showlegend: false, x: idx.map(j => x[j]), y: idx.map(j => S.contributed[j]),
+          marker: {opacity: 0, size: 6}, customdata: idx.map(() => [ph.from, ph.to, ph.amount, ph.note || "-", ph.contributed]),
+          hovertemplate: "%{customdata[0]} to %{customdata[1]}: <b>%{customdata[2]:$,.0f}</b> per period (" + per + "), note %{customdata[3]}, contributed in the phase <b>%{customdata[4]:$,.0f}</b><extra>" + name + "</extra>"});
+      });
+      plot(b1, tr, {hovermode: "x unified", xaxis: {hoverformat: "%b %Y"}, yaxis: {tickprefix: "$", tickformat: "~s", title: {text: "wealth"}}, shapes: shapes});
       root.append(details("Metrics: " + p.label, table(["Metric", "Strategy", "Index", "Difference", "Strategy wins"],
         p.metrics.map(m => { const f = v => v == null ? "–" : m.kind === "pct" ? pct(v, 2) : m.kind === "money" ? money(v) : num(v, 2);
           return [m.metric, f(m.strategy), f(m.index), f(m.difference), m.better == null ? "" : (m.better ? "yes" : "no")]; }))));

@@ -169,6 +169,25 @@ def phase_summary(plan: dict) -> list:  # V2
     return out
 
 
+def phase_bands(plan: dict, last) -> list:  # V3
+    """[{from, to, years_from, years_to, amount, note, contributed}] for the chart's background bands: `from` / `to` are
+    ISO dates (a phase ends at its `years_to`, the start of withdrawals or `last`, the last bar, whichever is first);
+    `contributed` is the periodic dollars applied inside the phase. Empty when the plan has no phases."""
+    import pandas as pd
+    spec = plan["spec"]
+    start, end = pd.Timestamp(spec["start"]), pd.Timestamp(last)
+    wf = pd.Timestamp(spec["withdraw_from"]) if spec.get("withdraw_from") else None
+    out = []
+    for x in phase_summary(plan):
+        lo = start + pd.DateOffset(months=round(12 * x["years_from"]))
+        hi = [d for d in (None if x["years_to"] is None else start + pd.DateOffset(months=round(12 * x["years_to"])), wf, end) if d is not None]
+        hi = min(hi)
+        if hi > lo:
+            out.append({"from": lo.strftime("%Y-%m-%d"), "to": hi.strftime("%Y-%m-%d"), "years_from": x["years_from"],
+                        "years_to": x["years_to"], "amount": x["amount"], "note": x["note"], "contributed": x["total"]})
+    return out
+
+
 def phase_line(plan: dict) -> str:  # V2
     return "; ".join(f"years {x['years_from']:g}-{'end' if x['years_to'] is None else format(x['years_to'], 'g')}: "
                      f"{x['count']} x -> {x['total']:,.0f}" for x in phase_summary(plan))
@@ -367,7 +386,8 @@ def chart_data(session) -> dict:
                 "flows": [{"date": row[p["flows"]["columns"].index("executed")], "amount": row[p["flows"]["columns"].index("amount")],
                            "kind": row[p["flows"]["columns"].index("kind")], "note": row[p["flows"]["columns"].index("note")]}
                           for row in p["flows"]["rows"] if row[p["flows"]["columns"].index("kind")] in ("extra", "withdrawal")][:200],
-                "warnings": [w for w in p["card"]["warnings"] if w.startswith("WARNING")], "mc": None}
+                "warnings": [w for w in p["card"]["warnings"] if w.startswith("WARNING")], "mc": None,
+                "phases": phase_bands(p, s["date"][-1])}      # V3: background bands on the wealth chart
         if mc:
             fan = mc.get("fan")
             fc = fan["columns"] if fan else []

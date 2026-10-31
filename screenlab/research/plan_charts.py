@@ -138,12 +138,72 @@ def _hover(base, wide, x, y_field, tips, rule_color=INK2):
     return sel, rule, dot
 
 
+# ================================================================================================= phases
+# V3: contribution phases as labelled background bands (wealth_chart) and as the stacks of the flows chart
+PHASE_COLORS = [PALETTE[2], PALETTE[3], PALETTE[5], PALETTE[4], "#8C6D31", "#7F7F7F"]       # light bands: kept off the strategy blue and the index grey
+_PER = {"biweekly": "2wk", "monthly": "mo", "quarterly": "qtr", "annual": "yr"}
+
+
+def phase_bands(result) -> list:
+    """One dict per phase of `result.spec.phases` (empty list when it has none): label ("Phase: early years ($500/mo)"),
+    from / to (dates the band covers, to = the phase end, the start of withdrawals or the last bar, whichever is first),
+    years_from / years_to, amount, note, count and contributed (the periodic dollars applied inside the phase)."""
+    spec = result.spec
+    if not spec.phases:
+        return []
+    start = pd.Timestamp(spec.start)
+    last = pd.Timestamp(result.series.index[-1])
+    wf = pd.Timestamp(spec.withdraw_from) if spec.withdraw_from else None
+    fl = result.flows
+    per = fl[(fl["kind"] == "periodic") & fl["applied"]]
+    out, seen = [], {}
+    for i, ph in enumerate(spec.phases):
+        lo = start + pd.DateOffset(months=round(12 * ph.years_from))
+        hi = None if ph.years_to is None else start + pd.DateOffset(months=round(12 * ph.years_to))
+        end = min([d for d in (hi, wf, last) if d is not None])
+        inside = per[(pd.to_datetime(per["date"]) >= lo) & (pd.to_datetime(per["date"]) < end)]
+        name = ph.note or f"phase {i + 1}"
+        label = f"Phase: {name} (${ph.amount:,.0f}/{_PER.get(spec.frequency, 'period')})"
+        seen[label] = seen.get(label, 0) + 1
+        if seen[label] > 1:
+            label = f"{label} #{seen[label]}"
+        out.append(dict(label=label, **{"from": lo, "to": end}, years_from=float(ph.years_from),
+                        years_to=None if ph.years_to is None else float(ph.years_to), amount=float(ph.amount), note=ph.note,
+                        count=int(len(inside)), contributed=float(inside["amount"].sum()), start=lo, end=end))
+    return [b for b in out if b["end"] > b["start"]]
+
+
+def _phase_rects(bands):
+    """Background rectangles, one per phase, with their own colour scale and legend ("Contribution phase")."""
+    names = [b["label"] for b in bands]
+    scale = alt.Scale(domain=names, range=[PHASE_COLORS[i % len(PHASE_COLORS)] for i in range(len(names))])
+    d = pd.DataFrame([dict(series=b["label"], start=b["start"], end=b["end"], years=f"{b['years_from']:g} to "
+                           f"{'the end' if b['years_to'] is None else format(b['years_to'], 'g')}", amount=b["amount"],
+                           note=b["note"] or "-", contributed=b["contributed"], count=b["count"]) for b in bands])
+    return alt.Chart(d).mark_rect(opacity=0.16).encode(
+        x=alt.X("start:T"), x2="end:T", fill=alt.Fill("series:N", scale=scale, sort=names, legend=alt.Legend(
+            title="Contribution phase (shaded)", orient="bottom", columns=1, symbolType="square", symbolOpacity=0.45, labelLimit=420,
+            titleColor=INK, labelColor=INK2)),
+        tooltip=[alt.Tooltip("series:N", title="Phase"), alt.Tooltip("start:T", title="From", format="%d %b %Y"),
+                 alt.Tooltip("end:T", title="To", format="%d %b %Y"), alt.Tooltip("years:N", title="Plan years"),
+                 alt.Tooltip("amount:Q", title="Amount per period (start-date dollars)", format="$,.0f"),
+                 alt.Tooltip("note:N", title="Note"), alt.Tooltip("contributed:Q", title="Total contributed in the phase", format="$,.0f"),
+                 alt.Tooltip("count:Q", title="Contributions")])
+
+
 # ================================================================================================= flows
 def flows_chart(result, strategy_label=STRAT_LABEL, index_label=INDEX_LABEL, title="Dollars in and out each year, by kind"):
     kinds = {"initial": ("Lump sum", PALETTE[0]), "periodic": ("Monthly, indexed to CPI", PALETTE[4]),
              "extra": ("Windfalls", AMBER), "withdrawal": ("Withdrawals", PALETTE[1])}
     fl = result.flows
     fl = fl[fl["applied"]].copy()
+    bands = phase_bands(result)
+    if bands:                                            # V3: the periodic dollars stack by phase, one colour per phase
+        kinds = {"initial": kinds["initial"], **{f"phase{i}": (b["label"], PHASE_COLORS[i % len(PHASE_COLORS)]) for i, b in enumerate(bands)},
+                 "extra": kinds["extra"], "withdrawal": kinds["withdrawal"]}
+        dts = pd.to_datetime(fl["date"])
+        fl["kind"] = [next((f"phase{i}" for i, b in enumerate(bands) if b["start"] <= d < b["end"]), "phase0") if k == "periodic" else k
+                      for k, d in zip(fl["kind"], dts)]
     fl["year"] = pd.to_datetime(fl["executed"]).dt.year
     by = fl.pivot_table(index="year", columns="kind", values="amount", aggfunc="sum").reindex(columns=list(kinds)).fillna(0.0)
     cnt = fl.pivot_table(index="year", columns="kind", values="amount", aggfunc="count").reindex(columns=list(kinds)).fillna(0)
@@ -179,10 +239,13 @@ def first_reached(s: pd.Series, level):
 
 def wealth_chart(result, after_tax=True, pretax=False, goal="spec", log=True, y_domain=None, flows=True,
                  mark_goal=False, flow_legend=True, strategy_label=STRAT_LABEL, index_label=INDEX_LABEL, title=None, width=W, height=H,
-                 legend=True):
+                 legend=True, phases=True):
     """Money put in, strategy and index wealth; `pretax=True` adds the before-tax lines too. `goal="spec"` takes the plan's
-    goal (None for none); `mark_goal` puts a marker where each side first held it; `flows` marks every flow."""
+    goal (None for none); `mark_goal` puts a marker where each side first held it; `flows` marks every flow.
+    V3: `phases=True` shades each contribution phase of `result.spec.phases` as a labelled background band (legend entry,
+    tooltip with the phase's dates, amount, note and the dollars contributed in it)."""
     s = result.series
+    bands = phase_bands(result) if phases else []
     g = result.spec.goal if goal == "spec" else goal
     tag = "after tax" if after_tax else "before tax"
     sl, il = f"{strategy_label} ({tag})", f"{index_label} ({tag})"
@@ -215,7 +278,7 @@ def wealth_chart(result, after_tax=True, pretax=False, goal="spec", log=True, y_
     yt = f"Wealth, dollars{' (log scale)' if log else ''}"
     y = alt.Y("dollars:Q", scale=yscale, title=yt, axis=_log_axis(y_domain, yt) if log else alt.Axis(format=MONEY_AXIS, title=yt))
     lines = _fold(wide, keys).mark_line().encode(x=x, y=y, **_enc(sp, legend=legend, title="Series")).properties(width=width, height=height)
-    layers = [lines]
+    layers = [_phase_rects(bands), lines] if bands else [lines]       # V3: bands behind the lines
     # hover: a rule per month with every series in the tooltip
     tips = [alt.Tooltip("date:T", title="Date", format="%d %b %Y"),
             alt.Tooltip("contributed:Q", title=CONTRIB_LABEL, format=MONEY_TIP),
@@ -605,11 +668,12 @@ def series_names(spec) -> list:
 
     def walk(o):
         if isinstance(o, dict):
-            c = o.get("encoding", {}).get("color") if isinstance(o.get("encoding"), dict) else None
-            if isinstance(c, dict) and isinstance(c.get("scale"), dict):
-                for n in c["scale"].get("domain", []):
-                    if n not in out:
-                        out.append(n)
+            for ch in ("color", "fill"):                          # V3: fill carries the phase bands' legend
+                c = o.get("encoding", {}).get(ch) if isinstance(o.get("encoding"), dict) else None
+                if isinstance(c, dict) and isinstance(c.get("scale"), dict):
+                    for n in c["scale"].get("domain", []):
+                        if n not in out:
+                            out.append(n)
             for v in o.values():
                 walk(v)
         elif isinstance(o, list):

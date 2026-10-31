@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 
+import pandas as pd
+
 import pytest
 
 alt = pytest.importorskip("altair")
@@ -142,3 +144,56 @@ def test_invest_vs_hold_and_png(runs, tmp_path):
 def test_show_outside_a_kernel_names_the_legend(runs, capsys):
     pch.show(pch.reversal_chart(runs[2]))
     assert "[chart]" in capsys.readouterr().out
+
+
+# V3: contribution phases as background bands and flows stacked by phase
+@pytest.fixture(scope="module")
+def phased():
+    from screenlab.plan import Phase
+    lab = Lab.synthetic(freq="ME", n_stocks=60, years=10, seed=3)
+    ph = (Phase(0, 2, 500, "early years"), Phase(2, 4, 3000, "peak saving"), Phase(4, None, 1000, "later years"))
+    return lab.plan("dogs", "2002-01-31", tax=TaxConfig(model=CanadianTax("AB"), macro=lab.macro, account="taxable"),
+                    **{**KW, "periodic": 0, "phases": ph, "extra": [CashFlow("2004-03-01", 5000, "bonus")]})
+
+
+def test_phase_bands_cover_the_phases_and_sum_to_the_periodic_flows(phased):
+    b = pch.phase_bands(phased)
+    assert [x["label"] for x in b] == ["Phase: early years ($500/mo)", "Phase: peak saving ($3,000/mo)", "Phase: later years ($1,000/mo)"]
+    fl = phased.flows
+    assert abs(sum(x["contributed"] for x in b) - fl[(fl["kind"] == "periodic") & fl["applied"]]["amount"].sum()) < 1e-6
+    assert b[0]["count"] == 24 and b[1]["count"] == 24 and b[0]["end"] == b[1]["start"] and b[2]["end"] <= pd.Timestamp("2007-01-01")
+
+
+def test_wealth_chart_shades_each_phase_with_a_legend_and_tooltip(phased):
+    spec, units = _check(pch.wealth_chart(phased))
+    names = pch.series_names(spec)
+    assert "Phase: early years ($500/mo)" in names and "Phase: peak saving ($3,000/mo)" in names
+    rects = [u for u in units if _mark(u) == "rect"]
+    assert len(rects) == 1 and rects[0]["encoding"]["fill"]["legend"]
+    tips = [t["title"] for t in rects[0]["encoding"]["tooltip"]]
+    assert {"Phase", "From", "To", "Amount per period (start-date dollars)", "Note", "Total contributed in the phase"} <= set(tips)
+    rows = [r for d in spec["datasets"].values() for r in d if r.get("series", "").startswith("Phase:")]
+    assert {r["note"] for r in rows} == {"early years", "peak saving", "later years"}
+    flat = json.dumps(pch.style(pch.wealth_chart(phased, phases=False)).to_dict())
+    assert "Phase:" not in flat
+
+
+def test_no_bands_without_phases(runs):
+    r, _, _ = runs
+    assert pch.phase_bands(r) == []
+    spec, units = _check(pch.wealth_chart(r))
+    assert not [u for u in units if _mark(u) == "rect"] and not any(n.startswith("Phase:") for n in pch.series_names(spec))
+    assert "Monthly, indexed to CPI" in json.dumps(pch.flows_chart(r).to_dict())
+
+
+def test_flows_chart_stacks_by_phase(phased):
+    spec, units = _check(pch.flows_chart(phased))
+    names = pch.series_names(spec)
+    assert all(n in names for n in ("Phase: early years ($500/mo)", "Phase: peak saving ($3,000/mo)", "Phase: later years ($1,000/mo)"))
+    assert "Monthly, indexed to CPI" not in json.dumps(spec)
+    rows = [r for d in spec["datasets"].values() for r in d if r.get("kind", "").startswith("Phase:")]
+    tot = {}
+    for r in rows:
+        tot[r["kind"]] = tot.get(r["kind"], 0) + r["amount"]
+    b = {x["label"]: x["contributed"] for x in pch.phase_bands(phased)}
+    assert all(abs(tot[k] - b[k]) < 1e-3 * max(1, b[k]) + 1 for k in b)
