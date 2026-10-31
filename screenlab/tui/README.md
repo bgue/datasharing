@@ -47,6 +47,18 @@ domicile and wrapper, and what each account does with the withholding) and the n
 is not modelled). In the browser chart panel the Accounts tab draws after-tax CAGR by account, portfolio against index.
 Command `accounts` ([PROTOCOL.md](PROTOCOL.md)).
 
+## Plan tab (key `P`)
+A dated investment plan on the selected scenario's strategy, against the passive index fed the same dollars on the same days
+([../docs/PLAN.md](../docs/PLAN.md)). The form takes the start and end dates, a lump sum, a periodic contribution with its frequency and
+growth (a number or `cpi`), extraordinary investments (type a date and an amount, Add row; select a row, Remove selected),
+withdrawals with the date they start and their growth, a goal in dollars, the cash timing (`invest`: a contribution buys the target
+weights the next trading day; `hold`: it waits in cash until the next rebalance) and the index's MER. The strategy and the account
+are those of the selected scenario (its Tax section; none = before tax). Run plan shows the metrics table (strategy, index,
+difference; green where the strategy wins), a terminal chart of money contributed against the strategy and the index, before and
+after tax, with a text sparkline of each line, and the goal line. Run MC adds the quantile table of after-tax terminal wealth,
+the probability of beating the index and of missing the goal, a fan chart, the sequence-of-returns table and text histograms.
+In the browser chart panel the Plan tab draws the same as Plotly figures. Commands `plan` and `plan_mc` ([PROTOCOL.md](PROTOCOL.md)).
+
 ## Refining a scenario
 Select a scenario, edit a field, press **F2** (or the Apply button, or Enter in a field). Apply never edits:
 it creates `dogs v2` from `dogs` with the changed fields, shows a line such as

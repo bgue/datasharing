@@ -212,6 +212,7 @@ says which hosts to allow if one is blocked (`make data-hosts`). Details: [reald
 | exit signals, exit policy, calibration | [docs/EXITS.md](docs/EXITS.md) |
 | after-tax results: taxable / TFSA / RRSP, placeholder Canadian rates, plugging in your own tax module | [docs/TAXES.md](docs/TAXES.md) |
 | which account suits a portfolio: taxable vs TFSA vs RRSP, foreign withholding (operation `account_compare`, TUI Accounts tab, notebook) | [docs/TAXES.md](docs/TAXES.md) "Comparing accounts", [notebooks/accounts_and_foreign.ipynb](notebooks/accounts_and_foreign.ipynb) |
+| a dated investment plan on a strategy against the index: lump sum, monthly contributions, extraordinary investments, withdrawals, a goal, Monte Carlo (operations `plan` and `plan_montecarlo`, TUI Plan tab, notebook) | [docs/PLAN.md](docs/PLAN.md), [notebooks/plan_dca.ipynb](notebooks/plan_dca.ipynb) |
 | REST, MCP, background jobs, the run database | [docs/SERVERS_AND_STORAGE.md](docs/SERVERS_AND_STORAGE.md), [server/README.md](server/README.md) |
 | what the results can and cannot support; guard against fooling yourself (trial counter and deflated Sharpe in the TUI, freezing, pre-registered hypotheses) | [CRITIQUE.md](CRITIQUE.md), [research/PREREGISTERED.md](research/PREREGISTERED.md), [docs/GETTING_STARTED.md](docs/GETTING_STARTED.md) |
 | what is done and what is next | [ROADMAP.md](ROADMAP.md) |

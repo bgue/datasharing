@@ -289,6 +289,17 @@ It uses the Tax section of the editor for the bracket and the RRSP withdrawal ra
 deduction refund and AMT. From code: `lab.account_compare(["dogs"], tax=...)`; a worked example is
 `notebooks/accounts_and_foreign.ipynb`; the rules are in `docs/TAXES.md` "Comparing accounts".
 
+### A plan: monthly contributions, extra money, withdrawals, a goal
+The **Plan** tab (key `P`) puts the selected scenario's strategy through a dated plan and sets it against the passive index fed
+with the same dollars on the same days: a lump sum, a periodic contribution (growing, or indexed to inflation), extraordinary
+investments you add as rows, withdrawals from a date, and a goal in dollars. Run plan fills the metrics table (final wealth
+before and after tax and after inflation, XIRR and time-weighted return, alpha, beta, Sharpe, tax paid, years to the goal;
+green where the strategy wins) and a chart of what you put in against what each side grew to; Run MC adds the range of
+outcomes on resampled history. The account comes from the Tax section of the editor; with none, every figure is before tax.
+From code: `lab.plan("dogs", "2000-01-03", initial=10_000, periodic=500, growth="cpi", tax=...)` and
+`lab.plan_montecarlo(...)`; a worked example on 33 years of real data is `notebooks/plan_dca.ipynb`; the rules and the
+approximations are in `docs/PLAN.md`.
+
 ### Guardrails: trials, frozen scenarios, pre-registered hypotheses
 Trying fifty variants is an afternoon's work in the TUI, and the best of fifty looks good by luck. So every Compare row
 shows **Trials** (how many variants of its screen were tried, including earlier sessions when a run store is on) and

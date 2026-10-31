@@ -27,10 +27,11 @@ from ..errors import ServerError
 from ..jsonout import jsonify
 from . import guardrails as G
 from . import accounts as _accounts      # Q2: Accounts tab (no Textual import at module level)
+from . import plan as _plan_tab          # PC: Plan tab (no Textual import at module level)
 
 PROTOCOL = 1
 TABS = ("compare", "curves", "timing", "picks", "exit", "montecarlo", "runs", "log", "data", "hypotheses",
-        "accounts")   # Q2: Accounts tab (accounts.py)
+        "accounts", "plan")   # Q2: Accounts tab (accounts.py); PC: Plan tab (plan.py)
 LOCK, CAND = "\U0001F512", "\u25C7"        # frozen / out-of-sample candidate markers
 # Okabe-Ito order, as the research charts use it (research/montecarlo_sp500.py COL); more hues after the eight
 PALETTE = ["#0072B2", "#56B4E9", "#D55E00", "#E69F00", "#009E73", "#CC79A7", "#F0E442", "#7B3294"]
@@ -49,7 +50,8 @@ FINAL = ("done", "failed", "cancelled")
 COMMANDS = ("add_scenario", "clone_scenario", "set_params", "remove_scenario", "run", "compare", "timing",
             "montecarlo", "exit_eval", "picks", "show", "select", "save_spec", "export", "history", "jobs",
             "cancel", "set_theme", "snapshot", "view", "curves", "screens", "datasets", "fetch_data", "freeze", "unfreeze",
-            "link", "hypotheses", "accounts")      # Q2: accounts = the account_compare job for a scenario (accounts.py)
+            "link", "hypotheses", "accounts",      # Q2: accounts = the account_compare job for a scenario (accounts.py)
+            "plan", "plan_mc")                     # PC: plan / plan_mc = the plan and plan_montecarlo jobs (plan.py)
 # data downloader (operation `fetch_data`, implemented in ops/fetch_data.py); hosts are shown in the Data tab form
 FETCH_SOURCES = ("sec", "boc", "fred", "stooq", "statcan", "shiller", "tiingo")
 FETCH_HOSTS = {"sec": ["www.sec.gov", "data.sec.gov"], "boc": ["www.bankofcanada.ca"], "fred": ["fred.stlouisfed.org"],
@@ -161,7 +163,8 @@ class Session:
         self.active_tab = "compare"
         self.theme = "textual-dark"
         self.mc = {"n_paths": 500, "horizon_years": [5, 10], "generator": None, "seed": 0}
-        self.analyses: dict = {"timing": {}, "montecarlo": None, "exit": {}, "picks": {}, "accounts": {}}   # Q2: accounts
+        self.analyses: dict = {"timing": {}, "montecarlo": None, "exit": {}, "picks": {}, "accounts": {}, "plan": {},   # Q2: accounts
+                          "plan_form": _plan_tab.new_form()}   # PC: plan results by scenario label, and the Plan tab form
         self._tracked: dict = {}                       # job_id -> record
         self._next_id = 1
         self._next_color = 0
@@ -495,7 +498,8 @@ class Session:
         self.scenarios.remove(sc)
         if self.selected == sc.id:
             self.selected = self.scenarios[-1].id if self.scenarios else None
-        for d in (self.analyses["timing"], self.analyses["exit"], self.analyses["picks"], self.analyses["accounts"]):   # Q2
+        for d in (self.analyses["timing"], self.analyses["exit"], self.analyses["picks"], self.analyses["accounts"],
+                  self.analyses["plan"]):   # Q2; PC: plan
             d.pop(sc.label, None)
         self.log(f"removed {sc.label}")
         self._emit("scenarios")
@@ -640,6 +644,31 @@ class Session:
         self._emit("jobs")
         return {"jobs": [j]}
 
+    def cmd_plan(self, scenario=None, run=True, force=False, add_extra=None, remove_extra=None, **form) -> dict:   # PC: Plan tab
+        """The dated investment plan of the scenario's strategy against the index (the `plan` operation). `form` is any of
+        the plan form fields (start, end, initial, periodic, frequency, growth, extra, withdrawals, withdraw_from,
+        withdraw_growth, cash_timing, index_mer, goal); they are remembered (`analyses.plan_form`). `add_extra` /
+        `remove_extra` edit the extraordinary investments; `run=false` only edits the form."""
+        sc = self._find(scenario)
+        _plan_tab.update_form(self.analyses["plan_form"], form, add_extra, remove_extra)
+        if not run:
+            self._emit("plan")
+            return {"form": self.analyses["plan_form"], "jobs": []}
+        j = self._submit(_plan_tab.KIND, _plan_tab.args_for(self, sc, self.analyses["plan_form"]), [sc], label=sc.label,
+                         force=bool(force))
+        self._emit("jobs")
+        return {"form": self.analyses["plan_form"], "jobs": [j]}
+
+    def cmd_plan_mc(self, scenario=None, force=False, **form) -> dict:                  # PC: Plan tab, Monte Carlo
+        """Monte Carlo study of the same plan (the `plan_montecarlo` operation): `form` as for `plan`, plus n_paths,
+        generator (block | stationary | regime | iid) and seed."""
+        sc = self._find(scenario)
+        _plan_tab.update_form(self.analyses["plan_form"], form)
+        j = self._submit(_plan_tab.KIND_MC, _plan_tab.args_for(self, sc, self.analyses["plan_form"], mc=True), [sc],
+                         label=sc.label, force=bool(force))
+        self._emit("jobs")
+        return {"form": self.analyses["plan_form"], "jobs": [j]}
+
     def cmd_picks(self, scenario=None, asof=None, columns=None, force=False) -> dict:
         sc = self._find(scenario)
         a = {"screen": self._screen_ref(sc.params)}
@@ -742,6 +771,8 @@ class Session:
             self._store_fetch(jid, res)
         elif kind == "account_compare":                                                    # Q2: Accounts tab
             _accounts.store(self.analyses, label, res)
+        elif kind in (_plan_tab.KIND, _plan_tab.KIND_MC):                                   # PC: Plan tab
+            _plan_tab.store(self.analyses, label, kind, res)
         elif kind == "picks":
             self.analyses["picks"][label] = {"scenario": label, "asof": res.get("asof"),
                                              "columns": res["columns"], "rows": res["rows"]}
@@ -1282,6 +1313,9 @@ class Session:
                       for f in (man.get("files") or [])[:40]]
             lines += [f"  error: {e}" for e in (man.get("errors") or [])[:20]]
         return "\n".join(lines)
+
+    def _view_plan(self) -> str:                                                           # PC: Plan tab
+        return _plan_tab.view_text(self.analyses, self._grid)
 
     def _view_accounts(self) -> str:                                                       # Q2: Accounts tab
         return _accounts.view_text(self.analyses, self._grid)

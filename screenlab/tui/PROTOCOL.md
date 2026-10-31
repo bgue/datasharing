@@ -159,8 +159,11 @@ canadian model, Alberta, other income 90000). Result `{"jobs": [...]}`; the fini
 see docs/TAXES.md "Comparing accounts") and the Accounts tab (key `A`; opening the tab starts the job once per scenario
 version). Browser chart: `/charts/data?tab=accounts` (grouped bars of after-tax CAGR by account).
 
+### `plan` and `plan_mc`
+Args of `plan`: `{"scenario": "dogs", "start": null, "end": null, "initial": 10000, "periodic": 500, "frequency": "monthly", "growth": 0.0 | "cpi", "extra": [{"date", "amount", "note"}], "add_extra": {"date", "amount", "note"}, "remove_extra": 0, "withdrawals": 0, "withdraw_from": null, "withdraw_growth": 0.0, "cash_timing": "invest" | "hold", "index_mer": 0.0005, "goal": null, "run": true, "force": false, "wait": false}` (all optional). The values are remembered in the session (`snapshot.analyses.plan_form`, which also holds the Monte Carlo settings `n_paths`, `generator`, `seed`); `run: false` only edits the form (`add_extra` appends one extraordinary flow, `remove_extra` deletes the row at that index, `extra` replaces the table). Submits a `plan` job for the scenario's screen, config and `tax` param (the account) with the form; `start` defaults to the scenario's start, else 13 months into the data. A scenario with an exit policy is refused (400). `plan_mc` takes the same fields plus `n_paths`, `generator` (`block`, `stationary`, `regime`, `iid`) and `seed`, and submits a `plan_montecarlo` job. Result `{"form": {...}, "jobs": [...]}`; the results are `snapshot.analyses.plan[<scenario label>]` = `{"plan": {"spec", "metrics", "series", "flows", "tax", "goal", "card", "daily"}, "mc": {"spec", "n_paths", "seed", "quantiles", "p_beat_index", "p_shortfall", "p_shortfall_real", "p_shortfall_index", "goal", "sequence", "paired", "reversal", "fan", "histograms", "card"}}` (the `plan` and `plan_montecarlo` results, see docs/PLAN.md; a new `plan` result drops a Monte Carlo result of a different plan), shown on the Plan tab (key `P`). Browser chart: `/charts/data?tab=plan` (`plans`: per scenario `x`, `series` {contributed, strategy_pre, strategy_after_tax, index_pre, index_after_tax}, `flows`, `metrics` rows with `better`, and `mc` with the fan and histograms).
+
 ### `show`
-Args: `{"tab": "compare"}`, one of `compare curves timing picks exit montecarlo runs log data hypotheses accounts`. Switches the
+Args: `{"tab": "compare"}`, one of `compare curves timing picks exit montecarlo runs log data hypotheses accounts plan`. Switches the
 visible tab. Result `{"tab": "compare"}`.
 
 ### `select`
@@ -264,7 +267,7 @@ the exports (CSV column, Markdown `tax` line) and `view` (`Tax: dogs v2 taxable 
                 "status": "done", "job": {"job_id": "...", "status": "done", "progress": 1.0},
                 "metrics": {"CAGR": 0.095, "Excess/yr": 0.012}, "diff_from_previous": null}],
  "jobs": [], "mc": {"n_paths": 500, "horizon_years": [5, 10], "generator": null, "seed": 0},
- "analyses": {"timing": {}, "montecarlo": null, "exit": {}, "picks": {}},
+ "analyses": {"timing": {}, "montecarlo": null, "exit": {}, "picks": {}, "accounts": {}, "plan": {}, "plan_form": {...}},
  "log": ["12:00:01 added dogs", "..."]}   // the last 200 log lines
 ```
 `seq` increases on every state change (cheap change detection). Scenario `status` is one of `new`

@@ -170,6 +170,11 @@ rebalance a re-picked name inside its window is replaced by the next-ranked unbl
 the exit policy's re-entry; [x] harvesting with an exit policy (exit-switch losses recorded with `source` "exit"); `Result.harvest`
 columns `replacement_name`, `blocked_until`.
 
+*Done (plan, PC):* [x] operations `plan` and `plan_montecarlo` (REST, MCP, jobs, store, `RunKind`); [x] TUI Plan tab (form, extras
+table, metrics table, terminal and Plotly charts, Monte Carlo fan and histograms; commands `plan` / `plan_mc`); [x]
+`notebooks/plan_dca.ipynb` on the real S&P 500 panel; docs/PLAN.md "Operations, TUI and notebook"; tests/test_plan_ops.py,
+tests/test_tui_plan.py, tests/test_tax_notebooks.py.
+
 *Done (Q2):* [x] account comparison (`account_compare`: the same portfolio and the passive index in taxable / TFSA / RRSP,
 after-tax CAGR, tax drag, after-tax excess over the equally taxed index, withholding lost / credited / exempt, tax by kind,
 RRSP deferral, rank, foreign treatment matrix; REST, MCP, jobs, TUI Accounts tab, `notebooks/accounts_and_foreign.ipynb`;

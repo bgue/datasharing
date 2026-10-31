@@ -171,3 +171,64 @@ def test_loss_harvesting_notebook_runs():
             assert "legend" in src or "tp." in src, src[:80]
             assert "INDEX_COL" in src or "baseline=" in src or "legend(handles" in src, src[:80]
     assert n_plots >= 10
+
+
+def test_plan_notebook_runs():                                   # PC: the plan notebook on the real S&P 500 panel, 1990-2022
+    import re
+    import time
+    if not PANEL_PRICES.exists():
+        pytest.skip("the S&P 500 panel is absent (make data-panel, local use only)")
+    nbformat = pytest.importorskip("nbformat")
+    path = NB_DIR / "plan_dca.ipynb"
+    nb = nbformat.read(str(path), 4)
+    first = nb.cells[0].source
+    assert nb.cells[0].cell_type == "markdown" and "LOCAL USE ONLY" in first and "unlicensed" in first      # the licence is the first thing read
+    assert "make data-panel" in first and "local use" in first and "not redistributed" in first and "Not tax advice" in first
+    t0 = time.time()
+    out = run_notebook(path, timeout=420)                        # with the on-disk cache: under three minutes
+    assert time.time() - t0 <= 240
+    for tbl in range(1, 8):
+        assert f"Table {tbl}." in out
+    code_cells = [(i, "".join(c.source)) for i, c in enumerate(nb.cells) if c.cell_type == "code"]
+    code = "\n".join(src for _, src in code_cells)
+    assert 'Lab.real_sp500(start=START, end=END)' in code and 'START, END = "1990-01-01", "2022-12-30"' in code   # exactly these arguments: the cache is hit
+    assert "lab.plan(" in code and "lab.plan_montecarlo(" in code and 'growth="cpi"' in code and "withdrawals=3_000" in code
+    assert 'CashFlow("1999-03-01", 25_000' in code and 'CashFlow("2009-03-01", 15_000' in code and 'withdraw_from="2018-01-01"' in code
+    assert "rrsp_withdrawal_rate=rrsp_rate" in code and "rrsp_rate=0.30" in code and "other_income=90_000" in code and "GOAL = 1_500_000" in code
+    # the Summary: two computed paragraphs, right after the setup and the runs, before Section 1
+    summ = [i for i, src in code_cells if "## Summary" in src]
+    assert len(summ) == 1 and 'say(f\'\'\'' in dict(code_cells)[summ[0]]
+    sec1 = next(i for i, c in enumerate(nb.cells) if c.cell_type == "markdown" and "".join(c.source).startswith("## 1."))
+    assert summ[0] < sec1 and all(not "".join(nb.cells[j].source).startswith("##") for j in range(1, summ[0]))
+    body = dict(code_cells)[summ[0]].split("## Summary", 1)[1]
+    paras = [p for p in body.split("\n\n") if p.strip().startswith("**")]
+    assert len(paras) == 2 and paras[0].startswith("**What the plan produced.**") and paras[1].startswith("**What it means for the goal and the risk.**")
+    assert "{usd(" in paras[0] and "{pc(" in paras[0] and "mt.p_beat_index" in paras[1] and "yrs_goal" in paras[1]       # the numbers come from variables
+    # composition: seven sections, each opening with a question and ending in "What the evidence says"
+    secs = []
+    for c in nb.cells:
+        src = "".join(c.source)
+        if c.cell_type == "markdown" and src.startswith("## "):
+            secs.append([src])
+        elif secs:
+            secs[-1].append(src)
+    assert len(secs) == 7
+    for sec in secs:
+        assert "What the evidence says" in "\n".join(sec), sec[0][:40]
+        assert "question" in sec[0], sec[0][:40]
+    text = "\n".join("".join(c.source) for c in nb.cells if c.cell_type == "markdown")
+    prose = "\n".join(m.group(2) for m in re.finditer(r"say\(f?(\"\"\"|\'\'\')(.*?)\1\)", code, re.S))
+    for tic in ("let's", "Let's", "note that", "Note that", "!", "-> "):
+        assert tic not in text + prose, tic
+    # the XIRR / TWR paragraph, the reading guide (US stand-ins, 2025 tables, delisting haircut, licence), the base case in every figure
+    assert "XIRR" in secs[2][0] and "TWR" in secs[2][0] and "time-weighted" in secs[2][0] and "money-weighted" in secs[2][0]
+    guide = "\n".join(secs[6])
+    assert all(s in guide for s in ("US CPI", "US 10-year", "DECISIONS.md", "2025", "haircut of 30%", "do not commit"))
+    n_fig = 0
+    for _, src in code_cells:
+        if "; show(fig)" in src:
+            n_fig += src.count("; show(fig)")
+            assert "legend" in src, src[:80]                                                     # a legend on every figure
+            assert "INDEX_COL" in src or "pp." in src, src[:80]                                  # the grey dashed base case (pp.* draws it itself)
+    assert n_fig >= 8
+    assert "Buy and hold the index" in text and '"Buy and hold the index"' in code

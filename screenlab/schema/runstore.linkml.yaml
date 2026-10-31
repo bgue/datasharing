@@ -348,6 +348,10 @@ enums:
         description: Download the free datasets (SEC, Bank of Canada, FRED, Stooq, StatCan) into data/ and list the labs they allow (lab.fetch_data). Not an analysis; records no trials.
       account_compare:
         description: The same portfolios and the passive index in a taxable account, a TFSA and an RRSP, with foreign withholding and RRSP deferral (lab.account_compare).
+      plan:
+        description: A dated investment plan (lump sum, periodic and extraordinary contributions, withdrawals) on a configured strategy against the same flows into the passive index, with XIRR, alpha / beta / Sharpe, pre-tax, after-tax and real figures (lab.plan).
+      plan_montecarlo:
+        description: Monte Carlo study of a plan on resampled return paths - after-tax terminal wealth, probability of beating the index, shortfall against the goal, sequence of returns (lab.plan_montecarlo).
   RunStatus:
     description: Lifecycle of a run.
     permissible_values:

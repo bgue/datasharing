@@ -66,7 +66,7 @@ td .key { display:inline-block; width:14px; height:0; border-top:3px solid; marg
 
 <script>
 "use strict";
-const TABS = [["curves","Curves"],["compare","Compare"],["timing","Timing"],["montecarlo","Monte Carlo"],["exit","Exit"],["accounts","Accounts"]];   // Q2
+const TABS = [["curves","Curves"],["compare","Compare"],["timing","Timing"],["montecarlo","Monte Carlo"],["exit","Exit"],["accounts","Accounts"],["plan","Plan"]];   // Q2; PC: plan
 const params = new URLSearchParams(location.search);
 const TOKEN = params.get("token");
 const q = (path, extra) => {
@@ -342,6 +342,70 @@ const tabs = {
       }))));
       if (r.foreign.rows.length) root.append(details("Foreign holdings and withholding: " + label, table(
         r.foreign.columns.filter(c => c !== "kind"), r.foreign.rows.map(row => row.filter((v, i) => r.foreign.columns[i] !== "kind")))));
+    });
+  },
+
+  plan(d, root) {   // PC: contributed vs strategy vs index, pre- and after-tax; metrics; Monte Carlo fan and histograms
+    root.append(flag("Wealth in dollars: what was put in (net of withdrawals) against the strategy and the same flows into the index. Solid = pre-tax, dashed = after tax. Grey is the passive index; the dotted line is the money contributed."));
+    const hexA = (h, a) => { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+    d.plans.forEach((p, k) => {
+      const sp = p.spec;
+      root.append(flag(`${p.label}: from ${sp.start} to ${sp.end || "the last bar"}, account ${sp.account || "none (pre-tax)"}, ${sp.frequency} ${money(sp.periodic)} + ${money(sp.initial)} at the start` +
+        (sp.withdrawals ? `, withdrawing ${money(sp.withdrawals)} per period from ${sp.withdraw_from}` : "")));
+      p.warnings.forEach(w => root.append(el("div", {class: "notes"}, el("span", {class: "warn"}, w))));
+      const [c1, b1] = card("Contributed, strategy and index", "dollars; hover for the values", "plan-wealth-" + k, "tall");
+      root.append(c1);
+      const S = p.series, x = p.x;
+      const ln = (name, y, color, dash, width, passive, group) => ({type: "scatter", mode: "lines", name: name, x: x, y: y, legendgroup: group, meta: {passive: passive},
+        line: {color: color, width: width, dash: dash}, hovertemplate: "<b>%{y:$,.0f}</b>  %{fullData.name}<extra></extra>"});
+      const tr = [ln("contributed (net)", S.contributed, theme.variables.text_muted, "dot", 1.5, false, "contributed"),
+        ln(p.label + ", pre-tax", S.strategy_pre, p.color, "solid", 2, false, p.label),
+        ln(p.label + ", after tax", S.strategy_after_tax, p.color, "dash", 2, false, p.label),
+        ln(d.index_label + ", pre-tax", S.index_pre, d.passive.color, "solid", 2, true, "index"),
+        ln(d.index_label + ", after tax", S.index_after_tax, d.passive.color, "dash", 2, true, "index")];
+      if (p.goal != null) tr.push({type: "scatter", mode: "lines", name: "goal " + money(p.goal), x: [x[0], x[x.length - 1]], y: [p.goal, p.goal],
+        line: {color: theme.variables.warning, width: 1.5, dash: "dashdot"}, hovertemplate: "goal <b>%{y:$,.0f}</b><extra></extra>"});
+      if (p.flows.length) tr.push({type: "scatter", mode: "markers", name: "extraordinary flows", x: p.flows.map(f => f.date), y: p.flows.map(f => (S.contributed[Math.max(0, x.findIndex(v => v >= f.date))] ?? null)),
+        marker: {color: theme.variables.accent, size: 9, symbol: p.flows.map(f => f.amount >= 0 ? "triangle-up" : "triangle-down"), line: {color: theme.variables.surface, width: 1}},
+        customdata: p.flows.map(f => [f.amount, f.note]), hovertemplate: "%{x|%b %Y}: <b>%{customdata[0]:$,.0f}</b> %{customdata[1]}<extra>extra flow</extra>"});
+      plot(b1, tr, {hovermode: "x unified", xaxis: {hoverformat: "%b %Y"}, yaxis: {tickprefix: "$", tickformat: "~s", title: {text: "wealth"}}});
+      root.append(details("Metrics: " + p.label, table(["Metric", "Strategy", "Index", "Difference", "Strategy wins"],
+        p.metrics.map(m => { const f = v => v == null ? "–" : m.kind === "pct" ? pct(v, 2) : m.kind === "money" ? money(v) : num(v, 2);
+          return [m.metric, f(m.strategy), f(m.index), f(m.difference), m.better == null ? "" : (m.better ? "yes" : "no")]; }))));
+      const mc = p.mc;
+      if (!mc) { root.append(flag("No Monte Carlo yet for this plan: run `plan_mc` (the Run MC button).")); return; }
+      root.append(flag(`Monte Carlo: ${mc.n_paths} paths, seed ${mc.seed}. P(strategy beats the index, after tax) = ${pct(mc.p_beat_index)}` +
+        (mc.p_shortfall != null ? `; P(shortfall vs the goal ${money(mc.goal)}): strategy ${pct(mc.p_shortfall)}, index ${pct(mc.p_shortfall_index)}` : "")));
+      if (mc.fan) {
+        const [c2, b2] = card("After-tax wealth fan", "median; bands 25-75% and 5-95%", "plan-fan-" + k, "tall");
+        root.append(c2);
+        const f = mc.fan, t2 = [];
+        [["strategy", p.label, p.color, false], ["index", d.index_label, d.passive.color, true]].forEach(([pre, name, color, passive]) => {
+          const common = {type: "scatter", mode: "lines", x: f.x, legendgroup: name, meta: {passive: passive}, showlegend: false, line: {width: 0, color: color}, hoverinfo: "skip"};
+          if (!passive) t2.push(Object.assign({}, common, {y: f[pre + "_p5"]}), Object.assign({}, common, {y: f[pre + "_p95"], fill: "tonexty", fillcolor: hexA(color, 0.07)}));
+          t2.push(Object.assign({}, common, {y: f[pre + "_p25"]}), Object.assign({}, common, {y: f[pre + "_p75"], fill: "tonexty", fillcolor: hexA(color, 0.13)}));
+          t2.push({type: "scatter", mode: "lines", name: name + " median", x: f.x, y: f[pre + "_p50"], legendgroup: name, meta: {passive: passive}, line: {color: color, width: 2},
+            hovertemplate: "<b>%{y:$,.0f}</b> median  %{fullData.name}<extra></extra>"});
+        });
+        t2.push({type: "scatter", mode: "lines", name: "contributed (net)", x: f.x, y: f.contributed, line: {color: theme.variables.text_muted, width: 1.5, dash: "dot"},
+          hovertemplate: "<b>%{y:$,.0f}</b> contributed<extra></extra>"});
+        if (mc.goal != null) t2.push({type: "scatter", mode: "lines", name: "goal", x: [f.x[0], f.x[f.x.length - 1]], y: [mc.goal, mc.goal], line: {color: theme.variables.warning, width: 1.5, dash: "dashdot"}});
+        plot(b2, t2, {hovermode: "x unified", xaxis: {hoverformat: "%b %Y"}, yaxis: {tickprefix: "$", tickformat: "~s", title: {text: "after-tax wealth"}}});
+      }
+      const grid = el("div", {class: "grid"}); root.append(grid);
+      const [c3, b3] = card("Terminal wealth, after tax", "share of paths per bin", "plan-hist-" + k);
+      const [c4, b4] = card("Strategy minus index, after tax", "per path; right of zero = the strategy wins", "plan-paired-" + k);
+      grid.append(c3, c4);
+      const bars = (h, name, color, passive) => { const mid = h.edges.slice(0, -1).map((v, i) => (v + h.edges[i + 1]) / 2), w = h.edges[1] - h.edges[0], n = h.counts.reduce((a, b) => a + b, 0) || 1;
+        return {type: "bar", name: name, x: mid, y: h.counts.map(c => c / n), width: w * 0.92, marker: {color: color, opacity: passive ? 0.55 : 0.7}, legendgroup: name, meta: {passive: passive},
+          customdata: h.edges.slice(0, -1).map((v, i) => [v, h.edges[i + 1]]), hovertemplate: "<b>%{y:.1%}</b> of paths  %{fullData.name}<br>%{customdata[0]:$,.0f} to %{customdata[1]:$,.0f}<extra></extra>"}; };
+      plot(b3, [bars(mc.histograms.index_after_tax, d.index_label, d.passive.color, true), bars(mc.histograms.strategy_after_tax, p.label, p.color, false)],
+        {barmode: "overlay", bargap: 0, hovermode: "closest", xaxis: {tickprefix: "$", tickformat: "~s", title: {text: "after-tax terminal wealth"}}, yaxis: {tickformat: ".0%", title: {text: "share of paths"}}});
+      plot(b4, [bars(mc.histograms.paired, "strategy minus index", p.color, false)],
+        {barmode: "overlay", bargap: 0, hovermode: "closest", xaxis: {tickprefix: "$", tickformat: "~s", zeroline: true, zerolinecolor: d.passive.color, zerolinewidth: 2, title: {text: "difference in after-tax wealth"}}, yaxis: {tickformat: ".0%", title: {text: "share of paths"}}});
+      root.append(details("Terminal wealth quantiles: " + p.label, table(mc.quantiles.columns, mc.quantiles.rows)));
+      root.append(details("Sequence of returns: " + p.label + " (where the worst 12 months fall)", table(mc.sequence.columns, mc.sequence.rows)));
+      mc.notes.forEach(n => root.append(el("div", {class: "notes"}, n)));
     });
   },
 

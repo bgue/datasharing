@@ -190,6 +190,12 @@ SAMPLES = {
     "account_compare": {"screens": ["dogs"], "accounts": ["taxable", "rrsp"],
                         "tax": {"model": "canadian", "province": "AB", "other_income": 90000.0, "rrsp_withdrawal_rate": 0.3},
                         "start": "2002-01-31", "config": {"rebalance_months": 12, "cost_bps": 10}},
+    "plan": {"screen": "dogs", "start": "2002-01-31", "end": "2008-12-31", "initial": 10000.0, "periodic": 500.0,
+             "frequency": "monthly", "growth": "cpi", "extra": [{"date": "2004-03-01", "amount": 5000.0, "note": "bonus"}],
+             "withdrawals": 800.0, "withdraw_from": "2007-01-01", "goal": 90000.0,
+             "tax": {"model": "canadian", "account": "tfsa", "province": "AB"}, "config": {"rebalance_months": 12}},   # PC:
+    "plan_montecarlo": {"screen": "dogs", "start": "2002-01-31", "initial": 10000.0, "periodic": 500.0, "n_paths": 20,
+                        "generator": "stationary", "seed": 2, "horizon_end": "2012-12-31"},                          # PC:
     "fetch_data": {"sources": ["boc"], "dest": "data", "sec_user_agent": "A B a@b.c", "tickers": ["XIU.TO"],
                    "start": "2010-01-01", "periods": ["2023q1"]},
     "exit_calibrate": {"signals": [{"type": "TrendBreak"}], "grid": {"threshold": [0.6, 0.8]},

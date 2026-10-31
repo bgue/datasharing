@@ -262,6 +262,7 @@ class ScreenlabApp(App):
                         yield DataTable(id="t-manifest", cursor_type="row")
                         yield Static("", id="d-errors")
                 yield __import__(__package__ + ".accounts", fromlist=["pane"]).pane(self)  # Q2: Accounts tab (tui/accounts.py)
+                yield __import__(__package__ + ".plan", fromlist=["pane"]).pane(self)  # PC: Plan tab (tui/plan.py)
         yield Static("", id="chartsbar")
         yield Footer()
 

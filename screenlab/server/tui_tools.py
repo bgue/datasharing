@@ -97,7 +97,8 @@ def build_tui_tools(client: TuiClient | None = None) -> dict:
     def tui_command(cmd: str, args: dict | None = None) -> dict:
         """Send any control command to the TUI: {cmd, args}. Commands: add_scenario, clone_scenario, set_params,
         remove_scenario, run, compare, timing, montecarlo, exit_eval, picks, show, select, save_spec, export,
-        history, jobs, cancel, set_theme, snapshot, view (see tui/PROTOCOL.md). Prefer the named tui_*
+        history, jobs, cancel, set_theme, snapshot, view, accounts, plan, plan_mc (see tui/PROTOCOL.md; `plan` /
+        `plan_mc` = the Plan tab: a dated investment plan against the index, args are the plan form fields). Prefer the named tui_*
         wrappers for the common moves. Pass wait=true in args to block until jobs finish (optional `timeout`)."""
         a = dict(args or {})
         wt = _wait_t(a.get("wait"), a.get("timeout"))
@@ -131,7 +132,7 @@ def build_tui_tools(client: TuiClient | None = None) -> dict:
         return cl().command("compare", {**_drop_none(scenarios=scenarios), "ci": ci})
 
     def tui_show(tab: str) -> dict:
-        """Switch the visible tab: compare, curves, timing, picks, exit, montecarlo, runs or log."""
+        """Switch the visible tab: compare, curves, timing, picks, exit, montecarlo, runs, log, accounts or plan."""
         return cl().command("show", {"tab": tab})
 
     def tui_montecarlo(scenarios: list[str] | None = None, n_paths: int | None = None,
