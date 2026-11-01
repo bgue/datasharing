@@ -317,6 +317,11 @@ class _Runtime:
             if name not in self._labs:
                 f = self.factories[name]
                 self._labs[name] = f() if callable(f) else f
+                try:                                            # SB1: saved screens (spec.load_saved_screens)
+                    from .spec import load_saved_screens
+                    load_saved_screens(self._labs[name])
+                except Exception:                               # noqa: BLE001
+                    pass
             return self._labs[name]
 
     def job_lab(self, name, store=None, session_id=None):

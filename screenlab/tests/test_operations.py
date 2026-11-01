@@ -201,6 +201,13 @@ SAMPLES = {
                    "start": "2010-01-01", "periods": ["2023q1"]},
     "exit_calibrate": {"signals": [{"type": "TrendBreak"}], "grid": {"threshold": [0.6, 0.8]},
                        "constraints": {"max_switches_per_year": 4.0}},
+    # SB1:
+    "screen_schema": {"asof": "2005-06-30"},
+    "screen_preview": {"spec": {"name": "cheap", "n": 5, "universe": {"top": 30}, "derive": {"pp": "pe * pb"},
+                                "filters": ["pp < 30"], "exclude": ["div_yield < 0.01"], "rank": {"pp": "asc"}},
+                       "asof": "2005-06-30", "show": 3},
+    "screen_save": {"spec": {"name": "cheap", "universe": {"top": 30}, "filters": ["pe < 15"]}, "overwrite": True},
+    "screen_load": {"name": "dogs"},
 }
 
 

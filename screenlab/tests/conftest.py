@@ -12,3 +12,9 @@ def fresh_trials():
     from screenlab.tracking import reset_process_trials
     reset_process_trials()
     yield
+
+
+@pytest.fixture(autouse=True)
+def isolated_saved_screens(tmp_path_factory, monkeypatch):
+    """SB1: saved screens live in SCREENLAB_SCREENS (default ~/.screenlab/screens): every test gets an empty folder."""
+    monkeypatch.setenv("SCREENLAB_SCREENS", str(tmp_path_factory.mktemp("screens")))

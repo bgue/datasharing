@@ -185,6 +185,8 @@ class LabRegistry:
                     raise ServerError(404, f"unknown lab {name!r}; available: {sorted(self.factories)}")
                 f = self.factories[name]
                 L = self._labs[name] = f() if callable(f) else f
+                from ..spec import load_saved_screens          # SB1: saved screens (folder SCREENLAB_SCREENS)
+                load_saved_screens(L)
                 L.name = L.name or name
                 L.store, L.persist = self.store, self.persist
             return self._labs[name]

@@ -346,6 +346,14 @@ enums:
         description: Outcome distributions of screen portfolios and the passive index on resampled return paths (lab.montecarlo).
       fetch_data:
         description: Download the free datasets (SEC, Bank of Canada, FRED, Stooq, StatCan) into data/ and list the labs they allow (lab.fetch_data). Not an analysis; records no trials.
+      screen_schema:
+        description: The columns a screen can use on a date, with type, coverage, range and description, plus the expression helpers (lab.screen_schema). Not an analysis; records no trials.
+      screen_preview:
+        description: Run a screen spec on one date's snapshot and report the funnel and picks (lab.screen_preview). Never trades; records no trials.
+      screen_save:
+        description: Validate a screen spec and save it as a JSON file in the saved-screens folder, registered in the lab (lab.screen_save). Records no trials.
+      screen_load:
+        description: A registered spec screen as an editable spec (lab.screen_load). Records no trials.
       account_compare:
         description: The same portfolios and the passive index in a taxable account, a TFSA and an RRSP, with foreign withholding and RRSP deferral (lab.account_compare).
       plan:

@@ -72,6 +72,75 @@ def add_ratios(f: pd.DataFrame) -> pd.DataFrame:
     return f
 
 
+# SB1: the data dictionary: every column of a `Market.view` snapshot (and of the fundamentals table that feeds
+# it), with a group and a plain-English one-liner. `ops/screen_builder.py` (screen_schema) and the Screen tab read it;
+# tests/test_screen_builder.py fails when a column the synthetic, bundled or panel-like frames emit is missing here.
+# Currency columns are in the dataset's currency, size columns ($M in the bundled and synthetic data).
+COLUMN_INFO: dict = {
+    # identity
+    "date": {"group": "identity", "description": "date the fundamentals row became knowable (report date), not the screening date"},
+    "sector": {"group": "identity", "description": "sector label of the company (text)"},
+    # price and size
+    "price": {"group": "price and size", "description": "share price, marked to market on the screening date (currency units per share)"},
+    "market_cap": {"group": "price and size", "description": "market capitalisation on the screening date, in $M (price x shares, moved with the price since the report date)"},
+    "enterprise_value": {"group": "price and size", "description": "market cap plus net debt, in $M, moved with the price since the report date"},
+    "shares": {"group": "price and size", "description": "shares outstanding at the last report (millions; only ratios of shares are used)"},
+    "shares_prev": {"group": "price and size", "description": "shares outstanding a year earlier (same unit as shares); shares <= shares_prev scores a Piotroski point"},
+    # income and cash flow
+    "sales": {"group": "income", "description": "annual revenue, in $M"},
+    "eps": {"group": "income", "description": "latest annual earnings per share (currency units; negative for a loss)"},
+    "eps_prev": {"group": "income", "description": "earnings per share a year earlier (currency units)"},
+    "eps_avg3": {"group": "income", "description": "average of the last three years' earnings per share (currency units)"},
+    "eps_avg3_10y_ago": {"group": "income", "description": "the same three-year average EPS as it was ten years ago (Graham's growth test base)"},
+    "loss_years_5y": {"group": "income", "description": "number of loss-making years among the last 5 (count)"},
+    "loss_years_10y": {"group": "income", "description": "number of loss-making years among the last 10 (count)"},
+    "ebit": {"group": "income", "description": "operating income (earnings before interest and tax), in $M"},
+    "dividend": {"group": "income", "description": "trailing 12-month dividends per share (currency units; 0 = pays none)"},
+    "div_years": {"group": "income", "description": "consecutive years in which a dividend was paid (count)"},
+    "roa": {"group": "income", "description": "return on assets: net income / total assets, as a fraction (0.05 = 5%)"},
+    "roa_prev": {"group": "income", "description": "return on assets a year earlier, as a fraction"},
+    "cfo_to_assets": {"group": "income", "description": "operating cash flow / total assets, as a fraction (Piotroski quality check)"},
+    "gross_margin": {"group": "income", "description": "gross profit / sales, as a fraction (0.3 = 30%)"},
+    "gross_margin_prev": {"group": "income", "description": "gross margin a year earlier, as a fraction"},
+    "asset_turnover": {"group": "income", "description": "sales / total assets, a ratio (times per year)"},
+    "asset_turnover_prev": {"group": "income", "description": "asset turnover a year earlier"},
+    # balance sheet
+    "bvps": {"group": "balance sheet", "description": "book value per share (currency units)"},
+    "current_ratio": {"group": "balance sheet", "description": "current assets / current liabilities, a ratio (2.0 = twice)"},
+    "current_ratio_prev": {"group": "balance sheet", "description": "current ratio a year earlier"},
+    "lt_debt": {"group": "balance sheet", "description": "long-term debt, in $M"},
+    "net_current_assets": {"group": "balance sheet", "description": "current assets minus total liabilities (Graham's NCAV), in $M"},
+    "invested_capital": {"group": "balance sheet", "description": "invested capital (equity plus debt), in $M"},
+    "leverage": {"group": "balance sheet", "description": "long-term debt / total assets, as a fraction"},
+    "leverage_prev": {"group": "balance sheet", "description": "leverage a year earlier, as a fraction"},
+    # valuation (derived in add_ratios)
+    "pe": {"group": "valuation", "description": "price / eps: price-to-earnings on the latest annual EPS (missing when eps <= 0)"},
+    "pe_avg3": {"group": "valuation", "description": "price / eps_avg3: price to the 3-year average EPS (missing when the average <= 0)"},
+    "pb": {"group": "valuation", "description": "price / bvps: price-to-book (missing when book value per share <= 0)"},
+    "div_yield": {"group": "valuation", "description": "trailing dividends per share / price, as a fraction (0.03 = 3%)"},
+    "earnings_yield": {"group": "valuation", "description": "ebit / enterprise_value, as a fraction (Greenblatt's earnings yield)"},
+    "ev_ebit": {"group": "valuation", "description": "enterprise_value / ebit (missing when ebit <= 0)"},
+    "roic": {"group": "valuation", "description": "ebit / invested_capital, as a fraction (Greenblatt's return on capital)"},
+    "ncav_to_mcap": {"group": "valuation", "description": "net_current_assets / market_cap, a ratio (>= 1 means price below net current asset value)"},
+    "book_equity": {"group": "valuation", "description": "book value of equity, in $M: bvps x market_cap / price"},
+    "buyback_yield": {"group": "valuation", "description": "1 - shares / shares_prev, as a fraction (positive = net repurchase, negative = issuance)"},
+    "f_score": {"group": "quality", "description": "Piotroski F-score, 0 to 9 points: profitability, leverage/liquidity and efficiency tests"},
+    # price statistics (Market.trailing_stats)
+    "mom_12_1": {"group": "momentum", "description": "total return over the prior 12 months skipping the latest month, as a fraction (0.10 = +10%)"},
+    "mom_6m": {"group": "momentum", "description": "total return over the prior 6 calendar months, as a fraction"},
+    "mom_12m": {"group": "momentum", "description": "total return over the prior 12 calendar months, as a fraction"},
+    "vol_1y": {"group": "volatility", "description": "standard deviation of the last 12 months' log returns, annualised, as a fraction (0.30 = 30%/yr)"},
+    "vol_260d": {"group": "volatility", "description": "standard deviation of the last 260 trading days' log returns, annualised (monthly data: the 12-month window, same as vol_1y)"},
+    # security metadata (security_meta)
+    "domicile": {"group": "security", "description": "country of the issuer's domicile, ISO code such as CA or US (text)"},
+    "listing": {"group": "security", "description": "country of the exchange the security trades on, ISO code (text)"},
+    "currency": {"group": "security", "description": "trading currency, ISO code such as CAD or USD (text)"},
+    "wrapper": {"group": "security", "description": "kind of security: stock, etf_ca or etf_us (text)"},
+    "underlying_domicile": {"group": "security", "description": "for a fund, the domicile of what it holds (ISO code); blank for stocks"},
+    "eligible_dividend": {"group": "security", "description": "true if its dividends are Canadian eligible dividends (only meaningful for a CA domicile)"},
+}
+
+
 def load_csv(fundamentals_path: str, prices_path: str, indices_path: str | None = None):
     """Returns (fundamentals, prices, indices). indices.csv has columns date,index,tri."""
     f = pd.read_csv(fundamentals_path, parse_dates=["date"])

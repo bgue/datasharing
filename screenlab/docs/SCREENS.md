@@ -28,8 +28,9 @@ stage, or several stages run in order. The built-in spec screens live in `screen
 `screenlab/specs/classic/*.json`; copy one, edit it, and load it with `lab.define(path)`,
 `define_screen(path)` or `load_screens(path)` (a file may hold one spec or a list), or `--screen-file`.
 
-Keys of a single-stage spec: `name`, `n`, `note`, `universe` (`top`, `by`, `sectors`, `exclude_sectors`; the size
-cut comes first), `derive` (column -> pandas expression), `filters` (expressions that must all hold), `graham`,
+Keys of a single-stage spec: `name`, `n`, `note`, `universe` (`top`, `by`, `include_sectors`, `exclude_sectors`; the size
+cut comes first), `derive` (column -> pandas expression), `filters` (expressions that must all hold), `exclude`
+(expressions that drop a name when true, see below), `graham`,
 `rank` (column -> `asc` | `desc`; several columns are combined by summing their ranks; rows with a NaN rank
 column are dropped). For a funnel give `stages` instead, a list of objects with the same keys plus `keep`. Each
 stage runs on the rows the previous one kept, a ranked stage puts them best first, `keep` cuts to the first
@@ -56,7 +57,7 @@ store persists. Reordering stages changes the result (P/E first, then volatility
 
 ### Order of the steps in a spec
 The steps run in this order: universe (size cut first, then sectors) →
-derived columns → filters → Graham tests → rank → take n. Filters are pandas
+derived columns → filters → exclude → Graham tests → rank → take n. Filters are pandas
 expressions over the snapshot columns. For anything the spec can't express,
 register a plain function as `Screen(name, fn, n)` with
 `fn(snapshot, n, **params) -> [tickers]`.
@@ -72,6 +73,58 @@ You can also write a screen as a dict or JSON, and load it with
  "graham": {"preset": "defensive", "max_pe": 18, "min_passes": 6},
  "rank": {"div_yield": "desc", "pe_x_pb": "asc"}}
 ```
+
+## Exclude criteria, helpers and saved screens
+`exclude` is a list of expressions like `filters`, with the opposite meaning: a name is dropped when an
+expression is TRUE. A missing value is never excluded, whereas an include filter drops it: `filters: ["pe < 15"]`
+drops a name with no P/E, `exclude: ["pe > 40"]` keeps it. Inside a stage the order is universe, derive, filters,
+exclude, Graham, rank, keep. `universe.include_sectors` keeps only those sectors next to `exclude_sectors`
+(`sectors` is the older name). Every expression of a stage sees the same rows, those left after its universe
+cut, so `pct(pe) < 0.3` means the cheapest 30% of the stage's universe, not of whatever an earlier filter left.
+
+    {"name": "cheap_not_crazy", "n": 10,
+     "universe": {"top": 200, "include_sectors": ["Ind", "Tech", "Cons"]},
+     "filters": ["pct(pe) < 0.3", "div_yield > 0.01"],
+     "exclude": ["z(vol_260d) > 2", "eps < eps_prev * 0.5"],
+     "rank": {"pe": "asc"}}
+
+In Python: `ScreenBuilder(...).universe(top=200, include_sectors=[...]).where(...).exclude(...)`. The exclude
+list is written to JSON only when it is not empty, so every existing spec, run key and fingerprint is unchanged.
+
+**Expression cheat-sheet** (derive, filters and exclude; `check_expression(text, names)` enforces it)
+
+| write | meaning |
+|---|---|
+| `pe < 15`, `pe >= 5 and pb < 2`, `not (eps < 0)`, `(a > 1) \| (b > 1)` | comparisons; `and` `or` `not` (or `&` `\|` `~` with parentheses) |
+| `sector in ['Fin', 'Util']`, `sector not in ('Fin',)` | membership in a list of literals |
+| `pe * pb`, `eps / eps_prev - 1`, `div_yield * 100`, `mom_12m ** 2` | arithmetic `+ - * / % ** //` |
+| `pct(pe)` | percentile rank 0..1 among the stage's rows: the share of rows with a value <= this one (1/N lowest, 1.0 highest); missing stays missing |
+| `q(pe, 0.5)` | the 0.5-quantile (median) of `pe` among those rows, one number: `pe < q(pe, 0.25)` |
+| `z(vol_1y)` | z-score: (value - mean) / sample standard deviation among those rows |
+| `log(x)`, `sqrt(x)`, `abs(x)` | log and square root are missing (not an error) where x <= 0 / x < 0 |
+| `isna(pe)`, `pe.notna()` | true where missing; `isna(pe)` is the preferred form |
+| `coalesce(pe, 99)`, `coalesce(a, b, 0)` | the first value that is present |
+
+Not allowed: attribute access other than `.notna()` / `.isna()`, other function calls, indexing, `@`, lambdas,
+comprehensions, double-underscore names. The names `pct q z log sqrt abs isna coalesce` are reserved. Rank keys
+are column names: derive an expression first (`derive: {"cheap": "pct(pe)"}`, `rank: {"cheap": "asc"}`).
+
+**Data dictionary.** `screenlab.data.COLUMN_INFO` describes every column a snapshot can have (group, units, how
+it is derived); `screen_schema` adds the live type, coverage, min / median / max and an example for a date.
+
+**Preview and save** (REST, MCP, jobs and `Lab` methods alike; none of them trades or counts as a trial):
+`lab.screen_preview(spec, asof=None, show=15)` runs the spec on one date's point-in-time snapshot and returns
+the funnel (rows in, rows out and, for include criteria, the rows each would keep alone; notes such as "keeps
+every name", "drops every name", "pe is missing for 38% of names"), the picks with the columns the criteria
+use, and a list of errors (unknown column with a did-you-mean, syntax error with its position, a filter that is
+not true/false, unknown universe key, ...) instead of raising. `asof=None` is the last date with a full
+snapshot. `lab.screen_load(name)` turns a registered spec screen into an editable spec (Python function
+screens such as `net_nets` cannot be opened). `lab.screen_save(spec, folder=None, overwrite=False)` validates
+the spec, writes `<folder>/<name>.json` (folder: `SCREENLAB_SCREENS`, default `~/.screenlab/screens`), and
+registers it in the lab (`lab.define`). It refuses a built-in name and, without `overwrite`, an existing file.
+Every lab the TUI, REST or MCP builds loads that folder at start (`load_saved_screens`; a bad file is skipped
+with a log line), so a saved screen is in the Add dialog after a restart. A screen saved on a running server is
+visible to background jobs only in the processes that load the folder after the save.
 
 ## Globe and Mail portfolios
 The Globe's "Inside the Market" columns publish several screen portfolios. We follow the published rules
@@ -98,6 +151,17 @@ as closely as the data allows. Each is in `REGISTRY` as a `Screen`, and `GLOBE_P
 Runner-ups: each published portfolio lists two runner-up stocks. `Lab.picks(screen, asof, runners_up=2)` returns
 the picks plus the next two by the screen's ranking (`Screen.ranked`) with a boolean `runner_up` column.
 When fewer names qualify than asked for, there may be fewer rows.
+
+### Build or edit any built-in in the Screen tab
+Every built-in spec screen, the eight Globe portfolios and the four classic ones, opens in the Screen tab (key `0`, **Load**; the
+dialog lists "Globe and Mail", then "Classic", then "Your saved screens") and can be edited there, including the two-stage funnels
+(Frugal Dividend, Stable High-Yield, Value + Momentum: a stage bar with one tab per stage, each with its own derived, include,
+exclude and rank tables and a "keep" count). A loaded built-in brings its backtest settings along: when you press **Add as scenario**
+or **Run**, the scenario gets the built-in's rebalance months (monthly for most Globe portfolios) and, for
+`bluechip_dividend_growth`, its annual rebalance and hold rule (keep a holding while it ranks within 2x n, leave names within 25% of
+target weight untraded), all visible and editable in the scenario editor. Saving the screen under a new name keeps them for the
+scenarios you add from that form, but the saved file holds the screen only: reload it later and set the rebalance and hold rule in the
+editor (see docs/SCREEN_BUILDER.md, "Implemented: stages and built-ins").
 
 New data columns behind these: `mom_6m`, `mom_12m` (plain prior-period total returns), `vol_260d` (std of daily
 log returns over the last 260 trading days, annualized by the square root of periods per year; NaN with less than
