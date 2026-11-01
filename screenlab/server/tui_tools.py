@@ -85,7 +85,7 @@ def build_tui_tools(client: TuiClient | None = None) -> dict:
             raise
 
     def tui_state() -> dict:
-        """The whole TUI state (scenarios with versions, colours, status and metrics, jobs, active tab, Monte
+        """The whole TUI state (backtests with versions, colours, status and metrics, jobs, active tab, Monte
         Carlo settings, analyses, log). Use it to see what the user has set up; it changes nothing."""
         return cl().state()
 
@@ -107,29 +107,29 @@ def build_tui_tools(client: TuiClient | None = None) -> dict:
 
     def tui_add_scenario(screen: str | dict, name: str | None = None, params: dict | None = None,
                          run: bool = False) -> dict:
-        """Add a scenario to the TUI and optionally run it. screen: a screen name or an inline ScreenSpec
+        """Add a backtest to the TUI and optionally run it. screen: a screen name or an inline ScreenSpec
         object; params: any of n, rebalance_months, cost_bps, commission, mer, cash_rate, exit, start, end, lab, tax (the config.tax object: account, province,
         other_income, rrsp_withdrawal_rate, harvest, harvest_threshold_pct, harvest_replacement; null clears).
-        Use this to put a portfolio in front of the user; to just compute numbers use the backtest tool."""
+        Use this to put a portfolio in front of the user; to just compute numbers without adding a row to the Compare table, use the `backtest` operation."""
         return cl().command("add_scenario", {**(params or {}), **_drop_none(screen=screen, name=name), "run": run})
 
     def tui_set_params(params: dict, scenario: str | None = None, run: bool = False) -> dict:
-        """Change parameters of a scenario: creates the next version (`dogs v2`) and keeps the old one, so the
+        """Change parameters of a backtest: creates the next version (`dogs v2`) and keeps the old one, so the
         refinement is compared with what it replaced. params: same keys as tui_add_scenario (null clears one).
         scenario: id, label or name (default: the selected one). Returns the diff line."""
         return cl().command("set_params", {**_drop_none(scenario=scenario), "params": params, "run": run})
 
     def tui_run(scenario: str | list[str] | None = None, ci: bool = False, force: bool = False,
                 wait: bool = False, timeout: float | None = None) -> dict:
-        """Run scenario(s) in the TUI: a scenario reference, a list, or "all" (default: the selected one).
+        """Run backtest(s) in the TUI: a backtest reference, a list, or "all" (default: the selected one).
         ci=true also computes the bootstrap CI of Excess/yr; wait=true blocks until done (timeout seconds,
         default 120). Without wait, poll tui_state."""
         return cl().command("run", {**_drop_none(scenario=scenario, timeout=timeout), "ci": ci, "force": force,
                                     "wait": wait}, _wait_t(wait, timeout))
 
     def tui_compare(scenarios: list[str] | None = None, ci: bool = False) -> dict:
-        """The Compare table the TUI shows (passive index first, then each scenario version): metric columns,
-        rows with colours, missing results and version diffs. Read-only; run the scenarios first."""
+        """The Compare table the TUI shows (passive index first, then each backtest version): metric columns,
+        rows with colours, missing results and version diffs. Read-only; run the backtests first."""
         return cl().command("compare", {**_drop_none(scenarios=scenarios), "ci": ci})
 
     def tui_show(tab: str) -> dict:
@@ -139,7 +139,7 @@ def build_tui_tools(client: TuiClient | None = None) -> dict:
     def tui_montecarlo(scenarios: list[str] | None = None, n_paths: int | None = None,
                        horizon_years: list[int] | None = None, generator: dict | None = None,
                        seed: int | None = None, wait: bool = False, timeout: float | None = None) -> dict:
-        """Run Monte Carlo for scenarios in the TUI (settings are remembered by the TUI). The quantile table
+        """Run Monte Carlo for backtests in the TUI (settings are remembered by the TUI). The quantile table
         and fan appear on its Monte Carlo tab and in tui_state analyses.montecarlo. Without a UI use the
         montecarlo tool."""
         return cl().command("montecarlo", {**_drop_none(scenarios=scenarios, n_paths=n_paths,

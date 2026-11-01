@@ -27,7 +27,7 @@ JobManager and the store. The command names below are the contract and are not r
 | `POST /command` body `{"cmd": "<name>", "args": {...}}` | the command's result (an object) |
 
 Errors: `{"error": "<message>"}` with HTTP 400 (bad or missing argument, invalid state), 404 (unknown
-command, scenario, job or run), 401 (token), 408 (`wait` timed out; the jobs keep running), 500 (internal).
+command, backtest, job or run), 401 (token), 408 (`wait` timed out; the jobs keep running), 500 (internal).
 A command never leaves the TUI in a half-changed state.
 
 ## One shared session (`--serve`)
@@ -36,23 +36,25 @@ A command never leaves the TUI in a half-changed state.
 `control.HeadlessHost` marshals calls and keeps `Session.poll()` going). textual-serve starts one app process per browser
 tab; each is started as `screenlab-tui --remote http://127.0.0.1:<control port>` and talks to the parent over this very
 protocol through `remote.RemoteSession` (token from `SCREENLAB_TUI_TOKEN`, which the children inherit). So every tab, the
-chart panel, curl and the MCP tools see and change the same scenarios, tab, selection and theme. `RemoteSession` has the
+chart panel, curl and the MCP tools see and change the same backtests, tab, selection and theme. `RemoteSession` has the
 `Session` interface the app uses (`command(cmd, args)`, `snapshot()`, `view(tab)`, `seq`, `poll()`, `await_jobs()`, and the
 read-only attributes the app draws from) and detects changes with `GET /seq?after=` (a watcher thread), fetching `GET /state`
 only when the seq moved. `screenlab-tui --remote URL` also joins a TUI running in another terminal.
 
 ## Concepts
 
-* **Scenario** = one version of one portfolio recipe. It has `id` (`"s1"`, stable, never reused), `name`
+A backtest = a screen + settings + results. The interface still calls a backtest a `scenario`: command `add_scenario`, key `scenario`.
+
+* **Backtest** = one version of one portfolio recipe. It has `id` (`"s1"`, stable, never reused), `name`
   (`"dogs"`), `version` (1, 2, ...), `label` (`"dogs"` for v1, `"dogs v2"` after that) and a fixed
   `color` (Okabe-Ito order `#0072B2 #56B4E9 #D55E00 #E69F00 #009E73 #CC79A7 #F0E442 #7B3294`, then
   further distinct hues; assigned at creation, never reassigned or recycled, also after removal).
   The **passive index** is pinned first (`"id": "passive"`, grey `#6B6B6B`) and cannot be removed.
-* `set_params` never edits a scenario: it creates the next version (`dogs v2`) and keeps `dogs`. The
+* `set_params` never edits a backtest: it creates the next version (`dogs v2`) and keeps `dogs`. The
   Compare tab shows all versions plus the passive index.
-* **Scenario reference** (`scenario` argument): an `id` (`"s2"`), a `label` (`"dogs v2"`) or a bare name
-  (`"dogs"` = its latest version). Omitted = the selected scenario.
-* **Params** of a scenario (all optional on input; `null` = unset / lab default):
+* **Backtest reference** (`scenario` argument): an `id` (`"s2"`), a `label` (`"dogs v2"`) or a bare name
+  (`"dogs"` = its latest version). Omitted = the selected backtest.
+* **Params** of a backtest (all optional on input; `null` = unset / lab default):
 
 | param | type | meaning |
 |---|---|---|
@@ -72,7 +74,7 @@ only when the seq moved. `screenlab-tui --remote URL` also joins a TUI running i
 * **Job info** (`job`): `{"job_id", "kind", "status": "queued|running|done|failed|cancelled", "progress": 0..1,
   "message", "error", "cache_hit"}`.
 * `wait` (bool) on run-type commands: block until the jobs finish (or `timeout` seconds, default 120, then
-  408). Default `false` except for `picks`. Without `wait`, poll `GET /state` (`jobs`, scenario `status`).
+  408). Default `false` except for `picks`. Without `wait`, poll `GET /state` (`jobs`, backtest `status`).
 
 ## Commands
 
@@ -89,30 +91,30 @@ Result: `{"scenario": <scenario object>, "jobs": [...]}` (`jobs` only with `run`
 
 ### `clone_scenario`
 Args: `{"scenario": "dogs", "name": "dogs_6m"}` (`name` optional). Copies the params of the referenced
-version into a new scenario family at version 1 with a new colour. Result: `{"scenario": {...}}`.
+version into a new backtest family at version 1 with a new colour. Result: `{"scenario": {...}}`.
 
 ### `set_params`
 Args: `{"scenario": "dogs", "params": {"cost_bps": 25, "n": 15}, "run": false, "ci": false}`. Creates the next version
-of that scenario's family from the referenced version with `params` merged (`null` clears a param) and
+of that backtest's family from the referenced version with `params` merged (`null` clears a param) and
 selects it. If nothing changes: 400 `no parameter changed`.
 Result: `{"scenario": <new version>, "previous": "dogs", "diff": [{"param": "cost_bps", "from": 10, "to": 25}],
 "diff_line": "dogs -> dogs v2: cost_bps 10 -> 25, n 10 -> 15", "jobs": [...]}`.
 
 ### `remove_scenario`
 Args: `{"scenario": "dogs v2"}`. Removes that version only (its colour is retired). The passive index and
-a scenario with a running job (cancel first) give 400. Result: `{"removed": "dogs v2", "scenarios": ["dogs"]}`.
+a backtest with a running job (cancel first) give 400. Result: `{"removed": "dogs v2", "scenarios": ["dogs"]}`.
 
 ### `run`
 Args: `{"scenario": "dogs v2" | ["dogs", "dogs v2"] | "all", "ci": false, "force": false, "wait": false,
 "timeout": 120}`. Default scenario: the selected one; `"all"` = every scenario without a finished run.
-Submits one `backtest` job per scenario through the JobManager (thread mode by default), so progress is
+Submits one `backtest` job per backtest through the JobManager (thread mode by default), so progress is
 reported; `ci: true` also submits a `significance` job (bootstrap CI of Excess/yr). Identical finished runs
 come back at once (`cache_hit`) unless `force`.
 Result: `{"jobs": [{"scenario": "dogs v2", "scenario_id": "s2", "job_id": "...", "kind": "backtest", "status": "running", "progress": 0.1, "cache_hit": false}]}`;
 with `wait` the statuses are final and `"errors": {"dogs v2": "<message>"}` lists failures.
 
 ### `compare`
-Args: `{"scenarios": ["dogs", "dogs v2"] | null, "ci": false}` (default: every scenario with a result).
+Args: `{"scenarios": ["dogs", "dogs v2"] | null, "ci": false}` (default: every backtest with a result).
 Pure read; does not run anything. Result:
 ```json
 {"benchmark": "SYN_CAPWT",
@@ -126,42 +128,42 @@ Pure read; does not run anything. Result:
  "missing": ["dogs v3"], "diffs": ["dogs -> dogs v2: cost_bps 10 -> 25"]}
 ```
 `columns` are the metric names of the backtest table (those present). `CI5/CI95` appear only after a
-`significance` job (`run` with `ci: true`). `missing` lists scenarios without a finished result.
+`significance` job (`run` with `ci: true`). `missing` lists backtests without a finished result.
 
 ### `timing`
 Args: `{"scenario": "dogs", "mode": "phase", "stride": 1, "wait": false}`. Submits a `timing` job for the
-scenario's screen and config. Result `{"jobs": [...]}`. The finished study is in `snapshot.analyses.timing`
+backtest's screen and config. Result `{"jobs": [...]}`. The finished study is in `snapshot.analyses.timing`
 (`{label: {"table", "distribution", "tranche"}}`) and shown on the Timing tab.
 
 ### `montecarlo`
 Args: `{"scenarios": ["dogs"] | null, "n_paths": 500, "horizon_years": [5, 10], "generator": {"type": "BlockBootstrap", "block_months": 12}, "seed": 0, "wait": false}`
 (all optional; the settings are remembered in the session, see `snapshot.mc`). Submits a `montecarlo` job
-with the `montecarlo` operation's arguments; `screens` are the scenarios' screens. Result `{"jobs": [...]}`;
+with the `montecarlo` operation's arguments; `screens` are the backtests' screens. Result `{"jobs": [...]}`;
 the quantile table and fan are in `snapshot.analyses.montecarlo`.
 
 ### `exit_eval`
 Args: `{"scenario": "dogs", "wait": false, ...exit_evaluate operation args}`. Without `signals` the
-scenario's `exit` params are used (400 if it has none). Extra args (`threshold`, `horizons`, `target`,
+backtest's `exit` params are used (400 if it has none). Extra args (`threshold`, `horizons`, `target`,
 `policy`, ...) go to the `exit_evaluate` operation unchanged. Result `{"jobs": [...]}`; result in
 `snapshot.analyses.exit`.
 
 ### `picks`
-Args: `{"scenario": "dogs", "asof": null, "columns": null, "wait": true}`. Names the scenario's screen
+Args: `{"scenario": "dogs", "asof": null, "columns": null, "wait": true}`. Names the backtest's screen
 selects (latest date by default). Result with `wait` (default): `{"scenario", "asof", "columns": [...], "rows": [[...]]}`
 (first column `ticker`); shown on the Picks tab.
 
 ### `accounts`
 Args: `{"scenario": "dogs", "accounts": ["taxable", "tfsa", "rrsp"], "force": false, "wait": false}` (all optional; `accounts`
-default all three). Submits an `account_compare` job for the scenario's screen, window, config and exit, with the scenario's
+default all three). Submits an `account_compare` job for the backtest's screen, window, config and exit, with the backtest's
 `tax` param (if any) as the shared tax settings (its `account` is ignored: the operation runs each account; no `tax` = the
 canadian model, Alberta, other income 90000). Result `{"jobs": [...]}`; the finished comparison is
 `snapshot.analyses.accounts[<scenario label>]` = `{"benchmark", "accounts", "table": {"columns", "rows"}, "foreign": {...},
 "best": {name: {"account", "AfterTaxCAGR", "next", "gap"}}, "notes": [...], "tax": {...}}` (the `account_compare` result,
-see docs/TAXES.md "Comparing accounts") and the Accounts tab (key `A`; opening the tab starts the job once per scenario
+see docs/TAXES.md "Comparing accounts") and the Accounts tab (key `A`; opening the tab starts the job once per backtest
 version). Browser chart: `/charts/data?tab=accounts` (grouped bars of after-tax CAGR by account).
 
 ### `plan` and `plan_mc`
-Args of `plan`: `{"scenario": "dogs", "start": null, "end": null, "initial": 10000, "periodic": 500, "frequency": "monthly", "growth": 0.0 | "cpi", "extra": [{"date", "amount", "note"}], "use_phases": true, "phases": [{"years_from", "years_to", "amount", "note"}], "phase_growth": "indexed" | "nominal", "add_phase": {"years_from", "years_to", "amount", "note"}, "remove_phase": 0, "set_phase": {"index": 0, "amount": 600}, "flat_phase": false, "add_extra": {"date", "amount", "note"}, "remove_extra": 0, "withdrawals": 0, "withdraw_from": null, "withdraw_growth": 0.0, "cash_timing": "invest" | "hold", "index_mer": 0.0005, "goal": null, "run": true, "force": false, "wait": false}` (all optional). The values are remembered in the session (`snapshot.analyses.plan_form`, which also holds the Monte Carlo settings `n_paths`, `generator`, `seed`); `run: false` only edits the form (`add_extra` appends one extraordinary flow, `remove_extra` deletes the row at that index, `extra` replaces the table). V2: contribution phases are amount per period by plan year, half-open [years_from, years_to) (`years_to` null = until `withdraw_from` or the end); the default form is the owner's base case (0-10 $500, 10-13 $3,000, 13-20 $1,000 a month) with `use_phases` true, and then the flat `periodic` is not sent; `phases` replaces the table, `add_phase` / `remove_phase` / `set_phase` edit it, `flat_phase` replaces it by one phase of the form's `periodic` and turns `use_phases` on, `use_phases: false` restores the flat plan; overlapping phases are refused (400). Submits a `plan` job for the scenario's screen, config and `tax` param (the account) with the form; `start` defaults to the scenario's start, else 13 months into the data. A scenario with an exit policy is refused (400). `plan_mc` takes the same fields plus `n_paths`, `generator` (`block`, `stationary`, `regime`, `iid`) and `seed`, and submits a `plan_montecarlo` job. Result `{"form": {...}, "jobs": [...]}`; the results are `snapshot.analyses.plan[<scenario label>]` = `{"plan": {"spec", "metrics", "series", "flows", "tax", "goal", "card", "daily"}, "mc": {"spec", "n_paths", "seed", "quantiles", "p_beat_index", "p_shortfall", "p_shortfall_real", "p_shortfall_index", "goal", "sequence", "paired", "reversal", "fan", "histograms", "card"}}` (the `plan` and `plan_montecarlo` results, see docs/PLAN.md; a new `plan` result drops a Monte Carlo result of a different plan), shown on the Plan tab (key `P`). Browser chart: `/charts/data?tab=plan` (`plans`: per scenario `x`, `series` {contributed, strategy_pre, strategy_after_tax, index_pre, index_after_tax}, `flows`, `metrics` rows with `better`, and `mc` with the fan and histograms).
+Args of `plan`: `{"scenario": "dogs", "start": null, "end": null, "initial": 10000, "periodic": 500, "frequency": "monthly", "growth": 0.0 | "cpi", "extra": [{"date", "amount", "note"}], "use_phases": true, "phases": [{"years_from", "years_to", "amount", "note"}], "phase_growth": "indexed" | "nominal", "add_phase": {"years_from", "years_to", "amount", "note"}, "remove_phase": 0, "set_phase": {"index": 0, "amount": 600}, "flat_phase": false, "add_extra": {"date", "amount", "note"}, "remove_extra": 0, "withdrawals": 0, "withdraw_from": null, "withdraw_growth": 0.0, "cash_timing": "invest" | "hold", "index_mer": 0.0005, "goal": null, "run": true, "force": false, "wait": false}` (all optional). The values are remembered in the session (`snapshot.analyses.plan_form`, which also holds the Monte Carlo settings `n_paths`, `generator`, `seed`); `run: false` only edits the form (`add_extra` appends one extraordinary flow, `remove_extra` deletes the row at that index, `extra` replaces the table). V2: contribution phases are amount per period by plan year, half-open [years_from, years_to) (`years_to` null = until `withdraw_from` or the end); the default form is the owner's base case (0-10 $500, 10-13 $3,000, 13-20 $1,000 a month) with `use_phases` true, and then the flat `periodic` is not sent; `phases` replaces the table, `add_phase` / `remove_phase` / `set_phase` edit it, `flat_phase` replaces it by one phase of the form's `periodic` and turns `use_phases` on, `use_phases: false` restores the flat plan; overlapping phases are refused (400). Submits a `plan` job for the backtest's screen, config and `tax` param (the account) with the form; `start` defaults to the backtest's start, else 13 months into the data. A backtest with an exit policy is refused (400). `plan_mc` takes the same fields plus `n_paths`, `generator` (`block`, `stationary`, `regime`, `iid`) and `seed`, and submits a `plan_montecarlo` job. Result `{"form": {...}, "jobs": [...]}`; the results are `snapshot.analyses.plan[<scenario label>]` = `{"plan": {"spec", "metrics", "series", "flows", "tax", "goal", "card", "daily"}, "mc": {"spec", "n_paths", "seed", "quantiles", "p_beat_index", "p_shortfall", "p_shortfall_real", "p_shortfall_index", "goal", "sequence", "paired", "reversal", "fan", "histograms", "card"}}` (the `plan` and `plan_montecarlo` results, see docs/PLAN.md; a new `plan` result drops a Monte Carlo result of a different plan), shown on the Plan tab (key `P`). Browser chart: `/charts/data?tab=plan` (`plans`: per backtest `x`, `series` {contributed, strategy_pre, strategy_after_tax, index_pre, index_after_tax}, `flows`, `metrics` rows with `better`, and `mc` with the fan and histograms).
 
 ### Screen tab commands: `set_screen_form`, `screen_schema`, `screen_preview`, `screen_save`, `screen_load`, `screen_add`
 The Screen tab (key `0`, first in the tab bar; a new `screenlab-tui` session starts on it) defines a screen without running anything
@@ -191,9 +193,9 @@ Graham tests of a loaded screen are kept untouched).
   grouped as the Load dialog lists them ("Globe and Mail", "Classic", "Your saved screens") and the one-line Starting points help. Loading a built-in
   sets `form.settings` to its backtest settings (`rebalance_months`, `hold_rule` `{keep_within, band}`; `{}` when it has none).
 - `screen_add`: `{"spec": {...}, "name": null, "run": true, "save": false, "overwrite": null, "wait": false}`; adds the spec (default: the form)
-  as a scenario (`add_scenario` with `screen` = the spec object), selects it, shows the Compare tab, starts the backtest when `run`. With
-  `save` it saves first (as `screen_save`). Result as `add_scenario` plus `"saved"`. Extra arguments are scenario parameters (`rebalance_months`, `hold_rule`, ...); the form's `settings` (a loaded
-  built-in's rebalance months and hold rule) fill in those not given, whatever the scenario's name. The Add as scenario button is `save: true, run: false`; Run is `save: true, run: true`.
+  as a backtest (`add_scenario` with `screen` = the spec object), selects it, shows the Compare tab, starts the backtest when `run`. With
+  `save` it saves first (as `screen_save`). Result as `add_scenario` plus `"saved"`. Extra arguments are backtest parameters (`rebalance_months`, `hold_rule`, ...); the form's `settings` (a loaded
+  built-in's rebalance months and hold rule) fill in those not given, whatever the backtest's name. The Add as backtest button is `save: true, run: false`; Run is `save: true, run: true`.
 
 ### Screen library commands: `screen_status`, `column_define`, `column_delete` (LB)
 The Add dialog (key `a`) and the Screen tab's Load dialog list every registered screen with what the dataset lacks (docs/SCREEN_LIBRARY.md).
@@ -215,10 +217,10 @@ Args: `{"tab": "compare"}`, one of `screen compare curves timing picks exit mont
 visible tab. Result `{"tab": "compare"}`.
 
 ### `select`
-Args: `{"scenario": "dogs v2"}`. Selects the scenario (editor and Curves highlight). Result `{"selected": "s2", "label": "dogs v2"}`.
+Args: `{"scenario": "dogs v2"}`. Selects the backtest (editor and Curves highlight). Result `{"selected": "s2", "label": "dogs v2"}`.
 
 ### `save_spec`
-Args: `{"scenario": "dogs", "path": null}`. Writes the scenario's screen as ScreenSpec JSON (rule screens
+Args: `{"scenario": "dogs", "path": null}`. Writes the backtest's screen as ScreenSpec JSON (rule screens
 only). Default path `./<name>.json`. Result `{"path": "...", "spec": {...}}`.
 
 ### `export`
@@ -272,13 +274,13 @@ result like any run. `sec_user_agent` is required when `sec` is among the source
 400 otherwise); 501 `downloader not installed` when the operation is not registered. The operation's result is
 `{"manifest": {"files": [{"source", "path", "bytes", "status"}], "errors": [...], "allow_hosts": [...]}, "labs":
 [{"name", "fundamentals", "prices", "indices"}]}`; when the job finishes the session keeps it as `last_fetch` and registers
-each listed lab it does not already know (`registry.register_csv`), so `datasets` lists it and the scenario editor's Dataset
+each listed lab it does not already know (`registry.register_csv`), so `datasets` lists it and the backtest editor's Dataset
 Select (and the `lab` param) offers it. Result: `{"jobs": [...]}`; with `wait` also `"fetch": <last_fetch>`.
 
 ### `freeze` / `unfreeze`
-Args: `{"scenario": "dogs"}`. `freeze` makes that version frozen (`frozen: true` in the scenario object and snapshot): the app
+Args: `{"scenario": "dogs"}`. `freeze` makes that version frozen (`frozen: true` in the backtest object and snapshot): the app
 shows a lock and a read-only editor. `set_params` or `clone_scenario` from a frozen version (or from one of its
-candidates) creates a scenario with `candidate: true`, `candidate_of: "<frozen label>"`; each candidate adds one trial to the
+candidates) creates a backtest with `candidate: true`, `candidate_of: "<frozen label>"`; each candidate adds one trial to the
 frozen row's `Trials`, so its `DSR` drops. `unfreeze` clears the flag, logs a line, and returns `{"scenario", "candidates"}`;
 candidates stay flagged.
 
@@ -288,18 +290,18 @@ candidates stay flagged.
 "label", "metric", "threshold", "value", "met": true|false|null, "reason"}], "met": true|false|null}]}`, parsed from
 `research/PREREGISTERED.md` (or `Session(prereg=...)`, env `SCREENLAB_PREREG`). `met` is null with a `reason` when the metric
 is missing or the result covers less than the stated horizon. `link` args `{"scenario": "dogs", "hypothesis": "H1"}`
-(`null` unlinks; 404 for an unknown id) links every version of that scenario; its trial family becomes `<lab>:<screen>@H1`.
+(`null` unlinks; 404 for an unknown id) links every version of that backtest; its trial family becomes `<lab>:<screen>@H1`.
 
 ### Compare columns `Trials` and `DSR`
 `compare` rows carry `values.Trials` (int) and `values.DSR` (0..1 or absent when not computable), plus `frozen`, `candidate`,
 `candidate_of`, `hypothesis`, `family` and `mark`; the result has `trials_total` (variants run this session). The passive row
-has neither. Snapshot: `trials: {"total", "families": {family: count}}`, `hypotheses` (as above), and per scenario `frozen`,
+has neither. Snapshot: `trials: {"total", "families": {family: count}}`, `hypotheses` (as above), and per backtest `frozen`,
 `candidate`, `candidate_of`, `hypothesis`, `family`, `trials`, `dsr`.
 
 ### Compare columns `AfterTaxCAGR` and `TaxDrag/yr`
-When a scenario has a `tax` param, `compare` adds `values.AfterTaxCAGR` and `values.TaxDrag/yr` to its row and to the passive
-row (taxed the same way as the first taxed scenario; the passive row also carries `tax`). Untaxed rows lack them. The web
-Compare data (`/data/compare`) has the same `columns`/`rows` plus `tax: {label: params}`. `snapshot` scenario `params.tax`,
+When a backtest has a `tax` param, `compare` adds `values.AfterTaxCAGR` and `values.TaxDrag/yr` to its row and to the passive
+row (taxed the same way as the first taxed backtest; the passive row also carries `tax`). Untaxed rows lack them. The web
+Compare data (`/data/compare`) has the same `columns`/`rows` plus `tax: {label: params}`. `snapshot` backtest `params.tax`,
 the exports (CSV column, Markdown `tax` line) and `view` (`Tax: dogs v2 taxable AB ...`) carry the tax params.
 
 ### `snapshot` / `view`
@@ -318,7 +320,7 @@ the exports (CSV column, Markdown `tax` line) and `view` (`Tax: dogs v2 taxable 
  "analyses": {"timing": {}, "montecarlo": null, "exit": {}, "picks": {}, "accounts": {}, "plan": {}, "plan_form": {...}, "screen_form": {...}, "screen_preview": null},
  "log": ["12:00:01 added dogs", "..."]}   // the last 200 log lines
 ```
-`seq` increases on every state change (cheap change detection). Scenario `status` is one of `new`
+`seq` increases on every state change (cheap change detection). Backtest `status` is one of `new`
 (never run), `queued`, `running`, `done`, `failed`, `cancelled`.
 `view` (also `GET /view`) -> `{"tab": "compare", "view": "<text>"}`: a plain-text rendering of what the active
 tab shows (title, data card, warnings, the table with colour names, progress), for an agent to "read the screen".

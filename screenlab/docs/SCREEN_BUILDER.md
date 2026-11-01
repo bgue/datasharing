@@ -41,13 +41,13 @@ screen_load(name: str) -> {"name", "spec": dict, "note": str}      # a registere
 
 ## TUI: the Screen tab (`tui/screen_tab.py`)
 
-First in the tab bar, key `0` (keys `1`-`9` keep their meaning), opened first when the session has no scenarios.
+First in the tab bar, key `0` (keys `1`-`9` keep their meaning), opened first when the session has no backtests.
 - Header: name, note, dataset (read-only), as-of date with previous/next year buttons.
 - Universe: top N, by (numeric column Select), include sectors, exclude sectors.
 - Tables with add / edit / remove rows: Derived columns (name = expression), Include criteria, Exclude criteria, Rank (column, asc|desc), plus pick count n.
 - Schema panel: filterable table of columns with type, coverage, range and description; Enter on a row inserts the column name into the focused expression box; a short helper cheat-sheet below it.
 - Funnel preview (auto after an edit with a short debounce, also Preview / F5): one row per step with rows in, rows out, and for include criteria the "alone" count; cells amber when a criterion keeps everything or drops everything, red on an error with the message and suggestion; below it the picks table.
-- Buttons: Load a screen into the editor (the Add dialog list, spec screens only), New, Save (Ctrl+S), Add as scenario (saves, then adds and selects the scenario and switches to Compare), Run (add and run).
+- Buttons: Load a screen into the editor (the Add dialog list, spec screens only), New, Save (Ctrl+S), Add as backtest (saves, then adds and selects the backtest and switches to Compare), Run (add and run).
 - Everything goes through session commands (`screen_schema`, `screen_preview`, `screen_save`, `screen_load`, `screen_add`) so the tab works in `--serve` and `--remote` sessions and `tui_command` drives it over MCP. The form state is in `session.analyses["screen_form"]`.
 
 ## Implemented (SB1, engine side)
@@ -136,10 +136,10 @@ unknown universe keys are carried through untouched.
 **Settings carried with a built-in.** A spec holds the screen only; the rebalance months and hold rule of a Globe portfolio live in
 `GLOBE_PORTFOLIOS`. `screen_load(name)` now records them in `form.settings` (`{"rebalance_months": 12, "hold_rule": {"keep_within": 2.0,
 "band": 0.25}}` for `bluechip_dividend_growth`; `{"rebalance_months": 1}` for the monthly ones; `{}` for the classic ones and for New). `screen_add`
-(Add as scenario, Run, and with `save` under a new name) puts them in the scenario's params unless the call passes its own value
+(Add as backtest, Run, and with `save` under a new name) puts them in the backtest's params unless the call passes its own value
 (`screen_add {"rebalance_months": 6}`); they apply to the form's own spec, not to a different `spec` argument. `hold_rule` is a new
-scenario parameter (`{keep_within, band}`, validated like `config.hold_rule`) and is sent as `config.hold_rule` to backtest, Monte Carlo and plan
-runs; the scenario editor shows it in two boxes. Limit: the saved JSON file does not hold the settings (no spec field exists for them);
+backtest parameter (`{keep_within, band}`, validated like `config.hold_rule`) and is sent as `config.hold_rule` to backtest, Monte Carlo and plan
+runs; the backtest editor shows it in two boxes. Limit: the saved JSON file does not hold the settings (no spec field exists for them);
 load the saved screen again and the settings are gone until set in the editor.
 
 **Starting points and the Load dialog.** `screen_load` with no name returns `groups` (`Globe and Mail`, `Classic`, `Your saved screens`, in

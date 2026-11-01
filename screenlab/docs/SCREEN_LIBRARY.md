@@ -11,7 +11,7 @@ Depends on the screen-builder round (docs/SCREEN_BUILDER.md: `exclude`, helpers 
 - `Screen.requires() -> set[str]`: the snapshot columns a spec uses, found by parsing every `universe.by`, `derive`, `filters`, `exclude` and `rank` expression with `ast` (names that are not derived in the spec, not helpers, not constants; named expressions are expanded first). Function screens declare `requires` in their registration or report `None` (unknown, treated as available).
 - `Lab.screen_status() -> {name: {"available": bool, "missing": [str], "group": "Globe and Mail|Classic|Mine", "note": str}}`. A column counts as present when it is in the snapshot and has any non-null value on the last full snapshot date.
 - New spec key `universe.top_optional: bool` (default false): when true and `market_cap` is absent, the size cut is skipped instead of making the screen unavailable. The card of a run says "no size cut: market cap not in the data". Used by the price-only screens below.
-- The Add-scenario and Load dialogs in the TUI list every registered screen in three groups: "Available on this dataset", "Needs data this dataset lacks" (dimmed, with `needs: ev_ebit, roic`), and "Mine". Choosing a dimmed one shows the missing columns and where they come from (synthetic lab, `make data-sec`, your own CSV). REST/MCP: `GET /screens` and the `screens` command return the same status.
+- The Add-backtest and Load dialogs in the TUI list every registered screen in three groups: "Available on this dataset", "Needs data this dataset lacks" (dimmed, with `needs: ev_ebit, roic`), and "Mine". Choosing a dimmed one shows the missing columns and where they come from (synthetic lab, `make data-sec`, your own CSV). REST/MCP: `GET /screens` and the `screens` command return the same status.
 - Where a registry screen is dimmed on the bundled sample, it still builds and previews on any lab that has the columns.
 
 ## 2. New snapshot columns (price-derived, from the price frame, point-in-time)
@@ -114,7 +114,7 @@ dataset cannot run), `tui/remote.py`. Commands in `tui/PROTOCOL.md`; user text i
   6 available, 20 dimmed.
 - Schema panel: starter and my columns beneath the data columns; `missing` rows dimmed with `needs: ...`; Delete twice removes a my column; Save as my column
   (+ Overwrite after a 409). Funnel: `uses` one-liner; derive rows labelled by group; cycle error red.
-- Run / Add as scenario on a spec that needs missing columns: 409 `'x' cannot run on this dataset: needs: ...` (nothing saved or added).
+- Run / Add as backtest on a spec that needs missing columns: 409 `'x' cannot run on this dataset: needs: ...` (nothing saved or added).
 
 ### DEV
 - **Load lists loadable (spec) screens only**: the Python function screens (`momentum_6m`, `momentum_12m`, `graham_*`, ...) cannot open in the editor, so they

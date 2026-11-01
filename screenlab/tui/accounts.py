@@ -184,7 +184,7 @@ def pane(app):
             sc = next((x for x in s.scenarios if x.id == s.selected), None)
             tbl, ftbl = self.query_one("#t-accounts", DataTable), self.query_one("#t-foreign", DataTable)
             if sc is None:
-                note.update("Add a scenario (a) to compare accounts for its screen and settings")
+                note.update("Add a backtest (a) to compare accounts for its screen and settings")
                 tbl.clear(columns=True)
                 ftbl.clear(columns=True)
                 notes.update("")

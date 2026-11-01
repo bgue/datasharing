@@ -777,7 +777,7 @@ def pane(app):
                         yield Button("New", id="sb-new")
                         yield Button("Save", id="sb-save")
                         yield Button("Preview", id="sb-preview")
-                        yield Button("Add as scenario", id="sb-add", variant="primary")
+                        yield Button("Add as backtest", id="sb-add", variant="primary")
                         yield Button("Run", id="sb-run", variant="success")
                     yield Static("", id="sb-status")
                     yield Static("Funnel: what each step does to the names", classes="pane-title")
@@ -1358,7 +1358,7 @@ def pane(app):
             self._push_pending()
             res = self._call("screen_add", {"save": True, "run": run})
             if res:
-                self._say(f"added scenario {res['scenario']['label']}" + (f"; saved to {res['saved']['path']}" if res.get("saved") else ""))
+                self._say(f"added backtest {res['scenario']['label']}" + (f"; saved to {res['saved']['path']}" if res.get("saved") else ""))
 
         @on(Button.Pressed, "#sb-add")
         def _b_add(self) -> None:

@@ -44,7 +44,7 @@ def test_empty_session_view_and_chart():
     sess = Session(make_registry(), own=True)
     try:
         assert "no plan yet" in sess.view("plan") and web.chart_data(sess, "plan")["empty"] is True
-        with pytest.raises(SessionError, match="no scenario"):
+        with pytest.raises(SessionError, match="no backtest"):
             sess.command("plan", {"run": False})
     finally:
         sess.close()

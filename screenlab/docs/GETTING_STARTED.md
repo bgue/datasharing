@@ -267,7 +267,7 @@ Another port: `screenlab-rest --port 8001`. All endpoints: `screenlab/server/REA
 ```
 screenlab-tui --lab synthetic
 ```
-A full-screen app in the terminal: press `a` to add a scenario (pick a screen), `r` to run it, change a number in the
+A full-screen app in the terminal: press `a` to add a backtest (pick a screen), `r` to run it, change a number in the
 editor on the left and press `F2` (Apply) to get a new version, for example `dogs v2`, which is run and shown beside
 `dogs` and the grey passive index in the Compare tab (the Curves tab draws them on a log scale in the same
 colours). `?` lists the keys and `q` quits. To use it in a browser instead: `screenlab-tui --serve`, then open
@@ -276,13 +276,13 @@ http://localhost:8000 (`--port` changes it). While it runs it also listens on 12
 
 ### After-tax results
 The editor's Tax section (account none / taxable / tfsa / rrsp, province AB / BC, employment income, year) taxes a
-scenario: press Apply and the new version, run with that tax config, gets `AfterTaxCAGR` and `TaxDrag/yr` columns in
+backtest: press Apply and the new version, run with that tax config, gets `AfterTaxCAGR` and `TaxDrag/yr` columns in
 Compare (blank for versions without tax). The passive index row shows its taxed value too, taxed the same way, so the
 comparison stays fair. A TFSA shows no drag on gains; a taxable account does. With a province blank the illustrative
 placeholder rates are used, which are not for decisions. The same fields exist as the `tax` param over the control endpoint.
 
 ### Which account: taxable, TFSA or RRSP?
-The **Accounts** tab (key `A`) runs the selected scenario's portfolio, and the passive index, in a taxable account, a TFSA and an
+The **Accounts** tab (key `A`) runs the selected backtest's portfolio, and the passive index, in a taxable account, a TFSA and an
 RRSP, with the same pre-tax money, and shows after-tax growth, tax drag, the foreign withholding each account loses, credits or
 waives (US dividends are exempt in an RRSP, lost in a TFSA, credited in a taxable account) and which account is best (green).
 It uses the Tax section of the editor for the bracket and the RRSP withdrawal rate. It ignores contribution room, the RRSP
@@ -290,7 +290,7 @@ deduction refund and AMT. From code: `lab.account_compare(["dogs"], tax=...)`; a
 `notebooks/accounts_and_foreign.ipynb`; the rules are in `docs/TAXES.md` "Comparing accounts".
 
 ### A plan: monthly contributions, extra money, withdrawals, a goal
-The **Plan** tab (key `P`) puts the selected scenario's strategy through a dated plan and sets it against the passive index fed
+The **Plan** tab (key `P`) puts the selected backtest's strategy through a dated plan and sets it against the passive index fed
 with the same dollars on the same days: a lump sum, a periodic contribution (growing, or indexed to inflation), extraordinary
 investments you add as rows, withdrawals from a date, and a goal in dollars. Run plan fills the metrics table (final wealth
 before and after tax and after inflation, XIRR and time-weighted return, alpha, beta, Sharpe, tax paid, years to the goal;
@@ -300,7 +300,7 @@ From code: `lab.plan("dogs", "2000-01-03", initial=10_000, periodic=500, growth=
 `lab.plan_montecarlo(...)`; a worked example on 33 years of real data is `notebooks/plan_dca.ipynb`; the rules and the
 approximations are in `docs/PLAN.md`.
 
-### Guardrails: trials, frozen scenarios, pre-registered hypotheses
+### Guardrails: trials, frozen backtests, pre-registered hypotheses
 Trying fifty variants is an afternoon's work in the TUI, and the best of fifty looks good by luck. So every Compare row
 shows **Trials** (how many variants of its screen were tried, including earlier sessions when a run store is on) and
 **DSR**, the deflated Sharpe: roughly the chance the row's Sharpe is real after that many tries (1 is convincing, 0.5 is a
@@ -309,18 +309,18 @@ version when you have settled on a conclusion: it gets a lock, its fields become
 (a new version, or a clone via `c`) is marked as an out-of-sample candidate and counted as an extra trial against the
 frozen row, so its DSR drops. Before the first real-data run, write your three or four claims in
 `screenlab/research/PREREGISTERED.md` (the file has the template and three EXAMPLES to replace). The **Hypotheses** tab
-(key `H`) lists them; press `l` to link the selected scenario to one, and the tab then shows whether that scenario's latest
-result meets the hypothesis' threshold. Trials of a linked scenario are counted against its hypothesis (`dogs@H1`).
+(key `H`) lists them; press `l` to link the selected backtest to one, and the tab then shows whether that backtest's latest
+result meets the hypothesis' threshold. Trials of a linked backtest are counted against its hypothesis (`dogs@H1`).
 
 ### Charts in the browser
 Press `w` in the TUI: your browser opens interactive charts (hover for values, drag to zoom, click the legend to hide
-a scenario, a PNG button on each chart) with tabs Curves, Compare, Timing, Monte Carlo and Exit. They show the same
-scenarios in the same colours (the passive index is grey), take the colours of the TUI theme, and redraw by themselves
+a backtest, a PNG button on each chart) with tabs Curves, Compare, Timing, Monte Carlo and Exit. They show the same
+backtests in the same colours (the passive index is grey), take the colours of the TUI theme, and redraw by themselves
 when you run or change something in the terminal. The page loads Plotly.js from the internet; offline, set
 `SCREENLAB_PLOTLY_JS` to a local `plotly.min.js` file before starting. With `screenlab-tui --serve` the footer shows
 a page that puts the terminal and the charts side by side (drag the divider). In that mode the program keeps one
 shared session: every browser tab running the terminal, the chart panel and Claude's `tui_*` tools show and change the
-same scenarios, so nothing drifts apart when you open a second tab. In a plain terminal the control endpoint is
+same backtests, so nothing drifts apart when you open a second tab. In a plain terminal the control endpoint is
 optional (on by default; `--control-port 0` turns the charts off). Details: `screenlab/tui/README.md`.
 
 ### Data tab: datasets and free downloads
@@ -328,7 +328,7 @@ Press `D` for the Data tab. It lists the datasets the app can use, each with its
 benchmark, survivorship), and a **Download free datasets** form: type your name and email for the SEC (it requires a
 contact), tick the sources (SEC, Bank of Canada, FRED, Stooq, Statistics Canada), and press the button. It runs as a
 normal job (progress bar at the top), then shows what was downloaded; a dataset it builds shows up in the list and in the
-Dataset choice of the scenario editor. The form also lists the website names (hosts) the downloads need, which is what to
+Dataset choice of the backtest editor. The form also lists the website names (hosts) the downloads need, which is what to
 allow if your environment restricts outbound connections. If the downloader is not installed the tab says so.
 
 ## 8. Connect the MCP server to Claude

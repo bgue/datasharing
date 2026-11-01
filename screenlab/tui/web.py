@@ -171,7 +171,7 @@ def _color_of(session, label: str) -> str:
 
 def data_curves(session) -> dict:
     cd = session.curves_data()
-    out = _base(session, "curves", not cd, "No curves yet: add a scenario and run it (a, then r in the TUI).")
+    out = _base(session, "curves", not cd, "No curves yet: add a backtest and run it (a, then r in the TUI).")
     first = next(iter(cd), None)
     series = []
     for label, d in cd.items():
@@ -186,7 +186,7 @@ def data_curves(session) -> dict:
 
 def data_compare(session) -> dict:
     c = session.cmd_compare()
-    out = _base(session, "compare", len(c["rows"]) < 2, "No finished runs yet: run a scenario to compare it "
+    out = _base(session, "compare", len(c["rows"]) < 2, "No finished runs yet: run a backtest to compare it "
                                                         "with the passive index.")
     out.update(benchmark=c["benchmark"], columns=c["columns"], rows=c["rows"], missing=c["missing"],
                diffs=c["diffs"], trials_total=c["trials_total"],
@@ -276,7 +276,7 @@ def data_montecarlo(session) -> dict:
 
 def data_exit(session) -> dict:
     e = session.analyses["exit"]
-    out = _base(session, "exit", not e, "No exit evaluation yet: give a scenario a trend exit (x, then F2), then "
+    out = _base(session, "exit", not e, "No exit evaluation yet: give a backtest a trend exit (x, then F2), then "
                                         "run `exit_eval`.")
     items = []
     for label, ev in e.items():

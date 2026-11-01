@@ -63,7 +63,7 @@ jupyter lab screenlab/notebooks/explore_runs.ipynb
 screenlab-rest
 ```
 
-**8. Interactive TUI** (Ctrl+Q or `q` quits). A terminal app where you add a scenario, change a setting, press F2
+**8. Interactive TUI** (Ctrl+Q or `q` quits). A terminal app where you add a backtest, change a setting, press F2
 and see the new version (`dogs v2`) next to the old one and the passive index, with colours that never change:
 ```
 screenlab-tui --lab synthetic          # in a browser instead: screenlab-tui --serve  (http://localhost:8000)

@@ -221,11 +221,11 @@ When fewer names qualify than asked for, there may be fewer rows.
 Every built-in spec screen, the eight Globe portfolios and the four classic ones, opens in the Screen tab (key `0`, **Load**; the
 dialog lists "Globe and Mail", then "Classic", then "Your saved screens") and can be edited there, including the two-stage funnels
 (Frugal Dividend, Stable High-Yield, Value + Momentum: a stage bar with one tab per stage, each with its own derived, include,
-exclude and rank tables and a "keep" count). A loaded built-in brings its backtest settings along: when you press **Add as scenario**
-or **Run**, the scenario gets the built-in's rebalance months (monthly for most Globe portfolios) and, for
+exclude and rank tables and a "keep" count). A loaded built-in brings its backtest settings along: when you press **Add as backtest**
+or **Run**, the backtest gets the built-in's rebalance months (monthly for most Globe portfolios) and, for
 `bluechip_dividend_growth`, its annual rebalance and hold rule (keep a holding while it ranks within 2x n, leave names within 25% of
-target weight untraded), all visible and editable in the scenario editor. Saving the screen under a new name keeps them for the
-scenarios you add from that form, but the saved file holds the screen only: reload it later and set the rebalance and hold rule in the
+target weight untraded), all visible and editable in the backtest editor. Saving the screen under a new name keeps them for the
+backtests you add from that form, but the saved file holds the screen only: reload it later and set the rebalance and hold rule in the
 editor (see docs/SCREEN_BUILDER.md, "Implemented: stages and built-ins").
 
 New data columns behind these: `mom_6m`, `mom_12m` (plain prior-period total returns), `vol_260d` (std of daily

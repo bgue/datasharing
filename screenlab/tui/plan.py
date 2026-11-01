@@ -461,7 +461,7 @@ def pane(app):
             with VerticalScroll():
                 yield Static("", id="pl-note")
                 with Horizontal(classes="pl-row"):
-                    yield field("Start date", "pl-start", placeholder="default: scenario start")
+                    yield field("Start date", "pl-start", placeholder="default: backtest start")
                     yield field("End date", "pl-end", placeholder="default: last bar")
                     yield field("Lump sum $", "pl-initial")
                     yield field("Periodic $", "pl-periodic")
@@ -643,7 +643,7 @@ def pane(app):
             c.plt.clear_figure()
             m.clear(columns=True)
             if sc is None:
-                note.update("Add a scenario (a): the plan invests in its strategy; its Tax section sets the account")
+                note.update("Add a backtest (a): the plan invests in its strategy; its Tax section sets the account")
                 spark.update("")
                 goal.update("")
                 self._draw_mc(None, None)

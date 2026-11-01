@@ -190,7 +190,7 @@ function flag(n) { return el("div", {class: "notes"}, n); }
 // ---------------------------------------------------------------- tabs
 const tabs = {
   curves(d, root) {
-    root.append(flag("Wealth, start = 1.0, log scale. Grey is the passive index. Drag to zoom, double-click to reset, click a legend entry to hide a scenario."));
+    root.append(flag("Wealth, start = 1.0, log scale. Grey is the passive index. Drag to zoom, double-click to reset, click a legend entry to hide a backtest."));
     const [c, box] = card("Wealth", "log scale", "curves", "tall");
     root.append(c);
     const traces = d.series.map(s => ({
@@ -211,7 +211,7 @@ const tabs = {
     if (notes.length) root.append(flag(notes.join("   |   ")));
     const grid = el("div", {class: "grid"}); root.append(grid);
     const labels = rows.map(r => r.label);
-    const [c1, b1] = card("CAGR", "annualised, per scenario", "compare-cagr");
+    const [c1, b1] = card("CAGR", "annualised, per backtest", "compare-cagr");
     const [c2, b2] = card("Excess/yr vs the passive index", "bars: bootstrap 5–95% interval when run with CI", "compare-excess");
     grid.append(c1, c2);
     const val = (r, k) => r.values[k] ?? null;
@@ -231,7 +231,7 @@ const tabs = {
       return t;
     }), {hovermode: "closest", yaxis: {autorange: "reversed", type: "category", categoryorder: "array", categoryarray: ex.map(r => r.label)},
       xaxis: {tickformat: ".1%", zeroline: true, zerolinecolor: d.passive.color, zerolinewidth: 2}});
-    root.append(details("Table", table(["Scenario", ...cols], rows.map(r => [r.label + (r.mark ? " " + r.mark : ""), ...cols.map(c => r.values[c])]), rows.map(r => r.color))));
+    root.append(details("Table", table(["Backtest", ...cols], rows.map(r => [r.label + (r.mark ? " " + r.mark : ""), ...cols.map(c => r.values[c])]), rows.map(r => r.color))));
     const taxed = Object.entries(d.tax || {});
     if (taxed.length) root.append(flag("After-tax columns (AfterTaxCAGR, TaxDrag/yr; the passive index is taxed the same way): " +
       taxed.map(([k, t]) => k + " = " + t.account + (t.province ? " " + t.province : " " + t.model)).join("; ")));

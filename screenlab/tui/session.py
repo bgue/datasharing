@@ -6,7 +6,7 @@
     s.command("set_params", {"scenario": "dogs", "params": {"cost_bps": 25}, "run": True, "wait": True})
     print(s.view())                      # plain text of the Compare tab: passive index, dogs, dogs v2
 
-Scenarios are immutable versions: `set_params` creates `name v2` and keeps `name`. Every computation is an
+Backtests are immutable versions: `set_params` creates `name v2` and keeps `name`. Every computation is an
 operation run through `LabRegistry.submit_run` (JobManager, thread mode by default), so the TUI adds no
 analysis. All commands take and return plain JSON; `Session` is thread safe (one re-entrant lock).
 """
@@ -145,7 +145,7 @@ def fmt_cell(name: str, v) -> str:
 
 
 class Session:
-    """Scenarios, versions, results, the comparison set, active tab and Monte Carlo settings.
+    """Backtests, versions, results, the comparison set, active tab and Monte Carlo settings.
 
     registry   a LabRegistry (build it with mode="thread" for in-process jobs); `registry.store` is the store.
     lab        dataset name (default `registry.default`)."""
@@ -235,7 +235,7 @@ class Session:
     def _find(self, ref) -> Scenario:
         if ref is None:
             if self.selected is None:
-                raise SessionError(400, "no scenario selected; pass `scenario`")
+                raise SessionError(400, "no backtest selected; pass `scenario`")
             ref = self.selected
         if isinstance(ref, dict):
             ref = ref.get("id") or ref.get("label")
@@ -248,7 +248,7 @@ class Session:
         fam = [s for s in self.scenarios if s.name == ref]
         if fam:
             return max(fam, key=lambda s: s.version)
-        raise SessionError(404, f"unknown scenario {ref!r}; have {[s.label for s in self.scenarios]}")
+        raise SessionError(404, f"unknown backtest {ref!r}; have {[s.label for s in self.scenarios]}")
 
     def _find_many(self, refs, default_all_results=False, only_unrun=False) -> list:
         if refs in (None, "", []):
@@ -651,7 +651,7 @@ class Session:
         return {"jobs": [j]}
 
     def cmd_accounts(self, scenario=None, accounts=None, force=False) -> dict:       # Q2: Accounts tab
-        """Compare the scenario's portfolio and the passive index in a taxable account, a TFSA and an RRSP (the
+        """Compare the backtest's portfolio and the passive index in a taxable account, a TFSA and an RRSP (the
         `account_compare` operation); the result is `analyses["accounts"][label]` and the Accounts tab."""
         sc = self._find(scenario)
         j = self._submit(_accounts.KIND, _accounts.args_for(self, sc, accounts), [sc], label=sc.label, force=bool(force))
@@ -765,9 +765,9 @@ class Session:
         return [c for c in req or [] if c not in {k for k in snap.columns if snap[k].notna().any()}]
 
     def cmd_screen_add(self, spec=None, name=None, run=True, save=False, overwrite=None, **params) -> dict:
-        """Add `spec` (default: the form) as a scenario (`save`: write it to the screens folder first), select it, show
+        """Add `spec` (default: the form) as a backtest (`save`: write it to the screens folder first), select it, show
         the Compare tab and, with `run`, start its backtest. # SB3: the settings the loaded built-in carries (rebalance
-        months, hold rule: `form.settings`) become the scenario's params unless `params` (any scenario parameter) says
+        months, hold rule: `form.settings`) become the backtest's params unless `params` (any backtest parameter) says
         otherwise; they apply to the form's screen, under its own or a new name."""
         form = self._screen_form()
         own = spec is None or (isinstance(spec, dict) and spec.get("name") == form.get("name"))
@@ -788,7 +788,7 @@ class Session:
 
     def cmd_plan(self, scenario=None, run=True, force=False, add_extra=None, remove_extra=None, add_phase=None,
                  remove_phase=None, set_phase=None, flat_phase=False, **form) -> dict:   # PC: Plan tab
-        """The dated investment plan of the scenario's strategy against the index (the `plan` operation). `form` is any of
+        """The dated investment plan of the backtest's strategy against the index (the `plan` operation). `form` is any of
         the plan form fields (start, end, initial, periodic, frequency, growth, extra, withdrawals, withdraw_from,
         withdraw_growth, cash_timing, index_mer, goal); they are remembered (`analyses.plan_form`). `add_extra` /
         `remove_extra` edit the extraordinary investments; `run=false` only edits the form. V2: `use_phases`, `phases`,
@@ -990,7 +990,7 @@ class Session:
         return hit[1]
 
     def _guard(self, sc: Scenario) -> dict:
-        """Trials and DSR of one scenario's result (None where it cannot be computed)."""
+        """Trials and DSR of one backtest's result (None where it cannot be computed)."""
         if not sc.result:
             return {"trials": None, "dsr": None}
         n = self._trial_count(sc)
@@ -1025,7 +1025,7 @@ class Session:
         return G.load_preregistered(self.prereg_path)
 
     def cmd_link(self, scenario=None, hypothesis=None) -> dict:
-        """Link a scenario (every version of it) to a hypothesis id of the pre-registration file, or unlink with null."""
+        """Link a backtest (every version of it) to a hypothesis id of the pre-registration file, or unlink with null."""
         src = self._find(scenario)
         if hypothesis in (None, "", "none"):
             hid = None
@@ -1044,7 +1044,7 @@ class Session:
         return {"scenario": src.to_dict(), "hypothesis": hid}
 
     def cmd_hypotheses(self) -> dict:
-        """The pre-registered hypotheses, with the linked scenarios and whether their latest result meets the threshold."""
+        """The pre-registered hypotheses, with the linked backtests and whether their latest result meets the threshold."""
         info = self.load_hypotheses()
         for h in info["hypotheses"]:
             linked = []
@@ -1102,7 +1102,7 @@ class Session:
         cols = c["columns"]
         lab = lambda r: (r["label"] + (" " + r["mark"] if r.get("mark") else ""))
         w = max([len(lab(r)) for r in c["rows"]] + [8])
-        head = f"{'':2}{'Scenario':<{w}}  " + "  ".join(f"{x:>11}" for x in cols)
+        head = f"{'':2}{'Backtest':<{w}}  " + "  ".join(f"{x:>11}" for x in cols)
         lines = [head, "-" * len(head)]
         for r in c["rows"]:
             vals = "  ".join(f"{fmt_cell(x, r['values'].get(x)):>11}" for x in cols)
@@ -1164,7 +1164,7 @@ class Session:
         if format in ("markdown", "both"):
             card = self.card()
             lines = [f"# screenlab export", "", card.line(), *[f"- {x}" for x in card.warnings()], "",
-                     "| scenario | " + " | ".join(c["columns"]) + " |", "|" + "---|" * (len(c["columns"]) + 1)]
+                     "| backtest | " + " | ".join(c["columns"]) + " |", "|" + "---|" * (len(c["columns"]) + 1)]
             for r in c["rows"]:
                 lines.append(f"| {r['label']}{' ' + r['mark'] if r.get('mark') else ''} | "
                              + " | ".join(fmt_cell(x, r["values"].get(x)) for x in c["columns"]) + " |")
@@ -1369,7 +1369,7 @@ class Session:
         with self._lock:
             tab = tab or self.active_tab
             card = self.card()
-            head = [card.line(), *card.warnings(), f"Scenarios: " + (", ".join(
+            head = [card.line(), *card.warnings(), f"Backtests: " + (", ".join(
                 f"{'>' if s.id == self.selected else ''}{s.label}{' ' + self.mark(s) if self.mark(s) else ''} [{s.color}] {s.status}"
                 for s in self.scenarios) or "none"),
                     f"Trials this session: {self.trials_total()}",
@@ -1386,7 +1386,7 @@ class Session:
     def _view_curves(self) -> str:
         cd = self.curves_data()
         if not cd:
-            return "no curves yet: run a scenario"
+            return "no curves yet: run a backtest"
         lines = ["wealth curves (log scale), start = 1.0"]
         for k, v in cd.items():
             pts = v["points"]
@@ -1411,7 +1411,7 @@ class Session:
     def _view_exit(self) -> str:
         e = self.analyses["exit"]
         if not e:
-            return "no exit evaluation yet: give a scenario an `exit` policy and run `exit_eval`"
+            return "no exit evaluation yet: give a backtest an `exit` policy and run `exit_eval`"
         out = []
         for k, v in e.items():
             out += [f"{k}: flagged {v.get('frac_flagged', 0):.1%}, switches {v.get('switches')}",
@@ -1480,7 +1480,7 @@ class Session:
                 val = "" if x["value"] is None else f" {x['metric']}={x['value']:.4g}"
                 lines.append(f"    linked {x['label'] or x['scenario']}: {verdict}{val}" + (f" ({x['reason']})" if x["reason"] else ""))
         if not info["hypotheses"]:
-            lines.append("no hypotheses: copy a block from the template in the file, then `link` a scenario to it")
+            lines.append("no hypotheses: copy a block from the template in the file, then `link` a backtest to it")
         return "\n".join(lines)
 
     def _view_log(self) -> str:

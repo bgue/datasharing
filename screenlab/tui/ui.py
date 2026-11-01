@@ -39,13 +39,13 @@ TAB_TITLES = {"screen": "Screen", "compare": "Compare", "curves": "Curves", "tim
               "montecarlo": "Monte Carlo", "runs": "Runs", "log": "Log", "data": "Data", "hypotheses": "Hypotheses"}
 SOURCE_TITLES = {"sec": "SEC", "boc": "Bank of Canada", "fred": "FRED", "stooq": "Stooq", "statcan": "StatCan"}
 HELP = """\
-[b]screenlab-tui[/b]  scenarios are versions: Apply creates 'name v2' and keeps 'name'.
+[b]screenlab-tui[/b]  backtests are versions: Apply creates 'name v2' and keeps 'name'.
 
- a  add scenario          c  clone selected       d  delete selected
+ a  add backtest          c  clone selected       d  delete selected
  r  run selected (all not run with shift+R)       F2 / Apply  new version + run
  x  toggle trend exit switch (then Apply)
  f  freeze the selected version (read-only; later versions are out-of-sample candidates, extra trials)
- l  link the selected scenario to a pre-registered hypothesis   H  Hypotheses tab
+ l  link the selected backtest to a pre-registered hypothesis   H  Hypotheses tab
  m  Monte Carlo           t  timing study         p  picks
  s  save screen spec JSON e  export markdown+CSV  T  light/dark theme
  w  charts in the browser (Plotly, follows this screen)
@@ -53,7 +53,7 @@ HELP = """\
  0  Screen tab: define a screen (F5 preview, Ctrl+S save)
  1-9 switch tab (H = Hypotheses)          ?  this help            q  quit
 
-Colours: every scenario keeps its colour; the passive index is grey.
+Colours: every backtest keeps its colour; the passive index is grey.
 Control endpoint: see screenlab/tui/PROTOCOL.md."""
 EXIT_PRESET = {"signals": [{"type": "TrendBreak"}], "threshold": 0.8, "hysteresis": 0.1, "park": "cash"}
 PARAM_FIELDS = (("n", "Holdings"), ("rebalance_months", "Rebalance (months)"), ("cost_bps", "Cost (bps)"),
@@ -97,7 +97,7 @@ class AddScreen(ModalScreen):
     AddScreen OptionList { height: 14; }
     """
 
-    def __init__(self, screens, title: str = "Add scenario: choose a screen (Enter), Esc cancels", order: bool = False,
+    def __init__(self, screens, title: str = "Add backtest: choose a screen (Enter), Esc cancels", order: bool = False,
                  groups=None, dim=None, footer: str = ""):
         super().__init__()
         self.groups = [(t, list(n)) for t, n in groups or [] if n]               # SB3: [(heading, [names])], shown in this order
@@ -212,7 +212,7 @@ class ScreenlabApp(App):
             yield Static("idle", id="jobtext")
         with Horizontal(id="body"):
             with Vertical(id="side"):
-                yield Label("Scenarios (passive index first, fixed colours)", classes="pane-title")
+                yield Label("Backtests (passive index first, fixed colours)", classes="pane-title")
                 yield OptionList(id="scen")
                 with VerticalScroll(id="editor"):
                     yield Label("Dataset")
@@ -557,7 +557,7 @@ class ScreenlabApp(App):
                                   (" (passive)" if r["passive"] else "", "dim"),
                                   (" " + r["mark"] if r.get("mark") else "", "yellow"))
             rows.append([label, *[Text(fmt_cell(x, r["values"].get(x)), justify="right") for x in cols]])
-        self._fill(t, ["Scenario", *cols], rows)
+        self._fill(t, ["Backtest", *cols], rows)
         note = []
         if c["missing"]:
             note.append("not run yet: " + ", ".join(c["missing"]))
@@ -578,7 +578,7 @@ class ScreenlabApp(App):
         plt.clear_figure()
         data = self.session.curves_data()
         if not data:
-            plt.title("no curves yet: select a scenario and press r")
+            plt.title("no curves yet: select a backtest and press r")
         else:
             dropped = 0
             for label, d in data.items():
@@ -601,7 +601,7 @@ class ScreenlabApp(App):
         w = self.query_one("#p-timing")
         w.plt.clear_figure()
         if not tm:
-            self._fill(t, ["Timing"], [["no timing study for the selected scenario: press t"]])
+            self._fill(t, ["Timing"], [["no timing study for the selected backtest: press t"]])
             w.plt.title("tranche curve appears after a timing study")
         else:
             d = tm["distribution"]
@@ -622,7 +622,7 @@ class ScreenlabApp(App):
         p = s.analyses["picks"].get(sc.label) if sc else None
         t = self.query_one("#t-picks", DataTable)
         if not p:
-            self.query_one("#picks-note", Static).update("press p for the selected scenario's picks")
+            self.query_one("#picks-note", Static).update("press p for the selected backtest's picks")
             self._fill(t, ["Picks"], [])
             return
         self.query_one("#picks-note", Static).update(f"{p['scenario']} as of {str(p['asof'])[:10]}")
@@ -690,14 +690,14 @@ class ScreenlabApp(App):
         info = self.session.command("hypotheses")
         t = self.query_one("#t-hyp", DataTable)
         self.query_one("#hyp-note", Static).update(
-            f"{info['path']}  (Enter or l: link the selected scenario to the highlighted hypothesis)")
+            f"{info['path']}  (Enter or l: link the selected backtest to the highlighted hypothesis)")
         rows = []
         for h in info["hypotheses"]:
             linked = ", ".join(f"{x['label'] or x['scenario']}: " + {True: "met", False: "NOT met", None: "undecided"}[x["met"]]
                                for x in h["linked"])
             rows.append([Text(h["id"] + (" (example)" if h["example"] else ""), style="bold"), h["status"], h["name"],
                          f"{h['metric']} {h['threshold']}", h["horizon"] or "", linked])
-        self._fill(t, ["Id", "Status", "Hypothesis", "Pass mark", "Horizon", "Linked scenarios"], rows)
+        self._fill(t, ["Id", "Status", "Hypothesis", "Pass mark", "Horizon", "Linked backtests"], rows)
         t._ids = [h["id"] for h in info["hypotheses"]]
         detail = [*info["warnings"]]
         for h in info["hypotheses"]:
@@ -959,7 +959,7 @@ class ScreenlabApp(App):
         s = self.session
         sc = next((x for x in s.scenarios if x.id == s.selected), None)
         if sc is None:
-            self.notify("add a scenario first (a)", severity="warning")
+            self.notify("add a backtest first (a)", severity="warning")
             return
         if sc.frozen:
             self.notify(f"{sc.label} is frozen and read-only: clone it (c) to continue", severity="warning")
@@ -1013,7 +1013,7 @@ class ScreenlabApp(App):
     def action_freeze(self) -> None:
         sc = next((x for x in self.session.scenarios if x.id == self.session.selected), None)
         if sc is None:
-            self.notify("select a scenario first", severity="warning")
+            self.notify("select a backtest first", severity="warning")
         elif sc.frozen:
             self.notify(f"{sc.label} is already frozen (the `unfreeze` command logs a line)", severity="warning")
         elif self._cmd("freeze", {}):
@@ -1031,7 +1031,7 @@ class ScreenlabApp(App):
             if pick:
                 hid = ids[names.index(pick)]
                 self._cmd("link", {"hypothesis": None if hid == "(none)" else hid}, "link")
-        self.push_screen(AddScreen(names, "Link the selected scenario to a hypothesis (Enter), Esc cancels", order=True), done)
+        self.push_screen(AddScreen(names, "Link the selected backtest to a hypothesis (Enter), Esc cancels", order=True), done)
 
     def action_run_all(self) -> None:
         self._cmd("run", {"scenario": "all"})

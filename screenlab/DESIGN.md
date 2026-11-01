@@ -726,6 +726,8 @@ keep what works. Runs in a terminal (`screenlab-tui`) or in a browser
 goes through the existing operations (`operations.OPERATIONS`), jobs and
 store; the TUI adds no analysis of its own.
 
+Glossary: users see the word **backtest** (a screen + settings + results; one row on the Compare table); the interface still calls a backtest a `scenario` (command `add_scenario`, key `scenario`). In Monte Carlo (section K) a "scenario" is a resampled-market path set.
+
 ### L1. Layout (`tui/app.py`)
 - Header: dataset data card (one line) + warnings (price-index, survivorship)
   in red/yellow; store path; job progress.
