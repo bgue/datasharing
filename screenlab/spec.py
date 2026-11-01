@@ -157,8 +157,13 @@ class ScreenSpec:
     def to_json(self, **kw) -> str:
         return json.dumps(self.to_dict(), **kw)
 
-    def build(self) -> Screen:
-        params = {k: v for k, v in self.to_dict().items() if k not in ("name", "n", "note")}
+    def build(self, library=None) -> Screen:
+        """The Screen. LA: named expressions (starter columns and the user's `columns.json`, see columns.py) the spec uses are
+        inlined into `derive` here, so the screen's params, run key and fingerprint contain the formulas. `library` (a
+        columns.ColumnLibrary) overrides the default one (the built-in registry passes the starter columns only)."""
+        from .columns import expand_spec
+        d, _ = expand_spec(self.to_dict(), library)
+        params = {k: v for k, v in d.items() if k not in ("name", "n", "note")}
         if not params["stages"]:
             del params["stages"]                    # plain single-stage spec: params exactly as before
         return Screen(self.name, rule_screen, self.n, params, self.note or "spec screen")
@@ -307,6 +312,79 @@ def check_expression(text: str, names) -> list:
     return used
 
 
+# LA: ---- which snapshot columns a spec uses (Screen.requires) -------------------------------------------------
+def expr_names(expr: str) -> list:
+    """Column names an expression refers to, in order of appearance, without repeats (helper functions are not columns).
+    An expression that does not parse falls back to its identifiers."""
+    try:
+        tree = ast.parse(expr.strip(), mode="eval")
+    except SyntaxError:
+        words = re.findall(r"[A-Za-z_][A-Za-z_0-9]*", expr)
+        skip = set(HELPERS) | {"and", "or", "not", "in", "True", "False", "None"}
+        return list(dict.fromkeys(w for w in words if w not in skip))
+    funcs = {id(n.func) for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+    names = sorted((n for n in ast.walk(tree) if isinstance(n, ast.Name) and id(n) not in funcs),
+                   key=lambda n: (n.lineno, n.col_offset))
+    return list(dict.fromkeys(n.id for n in names))
+
+
+def graham_columns(g) -> list:
+    """Snapshot columns the Graham tests `g` (preset name, dict or GrahamTests) read."""
+    t = graham_tests(g)
+    cols = ["sector"]
+    pe = "pe_avg3" if t.pe_basis == "avg3" else "pe"
+    if t.min_sales is not None:
+        cols.append("sales")
+    if t.min_current_ratio is not None:
+        cols.append("current_ratio")
+    if t.max_debt_to_nca is not None or t.max_util_debt_to_equity is not None:
+        cols += ["lt_debt"] + (["net_current_assets"] if t.max_debt_to_nca is not None else []) + \
+                (["book_equity"] if t.max_util_debt_to_equity is not None else [])
+    if t.max_loss_years is not None:
+        cols.append(f"loss_years_{t.loss_window}y")
+    if t.min_div_years is not None:
+        cols += ["dividend", "div_years"]
+    if t.min_eps_growth is not None:
+        cols += ["eps_avg3", "eps_avg3_10y_ago"]
+    if t.max_pe is not None or t.max_pe_x_pb is not None:
+        cols.append(pe)
+    if t.max_pb is not None or t.max_pe_x_pb is not None:
+        cols.append("pb")
+    return list(dict.fromkeys(cols))
+
+
+def spec_columns(params: dict) -> list:
+    """The snapshot columns a spec (the params of a spec Screen, or a spec dict whose named expressions are already
+    inlined) uses: `universe.by` (not when `top_optional`), `sector` for the sector lists, and every name in `derive`,
+    `filters`, `exclude`, `rank` and the Graham tests, minus the names the spec derives itself and the helpers;
+    in order of first use."""
+    sts = [Stage.from_dict(s) for s in params["stages"]] if params.get("stages") else [
+        Stage(params.get("universe") or {}, params.get("derive") or {}, list(params.get("filters") or ()), params.get("graham"),
+              params.get("rank") or {}, exclude=list(params.get("exclude") or ()))]
+    used: list = []
+    defined: set = set()
+
+    def add(names):
+        for c in names:
+            if c not in defined and c not in used:
+                used.append(c)
+    for st in sts:
+        uni = st.universe or {}
+        if uni.get("top") and not uni.get("top_optional"):
+            add([uni.get("by") or "market_cap"])
+        if uni.get("sectors") or uni.get("include_sectors") or uni.get("exclude_sectors"):
+            add(["sector"])
+        for col, expr in (st.derive or {}).items():
+            add(expr_names(expr))
+            defined.add(col)
+        for expr in [*(st.filters or ()), *(st.exclude or ())]:
+            add(expr_names(expr))
+        if st.graham:
+            add(graham_columns(st.graham))
+        add(list(st.rank or {}))
+    return used
+
+
 def _called(expr: str) -> set:
     """Names of the functions an expression calls (empty when it does not parse: pandas then reports the error)."""
     try:
@@ -362,9 +440,27 @@ def _mask(u: pd.DataFrame, expr: str) -> pd.Series:
     return eval_expr(u, expr).fillna(False).astype(bool)
 
 
+def size_cut_skipped(u: pd.DataFrame, uni: dict) -> bool:
+    """LA: True when the size cut is skipped: `universe.top_optional` is set and the `by` column (market_cap) is not in the
+    data (absent, or missing for every name). Without `top_optional` the cut always runs."""
+    if not (uni.get("top") and uni.get("top_optional")):
+        return False
+    by = uni.get("by") or "market_cap"
+    return by not in u.columns or not bool(u[by].notna().any())
+
+
+def skips_size_cut(screen, snap: pd.DataFrame) -> bool:
+    """LA: True when `screen` is a spec screen with a `top_optional` size cut that is skipped on snapshot `snap` (no market cap)."""
+    if screen.fn is not rule_screen:
+        return False
+    p = screen.params
+    sts = [Stage.from_dict(s).universe for s in p["stages"]] if p.get("stages") else [p.get("universe") or {}]
+    return any(size_cut_skipped(snap, u or {}) for u in sts)
+
+
 def _universe_cut(u: pd.DataFrame, uni: dict) -> pd.DataFrame:
     """The size cut first, then the sector filters."""
-    if uni.get("top"):
+    if uni.get("top") and not size_cut_skipped(u, uni):
         u = TopN(uni["top"], uni.get("by") or "market_cap").cut(u)
     inc = [*(uni.get("sectors") or ()), *(uni.get("include_sectors") or ())]
     if inc:

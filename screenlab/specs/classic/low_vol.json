@@ -1,0 +1,12 @@
+{
+  "name": "low_vol",
+  "n": 20,
+  "note": "Low-volatility anomaly (Baker, Bradley, Wurgler; Ang et al.): the 20 lowest 260-day volatility among the 300 largest, no dividend filter. Without market caps in the data the size cut is skipped. Ignores yield, valuation and sector concentration (it tilts to utilities and staples).",
+  "universe": {
+    "top": 300,
+    "top_optional": true
+  },
+  "rank": {
+    "vol_260d": "asc"
+  }
+}

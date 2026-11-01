@@ -1,0 +1,15 @@
+{
+  "name": "safe_yield",
+  "n": 20,
+  "note": "Sustainable income: among the 300 largest with positive EPS and a payout ratio (dividend / eps, named expression payout) under 0.6, the 20 highest dividend yields. A payout cut is the usual warning before a dividend cut, but a trailing ratio can hide a one-off earnings spike; names that pay nothing rank last and can fill the list when payers are scarce.",
+  "universe": {
+    "top": 300
+  },
+  "filters": [
+    "eps > 0",
+    "payout < 0.6"
+  ],
+  "rank": {
+    "div_yield": "desc"
+  }
+}

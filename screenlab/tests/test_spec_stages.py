@@ -155,7 +155,7 @@ def test_registry_specs_are_the_json_files():
         d = json.loads(f.read_text())
         assert define_screen(d).params == REGISTRY[d["name"]].params
     assert {f.parent.name for f in S.spec_files()} == {"globe", "classic"}
-    assert len(S.spec_files()) == len(CONVERTED)
+    assert len(S.spec_files()) == len(CONVERTED) + 10       # LA: + the ten library screens (no legacy Python twin)
 
 
 def test_runners_up_are_n_plus_two_with_two_flagged(golden_lab):

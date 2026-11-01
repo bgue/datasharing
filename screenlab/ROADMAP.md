@@ -59,6 +59,14 @@
 - Packaging (`pyproject.toml`, console scripts, `Makefile`), verified
   getting-started guide, docs map, LinkML schema of the run store,
   notebooks.
+- [x] Screen builder engine (SB1, [docs/SCREEN_BUILDER.md](docs/SCREEN_BUILDER.md)): `exclude` criteria,
+  `universe.include_sectors`, expression helpers (`pct q z log sqrt abs isna coalesce`) with a whitelist check,
+  the data dictionary (`COLUMN_INFO`), operations `screen_schema` / `screen_preview` / `screen_save` /
+  `screen_load` and saved screens that load at startup. The TUI Screen tab (SB2) is built on it.
+- [x] Screen library, engine side (LA, [docs/SCREEN_LIBRARY.md](docs/SCREEN_LIBRARY.md)): `Screen.requires()` and
+  `Lab.screen_status()` (every screen says what data it needs; unavailable ones stay listed), `universe.top_optional`,
+  the `high_52w` and `sma_200` columns, ten more built-in screens, named expressions with `column_define` /
+  `column_delete`. Still to do: the TUI side (Add/Load dialog groups, schema-panel groups, "Save row as my column").
 
 The phases below follow the review in `CRITIQUE.md` §6 and the owner's
 later suggestions. Data correctness comes before features. "Blocker" marks

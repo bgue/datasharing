@@ -1,0 +1,14 @@
+{
+  "name": "large_low_pe",
+  "n": 10,
+  "note": "Large-cap value: the 10 lowest positive P/E among the 30 largest. A Stingy Investor page appears to list a 'Dow 30 low P/E' portfolio whose rules could not be read here; this is the generic version, not a replica. Trailing earnings only; a low P/E can mean a cyclical peak.",
+  "universe": {
+    "top": 30
+  },
+  "filters": [
+    "pe > 0"
+  ],
+  "rank": {
+    "pe": "asc"
+  }
+}

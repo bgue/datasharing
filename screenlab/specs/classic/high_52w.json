@@ -1,0 +1,12 @@
+{
+  "name": "high_52w",
+  "n": 10,
+  "note": "George and Hwang (2004) 52-week-high momentum: the 10 names closest to their 52-week high (price / high_52w, highest first) among the 300 largest. Without market caps in the data the size cut is skipped. Uses closes only (dividends are not in the high); ignores valuation.",
+  "universe": {
+    "top": 300,
+    "top_optional": true
+  },
+  "rank": {
+    "pct_of_high": "desc"
+  }
+}

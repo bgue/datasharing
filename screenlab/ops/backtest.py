@@ -188,8 +188,17 @@ class Backtest(Operation):
         from ..harvesting import harvest_columns as _harvest_columns
         _harvest_columns(rows, results, screens, lab.market, start, end, _bt.run)
         # --- end P2
-        rep = BacktestReport(pd.DataFrame(rows).T, results, bcurve, bench.label, cfg, ccurves,
-                             lab.data_card(benchmark))
+        card = lab.data_card(benchmark)
+        if any((sc.params or {}).get("universe", {}).get("top_optional") or
+               any(((s2 or {}).get("universe") or {}).get("top_optional") for s2 in (sc.params or {}).get("stages") or ())
+               for _, sc, _, _ in screens):                   # LA: say when a size cut was skipped (no market cap in the data)
+            from dataclasses import replace as _replace
+            from .screen_builder import last_full_asof
+            from ..spec import skips_size_cut
+            snap = lab.market.view(last_full_asof(lab))
+            card = _replace(card, notes=(*card.notes, *(f"NOTE: {label}: no size cut: market cap not in the data"
+                                                        for label, sc, _, _ in screens if skips_size_cut(sc, snap))))
+        rep = BacktestReport(pd.DataFrame(rows).T, results, bcurve, bench.label, cfg, ccurves, card)
         rep.tax = tax_tables
         rep.price_benchmark_allowed = bool(lab.allow_price_benchmark if allow_price_benchmark is None
                                            else allow_price_benchmark)

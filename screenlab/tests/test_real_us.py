@@ -90,7 +90,9 @@ def test_backtest_and_account_compare_run(lab):
 
 
 def test_price_screens_only(lab):
-    assert set(lab.screens) == {"momentum_12_1", "momentum_6m", "momentum_12m", "low_vol"}
+    # LA: the four price-only screens plus the library screens whose columns are all prices
+    assert set(lab.screens) == {"momentum_12_1", "momentum_6m", "momentum_12m", "low_vol", "high_52w", "trend_momentum"}
+    assert all(lab.screen_status()[n]["available"] for n in lab.screens)
 
 
 # --------------------------------------------------------------------------- the per-year index yield (taxes.py)

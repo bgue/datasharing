@@ -1,0 +1,12 @@
+{
+  "name": "momentum_12_1",
+  "n": 10,
+  "note": "Jegadeesh-Titman style: the 10 highest 12-1 month returns (the latest month is skipped) among the 300 largest. Without market caps in the data (price-only datasets) the size cut is skipped and the whole dataset is ranked. Ignores dividends, costs and crashes in momentum reversals.",
+  "universe": {
+    "top": 300,
+    "top_optional": true
+  },
+  "rank": {
+    "mom_12_1": "desc"
+  }
+}

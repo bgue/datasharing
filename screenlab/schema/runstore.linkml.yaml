@@ -354,6 +354,10 @@ enums:
         description: Validate a screen spec and save it as a JSON file in the saved-screens folder, registered in the lab (lab.screen_save). Records no trials.
       screen_load:
         description: A registered spec screen as an editable spec (lab.screen_load). Records no trials.
+      column_define:
+        description: Define a named expression ("my column") usable in any screen, stored in the screens folder (lab.column_define). Not an analysis; records no trials.
+      column_delete:
+        description: Delete one of your named expressions (lab.column_delete). Records no trials.
       account_compare:
         description: The same portfolios and the passive index in a taxable account, a TFSA and an RRSP, with foreign withholding and RRSP deferral (lab.account_compare).
       plan:

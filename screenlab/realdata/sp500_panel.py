@@ -339,7 +339,10 @@ def universe_size(panel: Panel, date) -> int:
 _NEEDS_FUNDAMENTALS = frozenset({"eps", "eps_prev", "eps_avg3", "pe", "pe_avg3", "pb", "bvps", "ebit", "ev_ebit", "enterprise_value",
                                  "earnings_yield", "roic", "invested_capital", "net_current_assets", "ncav_to_mcap", "book_equity",
                                  "sales", "shares", "shares_prev", "buyback_yield", "f_score", "div_years", "market_cap", "sector",
-                                 "roa", "leverage"})
+                                 "roa", "leverage",
+                                 # LA: more columns the panel lacks (the library screens use them)
+                                 "gross_margin", "gross_margin_prev", "asset_turnover", "asset_turnover_prev", "current_ratio",
+                                 "lt_debt", "eps_avg3_10y_ago"})
 def panel_screens() -> dict:
     """The registry screens with the market-cap size cut removed (the panel has no market cap; its universe is already the
     S&P 500). Screens that need fundamentals the panel lacks are left out."""
@@ -353,7 +356,7 @@ def panel_screens() -> dict:
             continue
         for st in ([p] + list(p.get("stages") or [])):
             u = dict(st.get("universe") or {}) if isinstance(st, dict) else {}
-            if u.get("top"):
+            if u.get("top") and not u.get("top_optional"):      # LA: a top_optional cut is skipped by the engine (and noted on the card)
                 u.pop("top")
                 u.pop("by", None)
                 st["universe"] = u

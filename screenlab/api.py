@@ -154,7 +154,9 @@ class Lab:
         b = RealUSBuilder(start=start, end=end, dividend_mode=dividend_mode)
         kw.setdefault("screens", price_screens(5))
         kw.setdefault("macro", b.macro())
-        return cls.from_dataset(b.build(), **kw)
+        lab = cls.from_dataset(b.build(), **kw)
+        lab.add_library_screens()               # LA: the library screens whose columns are all prices (high_52w, trend_momentum)
+        return lab
 
     @classmethod
     def real_sp500(cls, start: str = "1990-01-01", end: str | None = None, freq: str = "D", **kw) -> "Lab":
@@ -184,6 +186,41 @@ class Lab:
         sc = define_screen(spec)
         self.screens[sc.name] = sc
         return sc
+
+    # LA: ---- what each screen needs (docs/SCREEN_LIBRARY.md section 1) ------------------------------------
+    def screen_status(self, asof=None) -> dict:
+        """{name: {"available": bool, "missing": [column], "group": "Globe and Mail|Classic|Mine", "note": str,
+        "runnable": bool}} for every built-in screen (the registry) and every screen defined in this lab. A screen is
+        available when every column it needs (`Screen.requires()`) is in the snapshot with at least one value on the last
+        full snapshot date (`asof`); `missing` lists the others, in order of use. A function screen that declares nothing is
+        treated as available. `runnable`: the lab can run it by name (it is in `lab.screens`). A built-in the data cannot
+        run stays listed, with its missing columns, and builds and previews on any lab that has them."""
+        from .ops.screen_builder import last_full_asof
+        from .screens import GROUPS
+        from .spec import skips_size_cut
+        snap = self.market.view(self._asof(asof) if asof else last_full_asof(self))
+        present = {c for c in snap.columns if snap[c].notna().any()}
+        out: dict = {}
+        for name in [*REGISTRY, *(n for n in self.screens if n not in REGISTRY)]:
+            sc = self.screens.get(name) or REGISTRY[name]
+            req = sc.requires_list()
+            missing = [] if req is None else [c for c in req if c not in present]
+            note = sc.note + ("; no size cut: market cap not in the data" if skips_size_cut(sc, snap) else "")
+            out[name] = {"available": not missing, "missing": missing,
+                         "group": GROUPS.get(name, "Classic") if name in REGISTRY else "Mine", "note": note,
+                         "runnable": name in self.screens}
+        return out
+
+    def add_library_screens(self) -> list:
+        """Add every built-in screen this lab's data can run and that the lab does not define yet (a lab keeps its own screen
+        of the same name); returns the names added. The bundled S&P 500 sample and `Lab.real_us` call it after setting
+        their price-only screens, so the price-only library screens (high_52w, trend_momentum) run on them."""
+        added = []
+        for name, st in self.screen_status().items():
+            if st["available"] and name in REGISTRY and name not in self.screens and REGISTRY[name].requires() is not None:
+                self.screens[name] = REGISTRY[name]
+                added.append(name)
+        return added
 
     def screen(self, s, **overrides) -> Screen:
         """A Screen from a registered name, a Screen, or an inline spec (dict / builder / JSON text / .json path).

@@ -1,0 +1,24 @@
+{
+  "name": "small_dogs",
+  "n": 5,
+  "note": "O'Higgins' Small Dogs of the Dow, generic version: of the 30 largest dividend payers' 10 highest yields (the Dogs), keep the 5 lowest-priced. The 30 largest by market cap stand in for the Dow 30, and a low share price is not a measure of size or quality; the rule is a mechanical curiosity, not a risk control.",
+  "stages": [
+    {
+      "universe": {
+        "top": 30
+      },
+      "filters": [
+        "div_yield > 0"
+      ],
+      "rank": {
+        "div_yield": "desc"
+      },
+      "keep": 10
+    },
+    {
+      "rank": {
+        "price": "asc"
+      }
+    }
+  ]
+}

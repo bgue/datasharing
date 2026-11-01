@@ -130,6 +130,9 @@ COLUMN_INFO: dict = {
     "mom_6m": {"group": "momentum", "description": "total return over the prior 6 calendar months, as a fraction"},
     "mom_12m": {"group": "momentum", "description": "total return over the prior 12 calendar months, as a fraction"},
     "vol_1y": {"group": "volatility", "description": "standard deviation of the last 12 months' log returns, annualised, as a fraction (0.30 = 30%/yr)"},
+    # LA: price-derived trend columns (Market.trailing_stats / Market.view), docs/SCREEN_LIBRARY.md section 2
+    "high_52w": {"group": "momentum", "description": "highest close over the previous 252 trading days including the screening day, in the same price units as price (monthly data: the 12-month window); price / high_52w is 1.0 at a new high"},
+    "sma_200": {"group": "momentum", "description": "simple average close over the previous 200 trading days including the screening day, in the same price units as price (monthly data: the 10-month average); price > sma_200 means an uptrend"},
     "vol_260d": {"group": "volatility", "description": "standard deviation of the last 260 trading days' log returns, annualised (monthly data: the 12-month window, same as vol_1y)"},
     # security metadata (security_meta)
     "domicile": {"group": "security", "description": "country of the issuer's domicile, ISO code such as CA or US (text)"},
@@ -311,6 +314,10 @@ class Market:
 
         mom_12_1 / vol_1y   12-1 momentum and 1y annualized volatility (pinned by golden tests).
         mom_6m / mom_12m    plain prior 6 / 12 calendar-month total returns, no skipped month.
+        high_52w / sma_200  LA: highest close of the last 252 trading days and mean close of the last 200 (both
+                            including `asof`; monthly data: the 12-month high and the 10-month average), in the
+                            units of the total-return index; `view` rescales them to price units. NaN without the
+                            full window.
         vol_260d            std of log returns over the last 260 trading days, annualized by sqrt(ppy).
                             Needs 260 daily returns; with monthly data (index spacing > 5 days)
                             260 days is not defined, so it uses the 12-month calendar window
@@ -319,7 +326,7 @@ class Market:
         i = self.index.get_loc(asof)
         cols = self.prices.columns
         nan = np.full(len(cols), np.nan)
-        out = {k: nan for k in ("mom_12_1", "vol_1y", "mom_6m", "mom_12m", "vol_260d")}
+        out = {k: nan for k in ("mom_12_1", "vol_1y", "mom_6m", "mom_12m", "vol_260d", "high_52w", "sma_200")}
         with np.errstate(invalid="ignore", divide="ignore"), warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)   # names with < 2 returns -> NaN vol
             if asof - pd.DateOffset(months=6) >= self.index[0]:
@@ -334,9 +341,21 @@ class Market:
                 out["vol_1y"] = np.nanstd(np.diff(np.log(win), axis=0), axis=0, ddof=1) * np.sqrt(self.ppy)
                 if self.ppy <= 100:                      # monthly (or coarser) data: calendar window
                     out["vol_260d"] = out["vol_1y"]
+                    # LA: 12-month high of the monthly closes (including this one); needs the first close of the window
+                    out["high_52w"] = np.where(np.isnan(win[0]), np.nan, np.nanmax(win, axis=0))
+            if self.ppy <= 100 and asof - pd.DateOffset(months=10) >= self.index[0]:
+                # LA: the monthly equivalent of the 200-day average is the 10-month average (11 closes)
+                w10 = self._tri[self.index.searchsorted(asof - pd.DateOffset(months=10)):i + 1]
+                out["sma_200"] = np.where(np.isnan(w10[0]), np.nan, np.nanmean(w10, axis=0))
             if self.ppy > 100 and i >= 260:
                 win = self._tri[i - 260:i + 1]            # 260 daily returns
                 out["vol_260d"] = np.nanstd(np.diff(np.log(win), axis=0), axis=0, ddof=1) * np.sqrt(self.ppy)
+            if self.ppy > 100 and i >= 251:               # LA: 252 closes including today; a partial window is NaN
+                w = self._tri[i - 251:i + 1]
+                out["high_52w"] = np.where(np.isnan(w[0]), np.nan, np.nanmax(w, axis=0))
+            if self.ppy > 100 and i >= 199:               # LA: 200 closes including today
+                w = self._tri[i - 199:i + 1]
+                out["sma_200"] = np.where(np.isnan(w[0]), np.nan, np.nanmean(w, axis=0))
         return pd.DataFrame(out, index=cols)
 
     def view(self, asof) -> pd.DataFrame:
@@ -363,7 +382,13 @@ class Market:
         s["price"] *= m
         s["market_cap"] += d_mcap
         s["enterprise_value"] += d_mcap
-        s = add_ratios(s).join(self.trailing_stats(asof))
+        ts = self.trailing_stats(asof)
+        s = add_ratios(s).join(ts)
+        # LA: high_52w / sma_200 come out of trailing_stats in total-return-index units; express them in the price
+        # units of `price` (price x level / today's level), so price / high_52w and price > sma_200 are exact.
+        tri_now = pd.Series(self._tri[i_now], index=self.prices.columns).reindex(s.index)
+        for c in ("high_52w", "sma_200"):
+            s[c] = s["price"] * s[c] / tri_now
         meta = getattr(self.dataset, "security_meta", None)                          # P3: domicile / currency / wrapper
         if meta is not None:
             new = [c for c in meta.columns if c not in s.columns]

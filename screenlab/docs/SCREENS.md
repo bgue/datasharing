@@ -15,6 +15,7 @@ Part of the [documentation map](README.md). The short version is in the [main RE
 | `low_vol_dividend` | the least volatile dividend payers among large caps |
 | `screaming_value`, `stable_dividend`, `frugal_dividend`, `stable_high_yield`, `basic_buyback`, `momentum_6m`, `momentum_12m` | the Globe and Mail's published portfolios, see below |
 | `bluechip_dividend_growth` | rules-based approximation of a discretionary model dividend portfolio, see below |
+| `momentum_12_1`, `low_vol`, `high_52w`, `trend_momentum`, `small_dogs`, `large_low_pe`, `shareholder_yield`, `value_composite`, `gross_profitability`, `safe_yield` | the library screens (group "Classic"), see "Screens that say what they need, and your own columns" |
 
 Every screen above except `graham_*`, `net_nets` and `piotroski` is a JSON spec in `screenlab/specs/`
 (see below). The Graham, net-nets and Piotroski screens stay Python: Graham sorts by pass count and then
@@ -125,6 +126,70 @@ registers it in the lab (`lab.define`). It refuses a built-in name and, without 
 Every lab the TUI, REST or MCP builds loads that folder at start (`load_saved_screens`; a bad file is skipped
 with a log line), so a saved screen is in the Add dialog after a restart. A screen saved on a running server is
 visible to background jobs only in the processes that load the folder after the save.
+
+## Screens that say what they need, and your own columns
+Rules and design: [SCREEN_LIBRARY.md](SCREEN_LIBRARY.md). Not every dataset can run every screen: the bundled S&P 500
+sample has daily prices and nothing else, so a dividend or P/E screen has nothing to work on. Every screen therefore
+declares what it needs, and the lab says what it lacks instead of hiding the screen.
+
+**Needs.** `Screen.requires()` is the set of snapshot columns a screen reads (parsed from the universe `by`, `derive`,
+`filters`, `exclude`, `rank` and the Graham tests, named expressions expanded first; `None` for a Python function
+screen that declares nothing, which counts as available; declare yours with `screens.register_requires(fn, [columns])`).
+`lab.screen_status()` returns, for every built-in screen and every screen of the lab,
+`{"available", "missing", "group", "note", "runnable"}`: a column counts as present when it is in the snapshot with at
+least one value on the last full snapshot date. `group` is "Globe and Mail", "Classic" or "Mine" (your saved and
+defined screens). A built-in the data cannot run stays registered and visible with its `missing` columns; it builds and
+previews on any lab that has them. `lab.screens` is what the lab can run by name (the bundled S&P 500 sample runs its
+four price screens plus `high_52w` and `trend_momentum`). The `screens` command (REST `GET /labs/{lab}/screens`, MCP
+`list_screens`) returns the same status next to `n`, `note` and `params`.
+
+**Size cut that is optional.** `universe.top_optional: true` skips the `top` cut when the `by` column (market cap) is
+not in the data, instead of making the screen unavailable. The preview funnel says "no size cut: market cap not in the
+data", and a backtest's data card carries `NOTE: <screen>: no size cut: market cap not in the data`. The first four
+library screens use it.
+
+**New price columns** (every dataset with prices, point in time, in the units of `price`): `high_52w` the highest close
+of the previous 252 trading days including the screening day (monthly data: the 12-month high), `sma_200` the
+200-trading-day average close (monthly data: the 10-month average). A name without the full window has no value.
+
+**The ten library screens** (JSON in `specs/classic/`, each with a note naming the source and what it ignores):
+
+| screen | rule |
+|---|---|
+| `momentum_12_1` | 300 largest, the 10 highest 12-1 month returns |
+| `low_vol` | 300 largest, the 20 lowest 260-day volatility |
+| `high_52w` | 300 largest, the 10 closest to their 52-week high (`pct_of_high`) |
+| `trend_momentum` | 300 largest, only `price > sma_200`, the 10 highest 12-1 returns |
+| `small_dogs` | 30 largest, payers, the 10 highest yields, then the 5 lowest prices (O'Higgins) |
+| `large_low_pe` | 30 largest, positive P/E, the 10 lowest |
+| `shareholder_yield` | 300 largest, the 20 highest dividend plus buyback yield (`shy`) |
+| `value_composite` | 500 largest without Financials, positive P/E, P/B, EV/EBIT and sales, the 25 best summed ranks on P/B, P/E, `ps`, EV/EBIT, `shy` |
+| `gross_profitability` | 300 largest without Financials and Utilities, the 20 highest `gpa` (Novy-Marx) |
+| `safe_yield` | 300 largest, EPS > 0, `payout` < 0.6, the 20 highest dividend yields |
+
+The first four need prices only: they run on the bundled sample and on the real panel (no size cut, with the card note).
+On the bundled sample `momentum_12_1` and `low_vol` stay the older price-only functions (5 names, no size cut), which the
+lab keeps because its own screens win over built-ins of the same name.
+
+**Named expressions ("my columns").** Define a formula once, give it a name, and use the name anywhere a column name
+is allowed (`derive`, `filters`, `exclude`, `rank`, `universe.by`). Starter columns ship in code and are read-only:
+`shy = coalesce(div_yield, 0) + coalesce(buyback_yield, 0)`, `ps = market_cap / sales`, `payout = dividend / eps`,
+`gpa = gross_margin * asset_turnover`, `pct_of_high = price / high_52w`. Yours live in `columns.json` in the screens
+folder (`SCREENLAB_SCREENS`, default `~/.screenlab/screens`; written atomically):
+
+    lab.column_define("ey_x", "earnings_yield * 100", note="in percent")      # REST/MCP: column_define
+    lab.screen_preview({"name": "t", "universe": {"top": 50}, "rank": {"ey_x": "desc"}})["uses"]
+    lab.column_delete("ey_x")                                                  # starter columns cannot be deleted
+
+A name must be an identifier, not a snapshot column, helper or starter column, and the expression must pass
+`check_expression` against the snapshot columns plus the other named expressions. A cycle is rejected with its path
+("a -> b -> a"), the expression is evaluated on the last full snapshot and must not raise, and a column that is missing
+for every name is accepted with a warning. At preview, save, run and `requires()` time the named expressions a spec uses
+(and the ones they use, in dependency order) are inlined into `derive` of each stage that uses them, ahead of the
+stage's own derived columns (a name used as `universe.by` gets a derive-only stage first, because the size cut runs
+before `derive`). A saved screen therefore holds the formulas: its file, run key and fingerprint do not change when you
+later edit or delete the column. `screen_schema` lists the columns under `named` (groups "Starter columns" and "My
+columns", with `expr`, coverage, range and, when the data lacks an input, `missing`); `screen_preview` reports `uses`.
 
 ## Globe and Mail portfolios
 The Globe's "Inside the Market" columns publish several screen portfolios. We follow the published rules

@@ -123,4 +123,6 @@ def sp500_lab(path_prices=None, path_index=None, n: int = 5, dividend_yield: flo
         benchmark = IndexBenchmark("SP500", dividend_yield=dividend_yield)
     elif isinstance(benchmark, str) and benchmark == "price":
         benchmark = IndexBenchmark("SP500")
-    return Lab.from_dataset(ds, screens=price_screens(n), benchmark=benchmark, **kw)
+    lab = Lab.from_dataset(ds, screens=price_screens(n), benchmark=benchmark, **kw)
+    lab.add_library_screens()        # LA: the library screens a price-only table can run (high_52w, trend_momentum)
+    return lab

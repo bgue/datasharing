@@ -208,6 +208,9 @@ SAMPLES = {
                        "asof": "2005-06-30", "show": 3},
     "screen_save": {"spec": {"name": "cheap", "universe": {"top": 30}, "filters": ["pe < 15"]}, "overwrite": True},
     "screen_load": {"name": "dogs"},
+    # LA:
+    "column_define": {"name": "my_yield", "expr": "coalesce(div_yield, 0) * 2", "note": "double yield", "overwrite": True},
+    "column_delete": {"name": "my_yield"},
 }
 
 

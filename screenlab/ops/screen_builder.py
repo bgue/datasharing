@@ -22,7 +22,8 @@ from ..jsonout import jsonify, scalar
 from ..operations import Operation, arg, model_hook, register_operation
 from ..screens import REGISTRY, GrahamTests
 from ..spec import (HELPERS, PRESETS, SCREEN_NAME_RE, ExpressionError, ScreenSpec, Stage, _apply_graham, _apply_rank,
-                    _universe_cut, check_expression, eval_expr, graham_tests, screens_folder)
+                    _universe_cut, check_expression, eval_expr, graham_tests, screens_folder, size_cut_skipped)
+from .. import columns as _columns
 from ._request import parse_date
 
 
@@ -48,6 +49,7 @@ def _graham_spec_model():
 class UniverseSpec:
     """Universe of a stage: size cut first, then the sector lists."""
     top: int | None = arg(None, "keep the `top` largest names by `by`")
+    top_optional: bool | None = arg(None, "when true and the `by` column (market cap) is not in the data, skip the size cut instead of failing")
     by: str | None = arg(None, "numeric column the size cut ranks by (default market_cap)")
     include_sectors: list[str] | None = arg(None, "keep only these sectors")
     exclude_sectors: list[str] | None = arg(None, "drop these sectors")
@@ -84,7 +86,7 @@ class ScreenSpecRequest:
 # ---------------------------------------------------------------------------------------------------
 # spec helpers
 # ---------------------------------------------------------------------------------------------------
-UNIVERSE_KEYS = ("top", "by", "include_sectors", "exclude_sectors", "sectors")
+UNIVERSE_KEYS = ("top", "by", "include_sectors", "exclude_sectors", "sectors", "top_optional")
 _SPEC_FIELDS = ("name", "n", "note", "universe", "derive", "filters", "exclude", "graham", "rank", "stages")
 
 
@@ -109,6 +111,10 @@ def screen_to_spec(sc) -> dict:
     if sc.fn is not rule_screen:
         raise ValueError(f"{sc.name!r} is a Python function screen, not a spec screen: it cannot be opened in the "
                          f"screen builder (use picks or backtest to run it)")
+    src = getattr(sc, "source_spec", None)                    # LA: a built-in as written (named expressions by name)
+    if src is not None:
+        p = {k: v for k, v in src.items() if k not in ("name", "n", "note") and v not in (None, {}, [], ())}
+        return json.loads(json.dumps({"name": sc.name, "n": src.get("n", sc.n), "note": src.get("note", sc.note), **p}, default=list))
     p = {k: v for k, v in sc.params.items() if v not in (None, {}, [], ())}
     spec = {"name": sc.name, "n": sc.n, "note": "" if sc.note == "spec screen" else sc.note, **p}
     if "stages" in spec:
@@ -170,9 +176,11 @@ def _suggest(word, choices):
     return hit[0] if hit else None
 
 
-def preview_screen(snap: pd.DataFrame, spec: dict, show: int = 15) -> dict:
+def preview_screen(snap: pd.DataFrame, spec: dict, show: int = 15, named: dict | None = None) -> dict:
     """Run `spec` on the snapshot `snap` step by step. Returns {"ok", "errors", "funnel", "picks", "n_picks",
-    "stages"}; see docs/SCREEN_BUILDER.md. Never raises on a bad spec: the problem is an entry of `errors`."""
+    "stages"}; see docs/SCREEN_BUILDER.md. Never raises on a bad spec: the problem is an entry of `errors`.
+    LA: `named` ({column: group}) marks the derive rows that come from a named expression (key "named" in the funnel row);
+    `spec` must already have its named expressions expanded (`columns.expand_spec`)."""
     errors: list = []
     funnel: list = []
 
@@ -201,6 +209,8 @@ def preview_screen(snap: pd.DataFrame, spec: dict, show: int = 15) -> dict:
         funnel.append({"step": f"stage {k + 1}: {text}" if multi else text, "kind": kind, "expr": expr,
                        "rows_in": int(rows_in), "rows_out": int(rows_out),
                        "alone": None if alone is None else int(alone), "note": note})
+        if kind == "derive" and named and text.startswith("derive ") and text[7:] in named:
+            funnel[-1]["named"] = named[text[7:]]                  # LA: "Starter columns" | "My columns"
 
     u = snap
     for k, st in enumerate(stages):
@@ -216,20 +226,22 @@ def preview_screen(snap: pd.DataFrame, spec: dict, show: int = 15) -> dict:
             uni = {k2: v for k2, v in uni.items() if k2 in UNIVERSE_KEYS}
         top, by = uni.get("top"), uni.get("by") or "market_cap"
         ok_uni = True
+        skipped = bool(top) and not isinstance(top, bool) and size_cut_skipped(u, uni)       # LA: top_optional and no `by` data
         if "top" in uni and uni["top"] is not None and (isinstance(top, bool) or not isinstance(top, (int, np.integer)) or top < 1):
             err(pre + "universe", f"universe.top must be a whole number of at least 1, got {top!r}")
             ok_uni = False
-        elif top and by not in names:
+        elif top and by not in names and not (uni.get("top_optional")):
             err(pre + "universe", f"universe.by {by!r} is not a column", _suggest(by, names))
             ok_uni = False
-        elif top and not pd.api.types.is_numeric_dtype(u[by]):
+        elif top and by in names and not pd.api.types.is_numeric_dtype(u[by]):
             err(pre + "universe", f"universe.by {by!r} is not a number column")
             ok_uni = False
         sec_lists = {k2: list(uni.get(k2) or ()) for k2 in ("sectors", "include_sectors", "exclude_sectors")}
         if any(sec_lists.values()) and "sector" not in names:
             err(pre + "universe", "the data has no sector column, so sector lists cannot be used")
             ok_uni = False
-        notes = []
+        notes = ["no size cut: market cap not in the data" if by == "market_cap" else f"no size cut: {by} not in the data"] \
+            if skipped else []
         if ok_uni:
             try:
                 if "sector" in names:
@@ -242,14 +254,14 @@ def preview_screen(snap: pd.DataFrame, spec: dict, show: int = 15) -> dict:
                 u = _universe_cut(u, uni)
             except Exception as e:                      # noqa: BLE001
                 err(pre + "universe", str(e))
-        parts = ([f"top {top} by {by}"] if top else []) + \
+        parts = ([f"top {top} by {by}" if not skipped else f"top {top} by {by} (skipped)"] if top else []) + \
                 ([f"sectors {'+'.join([*sec_lists['sectors'], *sec_lists['include_sectors']])}"]
                  if sec_lists["sectors"] or sec_lists["include_sectors"] else []) + \
                 ([f"without {'+'.join(sec_lists['exclude_sectors'])}"] if sec_lists["exclude_sectors"] else [])
         if k == 0 or parts:
             step(k, "universe: " + (", ".join(parts) if parts else "all names"), "universe", None, n_in, len(u),
                  note="; ".join(notes) or None)
-        if top:
+        if top and not skipped:
             use(by)
         # ---- derive
         base = u.copy() if st.derive else u
@@ -434,6 +446,25 @@ def schema_of(snap: pd.DataFrame) -> list:
     return out
 
 
+def named_schema(snap: pd.DataFrame, library=None) -> list:
+    """LA: one row per named expression (starter columns first, then the user's), shaped like `schema_of` rows plus `expr`
+    and `missing` (the snapshot columns its formula needs that this data lacks; the row then has coverage 0 and `error`)."""
+    from ..spec import expr_names
+    entries = (library or _columns.ColumnLibrary()).entries()
+    ok, bad = _columns.evaluate_all(snap, entries)
+    frame = pd.DataFrame({n: s for n, s in ok.items()}, index=snap.index)
+    rows = {r["name"]: r for r in schema_of(frame)} if len(frame.columns) else {}
+    out = []
+    for n, e in entries.items():
+        r = rows.get(n) or {"name": n, "kind": "number", "dtype": "float64", "coverage": 0.0, "min": None, "p50": None,
+                            "max": None, "example": None}
+        have = set(snap.columns) | set(entries)
+        out.append({**r, "name": n, "group": e["group"], "description": e["note"] or "(no note)", "expr": e["expr"],
+                    "missing": sorted({c for c in _columns.closure_columns(n, entries) if c not in have}),
+                    **({"error": bad[n]} if n in bad else {})})
+    return out
+
+
 def last_full_asof(lab) -> pd.Timestamp:
     """The latest trading day on which at least half as many names have a price as on the busiest of the last 20 days
     (a data file that ends with a few stragglers does not give a thin last snapshot)."""
@@ -485,12 +516,14 @@ class ScreenSchema(_Untracked):
 
     def run(self, lab, asof=None) -> dict:
         """{asof, n_names, dataset, columns: [{name, group, kind, dtype, coverage, min, p50, max, example,
-        description}], helpers: [{name, signature, description}]}."""
+        description}], named: [{the same keys, group "Starter columns" | "My columns", plus expr, missing}],
+        helpers: [{name, signature, description}]}."""
         d = _resolve_asof(lab, asof)
         snap = lab.market.view(d)
         ds = lab.market.dataset
         return {"asof": scalar(d), "n_names": int(len(snap)),
                 "dataset": getattr(ds, "name", None) or lab.name or "", "columns": schema_of(snap),
+                "named": named_schema(snap),
                 "helpers": [{"name": n, "signature": sig, "description": desc} for n, (_, _, sig, desc) in HELPERS.items()]}
 
     def build(self, lab, a) -> dict:
@@ -511,12 +544,21 @@ class ScreenPreview(_Untracked):
 
     def run(self, lab, spec, asof=None, show: int = 15) -> dict:
         """{ok, asof, n_names, errors: [{where, message, suggestion}], funnel: [{step, kind, expr, rows_in,
-        rows_out, alone, note}], picks: [{rank, ticker, sector, values}], n_picks, stages}."""
+        rows_out, alone, note[, named]}], picks: [{rank, ticker, sector, values}], n_picks, stages,
+        uses: [{name, group, expr, note}]}. `uses`: the named expressions (starter columns, my columns) the spec used,
+        in dependency order; they appear as derive rows of the funnel (with `named`) and the formulas stand in the
+        spec the way a save or a run would hold it."""
         raw = _spec_for_preview(lab, _clean_spec(spec))
         d = _resolve_asof(lab, asof)
         snap = lab.market.view(d)
-        out = preview_screen(snap, raw, show)
-        return {"ok": out["ok"], "asof": scalar(d), "n_names": int(len(snap)), **{k: v for k, v in out.items() if k != "ok"}}
+        try:
+            raw, uses = _columns.expand_spec(raw)                  # LA: named expressions are inlined into derive
+        except ValueError as e:
+            return {"ok": False, "asof": scalar(d), "n_names": int(len(snap)), "stages": 0, "uses": [], "n_picks": 0,
+                    "errors": [{"where": "spec", "message": str(e), "suggestion": None}], "funnel": [], "picks": []}
+        out = preview_screen(snap, raw, show, named={u["name"]: u["group"] for u in uses})
+        return {"ok": out["ok"], "asof": scalar(d), "n_names": int(len(snap)), **{k: v for k, v in out.items() if k != "ok"},
+                "uses": uses}
 
     def build(self, lab, a) -> dict:
         _clean_spec(a.spec)
@@ -539,6 +581,10 @@ def save_spec(lab, spec: dict, folder=None, overwrite: bool = False) -> dict:
     path = screens_folder(folder) / f"{name}.json"
     if path.exists() and not overwrite:
         raise ServerError(409, f"{path} already exists; pass overwrite=true to replace it")
+    try:
+        raw, _uses = _columns.expand_spec(raw)                   # LA: the saved file holds the formulas, not the names
+    except ValueError as e:
+        raise ValueError(f"the spec is not valid: {e}") from None
     out = preview_screen(_probe_snapshot(lab), raw, show=0)
     if not out["ok"]:
         e = out["errors"][0]
@@ -611,6 +657,56 @@ class ScreenLoad(_Untracked):
         note = ("built-in spec screen: change it and save it under another name (a built-in cannot be replaced)"
                 if name in REGISTRY else "a screen defined in this lab: saving under the same name replaces it")
         return {"name": name, "spec": spec, "note": note}
+
+    def build(self, lab, a) -> dict:
+        return {"name": a.name}
+
+
+# ---------------------------------------------------------------------------------------------------
+# LA: named expressions ("my columns"), docs/SCREEN_LIBRARY.md section 4
+# ---------------------------------------------------------------------------------------------------
+@register_operation(builtin=True)
+class ColumnDefine(_Untracked):
+    """Define a named expression ("my column") for use in any screen; stored in <screens folder>/columns.json."""
+    name = "column_define"
+    registry_order = ("name", "expr", "note", "overwrite", "lab")
+
+    @dataclass
+    class Args:
+        name: str = arg(doc="column name: letters, digits and _, not a snapshot column, helper or starter column")
+        expr: str = arg(doc="the expression over snapshot columns, helpers and other named expressions, e.g. 'coalesce(div_yield, 0) + coalesce(buyback_yield, 0)'")
+        note: str = arg("", "one-line description")
+        overwrite: bool = arg(False, "replace an existing column of yours with that name")
+
+    def run(self, lab, name, expr, note: str = "", overwrite: bool = False) -> dict:
+        """{name, expr, note, group: "My columns", path, replaced, uses: [named expressions it uses], warnings, coverage, asof}.
+        400: bad name, expression error, cycle (the message names the path), or an expression that raises on the last full
+        snapshot; 409: the name is a snapshot column, helper or starter column, or taken (without overwrite)."""
+        d = last_full_asof(lab)
+        return _columns.define_column(lab.market.view(d), d, name, expr, note, overwrite)
+
+    def build(self, lab, a) -> dict:
+        kw = {"name": a.name, "expr": a.expr}
+        if a.note:
+            kw["note"] = a.note
+        if a.overwrite:
+            kw["overwrite"] = True
+        return kw
+
+
+@register_operation(builtin=True)
+class ColumnDelete(_Untracked):
+    """Delete one of your named expressions (starter columns cannot be deleted)."""
+    name = "column_delete"
+    registry_order = ("name", "lab")
+
+    @dataclass
+    class Args:
+        name: str = arg(doc="the column to delete")
+
+    def run(self, lab, name) -> dict:
+        """{name, deleted: true, expr, path}; 404 when you have no such column, 409 for a starter column."""
+        return _columns.delete_column(name)
 
     def build(self, lab, a) -> dict:
         return {"name": a.name}

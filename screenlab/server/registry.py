@@ -20,6 +20,7 @@ from ..errors import ServerError
 from ..jsonout import (DEFAULT_MAX_POINTS, curve, curves, downsample_index, jsonify, scalar,  # noqa: F401  (re-exported)
                        series_table, table)
 from ..operations import OPERATIONS, _load_builtins
+from ..screens import REGISTRY
 from ..ops import _request
 from ..ops.backtest import report_json                                                       # noqa: F401
 
@@ -199,8 +200,12 @@ class LabRegistry:
     @_guarded
     def list_screens(self, lab=None) -> dict:
         L = self.get(lab)
-        rows = [{"name": n, "n": s.n, "note": s.note, "params": jsonify(dict(s.params))}
-                for n, s in L.screens.items()]
+        # LA: every built-in screen plus the lab's own, with what the data lacks (Lab.screen_status); `runnable` = in lab.screens
+        rows = []
+        for n, st in L.screen_status().items():
+            s = L.screens.get(n) or REGISTRY[n]
+            rows.append({"name": n, "n": s.n, "note": st["note"], "params": jsonify(dict(s.params)), "available": st["available"],
+                         "missing": st["missing"], "group": st["group"], "runnable": st["runnable"]})
         return {"lab": lab or self.default, "screens": rows}
 
     @_guarded

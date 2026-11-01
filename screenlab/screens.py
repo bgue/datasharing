@@ -40,6 +40,24 @@ class Screen:
         """
         return self.fn(s, n=max(len(s), self.n) * 2, **self.params)
 
+    def requires_list(self) -> list | None:
+        """LA: the snapshot columns this screen reads, in order of first use, or None when unknown (a Python function screen
+        that declares nothing; treated as available). Spec screens: parsed from universe.by (unless `top_optional`),
+        derive, filters, exclude, rank and the Graham tests; named expressions are inlined into `derive` when the screen is
+        built, so they are already expanded here."""
+        if self.fn.__name__ == "rule_screen":
+            from .spec import spec_columns
+            return spec_columns(self.params)
+        decl = FUNCTION_REQUIRES.get(self.fn.__name__)
+        if callable(decl):
+            decl = decl(self.params)
+        return None if decl is None else list(decl)
+
+    def requires(self) -> set | None:
+        """LA: set of snapshot columns the screen needs (None = unknown); see `requires_list` for the order."""
+        r = self.requires_list()
+        return None if r is None else set(r)
+
     def with_overrides(self, **kw) -> "Screen":
         """Copy with params changed; keys naming a GrahamTests field update `tests`."""
         if self.fn.__name__ == "rule_screen":           # spec screens: legacy `universe=<int>`, stages, ...
@@ -57,6 +75,16 @@ class Screen:
         if tests is not None:
             params["tests"] = tests
         return Screen(self.name, self.fn, kw.get("n", self.n), params, self.note)
+
+
+# LA: columns a Python function screen needs, by function name: a list, or a callable(params) -> list. Add your own with
+# `register_requires(fn, [columns])`; a function screen that declares nothing has `requires() is None` (unknown, available).
+FUNCTION_REQUIRES: dict = {}
+
+
+def register_requires(fn, columns) -> None:
+    """Declare the snapshot columns screen function `fn` (or its __name__) reads: a list, or callable(params) -> list."""
+    FUNCTION_REQUIRES[getattr(fn, "__name__", fn)] = columns
 
 
 # --- Dividend dogs: highest yielders among the biggest names -----------------
@@ -250,6 +278,20 @@ def _legacy_bluechip_dividend_growth(s, n=12, universe=60, min_div_years=10):
     return u["vol_260d"].dropna().nsmallest(n).index.tolist()
 
 
+register_requires("net_nets", ["ncav_to_mcap", "eps"])
+register_requires("piotroski", ["pb", *("roa cfo_to_assets roa_prev leverage leverage_prev current_ratio current_ratio_prev "
+                                        "shares shares_prev gross_margin gross_margin_prev asset_turnover asset_turnover_prev".split())])
+
+
+def _graham_requires(params) -> list:
+    from .spec import graham_columns
+    return graham_columns(params.get("tests", DEFENSIVE))
+
+
+register_requires("graham", _graham_requires)
+for _f, _c in (("momentum_12_1", "mom_12_1"), ("momentum_6m", "mom_6m"), ("momentum_12m", "mom_12m"), ("low_vol", "vol_1y")):
+    register_requires(_f, [_c])               # the price-only screens of realdata/bundled.py
+
 # Spec screens live as JSON in specs/classic and specs/globe (copy and edit them to make your own). The
 # `_legacy_*` functions above are the original Python versions, kept only so tests can prove the specs pick
 # identically; they are not registered. Graham, net-nets and Piotroski stay Python (see README).
@@ -259,9 +301,14 @@ _PYTHON = {sc.name: sc for sc in [
     Screen("net_nets", net_nets, 15, note="Price < NCAV"),
     Screen("piotroski", piotroski, 10, note="F-score >= 8 in cheapest P/B quintile"),
 ]}
+GROUPS: dict = {"graham_defensive": "Classic", "graham_enterprising": "Classic", "net_nets": "Classic", "piotroski": "Classic"}
+GROUP_OF_DIR = {"globe": "Globe and Mail", "classic": "Classic"}      # LA: specs/<dir>/ -> the group shown in the dialogs
 _ORDER = ["dogs", "graham_defensive", "graham_enterprising", "net_nets", "piotroski", "magic_formula",
           "value_momentum", "low_vol_dividend", "screaming_value", "stable_dividend", "frugal_dividend",
-          "stable_high_yield", "basic_buyback", "momentum_6m", "momentum_12m", "bluechip_dividend_growth"]
+          "stable_high_yield", "basic_buyback", "momentum_6m", "momentum_12m", "bluechip_dividend_growth",
+          # LA: the library (docs/SCREEN_LIBRARY.md section 3)
+          "momentum_12_1", "low_vol", "high_52w", "trend_momentum", "small_dogs", "large_low_pe", "shareholder_yield",
+          "value_composite", "gross_profitability", "safe_yield"]
 SPEC_DIR = Path(__file__).parent / "specs"
 REGISTRY: dict[str, Screen] = dict(_PYTHON)
 
@@ -272,10 +319,14 @@ def spec_files() -> list[Path]:
 
 def _register_spec_screens(ScreenSpec) -> None:
     """Fill REGISTRY with the JSON spec screens, in the historical order (called by spec.py once it is defined)."""
+    from .columns import ColumnLibrary
+    starter = ColumnLibrary(starter_only=True)               # LA: built-ins resolve through the starter columns only
     specs = {}
     for f in spec_files():
         d = json.loads(f.read_text())
-        specs[d["name"]] = ScreenSpec.from_dict(d).build()
+        sc = specs[d["name"]] = ScreenSpec.from_dict(d).build(starter)
+        sc.source_spec = d                                   # LA: the file as written (names, not formulas), for screen_load
+        GROUPS[d["name"]] = GROUP_OF_DIR.get(f.parent.name, "Classic")
     unknown = set(specs) - set(_ORDER)
     REGISTRY.clear()
     REGISTRY.update({k: (specs.get(k) or _PYTHON[k]) for k in _ORDER if k in specs or k in _PYTHON})

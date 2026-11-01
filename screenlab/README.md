@@ -209,6 +209,8 @@ says which hosts to allow if one is blocked (`make data-hosts`). Details: [reald
 | see the Monte Carlo range of outcomes vs the S&P 500 with charts, no code | [notebooks/montecarlo.ipynb](notebooks/montecarlo.ipynb) (about 20 seconds; guide in [notebooks/README.md](notebooks/README.md)) |
 | every flag, the benchmark rules, the data files, backtest mechanics | [docs/REFERENCE.md](docs/REFERENCE.md) |
 | the built-in screens, spec format, Globe and Mail portfolios | [docs/SCREENS.md](docs/SCREENS.md) |
+| exclude criteria, expression helpers (`pct`, `z`, ...), the column dictionary, previewing a screen's funnel and saving it (operations `screen_schema`, `screen_preview`, `screen_save`, `screen_load`) | [docs/SCREENS.md](docs/SCREENS.md) "Exclude criteria, helpers and saved screens", [docs/SCREEN_BUILDER.md](docs/SCREEN_BUILDER.md) |
+| screens that say which data they lack, the ten library screens (`momentum_12_1`, `small_dogs`, `value_composite`, ...), `high_52w` / `sma_200` columns, and your own named columns (`lab.screen_status()`, operations `column_define`, `column_delete`) | [docs/SCREENS.md](docs/SCREENS.md) "Screens that say what they need, and your own columns", [docs/SCREEN_LIBRARY.md](docs/SCREEN_LIBRARY.md) |
 | exit signals, exit policy, calibration | [docs/EXITS.md](docs/EXITS.md) |
 | after-tax results: taxable / TFSA / RRSP, placeholder Canadian rates, plugging in your own tax module | [docs/TAXES.md](docs/TAXES.md) |
 | which account suits a portfolio: taxable vs TFSA vs RRSP, foreign withholding (operation `account_compare`, TUI Accounts tab, notebook) | [docs/TAXES.md](docs/TAXES.md) "Comparing accounts", [notebooks/accounts_and_foreign.ipynb](notebooks/accounts_and_foreign.ipynb) |

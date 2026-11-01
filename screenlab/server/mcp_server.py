@@ -66,7 +66,8 @@ def build_tools(reg: LabRegistry | None = None, typed: bool = False) -> dict:
         return reg.list_labs()
 
     def list_screens(lab: str | None = None) -> dict:
-        """Screens defined in a lab: name, n, note, parameters."""
+        """Every built-in screen and the lab's own: name, n, note, parameters, and what the data lacks: available (bool),
+        missing (columns), group ("Globe and Mail" | "Classic" | "Mine"), runnable (the lab can run it by name)."""
         return reg.list_screens(lab)
 
     def define_screen(spec: dict, lab: str | None = None) -> dict:

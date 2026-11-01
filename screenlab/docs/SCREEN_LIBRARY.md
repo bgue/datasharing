@@ -46,3 +46,59 @@ Define an expression once, name it, use it anywhere a column name is allowed (de
 - Operations (registry): `column_define(name, expr, note="", overwrite=False)`, `column_delete(name)`; `screen_schema` lists them in groups "Starter columns" and "My columns" with `expr`, coverage and range on the as-of snapshot. `screen_preview` accepts `uses` expansion transparently and reports which named expressions a spec used.
 - TUI (Screen tab): schema panel shows the two groups; Enter inserts the name; a button "Save row as my column" turns the selected Derived row into a named expression (asks for a note); `Del` on a "My columns" row deletes it after a confirmation line; the funnel notes name the expansion ("shy = coalesce(div_yield, 0) + ...").
 - Out of scope: per-user sharing, parameters (`x(col, n)`), multi-line functions.
+
+## Implemented (LA, engine side)
+
+Code: `columns.py` (new: `ColumnLibrary`, `STARTER`, `expand_spec`, `closure`, `define_column`, `delete_column`), `spec.py`
+(`size_cut_skipped`, `skips_size_cut`, `spec_columns`, `graham_columns`, `expr_names`; `ScreenSpec.build(library=None)` expands),
+`screens.py` (`Screen.requires()` / `requires_list()`, `register_requires`, `FUNCTION_REQUIRES`, `GROUPS`, `source_spec`), `api.py`
+(`Lab.screen_status`, `Lab.add_library_screens`), `data.py` (`high_52w`, `sma_200`, `COLUMN_INFO`), `ops/screen_builder.py`
+(`column_define`, `column_delete`, `named` in `screen_schema`, `uses` in `screen_preview`, `top_optional`), `server/registry.py`
+(`list_screens` rows), `ops/backtest.py` (card note), `specs/classic/*.json` (ten files). Tests: `tests/test_screen_library.py`.
+User docs: `docs/SCREENS.md` "Screens that say what they need, and your own columns".
+
+JSON shapes for clients (the TUI round):
+
+- `lab.screen_status()` and the rows of `GET /labs/{lab}/screens` / MCP `list_screens` (`{"lab", "screens": [...]}`, built-ins in
+  registry order, then the lab's own): `{"name", "n", "note", "params", "available": bool, "missing": [column, in order of use],
+  "group": "Globe and Mail"|"Classic"|"Mine", "runnable": bool}`; `note` ends with "; no size cut: market cap not in the data" when
+  a `top_optional` cut is skipped. `lab.screen_status()` itself is `{name: {"available", "missing", "group", "note", "runnable"}}`.
+- `screen_schema` gains `"named": [{name, group: "Starter columns"|"My columns", kind, dtype, coverage, min, p50, max, example,
+  description (the note), expr, missing: [snapshot columns the formula needs that the data lacks], error?}]`; `columns` is unchanged.
+- `screen_preview` gains `"uses": [{name, group, expr, note}]` (dependency order, first use first) and a `"named": group` key on
+  the funnel rows of inlined columns (`kind "derive"`, `step "derive <name>"`, `expr` the formula). A spec with no named
+  expression has `uses: []` and no `named` keys. Cycle in the library: `ok: false`, `errors[0].where == "spec"`.
+- `column_define(name, expr, note="", overwrite=False)` -> `{name, expr, note, group: "My columns", path, replaced, uses: [names it
+  uses, dependencies first], warnings: [str], coverage, asof}`; 400 bad name / bad expression / cycle (message has the path) /
+  expression raises on the last full snapshot; 409 name is a snapshot column, helper or starter column, or taken without `overwrite`.
+  `column_delete(name)` -> `{name, deleted: true, expr, path}`; 404 none of yours, 409 starter. Both are untracked builtins.
+- `screen_load(name)` of a built-in returns the file as written (named expressions by name); a saved or previewed spec is expanded.
+- `ScreenSpec.build()` and `screen_save` store the expanded spec; the editor should keep names and call `screen_preview` (which expands).
+
+### DEV
+- **`group`** is not a key of the spec JSON (`ScreenSpec` has no such field and would reject it): it comes from the folder
+  (`specs/globe` = "Globe and Mail", `specs/classic` = "Classic"), exposed as `screens.GROUPS`.
+- **`named` list in `screen_schema`**, not rows appended to `columns` (an existing test pins `columns` to the snapshot columns and the
+  Screen tab builds its pickers from it).
+- **Golden**: `tests/golden/synthetic_all_screens.json` gained the ten new rows (70 lines added, no line changed): that test
+  backtests every screen of the synthetic lab. `tests/test_golden.py` is untouched; the bundled-sample golden is unchanged.
+- **Bundled sample**: `lab.screens` stays the four price-only function screens (`momentum_12_1`, `momentum_6m`, `momentum_12m`,
+  `low_vol`: n 5, no size cut, golden-pinned) plus the library screens its data can run (`high_52w`, `trend_momentum`, added by
+  `Lab.add_library_screens()` in `sp500_lab` and `Lab.real_us`). Where a lab defines a screen of the same name as a built-in, the lab's
+  wins, so `momentum_12_1` and `low_vol` there are the old functions, not the 300-largest specs. `test_real_us.py::test_price_screens_only`
+  was updated for the two added names.
+- **Real panel**: `panel_screens()` keeps stripping the size cut of other screens but leaves a `top_optional` cut in place (the engine
+  skips it and the card says so); `gross_margin`, `asset_turnover` and a few other columns the panel lacks were added to its
+  `_NEEDS_FUNDAMENTALS` so `gross_profitability` is not offered there. `small_dogs` is offered (it needs `div_yield`, `price`) with the
+  panel's usual "no size cut" note.
+- **`requires()`** of a screen with a non-optional `top` includes `market_cap` (or `by`) and `sector` when sector lists are used; for the
+  `top_optional` ones it does not. `small_dogs` therefore needs `market_cap`, `div_yield`, `price`.
+- **`universe.by` as a named expression** gets a derive-only stage in front (the size cut runs before `derive`), which turns a one-stage
+  spec into two stages.
+- **Window definitions**: `high_52w` / `sma_200` need the whole window (252 / 200 closes including the day), else missing. They are
+  computed on the total-return index and rescaled to the units of `price` (`price * level / today's level`), so `price / high_52w`
+  is exact. Monthly data: 12-month high, 10-month average.
+- **`shy`** treats a missing part as 0 (as specified), so a name with neither dividend nor buyback data has `shy = 0`, not missing.
+- `Lab.screen_status()` has an extra key `runnable` (the lab can run the screen by name); `list_screens` rows carry it too.
+- A `top_optional` screen is never a Monte Carlo "price rank" (`pipeline.price_rank_of` refuses the unknown universe key), so its picks
+  stay fixed across paths.

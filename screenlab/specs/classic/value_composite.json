@@ -1,0 +1,24 @@
+{
+  "name": "value_composite",
+  "n": 25,
+  "note": "After O'Shaughnessy's value composite (What Works on Wall Street): among the 500 largest excluding Financials with positive P/E, P/B, EV/EBIT and sales, the 25 best summed ranks on P/B, P/E, price to sales, EV/EBIT and shareholder yield. EV/EBIT stands in for EV/EBITDA and P/CF is left out (no cash flow column), so it is a close cousin, not a replica.",
+  "universe": {
+    "top": 500,
+    "exclude_sectors": [
+      "Fin"
+    ]
+  },
+  "filters": [
+    "pe > 0",
+    "pb > 0",
+    "ev_ebit > 0",
+    "sales > 0"
+  ],
+  "rank": {
+    "pb": "asc",
+    "pe": "asc",
+    "ps": "asc",
+    "ev_ebit": "asc",
+    "shy": "desc"
+  }
+}

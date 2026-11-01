@@ -1,0 +1,15 @@
+{
+  "name": "gross_profitability",
+  "n": 20,
+  "note": "Novy-Marx (2013) gross profitability: the 20 highest gross profit over assets (gross margin x asset turnover, named expression gpa) among the 300 largest excluding Financials and Utilities. Pure quality, no valuation leg (Novy-Marx pairs it with value), and the screen is only as good as the margin and turnover data.",
+  "universe": {
+    "top": 300,
+    "exclude_sectors": [
+      "Fin",
+      "Util"
+    ]
+  },
+  "rank": {
+    "gpa": "desc"
+  }
+}

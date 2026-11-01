@@ -1,0 +1,15 @@
+{
+  "name": "trend_momentum",
+  "n": 10,
+  "note": "Trend filter plus momentum (after Faber's 10-month rule): only names above their 200-day average, then the 10 highest 12-1 month returns, among the 300 largest. Without market caps in the data the size cut is skipped. No exit rule: a falling market can leave fewer than 10 names above the line.",
+  "universe": {
+    "top": 300,
+    "top_optional": true
+  },
+  "filters": [
+    "price > sma_200"
+  ],
+  "rank": {
+    "mom_12_1": "desc"
+  }
+}

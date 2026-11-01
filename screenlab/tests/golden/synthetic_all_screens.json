@@ -48,6 +48,34 @@
     "Turnover": 0.0625,
     "Vol": 0.089498
   },
+  "gross_profitability": {
+    "CAGR": 0.118041,
+    "Excess/yr": 0.023592,
+    "MaxDD": -0.287907,
+    "Turnover": 0.555733,
+    "Vol": 0.184686
+  },
+  "high_52w": {
+    "CAGR": 0.084973,
+    "Excess/yr": -0.009476,
+    "MaxDD": -0.336813,
+    "Turnover": 0.887433,
+    "Vol": 0.198116
+  },
+  "large_low_pe": {
+    "CAGR": 0.102438,
+    "Excess/yr": 0.007988,
+    "MaxDD": -0.285413,
+    "Turnover": 0.463636,
+    "Vol": 0.207936
+  },
+  "low_vol": {
+    "CAGR": 0.072196,
+    "Excess/yr": -0.022253,
+    "MaxDD": -0.247963,
+    "Turnover": 0.8173,
+    "Vol": 0.160909
+  },
   "low_vol_dividend": {
     "CAGR": 0.057228,
     "Excess/yr": -0.037222,
@@ -61,6 +89,13 @@
     "MaxDD": -0.341117,
     "Turnover": 0.55567,
     "Vol": 0.207891
+  },
+  "momentum_12_1": {
+    "CAGR": 0.112427,
+    "Excess/yr": 0.017978,
+    "MaxDD": -0.307898,
+    "Turnover": 0.925,
+    "Vol": 0.209888
   },
   "momentum_12m": {
     "CAGR": 0.146893,
@@ -90,12 +125,33 @@
     "Turnover": 0.3125,
     "Vol": 0.145751
   },
+  "safe_yield": {
+    "CAGR": 0.125446,
+    "Excess/yr": 0.030996,
+    "MaxDD": -0.336087,
+    "Turnover": 0.611283,
+    "Vol": 0.192729
+  },
   "screaming_value": {
     "CAGR": 0.086167,
     "Excess/yr": -0.008283,
     "MaxDD": -0.461076,
     "Turnover": 0.669277,
     "Vol": 0.2138
+  },
+  "shareholder_yield": {
+    "CAGR": 0.094772,
+    "Excess/yr": 0.000323,
+    "MaxDD": -0.313347,
+    "Turnover": 0.866181,
+    "Vol": 0.183242
+  },
+  "small_dogs": {
+    "CAGR": 0.105565,
+    "Excess/yr": 0.011116,
+    "MaxDD": -0.405312,
+    "Turnover": 0.694179,
+    "Vol": 0.225673
   },
   "stable_dividend": {
     "CAGR": 0.098131,
@@ -110,6 +166,20 @@
     "MaxDD": -0.394391,
     "Turnover": 0.724842,
     "Vol": 0.210899
+  },
+  "trend_momentum": {
+    "CAGR": 0.104364,
+    "Excess/yr": 0.009915,
+    "MaxDD": -0.337374,
+    "Turnover": 0.9125,
+    "Vol": 0.215438
+  },
+  "value_composite": {
+    "CAGR": 0.116515,
+    "Excess/yr": 0.022066,
+    "MaxDD": -0.312857,
+    "Turnover": 0.585136,
+    "Vol": 0.194408
   },
   "value_momentum": {
     "CAGR": 0.147605,

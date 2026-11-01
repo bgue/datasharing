@@ -1,0 +1,11 @@
+{
+  "name": "shareholder_yield",
+  "n": 20,
+  "note": "Shareholder yield (Faber; Meb Faber's 'Shareholder Yield' work): the 20 highest dividend yield plus buyback yield among the 300 largest (named expression shy; a missing part counts as 0). Buyback yield is the change in share count over a year, so it ignores issuance for options and debt paydown.",
+  "universe": {
+    "top": 300
+  },
+  "rank": {
+    "shy": "desc"
+  }
+}
