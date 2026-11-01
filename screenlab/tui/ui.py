@@ -73,6 +73,18 @@ def _hex_to_rgb(h: str) -> tuple:
     return tuple(int(h[i:i + 2], 16) for i in (1, 3, 5))
 
 
+def _positive(xs, ys):
+    """Keep the points whose y is a positive number: plotext's log axis takes log10 of every value and raises
+    `ValueError: math domain error` on zero (a wealth curve that hits zero, or leads with zeros). Returns
+    (xs, ys, n_dropped)."""
+    keep = [(x, y) for x, y in zip(xs, ys) if isinstance(y, (int, float)) and y > 0 and y == y]
+    return [k[0] for k in keep], [k[1] for k in keep], len(xs) - len(keep)
+
+
+def _dropped_note(n: int) -> str:
+    return f"  [{n} point{'s' if n != 1 else ''} at or below zero not drawn on the log axis]" if n else ""
+
+
 class AddScreen(ModalScreen):
     """Pick a screen name for a new scenario."""
     BINDINGS = [Binding("escape", "dismiss(None)", "Cancel")]
@@ -536,12 +548,16 @@ class ScreenlabApp(App):
         if not data:
             plt.title("no curves yet: select a scenario and press r")
         else:
+            dropped = 0
             for label, d in data.items():
                 pts = d["points"]
                 x = [dt.fromisoformat(p[0][:10]).toordinal() / 365.25 for p in pts]
-                plt.plot(x, [p[1] for p in pts], label=label, color=_hex_to_rgb(d["color"]), marker="braille")
+                x, y, n = _positive(x, [p[1] for p in pts])
+                dropped += n
+                if y:
+                    plt.plot(x, y, label=label, color=_hex_to_rgb(d["color"]), marker="braille")
             plt.yscale("log")
-            plt.title("Wealth, start = 1.0 (log scale)")
+            plt.title("Wealth, start = 1.0 (log scale)" + _dropped_note(dropped))
             plt.xlabel("year")
         w.refresh()
 
@@ -561,10 +577,11 @@ class ScreenlabApp(App):
             tr = tm.get("tranche")
             if tr:
                 from datetime import datetime as dt
-                w.plt.plot([dt.fromisoformat(p[0][:10]).toordinal() / 365.25 for p in tr], [p[1] for p in tr],
-                           color=_hex_to_rgb(sc.color), marker="braille")
+                x, y, n = _positive([dt.fromisoformat(p[0][:10]).toordinal() / 365.25 for p in tr], [p[1] for p in tr])
+                if y:
+                    w.plt.plot(x, y, color=_hex_to_rgb(sc.color), marker="braille")
                 w.plt.yscale("log")
-                w.plt.title(f"{sc.label}: tranche (all start offsets blended)")
+                w.plt.title(f"{sc.label}: tranche (all start offsets blended)" + _dropped_note(n))
         w.refresh()
 
     def _draw_picks(self) -> None:
@@ -613,13 +630,17 @@ class ScreenlabApp(App):
             cols = fan["columns"]
             x = [r[0] for r in fan["rows"]]
             colors = {sc.label: sc.color for sc in self.session.scenarios}
+            dropped = 0
             for i, c in enumerate(cols):
                 if c.endswith("|p50"):
                     label = c[:-4]
                     col = _hex_to_rgb(colors.get(label, PASSIVE_COLOR))
-                    w.plt.plot(x, [r[i] for r in fan["rows"]], label=label, color=col, marker="braille")
+                    xx, yy, n = _positive(x, [r[i] for r in fan["rows"]])
+                    dropped += n
+                    if yy:
+                        w.plt.plot(xx, yy, label=label, color=col, marker="braille")
             w.plt.yscale("log")
-            w.plt.title("median wealth by year (log scale)")
+            w.plt.title("median wealth by year (log scale)" + _dropped_note(dropped))
         w.refresh()
 
     def _draw_runs(self) -> None:

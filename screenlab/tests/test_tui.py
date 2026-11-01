@@ -1258,3 +1258,34 @@ def test_q1_tax_section_fields_map_to_config_tax(reg):
             app.query_one("#f-tax-harvest").value = False
             assert "harvest" not in app._form_tax(None)                  # harvesting is off unless ticked
     asyncio.run(go())
+
+
+# ------------------------------------------------------------------ log charts must survive a zero (plotext takes log10 of every value)
+def test_positive_filter_and_note():
+    from screenlab.tui.ui import _dropped_note, _positive
+    xs, ys, n = _positive([1, 2, 3, 4, 5], [0.0, 1.0, -2.0, float("nan"), 3.0])
+    assert (xs, ys, n) == ([2, 5], [1.0, 3.0], 3)
+    assert _positive([1], [0.0]) == ([], [], 1)
+    assert _dropped_note(0) == "" and "1 point at or below zero" in _dropped_note(1) and "2 points" in _dropped_note(2)
+
+
+def test_curves_tab_draws_a_curve_that_leads_with_zero_or_hits_zero(reg):
+    """A wealth curve with a zero in it used to crash the whole app with `ValueError: math domain error` inside
+    plotext's log axis; the points at or below zero are now left out and the title says so."""
+    async def go():
+        s = Session(reg)
+        app = ScreenlabApp(s, control_port=None)
+        async with app.run_test(size=(170, 50)) as pilot:
+            await settle(pilot, app)
+            s.command("add_scenario", {"screen": "dogs", "run": True, "wait": True})
+            await settle(pilot, app)
+            real = s.curves_data()
+            bad = {k: {"color": v["color"], "points": [["2000-01-03", 0.0]] + v["points"][:-1] + [[v["points"][-1][0], 0.0]]}
+                   for k, v in real.items()}
+            s.curves_data = lambda: bad                                   # a curve that starts and ends at zero
+            await pilot.press("2")
+            await settle(pilot, app)
+            app._draw_curves()                                            # the call that raised
+            assert s.active_tab == "curves"
+        s.close()
+    arun(go())
