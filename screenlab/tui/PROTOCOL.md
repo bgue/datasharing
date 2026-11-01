@@ -64,6 +64,7 @@ only when the seq moved. `screenlab-tui --remote URL` also joins a TUI running i
 | `commission` | number | flat $ per trade and side |
 | `mer` | number | annual expense ratio |
 | `cash_rate` | number | annual return on cash |
+| `hold_rule` | object or null | turnover control `{"keep_within": 2.0, "band": 0.25}` (keep a holding while it ranks within keep_within x n; leave a name untraded within +- band of target weight), sent as `config.hold_rule`; a loaded built-in such as `bluechip_dividend_growth` brings it |
 | `exit` | object or null | an exit policy request, same shape as `exit` of the `backtest` operation: `{"signals": [{"type": "TrendBreak", "index": "SYN_CAPWT"}], "threshold": 0.8, "park": "cash", ...}` |
 | `start`, `end` | ISO date | backtest window |
 | `tax` | object or null | tax the run, same shape as `config.tax` of the `backtest` operation: `{"model": "placeholder"\|"canadian"\|"none", "account": "taxable"\|"tfsa"\|"rrsp", "province": "AB"\|"BC", "year": 2025, "other_income": 90000, "rrsp_withdrawal_rate": 0.3, "harvest": false, "harvest_threshold_pct": 0.10, "harvest_replacement": "second_pick", ...}` (`marginal_rate` replaces `other_income`; `employment_income` is a deprecated alias). Bad values are 400 (`config.tax.province must be one of ['AB', 'BC'], got 'ON'`). The editor's Tax section (account, province, other income, RRSP withdrawal rate, harvest checkbox, threshold %, replacement, year) sets it (province blank = `placeholder`, else `canadian`) |
@@ -162,8 +163,40 @@ version). Browser chart: `/charts/data?tab=accounts` (grouped bars of after-tax 
 ### `plan` and `plan_mc`
 Args of `plan`: `{"scenario": "dogs", "start": null, "end": null, "initial": 10000, "periodic": 500, "frequency": "monthly", "growth": 0.0 | "cpi", "extra": [{"date", "amount", "note"}], "use_phases": true, "phases": [{"years_from", "years_to", "amount", "note"}], "phase_growth": "indexed" | "nominal", "add_phase": {"years_from", "years_to", "amount", "note"}, "remove_phase": 0, "set_phase": {"index": 0, "amount": 600}, "flat_phase": false, "add_extra": {"date", "amount", "note"}, "remove_extra": 0, "withdrawals": 0, "withdraw_from": null, "withdraw_growth": 0.0, "cash_timing": "invest" | "hold", "index_mer": 0.0005, "goal": null, "run": true, "force": false, "wait": false}` (all optional). The values are remembered in the session (`snapshot.analyses.plan_form`, which also holds the Monte Carlo settings `n_paths`, `generator`, `seed`); `run: false` only edits the form (`add_extra` appends one extraordinary flow, `remove_extra` deletes the row at that index, `extra` replaces the table). V2: contribution phases are amount per period by plan year, half-open [years_from, years_to) (`years_to` null = until `withdraw_from` or the end); the default form is the owner's base case (0-10 $500, 10-13 $3,000, 13-20 $1,000 a month) with `use_phases` true, and then the flat `periodic` is not sent; `phases` replaces the table, `add_phase` / `remove_phase` / `set_phase` edit it, `flat_phase` replaces it by one phase of the form's `periodic` and turns `use_phases` on, `use_phases: false` restores the flat plan; overlapping phases are refused (400). Submits a `plan` job for the scenario's screen, config and `tax` param (the account) with the form; `start` defaults to the scenario's start, else 13 months into the data. A scenario with an exit policy is refused (400). `plan_mc` takes the same fields plus `n_paths`, `generator` (`block`, `stationary`, `regime`, `iid`) and `seed`, and submits a `plan_montecarlo` job. Result `{"form": {...}, "jobs": [...]}`; the results are `snapshot.analyses.plan[<scenario label>]` = `{"plan": {"spec", "metrics", "series", "flows", "tax", "goal", "card", "daily"}, "mc": {"spec", "n_paths", "seed", "quantiles", "p_beat_index", "p_shortfall", "p_shortfall_real", "p_shortfall_index", "goal", "sequence", "paired", "reversal", "fan", "histograms", "card"}}` (the `plan` and `plan_montecarlo` results, see docs/PLAN.md; a new `plan` result drops a Monte Carlo result of a different plan), shown on the Plan tab (key `P`). Browser chart: `/charts/data?tab=plan` (`plans`: per scenario `x`, `series` {contributed, strategy_pre, strategy_after_tax, index_pre, index_after_tax}, `flows`, `metrics` rows with `better`, and `mc` with the fan and histograms).
 
+### Screen tab commands: `set_screen_form`, `screen_schema`, `screen_preview`, `screen_save`, `screen_load`, `screen_add`
+The Screen tab (key `0`, first in the tab bar; a new `screenlab-tui` session starts on it) defines a screen without running anything
+(docs/SCREEN_BUILDER.md). Its state is the form `snapshot.analyses.screen_form` = `{"name", "note", "dataset", "asof", "top", "by",
+"include_sectors", "exclude_sectors", "derive": [{"name", "expr"}], "include": [expr], "exclude": [expr], "rank": [{"col", "dir"}],
+"n", "extra", "saved", "saved_name", "loaded_name", "stages": [{"top", "by", "include_sectors", "exclude_sectors", "derive", "include", "exclude", "rank", "keep", "graham", "universe_extra"}], "current", "settings"}` (SB3: `stages` is the list of stages and `current` the shown one; the one-stage keys mirror stage 0; `settings` are the backtest settings a loaded built-in carries) and the last preview `snapshot.analyses.screen_preview` (the `screen_preview`
+result); every client of a shared session sees both. The spec built from the form: `{"name", "n", "note", "universe": {"top", "by",
+"include_sectors", "exclude_sectors"}, "derive": {name: expr}, "filters": [include], "exclude": [exclude], "rank": {col: "asc"|"desc"}}`
+(only the keys that are set; one stage without `keep` gives these keys, more stages give `"stages": [{universe, derive, filters, exclude, graham, rank, keep}, ...]`;
+Graham tests of a loaded screen are kept untouched).
+- `set_screen_form`: args are any of `name note asof top by include_sectors exclude_sectors n` (sectors: a list or a comma separated
+  string; `top` blank = whole universe), whole tables `derive include exclude rank`, `add_row` `{"table", "row"}` (a rank row for a column
+  already ranked replaces it), `remove_row` `{"table", "index"}`, `set_row` `{"table", "index", "row"}`, and `reset: true` (the default form).
+  Result `{"form", "spec"}`; 400 for a bad value (n < 1, rank direction not asc/desc, empty criterion, bad index).
+  Stages (SB3), numbered from 0: `stage` (default 0) is the stage `top by include_sectors exclude_sectors keep` and the tables act on, a row
+  operation may carry its own `"stage"`; `add_stage` (true appends, `{"index": k}` inserts before k, 1 <= k <= number of stages) adds an empty stage and
+  shows it; `remove_stage` (index; the last stage cannot be removed); `select_stage` (index) shows a stage; `keep` is the cut after ranking and
+  belongs to every stage but the last (400 on the last). At most 8 stages. Order of work: add, remove, fields and rows, select. A refused edit changes nothing.
+- `screen_schema`: `{"asof": null}`; the operation `screen_schema` (columns with group, kind, coverage, range, description, and the expression helpers).
+- `screen_preview`: `{"spec": {...}, "asof": null, "show": 15}`; `spec` defaults to the form (and `asof` to the form's). The operation's result
+  (`ok`, `errors`, `funnel`, `picks`, ...) is returned and kept in `analyses.screen_preview`. Never trades or backtests.
+- `screen_save`: `{"spec": {...}, "folder": null, "overwrite": null}`; `spec` defaults to the form. Writes `<folder>/<name>.json` (default
+  `SCREENLAB_SCREENS` or `~/.screenlab/screens`) and registers the screen, so it appears in the Add dialog and `screens`. `overwrite`
+  defaults to true only for the name the editor loaded or saved. Records `form.saved` (the path).
+- `screen_load`: `{"name": "dogs"}` fills the form from a registered spec screen (400 for a Python-defined screen); result `{"name", "spec",
+  "note", "form"}`. Without `name`: `{"screens": [...], "groups": [{"title", "screens"}], "starting_points": "..."}`: the names of the spec screens,
+  grouped as the Load dialog lists them ("Globe and Mail", "Classic", "Your saved screens") and the one-line Starting points help. Loading a built-in
+  sets `form.settings` to its backtest settings (`rebalance_months`, `hold_rule` `{keep_within, band}`; `{}` when it has none).
+- `screen_add`: `{"spec": {...}, "name": null, "run": true, "save": false, "overwrite": null, "wait": false}`; adds the spec (default: the form)
+  as a scenario (`add_scenario` with `screen` = the spec object), selects it, shows the Compare tab, starts the backtest when `run`. With
+  `save` it saves first (as `screen_save`). Result as `add_scenario` plus `"saved"`. Extra arguments are scenario parameters (`rebalance_months`, `hold_rule`, ...); the form's `settings` (a loaded
+  built-in's rebalance months and hold rule) fill in those not given, whatever the scenario's name. The Add as scenario button is `save: true, run: false`; Run is `save: true, run: true`.
+
 ### `show`
-Args: `{"tab": "compare"}`, one of `compare curves timing picks exit montecarlo runs log data hypotheses accounts plan`. Switches the
+Args: `{"tab": "compare"}`, one of `screen compare curves timing picks exit montecarlo runs log data hypotheses accounts plan`. Switches the
 visible tab. Result `{"tab": "compare"}`.
 
 ### `select`
@@ -267,7 +300,7 @@ the exports (CSV column, Markdown `tax` line) and `view` (`Tax: dogs v2 taxable 
                 "status": "done", "job": {"job_id": "...", "status": "done", "progress": 1.0},
                 "metrics": {"CAGR": 0.095, "Excess/yr": 0.012}, "diff_from_previous": null}],
  "jobs": [], "mc": {"n_paths": 500, "horizon_years": [5, 10], "generator": null, "seed": 0},
- "analyses": {"timing": {}, "montecarlo": null, "exit": {}, "picks": {}, "accounts": {}, "plan": {}, "plan_form": {...}},
+ "analyses": {"timing": {}, "montecarlo": null, "exit": {}, "picks": {}, "accounts": {}, "plan": {}, "plan_form": {...}, "screen_form": {...}, "screen_preview": null},
  "log": ["12:00:01 added dogs", "..."]}   // the last 200 log lines
 ```
 `seq` increases on every state change (cheap change detection). Scenario `status` is one of `new`

@@ -60,6 +60,33 @@ after tax, with a text sparkline of each line, and the goal line. Run MC adds th
 the probability of beating the index and of missing the goal, a fan chart, the sequence-of-returns table and text histograms.
 In the browser chart panel the Plan tab draws the same as Plotly figures. Commands `plan` and `plan_mc` ([PROTOCOL.md](PROTOCOL.md)).
 
+## Screen tab (key `0`)
+Define a screen and see what it does before running anything ([../docs/SCREEN_BUILDER.md](../docs/SCREEN_BUILDER.md)). It is the first tab,
+and a new session (no scenarios) opens on it. The left column is the form: name, note, dataset (read-only) and the as-of date with
+< year / year > buttons; the universe (top N by a numeric column, include sectors, exclude sectors, pick count n); and four tables, Derived
+columns (`name = expression`), Include criteria, Exclude criteria and Rank (column, asc or desc), each with Add / Update / Remove (select a
+row with Enter to edit it; Enter in an expression box adds it). The right column has the buttons (Load, New, Save, Add as scenario, Run), the
+status line (save paths, errors), the funnel preview (one row per step: expression, rows in, rows out, and for include criteria how many names it
+would keep alone; amber where a criterion keeps every name or drops every name, red rows for errors with the message and a did-you-mean
+suggestion), the picks, and the schema panel (every column with group, type, coverage, range and description; type in the filter box; Enter on
+a row inserts the name into the expression box you were in) with the expression helpers (`pct`, `q`, `z`, `log`, `sqrt`, `abs`, `isna`,
+`coalesce`). The preview runs by itself about 0.6 s after an edit; F5 or the Preview button runs it now. Include keeps the rows where the
+expression is true, exclude drops the rows where it is true, rank sums the ranks (best first); a missing value (NaN) fails an include
+criterion but is not dropped by an exclude criterion. Ctrl+S (or Save) writes `<name>.json` to `SCREENLAB_SCREENS` (default
+`~/.screenlab/screens`) and registers the screen, so it is in the Add dialog now and after a restart. Add as scenario saves, adds and selects
+the scenario and shows Compare; Run also runs it. Load lists the spec screens (the built-in ones too) and fills the form. The form is shared
+state (`analyses.screen_form`), so the tab works in `--serve` and `--remote` sessions. Commands `set_screen_form`, `screen_schema`,
+`screen_preview`, `screen_save`, `screen_load`, `screen_add` ([PROTOCOL.md](PROTOCOL.md)).
+
+Stages (SB3): a screen can have several stages (a funnel such as Frugal Dividend: payers, the 50 lowest volatility, the 10 lowest P/E). A stage bar
+above the form has `+ Add stage` (and, with two or more stages, one button per stage and `- Remove stage`); with one stage only `+ Add stage`
+shows. Each stage has its own Derived, Include, Exclude and Rank tables and, except the last, a Keep box (how many go on to the next stage; the
+last stage's cut is the pick count). The universe block belongs to stage 1 (a later stage shows it only if the loaded screen gives it one), and
+the funnel is grouped under a heading per stage. Graham tests of a loaded screen are not editable and show as one read-only line. The help
+shows a "Starting points" line with every Globe and classic screen and what it does; **Load** groups them as "Globe and Mail", "Classic", "Your saved
+screens". A loaded built-in carries its rebalance months and hold rule (bluechip: annual, keep within 2x, 25% band) into Add as scenario and Run;
+the scenario editor has the two hold-rule boxes. Commands take `stage`, `add_stage`, `remove_stage`, `select_stage`.
+
 ## Refining a scenario
 Select a scenario, edit a field, press **F2** (or the Apply button, or Enter in a field). Apply never edits:
 it creates `dogs v2` from `dogs` with the changed fields, shows a line such as
@@ -70,7 +97,7 @@ passive index together. Versions are kept until you delete them (`d`).
 `a` add, `c` clone, `r` run selected, `R` run all not yet run, `d` delete, `x` toggle trend exit (then F2),
 `F2` Apply, `m` Monte Carlo (selected scenario; price-rank screens only), `t` timing study, `p` picks,
 `s` save the screen as ScreenSpec JSON, `e` export Compare as markdown + CSV, `w` charts in the browser,
-`D` Data tab, `A` Accounts tab, `T` light/dark, `1`-`9` tabs,
+`D` Data tab, `A` Accounts tab, `0` Screen tab (`F5` preview, `Ctrl+S` save the screen), `T` light/dark, `1`-`9` tabs,
 `?` help, `q` quit. The mouse works too. In a field, `F2` or Enter applies.
 
 ## Guardrails (trials, frozen scenarios, hypotheses)

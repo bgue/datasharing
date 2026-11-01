@@ -34,7 +34,7 @@ from textual.widgets.option_list import Option
 from .. import metrics as _metrics
 from .session import CAND, FETCH_SOURCES, LOCK, PASSIVE_COLOR, TABS, Session, SessionError, fmt_cell
 
-TAB_TITLES = {"compare": "Compare", "curves": "Curves", "timing": "Timing", "picks": "Picks", "exit": "Exit",
+TAB_TITLES = {"screen": "Screen", "compare": "Compare", "curves": "Curves", "timing": "Timing", "picks": "Picks", "exit": "Exit",
               "montecarlo": "Monte Carlo", "runs": "Runs", "log": "Log", "data": "Data", "hypotheses": "Hypotheses"}
 SOURCE_TITLES = {"sec": "SEC", "boc": "Bank of Canada", "fred": "FRED", "stooq": "Stooq", "statcan": "StatCan"}
 HELP = """\
@@ -49,6 +49,7 @@ HELP = """\
  s  save screen spec JSON e  export markdown+CSV  T  light/dark theme
  w  charts in the browser (Plotly, follows this screen)
  D  Data tab: datasets, download free datasets (needs an SEC contact)
+ 0  Screen tab: define a screen (F5 preview, Ctrl+S save)
  1-9 switch tab (H = Hypotheses)          ?  this help            q  quit
 
 Colours: every scenario keeps its colour; the passive index is grey.
@@ -95,22 +96,36 @@ class AddScreen(ModalScreen):
     AddScreen OptionList { height: 14; }
     """
 
-    def __init__(self, screens, title: str = "Add scenario: choose a screen (Enter), Esc cancels", order: bool = False):
+    def __init__(self, screens, title: str = "Add scenario: choose a screen (Enter), Esc cancels", order: bool = False,
+                 groups=None):
         super().__init__()
-        self.names = list(screens) if order else sorted(screens)
+        self.groups = [(t, list(n)) for t, n in groups or [] if n]               # SB3: [(heading, [names])], shown in this order
+        self.names = [n for _, ns in self.groups for n in ns] if self.groups else (list(screens) if order else sorted(screens))
         self.title = title
 
     def compose(self) -> ComposeResult:
+        from textual.widgets.option_list import Option
         with Vertical():
             yield Label(self.title)
-            yield OptionList(*self.names, id="screen-list")
+            if self.groups:                                                      # headings are disabled rows: not selectable
+                opts = []
+                for t, ns in self.groups:
+                    opts.append(Option(f"-- {t} --", id=f"head:{t}", disabled=True))
+                    opts += [Option(n, id=n) for n in ns]
+                yield OptionList(*opts, id="screen-list")
+            else:
+                yield OptionList(*self.names, id="screen-list")
 
     def on_mount(self) -> None:
-        self.query_one(OptionList).focus()
+        ol = self.query_one(OptionList)
+        ol.focus()
+        if self.groups:
+            ol.styles.height = 18
+            ol.highlighted = 1
 
     @on(OptionList.OptionSelected)
     def _pick(self, ev: OptionList.OptionSelected) -> None:
-        self.dismiss(self.names[ev.option_index])
+        self.dismiss(ev.option.id if self.groups else self.names[ev.option_index])
 
 
 class HelpScreen(ModalScreen):
@@ -162,7 +177,9 @@ class ScreenlabApp(App):
         Binding("e", "export", "Export"), Binding("w", "charts", "Charts"), Binding("D", "tab('data')", "Data"), Binding("T", "theme", "Theme"),
         Binding("question_mark", "help", "Help"),
         Binding("f2", "apply", "Apply", priority=True), Binding("q", "quit", "Quit"),
-        *[Binding(str(i + 1), f"tab('{t}')", show=False) for i, t in enumerate(TABS[:9])],
+        *[Binding(str(i + 1), f"tab('{t}')", show=False) for i, t in enumerate([t for t in TABS if t != "screen"][:9])],
+        Binding("0", "tab('screen')", "Screen"), Binding("f5", "screen_preview", "Preview screen"),   # SB2: Screen tab
+        Binding("ctrl+s", "screen_save", "Save screen"),
     ]
 
     def __init__(self, session: Session, control_port: int | None = None, theme: str | None = None):
@@ -198,6 +215,10 @@ class ScreenlabApp(App):
                     for key, title in PARAM_FIELDS:
                         yield Label(title)
                         yield Input(id=f"f-{key}", placeholder="lab default" if key != "n" else "screen default")
+                    yield Label("Hold rule: keep a holding while it ranks within (x holdings)")      # SB3: a built-in's turnover control
+                    yield Input(id="f-hold-keep", placeholder="none, e.g. 2")
+                    yield Label("Hold rule: leave a name untraded within +- (relative weight)")
+                    yield Input(id="f-hold-band", placeholder="none, e.g. 0.25")
                     yield Label("Tax: account (after-tax columns in Compare)")
                     yield Select([(n, n) for n in TAX_ACCOUNT_CHOICES], id="f-tax-account", allow_blank=False,
                                  value="none")
@@ -221,6 +242,7 @@ class ScreenlabApp(App):
                     yield Button("Apply: new version + run (F2)", id="apply", variant="primary")
                 yield Static("", id="diff")
             with TabbedContent(id="main", initial="compare"):
+                yield __import__(__package__ + ".screen_tab", fromlist=["pane"]).pane(self)  # SB2: Screen tab, first (tui/screen_tab.py)
                 with TabPane("Compare", id="compare"):
                     yield DataTable(id="t-compare", cursor_type="row")
                     yield Static("", id="compare-note")
@@ -465,6 +487,9 @@ class ScreenlabApp(App):
         for key, _ in PARAM_FIELDS:
             v = sc.params.get(key)
             self.query_one(f"#f-{key}", Input).value = "" if v is None else str(v)
+        hr = sc.params.get("hold_rule") or {}                                  # SB3
+        for wid, k in (("#f-hold-keep", "keep_within"), ("#f-hold-band", "band")):
+            self.query_one(wid, Input).value = "" if hr.get(k) is None else f"{hr[k]:g}"
         self.query_one("#f-exit", Switch).value = bool(sc.params.get("exit"))
         tax = sc.params.get("tax") or {}
         self._syncing = True
@@ -897,6 +922,16 @@ class ScreenlabApp(App):
                     raise SessionError(400, f"{key} must be a number, got {raw!r}") from None
             if new != old:
                 out[key] = new
+        hold = {}                                                              # SB3: the two hold-rule boxes make the hold_rule param
+        for wid, k, lo in (("#f-hold-keep", "keep_within", 1), ("#f-hold-band", "band", 0)):
+            raw = self.query_one(wid, Input).value.strip()
+            if raw:
+                try:
+                    hold[k] = float(raw)
+                except ValueError:
+                    raise SessionError(400, f"hold rule {k} must be a number, got {raw!r}") from None
+        if hold != (sc.params.get("hold_rule") or {}):
+            out["hold_rule"] = hold or None
         lab = self.query_one("#f-lab", Select).value
         if not _blank(lab) and lab != (sc.params.get("lab") or self.session.lab):
             out["lab"] = lab
@@ -940,6 +975,14 @@ class ScreenlabApp(App):
 
     def action_tab(self, tab: str) -> None:
         self._cmd("show", {"tab": tab})
+
+    def action_screen_preview(self) -> None:                              # SB2: F5 on the Screen tab
+        if self.session.active_tab == "screen":
+            self._screen_pane.run_preview()
+
+    def action_screen_save(self) -> None:                                 # SB2: Ctrl+S on the Screen tab
+        if self.session.active_tab == "screen":
+            self._screen_pane.action_save()
 
     def action_add(self) -> None:
         names = self.session.screen_names()
@@ -1054,7 +1097,9 @@ def build_session(lab: str | None, store: str | None) -> Session:
     reg = LabRegistry(store=st, mode="thread")
     if lab and lab not in reg.factories:
         raise SystemExit(f"unknown lab {lab!r}; available: {sorted(reg.factories)}")
-    return Session(reg, lab=lab, own=True)
+    session = Session(reg, lab=lab, own=True)
+    session.active_tab = "screen"             # SB2: a new session has no scenarios: start on the Screen tab
+    return session
 
 
 def serve_command(args: argparse.Namespace, control_port: int) -> str:

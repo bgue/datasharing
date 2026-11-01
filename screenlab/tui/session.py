@@ -13,6 +13,7 @@ analysis. All commands take and return plain JSON; `Session` is thread safe (one
 from __future__ import annotations
 
 import colorsys
+import copy
 import csv
 import io
 import json
@@ -28,17 +29,18 @@ from ..jsonout import jsonify
 from . import guardrails as G
 from . import accounts as _accounts      # Q2: Accounts tab (no Textual import at module level)
 from . import plan as _plan_tab          # PC: Plan tab (no Textual import at module level)
+from . import screen_tab as _screen_tab  # SB2: Screen tab (no Textual import at module level)
 
 PROTOCOL = 1
-TABS = ("compare", "curves", "timing", "picks", "exit", "montecarlo", "runs", "log", "data", "hypotheses",
+TABS = ("screen", "compare", "curves", "timing", "picks", "exit", "montecarlo", "runs", "log", "data", "hypotheses",
         "accounts", "plan")   # Q2: Accounts tab (accounts.py); PC: Plan tab (plan.py)
 LOCK, CAND = "\U0001F512", "\u25C7"        # frozen / out-of-sample candidate markers
 # Okabe-Ito order, as the research charts use it (research/montecarlo_sp500.py COL); more hues after the eight
 PALETTE = ["#0072B2", "#56B4E9", "#D55E00", "#E69F00", "#009E73", "#CC79A7", "#F0E442", "#7B3294"]
 PASSIVE_COLOR = "#6B6B6B"
 PARAM_KEYS = ("screen", "lab", "n", "rebalance_months", "cost_bps", "commission", "mer", "cash_rate", "exit",
-              "start", "end", "tax")
-CONFIG_KEYS = ("rebalance_months", "cost_bps", "commission", "mer", "cash_rate")
+              "start", "end", "tax", "hold_rule")      # SB3: hold_rule {keep_within, band} (a built-in's turnover control)
+CONFIG_KEYS = ("rebalance_months", "cost_bps", "commission", "mer", "cash_rate", "hold_rule")
 COMPARE_COLS = ("CAGR", "Vol", "Sharpe", "MaxDD", "Worst12m", "Excess/yr", "AfterTaxCAGR", "TaxDrag/yr", "AfterTaxExcess/yr", "CI5", "CI95", "P(>0)", "BeatBenchYrs",
                 "AvgN", "Turnover", "Costs/yr", "TimeOut", "Switches/yr", "Trials", "DSR")
 GUARD_COLS = ("Trials", "DSR")
@@ -51,7 +53,9 @@ COMMANDS = ("add_scenario", "clone_scenario", "set_params", "remove_scenario", "
             "montecarlo", "exit_eval", "picks", "show", "select", "save_spec", "export", "history", "jobs",
             "cancel", "set_theme", "snapshot", "view", "curves", "screens", "datasets", "fetch_data", "freeze", "unfreeze",
             "link", "hypotheses", "accounts",      # Q2: accounts = the account_compare job for a scenario (accounts.py)
-            "plan", "plan_mc")                     # PC: plan / plan_mc = the plan and plan_montecarlo jobs (plan.py)
+            "plan", "plan_mc",                     # PC: plan / plan_mc = the plan and plan_montecarlo jobs (plan.py)
+            "screen_schema", "screen_preview", "screen_save", "screen_load", "screen_add",   # SB2: Screen tab (screen_tab.py)
+            "set_screen_form")
 # data downloader (operation `fetch_data`, implemented in ops/fetch_data.py); hosts are shown in the Data tab form
 FETCH_SOURCES = ("sec", "boc", "fred", "stooq", "statcan", "shiller", "tiingo")
 FETCH_HOSTS = {"sec": ["www.sec.gov", "data.sec.gov"], "boc": ["www.bankofcanada.ca"], "fred": ["fred.stlouisfed.org"],
@@ -164,7 +168,8 @@ class Session:
         self.theme = "textual-dark"
         self.mc = {"n_paths": 500, "horizon_years": [5, 10], "generator": None, "seed": 0}
         self.analyses: dict = {"timing": {}, "montecarlo": None, "exit": {}, "picks": {}, "accounts": {}, "plan": {},   # Q2: accounts
-                          "plan_form": _plan_tab.new_form()}   # PC: plan results by scenario label, and the Plan tab form
+                          "plan_form": _plan_tab.new_form(),   # PC: plan results by scenario label, and the Plan tab form
+                          "screen_form": _screen_tab.new_form(self.lab), "screen_preview": None}   # SB2: Screen tab form and last preview
         self._tracked: dict = {}                       # job_id -> record
         self._next_id = 1
         self._next_color = 0
@@ -278,6 +283,15 @@ class Session:
                     out[k] = float(out[k])
                 except (TypeError, ValueError):
                     raise SessionError(400, f"{k} must be a number, got {out[k]!r}") from None
+        if "hold_rule" in out:                                               # SB3
+            from ..ops._request import _hold_rule
+            try:
+                hr = _hold_rule(out["hold_rule"])
+            except ServerError as e:
+                raise SessionError(e.status, e.message) from None
+            out["hold_rule"] = {k: getattr(hr, k) for k in ("keep_within", "band") if getattr(hr, k, None) is not None}
+            if not out["hold_rule"]:
+                del out["hold_rule"]
         if "tax" in out:
             from ..ops._request import _tax_config
             try:
@@ -643,6 +657,92 @@ class Session:
         j = self._submit(_accounts.KIND, _accounts.args_for(self, sc, accounts), [sc], label=sc.label, force=bool(force))
         self._emit("jobs")
         return {"jobs": [j]}
+
+    # SB2: Screen tab (screen_tab.py): thin pass-throughs to the operations screen_schema / screen_preview / screen_save /
+    # screen_load, the form in analyses["screen_form"], and screen_add (the saved or current spec becomes a scenario)
+    def _screen_op(self, name: str, args: dict) -> dict:
+        return self.registry.run_operation(name, args, lab=self.lab)
+
+    def _screen_form(self) -> dict:
+        return self.analyses["screen_form"]
+
+    def cmd_set_screen_form(self, add_row=None, remove_row=None, set_row=None, reset=False, stage=None, add_stage=None,
+                            remove_stage=None, select_stage=None, **fields) -> dict:
+        """Edit the Screen tab form (`analyses.screen_form`): scalar fields (name, note, asof, top, by, include_sectors,
+        exclude_sectors, n, keep), whole tables (derive, include, exclude, rank), `add_row` / `remove_row` / `set_row`, `reset`.
+        # SB3: stages are numbered from 0: `stage` addresses the per-stage fields and rows (default 0, a row operation may
+        carry its own `stage`), `add_stage` (true or `{"index": k}`), `remove_stage` (an index), `select_stage` (an index)."""
+        _screen_tab.update_form(self._screen_form(), fields, add_row, remove_row, set_row, bool(reset), dataset=self.lab,
+                                stage=stage, add_stage=add_stage, remove_stage=remove_stage, select_stage=select_stage)
+        self._emit("screen")
+        return {"form": self._screen_form(), "spec": _screen_tab.form_to_spec(self._screen_form())}
+
+    def _screen_spec_arg(self, spec):
+        if spec is None:
+            return _screen_tab.form_to_spec(self._screen_form())
+        if not isinstance(spec, dict):
+            raise SessionError(400, "`spec` must be a ScreenSpec object")
+        return spec
+
+    def cmd_screen_schema(self, asof=None) -> dict:
+        """The universe schema at `asof` (default: the last full snapshot): columns, coverage, ranges, expression helpers."""
+        return self._screen_op("screen_schema", {"asof": asof} if asof else {})
+
+    def cmd_screen_preview(self, spec=None, asof=None, show=15) -> dict:
+        """Dry-run `spec` (default: the form) on the as-of snapshot: errors, the funnel, the picks. Kept in
+        `analyses.screen_preview`."""
+        form = self._screen_form()
+        asof = asof or (form.get("asof") if spec is None else None)
+        res = self._screen_op("screen_preview", {"spec": self._screen_spec_arg(spec), "show": int(show),
+                                                 **({"asof": asof} if asof else {})})
+        self.analyses["screen_preview"] = res
+        self._emit("screen")
+        return res
+
+    def cmd_screen_save(self, spec=None, folder=None, overwrite=None) -> dict:
+        """Save `spec` (default: the form) as `<folder>/<name>.json` and register it. A screen that was loaded or saved
+        under this name from the editor may be overwritten; other existing files are refused unless `overwrite`."""
+        form = self._screen_form()
+        spec = self._screen_spec_arg(spec)
+        if overwrite is None:
+            overwrite = spec.get("name") in (form.get("saved_name"), form.get("loaded_name"))
+        res = self._screen_op("screen_save", {"spec": spec, "overwrite": bool(overwrite), **({"folder": folder} if folder else {})})
+        form["saved"], form["saved_name"] = res.get("path"), res.get("name")
+        self.log(f"saved screen {res.get('name')} to {res.get('path')}")
+        self._emit("screen")
+        return res
+
+    def cmd_screen_load(self, name=None) -> dict:
+        """Load a registered spec screen into the editor form. Without `name`: the names of the spec screens."""
+        if name is None:                                                     # SB3: grouped for the Load dialog
+            L = self._lab()
+            return {"screens": _screen_tab.spec_screens(L), "groups": _screen_tab.screen_groups(L),
+                    "starting_points": _screen_tab.starting_points(L)}
+        res = self._screen_op("screen_load", {"name": name})
+        form = self._screen_form()
+        new = _screen_tab.spec_to_form(res["spec"], form)
+        new["loaded_name"], new["dataset"] = res.get("name") or name, self.lab
+        new["settings"] = _screen_tab.builtin_settings(res.get("name") or name)      # SB3: rebalance months, hold rule of a built-in
+        form.clear()
+        form.update(new)
+        self._emit("screen")
+        return {**res, "form": form}
+
+    def cmd_screen_add(self, spec=None, name=None, run=True, save=False, overwrite=None, **params) -> dict:
+        """Add `spec` (default: the form) as a scenario (`save`: write it to the screens folder first), select it, show
+        the Compare tab and, with `run`, start its backtest. # SB3: the settings the loaded built-in carries (rebalance
+        months, hold rule: `form.settings`) become the scenario's params unless `params` (any scenario parameter) says
+        otherwise; they apply to the form's screen, under its own or a new name."""
+        form = self._screen_form()
+        own = spec is None or (isinstance(spec, dict) and spec.get("name") == form.get("name"))
+        spec = self._screen_spec_arg(spec)
+        saved = self.cmd_screen_save(spec=spec, overwrite=overwrite) if save else None
+        if own:
+            params = {**copy.deepcopy(form.get("settings") or {}), **params}
+        out = self.cmd_add_scenario(screen=spec, name=name or spec.get("name"), run=bool(run), **params)
+        self.active_tab = "compare"
+        self._emit("tab")
+        return {**out, "saved": saved}
 
     def cmd_plan(self, scenario=None, run=True, force=False, add_extra=None, remove_extra=None, add_phase=None,
                  remove_phase=None, set_phase=None, flat_phase=False, **form) -> dict:   # PC: Plan tab
@@ -1315,6 +1415,9 @@ class Session:
                       for f in (man.get("files") or [])[:40]]
             lines += [f"  error: {e}" for e in (man.get("errors") or [])[:20]]
         return "\n".join(lines)
+
+    def _view_screen(self) -> str:                                                         # SB2: Screen tab
+        return _screen_tab.view_text(self.analyses, self._grid)
 
     def _view_plan(self) -> str:                                                           # PC: Plan tab
         return _plan_tab.view_text(self.analyses, self._grid)
