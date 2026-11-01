@@ -87,6 +87,20 @@ shows a "Starting points" line with every Globe and classic screen and what it d
 screens". A loaded built-in carries its rebalance months and hold rule (bluechip: annual, keep within 2x, 25% band) into Add as scenario and Run;
 the scenario editor has the two hold-rule boxes. Commands take `stage`, `add_stage`, `remove_stage`, `select_stage`.
 
+The screen library in the TUI (LB): the Add dialog (`a`) and Load list every registered screen in three groups, "Available on this dataset"
+(Globe and Mail first, then Classic), "Needs data this dataset lacks" (dimmed and not selectable, each with `needs: <first four missing columns>
++N more`) and "Your saved screens", with a footer line saying why some are dimmed (use `--lab synthetic`, or `make data-free` / `make data-panel`; Data
+tab). Load lists the screens the editor can open (the built-in Python function screens such as `momentum_6m` are in Add only). On a dataset
+that can run fewer than half the screens the Screen tab help adds "This dataset can run N of M screens; the others are listed dimmed with what they need."
+The schema panel lists, after the data columns, the **Starter columns** (`shy`, `ps`, `payout`, `gpa`, `pct_of_high`) and **My columns**:
+name, group, coverage, range and, in the description cell, the note and `= expression`; a row whose formula needs data the dataset lacks is dimmed with
+`needs: ...`. Enter inserts the name into the expression box. **Delete** on a My columns row asks first ("press Delete again to remove 'shy'"); a
+starter row refuses with the engine's message. **Save as my column** (next to the Derived table) takes the selected Derived row, asks for a one-line
+note, saves it with `column_define` and refreshes the panel (the derived row stays; type the name in a criterion to use it); a name already taken
+shows the engine's message and an **Overwrite** button. The funnel header shows `Uses your columns: shy = coalesce(div_yield, 0) + ...`, the derive
+rows from named columns read "Starter column shy" / "My column x", and a cycle among columns shows in red. Run and Add as scenario on a screen
+the dataset cannot run say what it needs in the status line. Commands `screen_status`, `column_define`, `column_delete` ([PROTOCOL.md](PROTOCOL.md)).
+
 ## Refining a scenario
 Select a scenario, edit a field, press **F2** (or the Apply button, or Enter in a field). Apply never edits:
 it creates `dogs v2` from `dogs` with the changed fields, shows a line such as

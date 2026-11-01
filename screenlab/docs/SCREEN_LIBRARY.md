@@ -102,3 +102,26 @@ JSON shapes for clients (the TUI round):
 - `Lab.screen_status()` has an extra key `runnable` (the lab can run the screen by name); `list_screens` rows carry it too.
 - A `top_optional` screen is never a Monte Carlo "price rank" (`pipeline.price_rank_of` refuses the unknown universe key), so its picks
   stay fixed across paths.
+
+## Implemented: TUI (LB)
+Code: `tui/screen_tab.py` (pure: `needs_text`, `can_pick`, `status_groups`, `first_run_hint`, `loadable_names`, `named_row`, `named_names`, `uses_line`,
+`named_step`; pane: schema rows of `named`, Delete, Save as my column, `uses` line, red cycle message, Load groups), `tui/ui.py` (`AddScreen(groups=, dim=,
+footer=)`, `action_add`), `tui/session.py` (`screen_status`, `column_define`, `column_delete`, `screen_load` `loadable`, `screen_add` refuses a spec the
+dataset cannot run), `tui/remote.py`. Commands in `tui/PROTOCOL.md`; user text in `tui/README.md`. Tests: `tests/test_tui_screen.py` (LB block).
+
+- Add and Load: "Available on this dataset" (selectable; Globe and Mail first, then Classic), "Needs data this dataset lacks" (disabled rows,
+  `name   needs: a, b, c, d +N more`), "Your saved screens" (Mine, dimmed when not available); a footer explains the dimming. On the bundled S&P 500 sample:
+  6 available, 20 dimmed.
+- Schema panel: starter and my columns beneath the data columns; `missing` rows dimmed with `needs: ...`; Delete twice removes a my column; Save as my column
+  (+ Overwrite after a 409). Funnel: `uses` one-liner; derive rows labelled by group; cycle error red.
+- Run / Add as scenario on a spec that needs missing columns: 409 `'x' cannot run on this dataset: needs: ...` (nothing saved or added).
+
+### DEV
+- **Load lists loadable (spec) screens only**: the Python function screens (`momentum_6m`, `momentum_12m`, `graham_*`, ...) cannot open in the editor, so they
+  are in the Add dialog but not in Load. Dimmed built-ins that are spec files are in Load.
+- **Existing test changed**: `test_app_load_dialog_groups_and_stage_bar` expected the headings Globe and Mail / Classic; the Load dialog now has one
+  "Available on this dataset" heading (Globe first, then Classic), so the heading and index lookups there changed.
+- **Missing-columns check** is the session's (`screen_add` compares `Screen.requires_list()` of the built spec with the last full snapshot), not a new engine
+  operation. It applies to `screen_add` only; `add_scenario` of a spec still runs on whatever the data has.
+- **Engine needs**: no engine change required. Wish: `screen_preview` could return `missing` for the spec (today the preview shows "pe is missing for 100% of names"
+  in the funnel note and the schema coverage is 0), and a `GET`-style `column_list` so a client need not read `screen_schema.named`.

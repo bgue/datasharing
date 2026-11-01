@@ -195,6 +195,21 @@ Graham tests of a loaded screen are kept untouched).
   `save` it saves first (as `screen_save`). Result as `add_scenario` plus `"saved"`. Extra arguments are scenario parameters (`rebalance_months`, `hold_rule`, ...); the form's `settings` (a loaded
   built-in's rebalance months and hold rule) fill in those not given, whatever the scenario's name. The Add as scenario button is `save: true, run: false`; Run is `save: true, run: true`.
 
+### Screen library commands: `screen_status`, `column_define`, `column_delete` (LB)
+The Add dialog (key `a`) and the Screen tab's Load dialog list every registered screen with what the dataset lacks (docs/SCREEN_LIBRARY.md).
+- `screen_status`: `{"lab": null}`; the registry's `list_screens` for the session's lab: `{"lab", "screens": [{"name", "n", "note", "params",
+  "available", "missing": [column, in order of use], "group": "Globe and Mail"|"Classic"|"Mine", "runnable"}]}`, built-ins in registry order,
+  then the lab's own. Read-only (a `RemoteSession` does not refresh its state after it). The dialogs show "Available on this dataset"
+  (`available` and `runnable`, Globe and Mail first, then Classic), "Needs data this dataset lacks" (dimmed, disabled, `needs: <first four missing>
+  +N more`) and "Your saved screens" (`group` Mine, dimmed when not available).
+- `column_define`: `{"name", "expr", "note": "", "overwrite": false}`; the operation `column_define` (your named column, saved in the screens
+  folder's `columns.json`). Result `{name, expr, note, group: "My columns", path, replaced, uses, warnings, coverage, asof}`; 400 bad name / expression /
+  cycle, 409 the name is a data, helper or starter column, or taken without `overwrite` (the message says "pass overwrite=true").
+- `column_delete`: `{"name"}`; result `{name, deleted: true, expr, path}`; 404 not one of yours, 409 a starter column.
+- `screen_load` without `name` also returns `"loadable"`: every registered screen the editor can load (a spec screen), runnable here or not.
+- `screen_add` refuses (409) a spec that needs columns the dataset lacks: `'x' cannot run on this dataset: needs: pe, eps. (these need fundamentals: ...)`
+  and adds nothing (a `Top N` cut by `market_cap` on a price-only dataset says to clear the box). The same ops are also served by MCP / REST.
+
 ### `show`
 Args: `{"tab": "compare"}`, one of `screen compare curves timing picks exit montecarlo runs log data hypotheses accounts plan`. Switches the
 visible tab. Result `{"tab": "compare"}`.

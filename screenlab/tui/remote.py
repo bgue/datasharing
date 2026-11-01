@@ -151,7 +151,7 @@ class RemoteSession:
         args = dict(args or {})
         timeout = (float(args.get("timeout") or 120) + 30) if args.get("wait") or cmd == "picks" else 60.0
         res = self._request("POST", "/command", {"cmd": cmd, "args": args}, timeout=timeout)
-        if cmd not in ("compare", "view", "snapshot", "history", "jobs", "curves", "screens", "datasets"):
+        if cmd not in ("compare", "view", "snapshot", "history", "jobs", "curves", "screens", "datasets", "screen_status"):
             self._refresh()                                      # read your own writes
         return res
 

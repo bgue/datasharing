@@ -394,6 +394,90 @@ def stage_title(form: dict, i: int) -> str:
 _STAGE_STEP = re.compile(r"^stage (\d+): ?(.*)$")
 
 
+# LB: named expressions in the funnel; the dialogs' status groups; the schema rows of the starter / own columns
+DATA_HINT = ("these need fundamentals: use --lab synthetic, or download data with make data-free / make data-panel; see the Data tab")
+DIM_FOOTER = "Dimmed screens need data this dataset lacks: " + DATA_HINT.removeprefix("these need fundamentals: ") + "."
+G_AVAILABLE, G_DIMMED, G_MINE = "Available on this dataset", "Needs data this dataset lacks", "Your saved screens"
+NAMED_GROUPS = ("Starter columns", "My columns")
+UNCOMPUTABLE = "not loaded in this lab"
+
+
+def needs_text(missing, k: int = 4) -> str:
+    """`needs: a, b, c, d +N more` from the first `k` missing columns; empty when nothing is missing."""
+    m = [str(x) for x in missing or []]
+    return "" if not m else "needs: " + ", ".join(m[:k]) + (f" +{len(m) - k} more" if len(m) > k else "")
+
+
+def can_pick(row: dict) -> bool:
+    """A `screen_status` row the dialogs let you select: the data has what it needs and the lab can run it."""
+    return bool(row.get("available")) and row.get("runnable", True) is not False
+
+
+def status_groups(rows, only=None):
+    """The dialogs' rows from `screen_status` (REST `list_screens`): `(groups, dim)` with `groups` = [(heading, [names])] for
+    "Available on this dataset" (Globe and Mail first, then Classic, registry order within), "Needs data this dataset lacks" and
+    "Your saved screens" (available or not); empty groups left out. `dim` = {name: needs text} for every row that cannot be
+    picked. `only`: names to keep (the Load dialog lists the loadable ones)."""
+    rows = [r for r in rows or [] if only is None or r["name"] in only]
+    rank = {"Globe and Mail": 0, "Classic": 1}
+    avail = sorted((r for r in rows if r.get("group") != "Mine" and can_pick(r)), key=lambda r: rank.get(r.get("group"), 1))
+    lacks = [r for r in rows if r.get("group") != "Mine" and not can_pick(r)]
+    mine = [r for r in rows if r.get("group") == "Mine"]
+    groups = [(t, [r["name"] for r in g]) for t, g in ((G_AVAILABLE, avail), (G_DIMMED, lacks), (G_MINE, mine)) if g]
+    dim = {r["name"]: needs_text(r.get("missing")) or UNCOMPUTABLE for r in rows if not can_pick(r)}
+    return groups, dim
+
+
+def first_run_hint(rows) -> str:
+    """The extra help sentence when fewer than half the registered screens can run on this dataset, else ''."""
+    rows = list(rows or [])
+    n = sum(can_pick(r) for r in rows)
+    return f"This dataset can run {n} of {len(rows)} screens; the others are listed dimmed with what they need." if rows and 2 * n < len(rows) else ""
+
+
+def loadable_names(lab) -> list:
+    """Every registered screen the editor can load (a spec screen), runnable here or not."""
+    from ..screens import REGISTRY
+    spec = set(_builtin_groups())
+    out = []
+    for n in [*REGISTRY, *(n for n in lab.screens if n not in REGISTRY)]:
+        sc = lab.screens.get(n)
+        if (getattr(sc.fn, "__name__", "") == "rule_screen") if sc is not None else (n in spec):
+            out.append(n)
+    return out
+
+
+def named_names(schema, computable: bool = True) -> list:
+    """Names of the starter / own columns of a `screen_schema` result (those the data can compute, by default)."""
+    return [c["name"] for c in (schema or {}).get("named") or [] if not (computable and (c.get("missing") or c.get("error")))]
+
+
+def named_row(c: dict) -> tuple:
+    """Schema panel cells of one named expression: ((name, group, type, cov %, range, description + expr), dimmed)."""
+    miss = c.get("missing") or []
+    cov = c.get("coverage")
+    desc = "  ".join(x for x in (needs_text(miss), f"error: {c['error']}" if c.get("error") else "", (c.get("description") or "").strip(),
+                                 f"= {c['expr']}" if c.get("expr") else "") if x)
+    return ((c["name"], c.get("group") or "", c.get("dtype") or c.get("kind") or "", "" if cov is None or miss else f"{100 * cov:.0f}",
+             "" if miss else value_range(c), desc), bool(miss or c.get("error")))
+
+
+def uses_line(uses, width: int = 60) -> str:
+    """`Uses your columns: shy = coalesce(div_yield, 0) + ...; x = ...` for the preview's `uses` ('' when there are none)."""
+    if not uses:
+        return ""
+    cut = lambda e: e if len(e) <= width else e[:width - 4].rstrip() + " ..."
+    return "Uses your columns: " + "; ".join(f"{u['name']} = {cut(str(u.get('expr') or ''))}" for u in uses)
+
+
+def named_step(text: str, x: dict) -> str:
+    """The funnel label of a derive row that comes from a named expression: 'Starter column shy' / 'My column x'."""
+    g = x.get("named")
+    if not g or x.get("kind") != "derive":
+        return text
+    return f"{'Starter column' if str(g).startswith('Starter') else 'My column'} {text.removeprefix('derive ').strip()}"
+
+
 def group_funnel(funnel: list, form: dict | None = None) -> list:
     """The preview funnel as display rows `(kind, step, entry or None)` with a `header` row before each stage of a
     multi-stage screen ("Stage 2: rank vol_260d asc, keep 50"); a one-stage funnel has no headers."""
@@ -407,9 +491,9 @@ def group_funnel(funnel: list, form: dict | None = None) -> list:
                 sts = (form or {}).get("stages") or []
                 title = stage_title(form, k - 1) if 0 < k <= len(sts) else f"Stage {k}"
                 out.append(("header", title, None))
-            out.append(("step", m.group(2), x))
+            out.append(("step", named_step(m.group(2), x), x))                # LB
         else:
-            out.append(("step", x.get("step") or "", x))
+            out.append(("step", named_step(x.get("step") or "", x), x))
     return out
 
 
@@ -506,6 +590,19 @@ def numeric_columns(schema: dict | None) -> list:
     return [c["name"] for c in (schema or {}).get("columns", []) if c.get("kind") == "number"]
 
 
+def has_market_cap(schema: dict | None) -> bool:
+    """LB: True when the data has a usable market cap, i.e. a "N largest" size cut can run on it."""
+    for c in (schema or {}).get("columns", []):
+        if c.get("name") == "market_cap":
+            return (c.get("coverage") or 0) > 0
+    return False
+
+
+def is_default_form(form: dict) -> bool:
+    """LB: True while the form is still the untouched default (nothing typed, nothing loaded)."""
+    return form_to_spec(form) == form_to_spec(new_form(form.get("dataset"))) and not form.get("loaded_name")
+
+
 def error_rows(res: dict) -> list:
     """Preview errors as `(where, message, suggestion text)`."""
     return [(e.get("where") or "", e.get("message") or "", f"did you mean {e['suggestion']!r}?" if e.get("suggestion") else "")
@@ -528,6 +625,8 @@ def view_text(analyses: dict, grid) -> str:
     if not pv:
         return "\n".join(out + ["no preview yet: open the Screen tab (key 0, F5) or run the `screen_preview` command"])
     out.append(f"preview as of {pv.get('asof')}: {pv.get('n_names')} names, {pv.get('n_picks')} picks, {pv.get('stages')} stage(s)")
+    if uses_line(pv.get("uses")):                                                              # LB
+        out.append(uses_line(pv.get("uses")))
     rows = []
     for kind, text, x in group_funnel(pv.get("funnel") or [], f):
         if kind == "header":
@@ -591,6 +690,10 @@ def pane(app):
         ScreenPane #sb-funnel { height: 12; }
         ScreenPane #sb-picks { height: 12; }
         ScreenPane #sb-summary { height: auto; padding: 0 1; }
+        ScreenPane #sb-uses { height: auto; padding: 0 1; color: $text-muted; }
+        ScreenPane #sb-colbox { height: auto; }
+        ScreenPane #sb-colbox Label { padding: 1 1 0 0; }
+        ScreenPane #sb-col-note { width: 1fr; }
         ScreenPane .sb-btns { height: auto; }
         """
 
@@ -611,6 +714,10 @@ def pane(app):
             self._msg: Text | None = None
             self._opts: dict = {}
             self._start_done = False
+            self._schema_meta: list = []            # LB: per schema row: the named-expression dict or None
+            self._del_pending = None                # LB: name of the my-column row whose Delete awaits confirmation
+            self._col_pending = None                # LB: (name, expr) being saved as my column
+            self._schema_redo = False
 
         # ---- layout
         def compose(self):
@@ -657,7 +764,13 @@ def pane(app):
                                 yield labelled("Expression", Input(id=f"sb-{k}-expr", classes="sb-expr",
                                                                    placeholder="e.g. pe < 15 and roe > 0.1" if key == "include" else "e.g. sector == 'Fin'"))
                             yield Horizontal(Button("Add", id=f"sb-{k}-add"), Button("Update", id=f"sb-{k}-set"),
-                                             Button("Remove", id=f"sb-{k}-del"), classes="sb-btns")
+                                             Button("Remove", id=f"sb-{k}-del"),
+                                             *([Button("Save as my column", id="sb-d-save")] if key == "derive" else []), classes="sb-btns")
+                        if key == "derive":                                           # LB: inline note box for Save as my column
+                            with Horizontal(id="sb-colbox", classes="sb-row"):
+                                yield Label("Note for my column (Enter saves, Esc cancels)", id="sb-col-label")
+                                yield Input(id="sb-col-note", placeholder="what it means, one line")
+                                yield Button("Overwrite", id="sb-col-over", variant="warning")
                 with VerticalScroll(classes="sb-col", id="sb-right"):
                     with Horizontal(classes="sb-btns"):
                         yield Button("Load", id="sb-load")
@@ -668,6 +781,7 @@ def pane(app):
                         yield Button("Run", id="sb-run", variant="success")
                     yield Static("", id="sb-status")
                     yield Static("Funnel: what each step does to the names", classes="pane-title")
+                    yield Static("", id="sb-uses")
                     yield Static("", id="sb-summary")
                     yield DataTable(id="sb-funnel", cursor_type="row")
                     yield Static("Picks", classes="pane-title")
@@ -678,6 +792,8 @@ def pane(app):
                     yield Static("", id="sb-helpers")
 
         def on_mount(self) -> None:
+            self.query_one("#sb-colbox").display = False
+            self.query_one("#sb-uses").display = False
             for key, cols in (("funnel", ("Step", "Expression", "In", "Out", "Alone", "Note")),
                               ("picks", ("Rank", "Ticker", "Sector")),
                               ("schema", ("Name", "Group", "Type", "Cov %", "Range", "Description"))):
@@ -819,7 +935,7 @@ def pane(app):
             fill("rank", ("#", "Column", "Order"), [(str(i + 1), r["col"], r["dir"]) for i, r in enumerate(st["rank"])])
             cur = self.query_one("#sb-r-col", Select).value
             self._set_select("#sb-r-col", cur if isinstance(cur, str) else None,
-                             [*numeric_columns(self._schema), *[r["name"] for r in st["derive"]]])
+                             [*numeric_columns(self._schema), *[r["name"] for r in st["derive"]], *named_names(self._schema)])
 
         def _row_from_inputs(self, key: str):
             q = lambda i: self.query_one(i, Input).value.strip()
@@ -884,7 +1000,7 @@ def pane(app):
             if key == "derive":
                 self.query_one("#sb-d-name", Input).value, self.query_one("#sb-d-expr", Input).value = r["name"], r["expr"]
             elif key == "rank":
-                self._set_select("#sb-r-col", r["col"], numeric_columns(self._schema))
+                self._set_select("#sb-r-col", r["col"], [*numeric_columns(self._schema), *named_names(self._schema)])
                 self.query_one("#sb-r-dir", Select).value = r["dir"]
             else:
                 self.query_one(f"#sb-{'i' if key == 'include' else 'e'}-expr", Input).value = r
@@ -904,23 +1020,109 @@ def pane(app):
             if ev.cursor_row is None or ev.cursor_row >= len(self._schema_rows):
                 return
             name = self._schema_rows[ev.cursor_row]
+            self._del_pending = None
             w = self._expr_focus or self.query_one("#sb-i-expr", Input)
             w.insert_text_at_cursor(name)
             w.focus()
 
+        # ---- LB: my columns (delete, save a derived row as one)
+        def on_key(self, ev: events.Key) -> None:
+            f = self.app.focused
+            if ev.key == "delete" and isinstance(f, DataTable) and f.id == "sb-schema":
+                ev.stop()
+                self._delete_column(f.cursor_row)
+            elif ev.key == "escape" and isinstance(f, Input) and f.id == "sb-col-note" and self.query_one("#sb-colbox").display:
+                ev.stop()
+                self._close_colbox()
+
+        def _delete_column(self, row) -> None:
+            c = self._schema_meta[row] if row is not None and 0 <= row < len(self._schema_meta) else None
+            if c is None:
+                self._del_pending = None
+                self._say("only your own columns (group My columns) can be removed; press Delete on one of them")
+                return
+            name = c["name"]
+            if c.get("group") == "My columns" and self._del_pending != name:
+                self._del_pending = name
+                self._say(f"press Delete again to remove {name!r}")
+                return
+            self._del_pending = None
+            res = self._call("column_delete", {"name": name})            # a starter column: the engine's 409 message, in red
+            if res:
+                self._say(f"removed my column {name!r}" + (f" (it was {res['expr']})" if res.get("expr") else ""))
+                self._refresh_schema()
+                self._pv_sig = None
+                self._schedule_preview(self._seen or new_form())
+
+        def _close_colbox(self) -> None:
+            self._col_pending = None
+            self.query_one("#sb-colbox").display = False
+            self.query_one("#sb-col-over", Button).display = False
+            self.query_one("#sb-col-note", Input).value = ""
+
+        @on(Button.Pressed, "#sb-d-save")
+        def _b_save_column(self) -> None:
+            t = self.query_one("#sb-t-derive", DataTable)
+            rows = (self._seen or new_form())["stages"][(self._seen or new_form())["current"]]["derive"]
+            i = t.cursor_row
+            if not t.row_count or i is None or i >= len(rows):
+                self._say("select a Derived row first (the table above), then Save as my column", True)
+                return
+            self._col_pending = (rows[i]["name"], rows[i]["expr"])
+            self.query_one("#sb-col-label", Label).update(f"Note for my column {rows[i]['name']!r} (Enter saves, Esc cancels)")
+            self.query_one("#sb-colbox").display = True
+            self.query_one("#sb-col-over", Button).display = False
+            self.query_one("#sb-col-note", Input).focus()
+            self._say(f"saving {rows[i]['name']} = {rows[i]['expr']} as my column: type a one-line note, then Enter")
+
+        def _define(self, overwrite: bool) -> None:
+            if not self._col_pending:
+                return
+            name, expr = self._col_pending
+            note = self.query_one("#sb-col-note", Input).value.strip()
+            try:
+                res = self.app.session.command("column_define", {"name": name, "expr": expr, "note": note, "overwrite": overwrite})
+            except SessionError as e:
+                self._say(f"column_define: {e.message}", True)
+                self.query_one("#sb-col-over", Button).display = e.status == 409 and "overwrite" in e.message.lower()
+                return
+            warn = res.get("warnings") or []
+            self._say(f"saved my column {res['name']!r} = {res['expr']}" + (" (replaced)" if res.get("replaced") else "")
+                      + ("; warning: " + "; ".join(warn) if warn else "") + "; type the name in a criterion to use it")
+            self._close_colbox()
+            self._refresh_schema()
+            self._pv_sig = None
+            self._schedule_preview(self._seen or new_form())
+
+        @on(Input.Submitted, "#sb-col-note")
+        def _submit_note(self) -> None:
+            self._define(False)
+
+        @on(Button.Pressed, "#sb-col-over")
+        def _b_overwrite(self) -> None:
+            self._define(True)
+
         def _draw_schema(self) -> None:
             t = self.query_one("#sb-schema", DataTable)
             t.clear()
-            self._schema_rows = []
+            self._schema_rows, self._schema_meta = [], []
             q = self.query_one("#sb-filter", Input).value.strip().lower()
             for c in (self._schema or {}).get("columns", []):
                 hay = f"{c['name']} {c.get('group') or ''} {c.get('description') or ''}".lower()
                 if q and q not in hay:
                     continue
                 self._schema_rows.append(c["name"])
+                self._schema_meta.append(None)
                 cov = c.get("coverage")
                 t.add_row(c["name"], c.get("group") or "", c.get("kind") or "", "" if cov is None else f"{100 * cov:.0f}",
                           value_range(c), c.get("description") or "")
+            for c in (self._schema or {}).get("named") or []:                       # LB: starter and own columns
+                cells, dimmed = named_row(c)
+                if q and q not in " ".join((cells[0], cells[1], cells[5], c.get("expr") or "")).lower():
+                    continue
+                self._schema_rows.append(c["name"])
+                self._schema_meta.append(c)
+                t.add_row(*[Text(x, style="dim") if dimmed else x for x in cells])
             hs = (self._schema or {}).get("helpers") or []
             self.query_one("#sb-helpers", Static).update(
                 "Helpers: " + "   ".join(f"{h.get('signature') or h['name']}: {h.get('description') or ''}" for h in hs) if hs else "")
@@ -939,8 +1141,17 @@ def pane(app):
                 self.app.call_from_thread(self._schema_done, key, res, err)
             self.app.run_worker(work, thread=True, group="sb-schema")
 
+        def _refresh_schema(self) -> None:
+            """LB: reload the schema panel (a column was defined or deleted)."""
+            self._schema_key = "unset"
+            if self._schema_busy:
+                self._schema_redo = True
+            else:
+                self._load_schema((self._seen or {}).get("asof"))
+
         def _schema_done(self, key, res, err) -> None:
             self._schema_busy = False
+            redo, self._schema_redo = self._schema_redo, False
             if err:
                 self._say(f"screen_schema: {err}", True)
                 self._schema_key = key
@@ -952,13 +1163,24 @@ def pane(app):
                 got = self._call("screen_load", {})
                 if got:
                     self.query_one("#sb-start", Static).update(got.get("starting_points") or "")
+                try:                                                                 # LB: first-run hint
+                    hint = first_run_hint(self.app.session.command("screen_status")["screens"])
+                except SessionError:
+                    hint = ""
+                self.query_one("#sb-help", Static).update(HELP + (" " + hint if hint else ""))
             f = self._seen or new_form()
+            if not has_market_cap(res) and is_default_form(f):               # LB: price-only data (e.g. the bundled sample)
+                if self._call("set_screen_form", {"top": None}) is not None:
+                    f = self.app.session.analyses.get("screen_form") or f
+                    self._say("This data has no market cap, so the default size cut (the 100 largest) is off.")
             self._fill(f)
             self._tables(f)
             self.query_one("#sb-asof", Input).placeholder = res.get("asof") or "YYYY-MM-DD"
             cur = (self._seen or {}).get("asof")
-            if cur != key:                                          # the form moved on while the schema loaded
+            if cur != key or redo:                                  # the form moved on while the schema loaded
                 self._schema_key = "unset"
+                if redo:
+                    self._load_schema(cur)
 
         # ---- preview
         def _schedule_preview(self, f: dict) -> None:
@@ -1018,8 +1240,16 @@ def pane(app):
             pt.clear(columns=True)
             pt.add_columns("Rank", "Ticker", "Sector")
             if not pv:
+                self.query_one("#sb-uses").display = False
                 return
-            self._query_summary(f"{pv.get('n_names')} names as of {pv.get('asof')}; {pv.get('n_picks')} picks; {pv.get('stages')} stage(s)")
+            ul = self.query_one("#sb-uses", Static)                                  # LB: named expressions the spec uses
+            ul.update(Text(uses_line(pv.get("uses")), no_wrap=True, overflow="ellipsis"))
+            ul.display = bool(pv.get("uses"))
+            spec_err = next((e for e in pv.get("errors") or [] if e.get("where") == "spec"), None)
+            if spec_err:                                                             # LB: a cycle among named columns, in red
+                self._query_summary(Text(spec_err.get("message") or "bad spec", style="bold red"))
+            else:
+                self._query_summary(f"{pv.get('n_names')} names as of {pv.get('asof')}; {pv.get('n_picks')} picks; {pv.get('stages')} stage(s)")
             for kind, text, x in group_funnel(pv.get("funnel") or [], self._seen or self.app.session.analyses.get("screen_form")):
                 if kind == "header":                                                 # SB3: "Stage 2: rank vol_260d asc, keep 50"
                     ft.add_row(Text(text, style="bold"), "", "", "", "", "")
@@ -1098,6 +1328,12 @@ def pane(app):
             res = self._call("screen_load", {})
             if res is None:
                 return
+            try:                                                                     # LB: every loadable screen, dimmed where the data lacks
+                groups, dim = status_groups(self.app.session.command("screen_status")["screens"], set(res.get("loadable") or []))
+            except SessionError:
+                groups = None
+            if not groups:
+                groups, dim = [(g["title"], g["screens"]) for g in res.get("groups") or []], {}
 
             def done(name):
                 if name:
@@ -1106,8 +1342,8 @@ def pane(app):
                         self._say(f"loaded {name}: {got.get('note') or ''}".rstrip(": "))
                         self._seen = None
                         self.draw()
-            self.app.push_screen(AddScreen(res["screens"], "Load a screen into the editor (Enter), Esc cancels",
-                                           groups=[(g["title"], g["screens"]) for g in res.get("groups") or []]), done)
+            self.app.push_screen(AddScreen(res["screens"], "Load a screen into the editor (Enter), Esc cancels", groups=groups,
+                                           dim=dim, footer=DIM_FOOTER), done)
 
         @on(Button.Pressed, "#sb-save")
         def action_save(self) -> None:

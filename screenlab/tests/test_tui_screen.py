@@ -15,8 +15,15 @@ import re
 
 import pytest
 
-from screenlab.tests.test_tui import arun, make_registry, parent, reg, settle, until      # noqa: F401  (fixtures)
+from screenlab.tests.test_tui import arun, make_registry, parent, reg, settle      # noqa: F401  (fixtures)
+from screenlab.tests.test_tui import until as _until
 from screenlab.tui import screen_tab as S
+
+
+async def until(pred, timeout=45.0, pilot=None, what="condition"):
+    """The shared wait with a longer default: these tests load screens through the session lock while previews run in
+    threads, which takes several times longer on a busy machine than the 15 s default allows."""
+    return await _until(pred, timeout, pilot, what)
 from screenlab.tui.session import COMMANDS, TABS, Session, SessionError
 
 textual = pytest.importorskip("textual")
@@ -115,6 +122,24 @@ def full_form():
                       "include": ["pe < 15", "roa > 0"], "exclude": ["sector == 'Util'", "isna(pe)"],
                       "rank": [{"col": "div_yield", "dir": "desc"}, {"col": "pe", "dir": "asc"}, {"col": "ey2", "dir": "desc"}]})
     return f
+
+
+
+async def pick_option(pilot, ol, name):
+    """Highlight the option `name` and press Enter. The dialog's own on_mount highlights its first enabled row, and on a
+    busy machine that runs AFTER a test has set its row; so wait for that first highlight, then set ours and check it held."""
+    want = ol.get_option_index(name)
+    await until(lambda: ol.highlighted is not None, pilot=pilot, what="the dialog's initial highlight")
+    await pilot.pause()
+    for _ in range(10):
+        ol.highlighted = want
+        await pilot.pause(0.1)
+        await pilot.pause()
+        if ol.highlighted == want:
+            break
+    else:
+        raise AssertionError(f"could not highlight {name}: highlighted {ol.highlighted}, wanted {want}")
+    await pilot.press("enter")
 
 
 def test_form_spec_round_trip_keeps_every_part_and_order():
@@ -369,8 +394,7 @@ def test_app_schema_panel_funnel_errors_save_add_and_load(reg, ops):
             await until(lambda: app.screen.__class__.__name__ == "AddScreen", pilot=pilot, what="load dialog")
             assert "dogs" in app.screen.names and "graham_defensive" not in app.screen.names
             ol = app.screen.query_one(OptionList)
-            ol.highlighted = ol.get_option_index("dogs")
-            await pilot.press("enter")
+            await pick_option(pilot, ol, "dogs")
             await until(lambda: app.query_one("#sb-name", Input).value == "dogs", pilot=pilot, what="form loaded")
             assert app.query_one("#sb-top", Input).value == "30" and app.query_one("#sb-n", Input).value == "10"
             assert [plain(c) for c in app.query_one("#sb-t-include", DataTable).get_row_at(0)][1] == "div_yield > 0"
@@ -770,12 +794,13 @@ def test_app_load_dialog_groups_and_stage_bar(reg, ops):
             ol = app.screen.query_one(OptionList)
             labels = [plain(ol.get_option_at_index(i).prompt) for i in range(ol.option_count)]
             heads = [x for x in labels if x.startswith("--")]
-            assert heads == ["-- Globe and Mail --", "-- Classic --"] and labels[0] == "-- Globe and Mail --"
-            n_globe = len(next(g for g in s.command("screen_load", {})["groups"] if g["title"] == "Globe and Mail")["screens"])
-            assert labels.index("-- Classic --") == n_globe + 1 and all(n in s.screen_names() for n in labels[1:n_globe + 1])
+            # LB: the dialog now has the status groups (all 26 available on the synthetic lab); Globe and Mail first, then Classic
+            assert heads == ["-- Available on this dataset --"] and labels[0] == heads[0]
+            groups = {g["title"]: g["screens"] for g in s.command("screen_load", {})["groups"]}
+            n_globe = len(groups["Globe and Mail"])
+            assert labels[1:n_globe + 1] == groups["Globe and Mail"] and labels[n_globe + 1:] == groups["Classic"]
             assert ol.get_option_at_index(0).disabled
-            ol.highlighted = ol.get_option_index("frugal_dividend")
-            await pilot.press("enter")
+            await pick_option(pilot, ol, "frugal_dividend")
             await until(lambda: s.analyses["screen_form"]["loaded_name"] == "frugal_dividend" and len(s.analyses["screen_form"]["stages"]) == 2,
                         pilot=pilot, what="frugal loaded")
             await settle(pilot, app)
@@ -822,5 +847,335 @@ def test_graham_line_in_the_pane_for_a_loaded_graham_screen(reg, ops):
             s._emit("screen")
             await until(lambda: app.query_one("#sb-graham").display, pilot=pilot, what="graham line")
             assert plain(app.query_one("#sb-graham").render()) == "Graham tests: preset defensive, min passes 6"
+        s.close()
+    arun(go())
+
+
+# ------------------------------------------------------------------ LB: the screen library in the TUI
+def _rows():
+    mk = lambda n, g, miss=(), ok=None, run=True: {"name": n, "n": 10, "note": "", "params": {}, "group": g, "missing": list(miss),
+                                                    "available": not miss if ok is None else ok, "runnable": run}
+    return [mk("dogs", "Classic", ["market_cap", "div_yield", "price", "sales", "eps", "pe"]), mk("screaming_value", "Globe and Mail"),
+            mk("low_vol", "Classic"), mk("momentum_6m", "Globe and Mail"), mk("net_nets", "Classic", ["eps", "ncav_to_mcap"]),
+            mk("mine_ok", "Mine"), mk("mine_no", "Mine", ["pe"])]
+
+
+def test_pure_needs_text_status_groups_and_hint():
+    assert S.needs_text([]) == "" and S.needs_text(["a", "b"]) == "needs: a, b"
+    assert S.needs_text(list("abcde")) == "needs: a, b, c, d +1 more" and S.needs_text(list("abcdefg")) == "needs: a, b, c, d +3 more"
+    groups, dim = S.status_groups(_rows())
+    assert groups == [("Available on this dataset", ["screaming_value", "momentum_6m", "low_vol"]),
+                      ("Needs data this dataset lacks", ["dogs", "net_nets"]), ("Your saved screens", ["mine_ok", "mine_no"])]
+    assert dim == {"dogs": "needs: market_cap, div_yield, price, sales +2 more", "net_nets": "needs: eps, ncav_to_mcap", "mine_no": "needs: pe"}
+    g2, d2 = S.status_groups(_rows(), only={"dogs", "low_vol"})
+    assert g2 == [("Available on this dataset", ["low_vol"]), ("Needs data this dataset lacks", ["dogs"])] and list(d2) == ["dogs"]
+    odd = [{"name": "x", "group": "Classic", "available": True, "missing": [], "runnable": False}]
+    assert S.status_groups(odd) == ([("Needs data this dataset lacks", ["x"])], {"x": S.UNCOMPUTABLE})
+    assert S.first_run_hint(_rows()) == ""                                       # 3 of 7 runnable... not under half: 2*4 < 7 is false
+    few = _rows()[:1] * 3 + _rows()[1:2]
+    assert S.first_run_hint(few) == "This dataset can run 1 of 4 screens; the others are listed dimmed with what they need."
+    assert S.first_run_hint([]) == ""
+
+
+def test_pure_named_rows_uses_line_and_funnel_labels():
+    ok = {"name": "shy", "group": "Starter columns", "kind": "number", "dtype": "float64", "coverage": 1.0, "min": 0.0, "p50": 0.02,
+          "max": 0.1, "description": "shareholder yield", "expr": "coalesce(div_yield, 0)", "missing": []}
+    cells, dimmed = S.named_row(ok)
+    assert cells == ("shy", "Starter columns", "float64", "100", "0 .. 0.1", "shareholder yield  = coalesce(div_yield, 0)") and not dimmed
+    cells, dimmed = S.named_row({**ok, "missing": ["buyback_yield", "sales"], "coverage": 0.0})
+    assert dimmed and cells[3] == "" and cells[5].startswith("needs: buyback_yield, sales  shareholder yield")
+    assert S.named_names({"named": [ok, {**ok, "name": "z", "missing": ["x"]}]}) == ["shy"]
+    assert S.uses_line([]) == ""
+    ln = S.uses_line([{"name": "shy", "expr": "coalesce(div_yield, 0) + coalesce(buyback_yield, 0) + coalesce(zzzzzz, 0)"}, {"name": "p", "expr": "a/b"}])
+    assert ln.startswith("Uses your columns: shy = coalesce(div_yield, 0) + coalesce(buyback_yield, 0)") and "..." in ln and ln.endswith("; p = a/b")
+    fun = [{"step": "universe: top 5 by market_cap", "kind": "universe"},
+           {"step": "derive shy", "kind": "derive", "expr": "x", "named": "Starter columns"},
+           {"step": "derive x", "kind": "derive", "expr": "y", "named": "My columns"}, {"step": "derive own", "kind": "derive", "expr": "z"},
+           {"step": "include: shy > 0", "kind": "include"}]
+    assert [t for _, t, _ in S.group_funnel(fun)] == ["universe: top 5 by market_cap", "Starter column shy", "My column x", "derive own", "include: shy > 0"]
+
+
+@pytest.fixture
+def breg():
+    """The bundled S&P 500 sample (prices only: 6 of the 26 screens can run)."""
+    pytest.importorskip("skfolio")
+    from screenlab.realdata.bundled import sp500_lab
+    from screenlab.server.registry import LabRegistry
+    r = LabRegistry({"sp500": sp500_lab}, default="sp500", mode="thread")
+    yield r
+    if r._jm is not None:
+        r._jm.shutdown(wait=False)
+
+
+async def _dialog(pilot, app):
+    from screenlab.tui.ui import AddScreen
+    await until(lambda: isinstance(app.screen, AddScreen) and app.screen.query(OptionList), pilot=pilot, what="dialog list")
+    return app.screen.query_one(OptionList)
+
+
+def _labels(ol):
+    return [plain(ol.get_option_at_index(i).prompt) for i in range(ol.option_count)]
+
+
+def test_session_screen_status_and_column_commands(reg, ops):
+    assert {"screen_status", "column_define", "column_delete"} <= set(COMMANDS)
+    s = Session(reg)
+    rows = s.command("screen_status")["screens"]
+    assert len(rows) == 26 and all(r["available"] and r["runnable"] for r in rows) and {"name", "missing", "group"} <= set(rows[0])
+    d = s.command("column_define", {"name": "dy2", "expr": "coalesce(div_yield, 0) * 2", "note": "twice the yield"})
+    assert d["group"] == "My columns" and d["replaced"] is False
+    with pytest.raises(SessionError) as e:
+        s.command("column_define", {"name": "dy2", "expr": "div_yield"})
+    assert e.value.status == 409 and "overwrite" in e.value.message
+    assert s.command("column_define", {"name": "dy2", "expr": "div_yield", "overwrite": True})["replaced"] is True
+    with pytest.raises(SessionError) as e:
+        s.command("column_define", {"name": "bad name", "expr": "div_yield"})
+    assert e.value.status == 400
+    assert s.command("column_delete", {"name": "dy2"})["deleted"] is True
+    with pytest.raises(SessionError) as e:
+        s.command("column_delete", {"name": "shy"})
+    assert e.value.status == 409 and "starter" in e.value.message
+    with pytest.raises(SessionError) as e:
+        s.command("column_delete", {"name": "dy2"})
+    assert e.value.status == 404
+    assert "dogs" in s.command("screen_load", {})["loadable"]
+    s.close()
+
+
+def test_remote_session_parity_for_screen_status_and_columns(parent, ops):
+    r = parent.connect()
+    assert r.command("screen_status") == parent.session.command("screen_status")
+    d = r.command("column_define", {"name": "rdy", "expr": "coalesce(div_yield, 0)", "note": "n"})
+    assert d["name"] == "rdy" and any(c["name"] == "rdy" for c in r.command("screen_schema", {})["named"])
+    with pytest.raises(SessionError) as e:
+        r.command("column_define", {"name": "rdy", "expr": "div_yield"})
+    assert e.value.status == 409
+    assert r.command("column_delete", {"name": "rdy"})["deleted"] is True
+    with pytest.raises(SessionError) as e:
+        r.command("column_delete", {"name": "shy"})
+    assert e.value.status == 409
+
+
+def test_add_dialog_on_the_bundled_sample_shows_six_available_and_twenty_dimmed(breg, ops):
+    from screenlab.tui.ui import AddScreen
+
+    async def go():
+        s = Session(breg)
+        app = ScreenlabApp(s, control_port=None)
+        async with app.run_test(size=(190, 70)) as pilot:
+            await settle(pilot, app)
+            app.action_add()
+            ol = await _dialog(pilot, app)
+            opts = [ol.get_option_at_index(i) for i in range(ol.option_count)]
+            heads = [plain(o.prompt) for o in opts if str(o.id).startswith("head:")]
+            assert heads == ["-- Available on this dataset --", "-- Needs data this dataset lacks --"]
+            assert [o.id for o in opts if not o.disabled] == ["momentum_6m", "momentum_12m", "momentum_12_1", "low_vol", "high_52w", "trend_momentum"]
+            dimmed = [o for o in opts if o.disabled and not str(o.id).startswith("head:")]
+            assert len(dimmed) == 20 and len(opts) == 28
+            lab = {r["name"]: r for r in s.command("screen_status")["screens"]}
+            for o in dimmed:
+                want = "needs: " + ", ".join(lab[o.id]["missing"][:4]) + (f" +{len(lab[o.id]['missing']) - 4} more" if len(lab[o.id]["missing"]) > 4 else "")
+                assert plain(o.prompt) == f"{o.id}   {want}"
+            assert plain(dimmed[0].prompt) == "dogs   needs: market_cap, div_yield"
+            assert "make data-free" in plain(app.screen.query_one("#screen-footer").render()) and "synthetic" in plain(app.screen.query_one("#screen-footer").render())
+            assert ol.highlighted == 1 and not ol.get_option_at_index(ol.highlighted).disabled
+            await pilot.press("escape")
+            await until(lambda: not isinstance(app.screen, AddScreen), pilot=pilot, what="closed")
+            assert not s.scenarios
+            # the Screen tab: Load lists loadable screens, the same groups, and the first-run hint is on the help line
+            await pilot.press("0")
+            await settle(pilot, app)
+            await until(lambda: "can run 6 of 26 screens" in plain(app.query_one("#sb-help").render()), pilot=pilot, what="first-run hint")
+            assert "the others are listed dimmed with what they need" in plain(app.query_one("#sb-help").render())
+            app.query_one("#sb-load", Button).press()
+            lab_ = _labels(await _dialog(pilot, app))
+            assert lab_[0] == "-- Available on this dataset --" and "-- Needs data this dataset lacks --" in lab_
+            assert "dogs   needs: market_cap, div_yield" in lab_ and "momentum_6m" not in lab_ and lab_[1:3] == ["high_52w", "trend_momentum"]   # function screens do not load
+            await pilot.press("escape")
+        s.close()
+    arun(go())
+
+
+def test_run_on_a_screen_the_dataset_cannot_run_says_what_it_needs(breg, ops):
+    async def go():
+        s = Session(breg)
+        app = ScreenlabApp(s, control_port=None)
+        async with app.run_test(size=(190, 70)) as pilot:
+            await open_tab(pilot, app)
+            await until(lambda: s.analyses["screen_form"]["stages"][0].get("top") is None, pilot=pilot, what="default size cut cleared")
+            s.command("set_screen_form", {"top": 100})                   # a user who types a size cut the data cannot do
+            await settle(pilot, app)
+            for b in ("#sb-run", "#sb-add"):
+                app.query_one(b, Button).press()
+                await until(lambda: "cannot run on this dataset" in plain(app.query_one("#sb-status").render()), pilot=pilot, what="message")
+                msg = plain(app.query_one("#sb-status").render())
+                assert "needs: market_cap" in msg and "Traceback" not in msg and "Clear the Top N" in msg and "make data-free" in msg
+                app.query_one("#sb-status").update("")
+                app._screen_pane._msg = None
+            assert not s.scenarios and not (ops / "my_screen.json").exists()
+            # without the size cut (a price-only spec) it runs
+            s.command("set_screen_form", {"top": None, "add_row": {"table": "include", "row": "mom_6m > 0"}})
+            app.query_one("#sb-add", Button).press()
+            await until(lambda: s.scenarios, pilot=pilot, what="scenario added")
+        s.close()
+    arun(go())
+
+
+def test_add_dialog_on_the_synthetic_lab_has_every_screen_available(reg, ops):
+    from screenlab.tui.ui import AddScreen
+
+    async def go():
+        s = Session(reg)
+        app = ScreenlabApp(s, control_port=None)
+        async with app.run_test(size=(190, 70)) as pilot:
+            await settle(pilot, app)
+            app.action_add()
+            ol = await _dialog(pilot, app)
+            opts = [ol.get_option_at_index(i) for i in range(ol.option_count)]
+            assert [plain(o.prompt) for o in opts if o.disabled] == ["-- Available on this dataset --"] and len(opts) == 27
+            assert not app.screen.dim and not app.screen.query("#screen-footer")
+            await pick_option(pilot, ol, "dogs")
+            await until(lambda: [x.label for x in s.scenarios] == ["dogs"], pilot=pilot, what="dogs added")
+            await pilot.press("0")
+            await settle(pilot, app)
+            assert "can run" not in plain(app.query_one("#sb-help").render())
+        s.close()
+    arun(go())
+
+
+def test_save_row_as_my_column_use_it_overwrite_and_delete(reg, ops):
+    async def go():
+        s = Session(reg)
+        app = ScreenlabApp(s, control_port=None)
+        async with app.run_test(size=(190, 80)) as pilot:
+            await open_tab(pilot, app)
+            pane = app._screen_pane
+            say = lambda: plain(app.query_one("#sb-status").render())
+            schema = app.query_one("#sb-schema", DataTable)
+            await until(lambda: "shy" in pane._schema_rows, pilot=pilot, what="starter rows in the schema panel")
+            i = pane._schema_rows.index("shy")
+            assert pane._schema_meta[i]["group"] == "Starter columns" and plain(schema.get_row_at(i)[1]) == "Starter columns"
+            assert "coalesce(div_yield, 0)" in plain(schema.get_row_at(i)[5]) and "pe" in pane._schema_rows[:i]       # snapshot columns first
+            assert not app.query_one("#sb-colbox").display and not app.query_one("#sb-uses").display
+
+            # a Derived row, then Save as my column
+            s.command("set_screen_form", {"add_row": {"table": "derive", "row": {"name": "dy2", "expr": "coalesce(div_yield, 0) * 2"}}})
+            t = app.query_one("#sb-t-derive", DataTable)
+            await until(lambda: t.row_count == 1, pilot=pilot, what="derived row")
+            app.query_one("#sb-d-save", Button).press()
+            await until(lambda: app.query_one("#sb-colbox").display and app.focused is app.query_one("#sb-col-note"), pilot=pilot, what="note box")
+            assert not app.query_one("#sb-col-over", Button).display
+            app.query_one("#sb-col-note", Input).value = "twice the yield"
+            await pilot.press("enter")
+            await until(lambda: "dy2" in pane._schema_rows, pilot=pilot, what="my column in the schema panel")
+            assert "saved my column 'dy2'" in say() and not app.query_one("#sb-colbox").display
+            j = pane._schema_rows.index("dy2")
+            assert pane._schema_meta[j]["group"] == "My columns" and "twice the yield" in plain(schema.get_row_at(j)[5])
+            assert s.analyses["screen_form"]["derive"] == [{"name": "dy2", "expr": "coalesce(div_yield, 0) * 2"}]     # the form is untouched
+
+            # use it in an include row: previewed with `uses`, labelled in the funnel, not flagged as unknown
+            s.command("set_screen_form", {"derive": [], "add_row": {"table": "include", "row": "dy2 > 0.01 and shy > 0"}})
+            ft = app.query_one("#sb-funnel", DataTable)
+            await until(lambda: app.query_one("#sb-uses").display, pilot=pilot, what="uses line")
+            uses = plain(app.query_one("#sb-uses").render())
+            assert uses.startswith("Uses your columns: dy2 = coalesce(div_yield, 0) * 2") and "shy = coalesce(div_yield, 0)" in uses
+            pv = s.analyses["screen_preview"]
+            assert pv["ok"] and [u["name"] for u in pv["uses"]] == ["dy2", "shy"] and not pv["errors"]
+            steps = [plain(ft.get_row_at(k)[0]) for k in range(ft.row_count)]
+            assert "My column dy2" in steps and "Starter column shy" in steps
+
+            # a second save under the same name: 409, Overwrite appears, then replaces
+            s.command("set_screen_form", {"include": [], "add_row": {"table": "derive", "row": {"name": "dy2", "expr": "coalesce(div_yield, 0) * 3"}}})
+            await until(lambda: t.row_count == 1, pilot=pilot, what="derived row again")
+            app.query_one("#sb-d-save", Button).press()
+            await until(lambda: app.query_one("#sb-colbox").display, pilot=pilot, what="note box")
+            await pilot.press("enter")
+            await until(lambda: app.query_one("#sb-col-over", Button).display, pilot=pilot, what="Overwrite button")
+            assert "already defined" in say() and "overwrite" in say()
+            app.query_one("#sb-col-over", Button).press()
+            await until(lambda: "(replaced)" in say(), pilot=pilot, what="replaced")
+            assert not app.query_one("#sb-colbox").display
+            assert next(c for c in s.command("screen_schema", {})["named"] if c["name"] == "dy2")["expr"] == "coalesce(div_yield, 0) * 3"
+
+            # a bad expression: 400 in the status line, no Overwrite
+            s.command("set_screen_form", {"derive": [{"name": "bad1", "expr": "nonesuch + 1"}]})
+            await until(lambda: plain(t.get_row_at(0)[0]) == "bad1", pilot=pilot, what="bad row")
+            app.query_one("#sb-d-save", Button).press()
+            await until(lambda: app.query_one("#sb-colbox").display, pilot=pilot, what="note box")
+            await pilot.press("enter")
+            await until(lambda: "column_define:" in say(), pilot=pilot, what="engine message")
+            assert not app.query_one("#sb-col-over", Button).display
+            await pilot.press("escape")
+            await until(lambda: not app.query_one("#sb-colbox").display, pilot=pilot, what="closed")
+
+            # delete: a starter row refuses with the engine's message; a my-column row asks twice
+            schema.focus()
+            schema.move_cursor(row=pane._schema_rows.index("shy"))
+            await pilot.press("delete")
+            await until(lambda: "starter column" in say(), pilot=pilot, what="starter refused")
+            assert "shy" in pane._schema_rows
+            schema.move_cursor(row=pane._schema_rows.index("pe"))
+            await pilot.press("delete")
+            await until(lambda: "only your own columns" in say(), pilot=pilot, what="data column refused")
+            schema.move_cursor(row=pane._schema_rows.index("dy2"))
+            await pilot.press("delete")
+            await until(lambda: say() == "press Delete again to remove 'dy2'", pilot=pilot, what="confirmation line")
+            assert "dy2" in pane._schema_rows
+            await pilot.press("delete")
+            await until(lambda: "dy2" not in pane._schema_rows, pilot=pilot, what="deleted")
+            assert "removed my column 'dy2'" in say()
+        s.close()
+    arun(go())
+
+
+def test_cycle_error_shows_in_red_and_derive_rows_of_named_columns_in_the_view(reg, ops):
+    async def go():
+        s = Session(reg)
+        app = ScreenlabApp(s, control_port=None)
+        async with app.run_test(size=(190, 70)) as pilot:
+            await open_tab(pilot, app)
+            msg = "column 'a' uses 'b' which uses 'a' (a -> b -> a)"
+            s.analyses["screen_preview"] = {"ok": False, "asof": "2009-12-31", "errors": [{"where": "spec", "message": msg, "suggestion": None}],
+                                            "funnel": [], "picks": [], "uses": []}
+            s._emit("screen")
+            ft = app.query_one("#sb-funnel", DataTable)
+            await until(lambda: ft.row_count == 1, pilot=pilot, what="error row")
+            assert plain(ft.get_row_at(0)[0]) == "spec" and "red" in str(ft.get_row_at(0)[0].style)
+            summ = app.query_one("#sb-summary").render()
+            assert msg in plain(summ) and "red" in str(getattr(summ, "spans", ""))
+        s.close()
+    arun(go())
+    s = Session(reg)
+    s.command("screen_preview", {"spec": {"name": "v", "n": 3, "universe": {"top": 50}, "filters": ["shy > 0"]}})
+    v = s.view("screen")
+    assert "Uses your columns: shy = coalesce(div_yield, 0) + coalesce(buyback_yield, 0)" in v and "Starter column shy" in v
+    s.close()
+
+
+# ------------------------------------------------------------------ LB: price-only data must not start on a size cut it cannot run
+def test_market_cap_helpers():
+    assert S.has_market_cap({"columns": [{"name": "market_cap", "coverage": 0.9}]}) is True
+    assert S.has_market_cap({"columns": [{"name": "market_cap", "coverage": 0.0}]}) is False
+    assert S.has_market_cap({"columns": [{"name": "price", "coverage": 1.0}]}) is False
+    f = S.new_form("x")
+    assert S.is_default_form(f)
+    S.update_form(f, {"name": "mine"}, None, None, None, False, dataset="x")
+    assert not S.is_default_form(f)
+
+
+def test_default_form_has_no_size_cut_on_price_only_data(breg):
+    """On the bundled sample (no market cap) the untouched form starts with the size cut off, so Run works at once."""
+    async def go():
+        s = Session(breg)
+        app = ScreenlabApp(s, control_port=None)
+        async with app.run_test(size=(170, 50)) as pilot:
+            await settle(pilot, app)
+            await pilot.press("0")
+            await until(lambda: (s.analyses["screen_form"]["stages"][0].get("top") is None), pilot=pilot, what="size cut cleared")
+            spec = S.form_to_spec(s.analyses["screen_form"])
+            assert "top" not in (spec.get("universe") or {})
+            s.command("set_screen_form", {"rank": [{"col": "mom_12_1", "dir": "desc"}]})
+            out = s.command("screen_add", {"name": "mom_try", "run": False})
+            assert out["scenario"]["name"].startswith("mom_try")
         s.close()
     arun(go())

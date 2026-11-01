@@ -55,7 +55,7 @@ COMMANDS = ("add_scenario", "clone_scenario", "set_params", "remove_scenario", "
             "link", "hypotheses", "accounts",      # Q2: accounts = the account_compare job for a scenario (accounts.py)
             "plan", "plan_mc",                     # PC: plan / plan_mc = the plan and plan_montecarlo jobs (plan.py)
             "screen_schema", "screen_preview", "screen_save", "screen_load", "screen_add",   # SB2: Screen tab (screen_tab.py)
-            "set_screen_form")
+            "set_screen_form", "screen_status", "column_define", "column_delete")        # LB: screen library
 # data downloader (operation `fetch_data`, implemented in ops/fetch_data.py); hosts are shown in the Data tab form
 FETCH_SOURCES = ("sec", "boc", "fred", "stooq", "statcan", "shiller", "tiingo")
 FETCH_HOSTS = {"sec": ["www.sec.gov", "data.sec.gov"], "boc": ["www.bankofcanada.ca"], "fred": ["fred.stlouisfed.org"],
@@ -717,7 +717,8 @@ class Session:
         if name is None:                                                     # SB3: grouped for the Load dialog
             L = self._lab()
             return {"screens": _screen_tab.spec_screens(L), "groups": _screen_tab.screen_groups(L),
-                    "starting_points": _screen_tab.starting_points(L)}
+                    "starting_points": _screen_tab.starting_points(L),
+                    "loadable": _screen_tab.loadable_names(L)}                       # LB: every loadable screen, runnable here or not
         res = self._screen_op("screen_load", {"name": name})
         form = self._screen_form()
         new = _screen_tab.spec_to_form(res["spec"], form)
@@ -728,6 +729,41 @@ class Session:
         self._emit("screen")
         return {**res, "form": form}
 
+    # LB: the screen library (docs/SCREEN_LIBRARY.md): status of every screen on this dataset, and the user's named columns
+    def cmd_screen_status(self, lab=None) -> dict:
+        """Every registered screen with what this dataset lacks: `{"lab", "screens": [{name, n, note, params, available,
+        missing, group, runnable}]}` (the registry's `list_screens`)."""
+        return self.registry.list_screens(lab or self.lab)
+
+    def cmd_column_define(self, name=None, expr=None, note="", overwrite=False) -> dict:
+        """Define (or with `overwrite` replace) one of your named columns (the `column_define` operation)."""
+        if not name or not expr:
+            raise SessionError(400, "`name` and `expr` are required")
+        res = self._screen_op("column_define", {"name": name, "expr": expr, "note": note or "", "overwrite": bool(overwrite)})
+        self.log(f"my column {res.get('name')} = {res.get('expr')}")
+        self._emit("screen")
+        return res
+
+    def cmd_column_delete(self, name=None) -> dict:
+        """Delete one of your named columns (the `column_delete` operation; starter columns are refused with 409)."""
+        if not name:
+            raise SessionError(400, "`name` is required")
+        res = self._screen_op("column_delete", {"name": name})
+        self.log(f"removed my column {name}")
+        self._emit("screen")
+        return res
+
+    def _spec_missing(self, spec: dict) -> list:
+        """LB: the snapshot columns `spec` needs that this dataset lacks on its last full snapshot (named columns expanded)."""
+        L = self._lab()
+        try:
+            req = L.screen(spec).requires_list()
+            from ..ops.screen_builder import last_full_asof
+            snap = L.market.view(last_full_asof(L))
+        except Exception:
+            return []                                               # the engine reports a bad spec itself
+        return [c for c in req or [] if c not in {k for k in snap.columns if snap[k].notna().any()}]
+
     def cmd_screen_add(self, spec=None, name=None, run=True, save=False, overwrite=None, **params) -> dict:
         """Add `spec` (default: the form) as a scenario (`save`: write it to the screens folder first), select it, show
         the Compare tab and, with `run`, start its backtest. # SB3: the settings the loaded built-in carries (rebalance
@@ -736,6 +772,12 @@ class Session:
         form = self._screen_form()
         own = spec is None or (isinstance(spec, dict) and spec.get("name") == form.get("name"))
         spec = self._screen_spec_arg(spec)
+        miss = self._spec_missing(spec)                                                  # LB: say so, do not run on nothing
+        if miss:
+            more = (" Clear the Top N box to run without a size cut." if "market_cap" in miss and (spec.get("universe") or {}).get("top")
+                    else "")
+            raise SessionError(409, f"{spec.get('name')!r} cannot run on this dataset: {_screen_tab.needs_text(miss, 8)}.{more} "
+                                    f"({_screen_tab.DATA_HINT}.)")
         saved = self.cmd_screen_save(spec=spec, overwrite=overwrite) if save else None
         if own:
             params = {**copy.deepcopy(form.get("settings") or {}), **params}

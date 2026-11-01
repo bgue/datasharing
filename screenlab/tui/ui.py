@@ -32,6 +32,7 @@ from textual.widgets import (Button, Checkbox, DataTable, Footer, Input, Label, 
 from textual.widgets.option_list import Option
 
 from .. import metrics as _metrics
+from . import screen_tab as _screen_tab                       # LB: dialog groups (no Textual at import)
 from .session import CAND, FETCH_SOURCES, LOCK, PASSIVE_COLOR, TABS, Session, SessionError, fmt_cell
 
 TAB_TITLES = {"screen": "Screen", "compare": "Compare", "curves": "Curves", "timing": "Timing", "picks": "Picks", "exit": "Exit",
@@ -97,10 +98,12 @@ class AddScreen(ModalScreen):
     """
 
     def __init__(self, screens, title: str = "Add scenario: choose a screen (Enter), Esc cancels", order: bool = False,
-                 groups=None):
+                 groups=None, dim=None, footer: str = ""):
         super().__init__()
         self.groups = [(t, list(n)) for t, n in groups or [] if n]               # SB3: [(heading, [names])], shown in this order
         self.names = [n for _, ns in self.groups for n in ns] if self.groups else (list(screens) if order else sorted(screens))
+        self.dim = dict(dim or {})            # LB: {name: "needs: ..."}: shown dimmed, disabled rows (cannot be selected)
+        self.footer = footer if self.dim else ""
         self.title = title
 
     def compose(self) -> ComposeResult:
@@ -111,17 +114,21 @@ class AddScreen(ModalScreen):
                 opts = []
                 for t, ns in self.groups:
                     opts.append(Option(f"-- {t} --", id=f"head:{t}", disabled=True))
-                    opts += [Option(n, id=n) for n in ns]
+                    opts += [Option(f"{n}   {self.dim[n]}" if n in self.dim else n, id=n, disabled=n in self.dim) for n in ns]   # LB
                 yield OptionList(*opts, id="screen-list")
             else:
                 yield OptionList(*self.names, id="screen-list")
+            if self.footer:                                                      # LB: why some rows are dimmed
+                yield Static(self.footer, id="screen-footer")
 
     def on_mount(self) -> None:
         ol = self.query_one(OptionList)
         ol.focus()
+        if self.dim:
+            self.query_one(Vertical).styles.width = 84
         if self.groups:
             ol.styles.height = 18
-            ol.highlighted = 1
+            ol.highlighted = next((i for i in range(ol.option_count) if not ol.get_option_at_index(i).disabled), 1)
 
     @on(OptionList.OptionSelected)
     def _pick(self, ev: OptionList.OptionSelected) -> None:
@@ -986,11 +993,16 @@ class ScreenlabApp(App):
 
     def action_add(self) -> None:
         names = self.session.screen_names()
+        try:                                              # LB: every registered screen, what each needs, in three groups
+            rows = self.session.command("screen_status")["screens"]
+        except Exception:
+            rows = None
+        groups, dim = _screen_tab.status_groups(rows) if rows else (None, None)
 
         def done(name):
             if name:
                 self._cmd("add_scenario", {"screen": name, "run": True})
-        self.push_screen(AddScreen(names), done)
+        self.push_screen(AddScreen(names, groups=groups, dim=dim, footer=_screen_tab.DIM_FOOTER), done)
 
     def action_clone(self) -> None:
         self._cmd("clone_scenario", {})
